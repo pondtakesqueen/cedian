@@ -10,6 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
       - run: cd daemon && cargo build -p cedian_daemon
       - run: cd daemon && cargo test --workspace
 
@@ -23,3 +25,12 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+
+  license:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+      - run: python3 script/license-scan.py

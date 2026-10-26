@@ -2,6 +2,11 @@
 # Build Cedian.app for one architecture, and optionally sign it, put it in a dmg and notarize
 # the dmg. Run on a Mac with Xcode (the Metal shaders compile at build time).
 #
+# PRE-PIVOT script: writes a NATIVE bundle (Rust window binary). Since the VS Code
+# fork pivot (docs/CEDIAN_SPEC.md §9) the window is Electron: Phase D retargets this
+# script (Electron app + daemon + cedia + chromium beside it, see docs/VENDORING.md).
+# Chromium signing/dmg/notarize notes below still apply.
+#
 #   Cedian.app/Contents/MacOS/cedian                     the window
 #   Cedian.app/Contents/MacOS/cedian-daemon              found by the window beside itself
 #   Cedian.app/Contents/MacOS/cedia                      the pinned cedia build, found by the daemon

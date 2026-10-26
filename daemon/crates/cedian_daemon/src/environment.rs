@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
+use crate::shell_env::capture;
+
 /// The login shell's environment, read once so cedia finds `git`, `gh` and `claude` as it does
-/// in a terminal. The shell runs this binary with `--printenv`, as Zed does. Falls back to the
+/// in a terminal. The shell re-execs this binary with `--printenv`. Falls back to the
 /// daemon's own environment.
 pub fn login_environment() -> HashMap<String, String> {
     let own: HashMap<String, String> = std::env::vars().collect();
@@ -15,7 +17,7 @@ pub fn login_environment() -> HashMap<String, String> {
         .or_else(account_shell)
         .unwrap_or_else(|| "/bin/sh".to_owned());
     let home = own.get("HOME").cloned().unwrap_or_else(|| "/".to_owned());
-    match futures::executor::block_on(util::shell_env::capture(&shell, &[], &home)) {
+    match capture(&shell, &home) {
         Ok(env) => env.into_iter().collect(),
         Err(error) => {
             log::warn!("reading {shell}'s login environment: {error:#}");

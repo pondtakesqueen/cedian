@@ -1,4 +1,4 @@
-# cedian-app
+# Cedian
 
 **Cedian** is an agentic IDE built on a VS Code fork, with **cedia** as the AI agent.
 It combines VS Code's full IDE with cedia's multi-provider agent, Tern-style blocks,

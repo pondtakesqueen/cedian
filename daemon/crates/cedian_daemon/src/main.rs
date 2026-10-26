@@ -8,7 +8,7 @@ use cedian_daemon::{Cedia, Config, launch_agent, login_environment, serve};
 
 fn main() {
     match std::env::args().nth(1).as_deref() {
-        Some("--printenv") => return util::shell_env::print_env(),
+        Some("--printenv") => return cedian_daemon::print_env(),
         Some(command @ ("install" | "uninstall")) => return agent(command),
         Some(other) => {
             eprintln!("usage: cedian-daemon [install | uninstall]; unknown argument {other:?}");
@@ -22,8 +22,9 @@ fn main() {
     unsafe {
         libc::signal(libc::SIGTERM, libc::SIG_DFL);
         libc::signal(libc::SIGINT, libc::SIG_DFL);
-        // A blocked signal is inherited through exec too: GPUI's threads block these, so a
-        // daemon the window started never saw SIGTERM. cedia's runs inherit the mask from here.
+        // A blocked signal is inherited through exec too: a parent's threads may block
+        // these, so a daemon the window started would never see SIGTERM. cedia's runs
+        // inherit the mask from here.
         let mut set: libc::sigset_t = std::mem::zeroed();
         libc::sigemptyset(&mut set);
         for signal in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {

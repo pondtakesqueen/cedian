@@ -17,9 +17,11 @@ mod review;
 mod run;
 mod seen;
 mod server;
+mod shell_env;
 mod thread_watch;
 mod worktree;
 
 pub use cedia::Cedia;
 pub use environment::login_environment;
 pub use server::{Config, serve};
+pub use shell_env::print_env;

@@ -1,9 +1,11 @@
-"""Writes crates/cedian_window/assets/themes/cedian.json, the "cedian Dark" and "cedian Light"
-Zed themes, from the Warm & Lime tokens in docs/ARCHITECTURE.md (Interface, Color).
+"""Color tokens (Warm & Lime) and, until the Phase B rewrite, a Zed theme writer.
+
+The TOKENS table is the color source of truth. The writer below is Zed-era and
+refuses to run (its target crate is gone); Phase B retargets it to a VS Code
+color theme + --cedian-* CSS vars (docs/VENDORING.md step 8).
 
 Run from the repository root: python3 script/themes/cedian.py
-Change a token here and in the architecture's table together; the window reads the tokens Zed
-has no key for (frame, field, user.bubble, the tints) from crates/cedian_window/src/tokens.rs.
+Change a token here and in the spec's table together.
 """
 
 import json
@@ -194,5 +196,12 @@ family = {
     ],
 }
 out = pathlib.Path("crates/cedian_window/assets/themes/cedian.json")
+if not out.parent.parent.parent.exists():
+    # Zed-era target (crates/cedian_window is gone since the VS Code fork pivot).
+    # The TOKENS table above stays the color source of truth; Phase B retargets this
+    # writer to a VS Code color theme + --cedian-* CSS vars (docs/VENDORING.md step 8).
+    raise SystemExit(
+        "refusing to write a Zed theme to a removed crate; see docs/VENDORING.md step 8"
+    )
 out.write_text(json.dumps(family, indent=2) + "\n")
 print(out)

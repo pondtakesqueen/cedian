@@ -239,7 +239,7 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 ### 5.3 VS Code state
 
 - `~/Library/Application Support/Cedian/` (macOS) — VS Code state db, settings, keybindings, extensions
-- `~/.cedian/` — Cedian-specific (worktrees, etc.)
+- `<main worktree>/.cedian/worktrees/` — threads' worktrees (git-native, in-repo; see `daemon/crates/cedian_daemon/src/worktree.rs`)
 
 ### 5.4 Desktop key (Cedian's)
 
@@ -267,8 +267,8 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 
 ### 6.1 cedia protocol (unchanged)
 
-- `cedia -p <text> --thread <id> --output-format stream-json`
-- `cedia threads send <id> <text>`
+- `cedia --print=<text> --thread <id> --output-format stream-json --cwd <dir>` (`--print=` keeps a prompt starting with `-` from reading as a flag)
+- `cedia threads --cwd <dir> send <id> -- <text>`
 - `cedia threads archive|rename|delete`
 - `cedia mcp list|add|remove|check`
 - `cedia usage --json --since <range>`
@@ -394,6 +394,21 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 - **Blocks**: Tern-style (drag/zoom/park/PiP/named layouts) implemented by forking VS Code workbench layout engine in TS; native DOM + CSS (no React). Full parity in v1 (accept timeline risk). Tern-level polish achievable via CSS transforms + rAF.
 - **Block rendering tech**: native DOM + CSS (no React) — smaller bundle, full control.
 - **State ownership**: daemon owns cedia state (threads, worktrees, browser, roots, block layouts, project tabs); VS Code owns editor buffers/tabs, terminal sessions, git UI, keybindings, extensions. VS Code settings UI disabled; Cedian settings window writes ~/.cedia/settings.json (desktop key); VS Code settings.json is generated read-only.
+- **Module ownership** (Rust crate ↔ TS dir; decided 2026-10-26, pre-fork):
+
+  | Area | Rust (daemon owns state/logic) | TypeScript (window renders) |
+  |------|-------------------------------|------------------------------|
+  | Agent runs | `cedian_daemon` (runs, worktrees, git ops) + `cedian_agent` (stream fold, Phase B) | `src/agent-pane/`, `src/composer/` |
+  | Protocol | `cedian_protocol` (cedia schema types), `cedian_wire` (socket framing) | generated TS types from wire (Phase B) |
+  | Index/search | `cedian_index` (threads/sessions/memory reads) | `src/workbench/` (sidebar, project chat) |
+  | Review | `cedian_review` (hunks vs first snapshot) | diff UI via VS Code diff editor |
+  | Layout | block trees in `desktop.layout` (daemon persists) | `src/blocks/` (drag/zoom/park/PiP) |
+  | Browser | `cedian_daemon` (Chromium process, CDP) | `src/browser-panel/` (screencast view) |
+  | Settings | `cedian_daemon` (atomic `desktop`-key writes) | `src/settings/` (settings window) |
+
+  Rule of thumb: if the window can be killed and rebuilt from it, it lives in
+  the daemon; if it is pixels and interaction, it lives in `src/`. cedia's
+  thread/session files stay append-only and cedia's to write.
 - **Settings mapping**: inject VS Code-required settings (font, size, theme) from cedia desktop key via ConfigurationService.
 - **Theme**: VS Code color theme (JSON) generated from Warm & Lime tokens + CSS custom properties (--cedian-*) for block UI.
 - **Multi-repo workspace UI**: roots section in settings (draft ready).
@@ -454,7 +469,7 @@ Roadmap is canonical in `docs/ARCHITECTURE.md` (phases 0–D with exit gates). C
 Cedian-specific additions to the roadmap:
 1. Fork VS Code latest stable; rename to "Cedian"; strip Copilot/Cursor AI features (clean slate)
 2. Integrate cedia agent (chat panel, composer, agent mode, rules, @mentions) via daemon structured events
-3. Daemon IPC over Unix socket; reuse cedian_daemon + cedian_protocol + cedian_index + cedian_wire
+3. Daemon IPC over Unix socket; reuse cedian_daemon + cedian_protocol + cedian_index + cedian_wire (+ cedian_agent for the stream fold and cedian_review for hunks, Phase B)
 4. Rewrite UI in TS on VS Code fork: blocks (full Tern parity), settings window, browser panel (daemon Chromium screencast)
 5. Open VSX configured; VS Code settings UI disabled; Cedian settings window writes ~/.cedia/settings.json
 6. Theme (Warm & Lime) via VS Code color theme + CSS vars; Thai text via Chromium native
@@ -575,72 +590,8 @@ Consolidated checklist; details in referenced sections.
 
 ## 14. Computer-Use Research Preview (macOS 26)
 
-### 14.1 Goal
-Enable cedia to control local macOS apps when no API, MCP tool, or deterministic integration exists, while keeping the user in control and preserving security.
-
-### 14.2 Scope
-**In scope (research preview):**
-- local macOS 26 apps
-- Accessibility-based UI tree inspection
-- app/window/element state queries
-- click, type, key press, scroll, focus
-- screenshot fallback for inaccessible UI
-- permission onboarding and diagnostics
-- audit log of actions
-
-**Out of scope (v1):**
-- cloud execution
-- remote control from phone
-- Windows/Linux
-- unattended locked-use automation unless separately approved
-- payment, credential entry, or destructive actions without explicit user approval
-
-### 14.3 How others do it
-- **Claude**: computer use is a research preview in Cowork/Code; it prioritizes connectors/tools before GUI control; can open apps, click, type; supports background use on newer macOS; requires Accessibility/Screen Recording.
-- **Cursor**: added computer use for local agents to click/type/capture across GUI apps, with emphasis on testing flows such as iOS Simulator.
-- **Codex**: background computer use on macOS/Windows with its own cursor; runs alongside the user; uses Accessibility; requires explicit permissions.
-
-### 14.4 Architecture
-- cedia owns tool calls and reasoning
-- Cedian daemon executes macOS Accessibility actions
-- Cedian UI shows permission status, pending approvals, and audit history
-- accessibility tree is the primary interface; screenshot/vision is fallback
-- element index is reused across a sequence in one process
-- risky actions pass a safety gate before execution
-
-### 14.5 Tool surface (initial)
-- `list_apps`
-- `get_app_state`
-- `click`
-- `type_text`
-- `press_key`
-- `scroll`
-- `screenshot`
-- `wait`
-
-### 14.6 Permissions
-- Accessibility
-- Screen Recording
-- onboarding via `doctor`
-- clear error when permission is missing
-
-### 14.7 Safety
-- explicit approval for risky or destructive actions
-- no automatic credential entry
-- no payment/submission without user approval
-- app allowlist/denylist support
-- sandbox commands separately via sandbox-runtime ideas
-- full audit log retained locally
-
-### 14.8 Evaluation
-- task success rate
-- no unintended focus theft
-- correct permission-denial handling
-- recovery after UI changes
-- deterministic tests with fixtures where possible
-
-### 14.9 License
-- core implementation is Cedian-owned
-- macOS public APIs only
-- MIT-only dependencies
-- no proprietary/FSL code in core
+Detail lives in `docs/specs/COMPUTER_USE_SPEC.md` (split out 2026-10-26).
+Summary: cedia owns tool calls and reasoning; the daemon executes macOS
+Accessibility actions (`list_apps`, `get_app_state`, `click`, `type_text`,
+`press_key`, `scroll`, `screenshot`, `wait`); the UI shows permission status,
+approvals, and audit history. Research preview, out of scope for v1.

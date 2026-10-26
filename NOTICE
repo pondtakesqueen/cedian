@@ -1,7 +1,8 @@
-cedian-app uses third-party work under its own licenses.
+Cedian uses third-party work under its own licenses.
 
-- Visual Studio Code (microsoft/vscode): MIT License. Portions of this
-  codebase are derived from VS Code; original copyright notices retained.
+- Visual Studio Code (microsoft/vscode), MIT: not yet vendored (Phase A);
+  notices land with the fork (docs/VENDORING.md step 9).
 - Inter font: SIL Open Font License 1.1 (if bundled).
-- Chromium (daemon side, in cedian repo): Chrome for Testing licenses.
-- cedia / Bun runtime: see cedian repo NOTICE.
+- Chromium (daemon side): Chrome for Testing licenses (fetched by
+  script/fetch-chromium, bundled by script/bundle-mac in Phase D).
+- cedia agent: pinned per script/pin-cedia; see its own checkout for terms.
