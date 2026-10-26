@@ -1,0 +1,87 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+publish = false
+license-file = "LICENSE"
+
+# Zed v1.25.2. Bump all of these together, and copy Zed's [patch] section at the same rev.
+[workspace.dependencies]
+anyhow = "1"
+base64 = "0.22"
+shlex = "2"
+assets = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+collections = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+editor = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+language = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+# Zed's tree-sitter grammars with their configs and queries, for the Editor's colours.
+grammars = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38", features = ["load-grammars"] }
+futures = "0.3"
+fuzzy = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+icu_segmenter = "2"
+# The Browser block's screencast frames and pasted images; the features GPUI already builds.
+image = { version = "0.25", default-features = false, features = ["bmp", "jpeg", "png", "tiff"] }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSAccessibility", "NSResponder", "NSWorkspace"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38", features = ["font-kit", "wayland", "x11"] }
+libc = "0.2"
+log = "0.4"
+release_channel = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+schemars = { version = "1.0", default-features = false, features = ["std"] }
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+settings = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+text = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+task = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+terminal = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+theme = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+# The Browser block's DevTools connection, plain ws:// to the local Chromium.
+tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+theme_settings = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+util = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38", features = ["debug-embed"] }
+zed_actions = { git = "https://github.com/zed-industries/zed", rev = "d25fa01ccd788d812f236810b71af4feff6b2e38" }
+
+# Copied from Zed's Cargo.toml at the rev above; Zed's crates do not build without it.
+[patch.crates-io]
+cpal = { git = "https://github.com/RustAudio/cpal", rev = "e1612d5d98152f8dc2a62e1b51ef7cbf4f7f26b7" }
+# Unify `tree_sitter_language::LanguageFn` between crates.io grammar crates and
+# the git tree-sitter above; two instances of the crate would make grammar
+# constants type-incompatible with `tree_sitter::Language`.
+tree-sitter-language = { git = "https://github.com/tree-sitter/tree-sitter", rev = "43623ec9bf0eaaf7113285c46e8a09018f181b18" }
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
+windows-capture = { git = "https://github.com/zed-industries/windows-capture.git", rev = "f0d6c1b6691db75461b732f6d5ff56eed002eeb9" }
+calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }
+livekit = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "0a1c519cfce9b365229026b55de9b9dbdb6fed3c" }
+libwebrtc = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "0a1c519cfce9b365229026b55de9b9dbdb6fed3c" }
+notify = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
+notify-types = { git = "https://github.com/zed-industries/notify", rev = "d842f16b2716bd60f09caf3ae3a894237ab38f54" }
+webrtc-sys = { git = "https://github.com/zed-industries/livekit-rust-sdks", rev = "0a1c519cfce9b365229026b55de9b9dbdb6fed3c" }
+# Avoid panicking when a failed EGL call reports EGL_SUCCESS.
+# https://github.com/timothee-haudebourg/khronos-egl/pull/37
+khronos-egl = { git = "https://github.com/zed-industries/khronos-egl", rev = "42214b36347b108fd9630ca6254b96dde59e04fe" }
+
+[profile.dev]
+debug = "line-tables-only"
+incremental = true
+codegen-units = 16
+
+[profile.dev.build-override]
+codegen-units = 16
+
+# What ships (script/bundle-mac), set as Zed sets its own: thin LTO over one codegen unit
+# for the smallest, fastest binary, and limited debug info, which on macOS goes to a dSYM
+# beside the build and is stripped from what ships. "packed" has rustc run dsymutil at link
+# time, while thin LTO's object files still exist; Cargo's macOS default leaves them unpacked,
+# and they are gone by the time the bundle script could collect them.
+[profile.release]
+debug = "limited"
+split-debuginfo = "packed"
+lto = "thin"
+codegen-units = 1

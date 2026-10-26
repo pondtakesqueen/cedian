@@ -3,4 +3,6 @@ out/
 dist/
 *.vsix
 .DS_Store
-.DS_Store
+
+# daemon build artifacts
+daemon/target/

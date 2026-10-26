@@ -2,19 +2,23 @@
 
 VS Code fork (Electron + TypeScript) for **Cedian** — the UI half of the agentic IDE.
 
-The agent and all state live in the Rust daemon in the sibling `cedian` repo
-(`/Users/pond/cedian`). This app is the viewer: it talks to `cedian-daemon` over
-the Unix socket `daemon.sock` and renders blocks, the agent pane, settings, etc.
+## Layout
 
-Design source of truth: `/Users/pond/cedian/CEDIAN_SPEC.md` (and `AGENTS.md` there).
-Architecture history: `/Users/pond/cedian/docs/ARCHITECTURE.md` (superseded).
-
-## Layout (planned)
-
+- `daemon/` — Rust daemon (moved from the former `cedian` repo). Builds with Cargo.
+  - `daemon/crates/` — cedian_daemon, cedian_protocol, cedian_index, cedian_wire, cedian_agent, cedian_review
 - `src/` — TypeScript (blocks, agent pane, settings, browser panel, ...)
-- `docs/` — app-specific notes
-- (VS Code fork source will be vendored here when the fork is taken)
+- `docs/` — `CEDIAN_SPEC.md` (design source), `ARCHITECTURE.md` (historical), `specs/`, `protocol/`
+- `brand/`, `script/` — icons and generators (theme, icon, fetch-chromium, bundle-mac)
+
+The daemon owns all state; this app is the viewer. They communicate over the Unix
+socket `daemon.sock` (cedian_wire protocol).
+
+## Build daemon
+
+```sh
+cd daemon && cargo build -p cedian-daemon
+```
 
 ## Status
 
-Scaffold only. VS Code fork not yet vendored. See CEDIAN_SPEC.md §11.
+Scaffold + daemon moved in. VS Code fork not yet vendored (Phase A). See `docs/CEDIAN_SPEC.md` §11.

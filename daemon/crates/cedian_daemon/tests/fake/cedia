@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+# A stand-in for cedia in the daemon's tests. It plays a recorded fixture: writes the
+# fixture's thread and session files where cedia would, then prints its stream.
+# FAKE_FIXTURE: the fixture directory. FAKE_THREADS, FAKE_SESSIONS: where cedia would write.
+# With $FAKE_THREADS/../hold present, a run waits after its first line until SIGTERM.
+set -euo pipefail
+
+if [[ "${1:-}" == "--version" ]]; then
+  # FAKE_CAPS: more capabilities, as JSON strings separated by commas.
+  echo "{\"name\":\"cedia\",\"version\":\"0.0.0-fake\",\"protocol\":\"fake\",\"capabilities\":[\"threads\",\"threads.send\"${FAKE_CAPS:+,$FAKE_CAPS}]}"
+  exit 0
+fi
+
+# FAKE_MODELS, FAKE_PERMISSIONS: files with other lists, for screenshots.
+if [[ "${1:-}" == "models" && -n "${FAKE_MODELS:-}" ]]; then
+  cat "$FAKE_MODELS"
+  exit 0
+fi
+
+if [[ "${1:-}" == "permissions" && -n "${FAKE_PERMISSIONS:-}" ]]; then
+  cat "$FAKE_PERMISSIONS"
+  exit 0
+fi
+
+if [[ "${1:-}" == "models" ]]; then
+  echo '{"default":"faux/a","models":[{"ref":"faux/a","label":"Faux A","provider":"faux","available":true,"contextWindow":200000,"effort":false},{"ref":"faux/b","label":"Faux B","provider":"faux","available":false,"reason":"no key","contextWindow":100000,"effort":true}],"modes":[]}'
+  exit 0
+fi
+
+if [[ "${1:-}" == "permissions" ]]; then
+  echo '{"default":"read-only","modes":[{"mode":"read-only","label":"Read only","description":"Reads"},{"mode":"plan","label":"Plan","description":"Plans first"}]}'
+  exit 0
+fi
+
+if [[ "${1:-}" == "commands" ]]; then
+  # commands --json --cwd <dir>: FAKE_COMMANDS, else one skill named after the project.
+  if [[ -n "${FAKE_COMMANDS:-}" ]]; then cat "$FAKE_COMMANDS"; exit 0; fi
+  echo "{\"commands\":[{\"name\":\"$(basename "$4")-review\",\"description\":\"Review a diff\",\"kind\":\"skill\",\"source\":\"repository\",\"argumentHint\":\"<pr>\"}]}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "schedules" ]]; then
+  # schedules [due | pause|resume|fire <id>] [--json] --cwd <dir>. The list is
+  # $FAKE_THREADS/../schedules.json; $FAKE_THREADS/../due.json is due once, until fired.
+  state="$FAKE_THREADS/.."
+  mkdir -p "$state"
+  printf '%s\n' "$*" >>"$state/schedule-calls"
+  case "${2:-}" in
+    due) cat "$state/due.json" 2>/dev/null || echo '[]' ;;
+    fire) rm -f "$state/due.json"; echo '[]' ;;
+    pause | resume) echo "${2}d $3" ;;
+    *) cat "$state/schedules.json" 2>/dev/null || echo '[]' ;;
+  esac
+  exit 0
+fi
+
+if [[ "${1:-}" == "usage" ]]; then
+  # usage --json --since <since> (--all | --cwd <dir>): one day of one model, the range and
+  # where it read named in the thread's title.
+  where="all"; [[ "${5:-}" == "--cwd" ]] && where="$(basename "$6")"
+  echo "{\"sessions\":1,\"requests\":2,\"costUsd\":0.25,\"keepaliveUsd\":0,\"compactUsd\":0,\"tokens\":{\"input\":1000,\"cacheRead\":500,\"output\":100},\"sources\":[],\"largest\":[],\"misses\":[],\"overPriceLine\":0,\"maxEffort\":0,\"handoffs\":0,\"unpriced\":0,\"days\":[{\"day\":\"2026-10-22\",\"costUsd\":0.25}],\"models\":[{\"model\":\"faux/a\",\"costUsd\":0.25,\"requests\":2}],\"projects\":[{\"project\":\"p\",\"costUsd\":0.25}],\"threads\":[{\"thread\":\"t-1\",\"title\":\"$4 $where\",\"project\":\"p\",\"costUsd\":0.25}]}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "commit" || "${1:-}" == "pr" ]]; then
+  # commit --thread=<id> [--message=<m> --file=<f>...] --cwd <dir> --json, pr [--check] --cwd <dir>
+  # --json: each call's arguments go to $FAKE_THREADS/../ship-calls.
+  state="$FAKE_THREADS/.."
+  mkdir -p "$state"
+  printf '%s\n' "$*" >>"$state/ship-calls"
+  case "$1 $*" in
+    commit*--message=*) echo '{"commit":"abc1234","subject":"Make f.txt say good","files":["f.txt"]}' ;;
+    commit*) echo '{"files":["f.txt"],"message":"Make f.txt say good\n\nOne line.","branch":"work"}' ;;
+    pr*--check*) echo '{"branch":"work","base":"main"}' ;;
+    *) echo '{"branch":"work","base":"main","url":"https://example.test/pr/7","out":"https://example.test/pr/7"}' ;;
+  esac
+  exit 0
+fi
+
+if [[ "${1:-}" == "mcp" ]]; then
+  # mcp list|check|add|remove ...: each call's arguments go to $FAKE_THREADS/../mcp-calls, the
+  # list is $FAKE_THREADS/../mcp.json, an add names one server x and a server named bad is refused.
+  state="$FAKE_THREADS/.."
+  mkdir -p "$state"
+  printf '%s\n' "$*" >>"$state/mcp-calls"
+  verb=""; for arg in "${@:2}"; do [[ "$arg" != -* ]] && { verb="$arg"; break; }; done
+  name="${!#}"
+  case "$verb" in
+    list) cat "$state/mcp.json" 2>/dev/null || echo '{"servers":[]}' ;;
+    check) echo "{\"name\":\"$name\",\"ok\":true,\"tools\":[{\"name\":\"search\"}]}" ;;
+    add)
+      if [[ "$name" == "bad" ]]; then echo "cedia: mcpServers.bad: needs a command or a url" >&2; exit 1; fi
+      echo "{\"servers\":[{\"name\":\"$name\",\"command\":\"x\",\"env\":[\"TOKEN\"]}]}" >"$state/mcp.json"
+      echo "added MCP server $name" ;;
+    remove) echo '{"servers":[]}' >"$state/mcp.json"; echo "removed MCP server $name" ;;
+  esac
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" && "${4:-}" == "fork" ]]; then
+  # threads --cwd <dir> fork <id> <run> --json
+  printf '{"at":"2026-10-22T03:00:05.000Z","kind":"open","title":"forked","task":"forked","forkOf":{"thread":"%s","run":"%s"}}\n' "$5" "$6" \
+    >"$FAKE_THREADS/t-0000fork.jsonl"
+  printf '{"thread":"t-0000fork","run":"%s"}\n' "$6"
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" && ( "${4:-}" == "undo" || "${4:-}" == "redo" ) ]]; then
+  # threads --cwd <dir> undo|redo <id> --json [--force]: f.txt left unless forced.
+  if [[ "${7:-}" == "--force" ]]; then
+    printf '{"action":"%s","restored":["f.txt"],"skipped":[]}\n' "$4"
+  else
+    printf '{"action":"%s","restored":[],"skipped":["f.txt"]}\n' "$4"
+  fi
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" && "${4:-}" == "rewind" ]]; then
+  # threads --cwd <dir> rewind <id> <n> --json [--force]: refused unless forced, with exit 1.
+  if [[ "${8:-}" == "--force" ]]; then
+    printf '{"run":"r-%s","restored":["f.txt"]}\n' "$6"
+    exit 0
+  fi
+  echo '{"error":"f.txt changed since the run that last wrote it","force":true}'
+  exit 1
+fi
+
+if [[ "${1:-}" == "threads" && "${4:-}" == "unsend" ]]; then
+  # threads --cwd <dir> unsend <id> <message>...
+  id="$5"
+  shift 5
+  ids=$(printf '"%s",' "$@")
+  printf '{"at":"2026-10-22T03:00:03.000Z","kind":"unsend","ids":[%s]}\n' "${ids%,}" >>"$FAKE_THREADS/$id.jsonl"
+  echo "unsent from $id"
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" && ( "${4:-}" == "archive" || "${4:-}" == "unarchive" ) ]]; then
+  # threads --cwd <dir> archive|unarchive <id>
+  archived=$([[ "$4" == "archive" ]] && echo true || echo false)
+  printf '{"at":"2026-10-22T03:00:04.000Z","kind":"archived","archived":%s}\n' "$archived" >>"$FAKE_THREADS/$5.jsonl"
+  echo "$4d $5"
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" && "${4:-}" == "rate" ]]; then
+  # threads --cwd <dir> rate <id> up|down
+  printf '{"at":"2026-10-22T03:00:02.000Z","kind":"rate","rating":"%s"}\n' "$6" >>"$FAKE_THREADS/$5.jsonl"
+  echo "rated $5 $6"
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" ]]; then
+  # threads --cwd <dir> send <id> -- <text>
+  id="$5" text="$7"
+  printf '%s' "$text" >"$FAKE_THREADS/../sent"
+  printf '{"at":"2026-10-22T03:00:00.000Z","kind":"message","id":"m-1","from":"user","text":"%s"}\n' "$text" \
+    >>"$FAKE_THREADS/$id.jsonl"
+  echo "sent to $id"
+  exit 0
+fi
+
+mkdir -p "$FAKE_THREADS" "$FAKE_SESSIONS"
+# Where the daemon ran it and how, for the worktree tests.
+pwd >"$FAKE_THREADS/../cwd"
+printf '%s\n' "$@" >"$FAKE_THREADS/../args"
+for f in "$FAKE_FIXTURE"/threads/*.jsonl; do
+  # The last line is the final state, written when the run ends. (`sed '$d'`, not
+  # `head -n -1`, which macOS's head refuses.)
+  sed '$d' "$f" >"$FAKE_THREADS/$(basename "$f")"
+done
+cp "$FAKE_FIXTURE"/sessions/*.jsonl "$FAKE_SESSIONS/"
+
+finish() {
+  for f in "$FAKE_FIXTURE"/threads/*.jsonl; do
+    printf '{"at":"2026-10-22T03:00:01.000Z","kind":"state","state":"%s"}\n' "$1" >>"$FAKE_THREADS/$(basename "$f")"
+  done
+}
+
+first=1
+while IFS= read -r line; do
+  printf '%s\n' "$line"
+  if [[ $first == 1 && -e "$FAKE_THREADS/../hold" ]]; then
+    sleep 30 &
+    sleeper=$!
+    # The sleep holds stdout open too; it goes first so the daemon sees the stream end.
+    trap 'kill $sleeper; finish stopped; exit 143' TERM
+    wait $sleeper || true
+  fi
+  first=0
+done <"$FAKE_FIXTURE/stream.jsonl"
+finish done
