@@ -1,0 +1,12 @@
+Cedian-app (proprietary)
+
+Copyright (c) 2026 Cedian contributors. All rights reserved.
+
+This software is proprietary and is not licensed for redistribution or
+modification. See the cedian repo (../cedian) LICENSE and NOTICE for third-party
+terms.
+
+Portions of this software are derived from Visual Studio Code
+(https://github.com/microsoft/vscode), copyright (c) Microsoft Corporation,
+licensed under the MIT License. Those portions retain their original copyright
+notices and MIT license terms.
