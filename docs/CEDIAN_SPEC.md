@@ -7,6 +7,8 @@
 **Product name:** Cedian
 **License:** Proprietary (Cedian-specific) + MIT notice for VS Code portions (see §9)
 
+**Target platform:** macOS 26 (Tahoe) only for v1 (personal, single-owner, local-first).
+
 ## 1. Vision
 
 Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent. It combines:
@@ -75,7 +77,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 - **Browser**: screencast → daemon-owned Chromium (bundled), screencast into VS Code panel (not VS Code integrated browser)
 - **Thai text**: ICU4X → browser native (Chromium ICU line breaking + CSS font fallback; no ICU4X/Intl.Segmenter needed)
 - **Theme**: Zed tokens → VS Code theme + Cedian tokens
-- **Cross-platform**: macOS only → macOS only for v1 (Windows/Linux later)
+- **Cross-platform**: macOS only → macOS 26 (Tahoe) only for v1 (Windows/Linux later)
 
 ### What stays the same
 
@@ -105,7 +107,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | Keyboard shortcuts | VS Code keybindings + Cedian additions |
 | Context usage ring | Agent header context meter |
 | Notifications (OS + badges) | VS Code notifications + badge counts |
-| Computer use | macOS Accessibility (future) |
+| Computer use | macOS 26 Accessibility / Cua Spaces (future) |
 | SSH/WSL sessions | Future (protocol ready) |
 | Auto-archive after PR merge | Daemon (cedia threads archive) |
 | Suggested tasks | Agent pane (coordinator cards) |
@@ -373,7 +375,7 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 
 ### Strategic
 - **Pivot**: Fresh start on VS Code fork (Electron + TypeScript); reuse daemon + cedian_protocol + cedian_index + cedian_wire where possible; UI (GPUI) rewritten in TS. ARCHITECTURE.md (GPUI native) superseded.
-- **Platform**: macOS only for v1 (Windows/Linux later); daemon uses macOS-specific APIs (caffeinate, launchd, Keychain, APFS clonefile).
+- **Platform**: macOS 26 (Tahoe) only for v1 (Windows/Linux later); daemon uses macOS-specific APIs (caffeinate, launchd, Keychain, APFS clonefile). Assumes macOS 26+; Cua Spaces/locked-use features available only on this baseline.
 - **Base**: VS Code latest stable (MIT). Pin latest stable; merge VS Code updates quarterly; owner decides merge.
 - **License**: Proprietary (Cursor-style) for Cedian-specific additions; VS Code portions retain MIT notice (LICENSE/NOTICE). Legal review before ship.
 - **Extension system**: VS Code built-ins + Open VSX (not Microsoft Marketplace, ToS forbids non-Microsoft products). No Cedian-specific extensions.
@@ -384,7 +386,7 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 - **Agent is the only agent**: cedia owns MCP; VS Code MCP client disabled (avoids duplicate tool surfaces; cedia permission/sandbox covers MCP tools).
 - **Browser**: in-app Chromium (daemon-owned, bundled chrome-headless-shell) + CDP; screencast into VS Code panel. Not VS Code integrated browser. One browser per workspace, shared by person + agent. cedia owns site policy; Cedian adds per-project allowlist (desktop.browser).
 - **Debugger**: Full DAP (VS Code-level).
-- **Computer use**: later (macOS Accessibility, research preview).
+- **Computer use**: later (macOS 26 Accessibility / Cua Spaces / Cua Driver, research preview). Core implementation must be Cedian-owned and MIT-clean; only MIT-compatible dependencies allowed.
 - **Remote access**: later (protocol ready, client later).
 - **SSH/WSL**: later.
 
@@ -406,6 +408,14 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 - **Update mechanism**: v1 no separate auto-update; app update via VS Code updater (signed/notarized); daemon + cedia bundled in app bundle. Auto-update daemon deferred.
 - **Performance budgets**: keep GPUI-era budgets as gates, Electron-adjusted (cold start ≤500ms, keystroke ≤50ms, idle ≤300MB, scroll 10k blocks @60fps). Measured with HID events + pixel polling.
 - **Migration**: none (owner-only); settings compatible by construction (~/.cedia/settings.json, desktop key).
+
+### License / IP policy
+- **Cedian-specific code**: proprietary (Cursor-style), unless explicitly marked MIT-compatible.
+- **Third-party code**: **MIT only** for direct inclusion. No FSL, Apache-2.0, GPL, AGPL, or proprietary code in the core.
+- **Computer-use core**: written in-house for Cedian; may use macOS public APIs only. External MIT code may be used as reference or optional dependency, with attribution.
+- **Dependency policy**: every dependency must pass license scan in CI; non-MIT dependencies require explicit approval.
+- **Attribution**: maintain `THIRD_PARTY_NOTICES.md` and preserve upstream license files.
+- **No copying proprietary internals**: implement behavior from public docs/APIs, not from closed-source products.
 
 ### Accessibility / errors / roadmap
 - **Accessibility**: VS Code baseline + Cedian-specific (VoiceOver labels for blocks, Thai line-height ≥1.6, focus ring 2px accent, Reduce Motion stops animation).
@@ -491,7 +501,7 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 | Telemetry | yes (Anthropic) | yes (Cursor) | disabled | ✅ (privacy) |
 | Auto-update | yes | yes | deferred v1 | ⚠️ gap |
 | Remote Control (phone) | yes | no | later | ⚠️ deferred |
-| Computer use | yes | no | later | ⚠️ deferred |
+| Computer use | yes | no | later (macOS 26) | ⚠️ deferred |
 | Artifacts (rendered inline) | yes | no | deferred (G3) | ⚠️ gap |
 | Quick window / launcher | yes | command palette | ⌘K palette | ⚠️ partial |
 | Buddy window | yes | no | excluded | ⚠️ excluded |
@@ -554,9 +564,83 @@ Consolidated checklist; details in referenced sections.
 - [ ] **Notifications** (§9): badges (project tab, sidebar, Dock) + optional sound; no banners (deferred).
 - [ ] **Testing/CI** (§9, §11): Rust cargo test (replay fixtures, layout fit), TS vitest (block logic, settings), Playwright E2E smoke. No model calls in CI. All green.
 - [ ] **Telemetry** (§9): all disabled; crash logs local only (~/Library/Logs/Cedian).
-- [ ] **License** (§9): VS Code MIT notice in LICENSE/NOTICE; legal review before ship.
+- [ ] **License** (§9): VS Code MIT notice in LICENSE/NOTICE; legal review before ship; MIT-only dependency scan; THIRD_PARTY_NOTICES updated.
 - [ ] **Settings** (§5, §9): single source ~/.cedia/settings.json; VS Code settings UI disabled; Cedian settings window writes desktop key atomically.
 - [ ] **Blocks** (§9, §11): full Tern parity (split/drag/zoom/park/PiP/tear-off/named layouts/overview/fold) working at 720–1440px, both themes, no leak.
 - [ ] **Browser** (§9): daemon Chromium + CDP + screencast; element selection + capture; per-project allowlist; safety banner.
 - [ ] **Multi-repo** (§3.5, §11): roots add/remove/validate; one thread per root; coordinator cards; auto-archive.
 - [ ] **Roadmap exit gate** (docs/ARCHITECTURE.md phases 0-D): Phase D exit — "agent fixes a bug shown in a screen recording".
+
+---
+
+## 14. Computer-Use Research Preview (macOS 26)
+
+### 14.1 Goal
+Enable cedia to control local macOS apps when no API, MCP tool, or deterministic integration exists, while keeping the user in control and preserving security.
+
+### 14.2 Scope
+**In scope (research preview):**
+- local macOS 26 apps
+- Accessibility-based UI tree inspection
+- app/window/element state queries
+- click, type, key press, scroll, focus
+- screenshot fallback for inaccessible UI
+- permission onboarding and diagnostics
+- audit log of actions
+
+**Out of scope (v1):**
+- cloud execution
+- remote control from phone
+- Windows/Linux
+- unattended locked-use automation unless separately approved
+- payment, credential entry, or destructive actions without explicit user approval
+
+### 14.3 How others do it
+- **Claude**: computer use is a research preview in Cowork/Code; it prioritizes connectors/tools before GUI control; can open apps, click, type; supports background use on newer macOS; requires Accessibility/Screen Recording.
+- **Cursor**: added computer use for local agents to click/type/capture across GUI apps, with emphasis on testing flows such as iOS Simulator.
+- **Codex**: background computer use on macOS/Windows with its own cursor; runs alongside the user; uses Accessibility; requires explicit permissions.
+
+### 14.4 Architecture
+- cedia owns tool calls and reasoning
+- Cedian daemon executes macOS Accessibility actions
+- Cedian UI shows permission status, pending approvals, and audit history
+- accessibility tree is the primary interface; screenshot/vision is fallback
+- element index is reused across a sequence in one process
+- risky actions pass a safety gate before execution
+
+### 14.5 Tool surface (initial)
+- `list_apps`
+- `get_app_state`
+- `click`
+- `type_text`
+- `press_key`
+- `scroll`
+- `screenshot`
+- `wait`
+
+### 14.6 Permissions
+- Accessibility
+- Screen Recording
+- onboarding via `doctor`
+- clear error when permission is missing
+
+### 14.7 Safety
+- explicit approval for risky or destructive actions
+- no automatic credential entry
+- no payment/submission without user approval
+- app allowlist/denylist support
+- sandbox commands separately via sandbox-runtime ideas
+- full audit log retained locally
+
+### 14.8 Evaluation
+- task success rate
+- no unintended focus theft
+- correct permission-denial handling
+- recovery after UI changes
+- deterministic tests with fixtures where possible
+
+### 14.9 License
+- core implementation is Cedian-owned
+- macOS public APIs only
+- MIT-only dependencies
+- no proprietary/FSL code in core

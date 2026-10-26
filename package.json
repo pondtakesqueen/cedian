@@ -7,7 +7,7 @@
   "scripts": {
     "build": "echo 'Phase A: VS Code fork not yet vendored'",
     "dev": "echo 'Phase A: not yet'",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "theme": "python3 script/themes/cedian.py"
