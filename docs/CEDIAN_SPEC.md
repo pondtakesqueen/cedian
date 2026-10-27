@@ -1,7 +1,7 @@
 # CEDIAN — Detailed Specification (VS Code fork + cedia agent)
 
 **Version:** 0.1 (draft)
-**Date:** 2026-10-26
+**Date:** 2026-10-27 (adds §3.6 Artifacts REA + `cedian_artifact` + `src/artifacts/`)
 **Base:** VS Code (latest stable, MIT license) fork
 **Agent:** cedia (unchanged, multi-provider)
 **Product name:** Cedian
@@ -187,6 +187,180 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 
 **Not replicated** (Claude Projects cloud features): cloud sessions (run while laptop closed), GitHub App, cloud environments, connectors (cloud), multi-user sharing, mobile app. (See §12 Exclude.)
 
+### 3.6 Artifacts (from Claude Desktop; REA 2026-10-27)
+
+Source: `https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them`
++ `https://claude.com/features/artifacts` (marketing page; scope mapping only)
+(public docs only; no code copied, no proprietary internals). Method: REA
+recovers trigger, inputs, processing steps, outputs, side effects, and failure
+modes from the article text, then cedian re-implements that observable behavior
+local-first. cedia remains the only agent: cedia decides what qualifies, the
+daemon applies the rules and owns the records, the window only renders.
+
+#### 3.6.1 Recovered behavior (Claude Desktop / web)
+
+- **Trigger.** Claude creates an artifact when the content is (a) significant
+  and self-contained, typically over 15 lines, (b) likely to be edited,
+  iterated on, or reused outside the conversation, (c) standalone without the
+  conversation's context, and (d) likely to be referred back to. An explicit
+  ask ("ask for one in any conversation, including Claude Code") or a template
+  choice (Output menu, Artifacts tab) also triggers one. Capability switch
+  "Create and edit files" (Settings > Capabilities, or Organization settings on
+  Team/Enterprise) must be on. Plan gating: create-in-chat on all plans;
+  Docs/Slides/Design templates on all plans (Enterprise auto-on 2026-10-15,
+  owners may enable earlier); Dashboards beta on Pro/Max/Team/Enterprise
+  (Enterprise off until owner enables); Motion beta on Team (on) /
+  Enterprise (off until owner enables).
+- **Inputs.** Chat prompt + conversation context, template choice, connected-app
+  data, design system (colors/fonts/components), direct edits, highlight +
+  "Edit with Claude" requests, multi-file batch requests, published-artifact
+  code pasted into a new chat + change description, error text via "Try fixing
+  with Claude".
+- **Processing.** Decide artifact vs inline (four criteria above); open in its
+  own window beside the conversation (templates open on an editable canvas/page);
+  edit loop: ask Claude to change it, edit directly, highlight + Edit with
+  Claude, batch across several Markdown files in one pass (file list shows
+  pending count, send applies the whole batch), or edit an earlier message to
+  branch a different chat version with its own artifacts; view/copy/download
+  (legacy) or Export (templates); build on a published artifact (Free/Pro/Max,
+  legacy published from chat: Copy code → new chat + describe changes →
+  refine, separate copy); fix via "Try fixing with Claude" (re-sends error,
+  success not guaranteed); artifacts-that-use-Claude (artifact calls Claude on
+  Anthropic infra, users sign in, usage counts against each user's plan; legacy
+  toggle "AI-powered artifacts", new asks permission first time); connect apps
+  (first use shows apps/tools, asks approval, per-tool off carries over,
+  per-action-approval tools unavailable); store data (personal vs shared, first
+  shared use shows confirmation, 20 MB per artifact text-only, personal/shared
+  separate, legacy works only after publish, unpublish deletes legacy data);
+  Claude Code publish (live page at private URL, updates in place, shareable;
+  /design or ask-for-doc; desktop side panel, terminal link); legacy
+  (pre-2026-09-16) and Cowork-live (pre-2026-08-19) keep working with no new
+  creation / no in-place edit respectively.
+- **Outputs.** Versioned artifact pane; saved to Artifacts tab
+  (`claude.ai/artifacts`: view all, start from template, organize). Exports:
+  Docs → Word/PDF/Markdown/Google Docs; Slides/Decks → PowerPoint/PDF/Google
+  Slides (editable); Designs → .zip/PDF/PowerPoint/standalone HTML/other tool;
+  Animations → MP4; legacy → view code/copy/download. Starts private; sharing
+  per the sharing article.
+- **Side effects.** Library entry; plan-limit metering per user (not builder);
+  personal/shared storage persists between sessions; publish creates a
+  shareable/private URL; unpublish deletes legacy stored data.
+- **Failure modes.** Capability off → no artifacts; plan/template gated →
+  unavailable until owner enables; legacy/Cowork cutoffs → cannot create new /
+  cannot edit in place; storage fails until publish (legacy while building),
+  over 20 MB, or binary/image payload; per-action-approval connector tools
+  unavailable; fix may fail; untrusted published code (treat like an unknown
+  file); VoiceOver gap (Chrome 150–152 and Claude Desktop don't read typing in
+  slide text boxes; use Chrome 153+); mobile (iOS/Android: view in Artifacts
+  tab + edit, sharing needs web/desktop). Keyboard map for Slides is in the
+  article (F6 areas, Tab/Return into slide/objects, arrows, Present, thumbnails
+  menu); cedian does not replicate it verbatim (see differences).
+
+#### 3.6.2 Cedian implementation (local-first, v1)
+
+Rules live in `daemon/crates/cedian_artifact` (pure logic; daemon owns state)
+with window mirrors in `src/artifacts/` (gating/preview only):
+
+- `kind.rs` / `kinds.ts`: `ArtifactKind` (Docs/Slides/Design/Dashboard/Motion +
+  Code/Website/Image/Diagram/Tool/Document), `from_template`, `is_beta`,
+  `claude_exports` (original) vs `cedian_exports` (local).
+- `trigger.rs` / `policy.ts`: `Candidate { lines, explicit_request, template,
+  reusable, standalone, referable, capability_enabled }`;
+  `should_be_artifact = capability_enabled &&
+  (explicit_request || template.is_some() || (lines > 15 && reusable &&
+  standalone && referable))`; `template_allowed(kind, plan,
+  enterprise_enabled)` per the plan table above. cedia sets the flags; the
+  daemon applies the predicate; the window previews it.
+- `artifact.rs`: `Artifact { id, title, kind, versions[], forked_from }`,
+  `Version { n, content, origin: Model|DirectEdit|ClaudeEdit|Batch|Fork|Fix }`;
+  `edit_direct`, `claude_edit` (selection + `cedia threads send`), `apply_batch`
+  (one version), `record_fix`, `fork` (earlier-message branch; original
+  untouched), `build_on` (separate copy + trust warning).
+- `store.rs` / `policy.ts`: `MAX_BYTES = 20MB`, text-only, personal-only in v1;
+  `needs_publish(legacy)`, `unpublish_deletes(legacy)`; legacy imports are
+  read-only.
+- **Render:** artifact opens as a block beside the agent pane (Electron/VS Code
+  split, not a separate window); Docs → markdown preview + VS Code editor;
+  Code/Website → editor + daemon-Chromium preview (bundled `chrome-headless-shell`,
+  same pane as §6.3); Slides/Design → editor + preview (canvas drag is Phase C,
+  user-confirmed, not in v1); Dashboard → `copy`/`download` + Chromium preview
+  when the content is static HTML (no live per-viewer queries in v1);
+  Motion → Chromium preview of the HTML animation only (no timeline editor,
+  no MP4 render in v1).
+  Capability maps to `desktop.artifacts.enabled` (default true); cedia's
+  thread/session files stay append-only and cedia's to write.
+- **Repo split (AGENTS.md: cedia is the only agent):** the model-facing skill
+  (when to create, kind mapping, design tokens, refresh) and the `Artifact`
+  tool (temp file, connector/download declarations, publish versions) are a
+  `cedia`-repo change; `cedian` holds only the record/version/store rules here
+  plus pane render. No agent loop, model client, or duplicate tool in `cedian`.
+- **Deferred to Phase C/D:** dashboard live-query renderer, Motion timeline
+  editor + MP4 render, canvas drag for Slides/Design (Phase C, user-confirmed),
+  Google Docs/Slides handoff, publish URLs + sharing,
+  shared storage, connect-apps-to-artifact, artifacts-that-use-Claude, mobile.
+- Tests: `cedian_artifact` (19) + `src/artifacts/artifacts.test.ts` (10)
+  assert every recovered rule above (15/16-line bar, all four flags, explicit
+  override, capability gate, plan table, export gaps, 20 MB text-only,
+  legacy publish rule, fork/build-on isolation, fix recorded).
+
+#### 3.6.3 Observable differences that remain (cedian v1 vs Claude)
+
+1. No cloud run: artifacts render local files/previews; no Anthropic-infra
+   execution, no private-URL live pages that update mid-session.
+2. No Google handoff: Word/PDF/Markdown via VS Code; no "open in Google Docs /
+   Slides as editable", no Design ".zip → other tool" push, no MP4 export.
+3. Templates: Docs/Slides/Design fully local; Dashboard stored with Chromium
+   preview for static HTML (live per-viewer queries deferred); Motion stored
+   with HTML-animation preview only (timeline editor + MP4 deferred).
+4. No shared storage, publish, or sharing links: personal-only, 20 MB
+   text-only kept; unpublish-delete rule applies to imported legacy only.
+5. No connect-apps-to-artifact and no artifacts-that-use-Claude (would be a
+   second agent surface; cedia owns tools/MCP).
+6. No per-plan metering or org-owner toggles: single owner, `desktop.artifacts`
+   on/off only; plan table kept in code for parity testing, not enforced.
+7. Version branch via `cedia threads fork` (new thread) rather than in-place
+   chat-version duplication; cedia files stay append-only.
+8. Editing is VS Code editor + ask-cedia (selection + send), not an editable
+   canvas in v1 (canvas drag is Phase C, user-confirmed); Slides keyboard map
+   and screen-reader canvas behaviors not replicated
+   (VS Code + VoiceOver baseline applies instead).
+9. Legacy (pre-2026-09-16) and Cowork-live imports are read-only; no new legacy
+   creation path.
+10. Trust: "Copy → new chat" becomes fork-local-file + warning; no Free/Pro/Max
+    published-remix network.
+
+#### 3.6.4 Solo-dev scope (from `claude.com/features/artifacts`)
+
+The marketing page sells three jobs. cedian v1 keeps the solo-local subset;
+anything needing a second person, a cloud run, or an external SaaS stays out
+(single-owner, local-first; Mac always on covers background refresh, not cloud).
+
+- **Show your numbers (Slides / Dashboards / Motion):** Slides fully local
+  (editor + preview, PDF export). Dashboards from local data only —
+  spreadsheet/report/CSV in the repo or rows cedia already pulled through
+  local MCP (`cedia mcp`); no Salesforce/QuickBooks cloud connectors, no live
+  per-viewer queries. Motion as HTML animation preview only; no MP4 render.
+- **Pitch and launch (Design / Docs / Slides / Motion):** Design/Docs/Slides
+  fully local (one-pager, mockup, deck from rough notes). No Canva asset
+  generation, no HubSpot staging/send, no "show everything before anything
+  goes out" approval pipeline — the review is the local diff + artifact pane.
+- **Keep the team aligned (Docs / Dashboards / Slides):** living doc/spec per
+  project that Claude updates as the work changes; same link is the daemon
+  record file (§5.4), not a share link. No co-editing, comments stay as
+  selection + `cedia threads send`.
+- **Edit your way — yes:** edit directly, leave a comment for Claude, or ask
+  in the conversation. Canvas drag for Slides/Design stays Phase C (§3.6.3-8);
+  phone editing is out (VS Code + VoiceOver baseline instead).
+- **Edit with your team — no:** private by default and stays private; no
+  viewers/editors roles, no in-org or public links, no audit log.
+- **Export it — partial:** Markdown/PDF/standalone-HTML/PNG/copy/download via
+  VS Code + bundled Chromium. No PowerPoint/Google Slides editable handoff,
+  no .zip-to-tool push, no MP4 in v1.
+- **Pass it on — no push:** no send-to-tools integration; handoff is a local
+  file the owner moves. Always-on Mac covers scheduled refresh
+  (`cedia schedules`) and the `localhost` live preview; it does not replace
+  cloud sessions or external sharing.
+
 ## 4. State machines
 
 ### 4.1 Thread states (from cedia, unchanged)
@@ -220,6 +394,24 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 ```
 - PiP: corner → dragged → flung → released → docked/stashed/expanded
 
+### 4.5 Artifact states (daemon-owned; window renders)
+
+```
+draft → open → (edited | fixing | forked) → pinned → closed
+```
+
+- `draft`: candidate met §3.6 trigger; daemon record created, no versions yet.
+- `open`: v1+ rendered beside the agent pane.
+- `edited`: direct, Claude, or batch edit appended a version.
+- `fixing`: "Try fixing" re-sent the error; stays until the next version lands
+  (fix may fail).
+- `forked`: earlier-message edit branched a separate line (`forked_from` set;
+  original untouched). `build_on` is a fork plus the trust warning.
+- `pinned`: kept in the Artifacts-equivalent list (daemon state, per project).
+- Legacy/Cowork-live imports enter as read-only `open` and never leave it.
+- Storage failures (over 20 MB, binary, shared) and capability-off keep the
+  candidate in `draft` with an inline error (§8).
+
 ## 5. File formats / persistence
 
 ### 5.1 Settings
@@ -241,7 +433,18 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 - `~/Library/Application Support/Cedian/` (macOS) — VS Code state db, settings, keybindings, extensions
 - `<main worktree>/.cedian/worktrees/` — threads' worktrees (git-native, in-repo; see `daemon/crates/cedian_daemon/src/worktree.rs`)
 
-### 5.4 Desktop key (Cedian's)
+### 5.4 Artifact records (daemon-owned)
+
+- `<state dir>/artifacts/<project slug>/<artifact id>.json` — one file per
+  artifact (`Artifact` in `cedian_artifact`): id, title, kind, versions,
+  `forked_from`. Daemon writes atomically (temp file + rename, same as
+  `desktop`-key writes); window reads via IPC (Phase B) and rebuilds
+  from these files on restart. cedia's thread/session files stay append-only
+  and are never written for artifacts.
+- Content is text only (20 MB cap per artifact, §3.6); previews render from the
+  worktree file or the stored version, never from a cloud URL.
+
+### 5.5 Desktop key (Cedian's)
 
 ```json
 {
@@ -258,7 +461,8 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
     "layout_style": "tiles",
     "roots": { /* per project slug: string[] */ },
     "browser": { "keep_cookies": false },
-    "editor": { "auto_save": true }
+    "editor": { "auto_save": true },
+    "artifacts": { "enabled": true }
   }
 }
 ```
@@ -280,6 +484,8 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 
 - Unix socket: `daemon.sock` in Cedian's state dir (primary transport; daemon outlives window)
 - Request/Notice protocol (cedian_wire) — structured agent events (user/text/thinking/tool_call/tool_result/receipt/session) sent from daemon to window
+- Artifacts IPC deferred to Phase B: `Request::Artifacts` / `Notice::Artifacts`
+  for the §5.4 record files (daemon owns, window renders); no wire change in v1
 - Electron IPC: window-local only (renderer↔main); not used for daemon communication
 - Tauri: not used
 
@@ -362,8 +568,25 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 ### 8.4 Display levels (VS Code fork)
 - **Blocking / needs action** (protocol mismatch, not a git repo, root in use, version mismatch) → modal dialog (VS Code window.showErrorMessage, modal)
 - **Transient** (network timeout, browser closed before page opened, lost contact) → VS Code notification (non-modal, auto-dismiss)
-- **Inline** (stale hunk, agent error, unverified) → inline in block/agent pane
+- **Inline** (stale hunk, agent error, unverified, artifact draft/fix/storage errors) → inline in block/agent pane
 - Thai messages (§8.3) retained as-is
+
+### 8.6 Artifact errors (recovered, local-mapped; strings English in v1,
+Thai follows with the settings-window pass)
+
+- "Artifacts are off — turn on Artifacts in Settings" (capability off;
+  `desktop.artifacts.enabled` false).
+- "Dashboards need Pro or a team plan" / "Motion needs Team" (plan gate;
+  recorded for parity, not enforced single-owner).
+- "Artifact storage is 20 MB per artifact" / "artifacts store text only"
+  (quota/binary guard, `check_store`).
+- "Shared storage is not available in cedian v1 (personal only)" (shared
+  requested; confirmation step has no one to confirm to).
+- "Legacy artifacts open read-only" (pre-2026-09-16 import; no new legacy).
+- "Try fixing with Claude failed — see the error above" (fix attempt recorded
+  as a `Fix` version; success not guaranteed).
+- "Untrusted artifact — forked to a local copy, original untouched"
+  (build-on trust warning).
 
 ### 8.5 Crash recovery (daemon)
 - Daemon outlives window; quitting window never stops a thread.
@@ -402,6 +625,7 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
   | Protocol | `cedian_protocol` (cedia schema types), `cedian_wire` (socket framing) | generated TS types from wire (Phase B) |
   | Index/search | `cedian_index` (threads/sessions/memory reads) | `src/workbench/` (sidebar, project chat) |
   | Review | `cedian_review` (hunks vs first snapshot) | diff UI via VS Code diff editor |
+  | Artifacts | `cedian_artifact` (trigger, kind, versions, 20 MB store) + daemon record files (§5.4) | `src/artifacts/` (kinds, policy gating, pane render) |
   | Layout | block trees in `desktop.layout` (daemon persists) | `src/blocks/` (drag/zoom/park/PiP) |
   | Browser | `cedian_daemon` (Chromium process, CDP) | `src/browser-panel/` (screencast view) |
   | Settings | `cedian_daemon` (atomic `desktop`-key writes) | `src/settings/` (settings window) |
@@ -450,6 +674,10 @@ closed → open → focused → (zoomed | parked | torn-off) → closed
 - `https://code.claude.com/docs/en/claude-projects` → `docs/specs/PROJECTS_SPEC.md`
 - `https://code.claude.com/docs/en/desktop-changelog` → REA findings
 - `https://support.claude.com/en/articles/9517075-what-are-projects` → REA findings
+- `https://support.claude.com/en/articles/17153992-what-are-artifacts-and-how-do-i-use-them` → REA findings (§3.6; public docs only)
+- Academy: `creating-with-artifacts`, `intro-to-artifacts`,
+  `build-custom-artifacts-with-claude`, `debate-practice-with-feedback` → kind
+  mapping + custom-artifact contract (§3.6.2–3.6.4; public docs only)
 - `https://cursor.com/docs/release-notes` → REA findings
 - `https://tern.build/changelog` → REA findings
 - PandaCode docs (browser.md) → REA findings
@@ -469,7 +697,7 @@ Roadmap is canonical in `docs/ARCHITECTURE.md` (phases 0–D with exit gates). C
 Cedian-specific additions to the roadmap:
 1. Fork VS Code latest stable; rename to "Cedian"; strip Copilot/Cursor AI features (clean slate)
 2. Integrate cedia agent (chat panel, composer, agent mode, rules, @mentions) via daemon structured events
-3. Daemon IPC over Unix socket; reuse cedian_daemon + cedian_protocol + cedian_index + cedian_wire (+ cedian_agent for the stream fold and cedian_review for hunks, Phase B)
+3. Daemon IPC over Unix socket; reuse cedian_daemon + cedian_protocol + cedian_index + cedian_wire (+ cedian_agent for the stream fold and cedian_review for hunks, Phase B; artifacts IPC `Request::Artifacts`/`Notice::Artifacts` also Phase B, §6.2)
 4. Rewrite UI in TS on VS Code fork: blocks (full Tern parity), settings window, browser panel (daemon Chromium screencast)
 5. Open VSX configured; VS Code settings UI disabled; Cedian settings window writes ~/.cedia/settings.json
 6. Theme (Warm & Lime) via VS Code color theme + CSS vars; Thai text via Chromium native
@@ -481,7 +709,7 @@ Cedian-specific additions to the roadmap:
 
 ---
 
-## 12. Gap analysis vs Claude Desktop / Cursor / Tern (2026-10-26)
+## 12. Gap analysis vs Claude Desktop / Cursor / Tern (2026-10-26; G3/G12 resolved 2026-10-27)
 
 Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLONE_SPEC_TERN.md`, and `docs/specs/PROJECTS_SPEC.md`. Dispositions: **Include** (add to spec), **Defer** (phase later), **Exclude** (intentionally not replicated).
 
@@ -517,7 +745,7 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 | Auto-update | yes | yes | deferred v1 | ⚠️ gap |
 | Remote Control (phone) | yes | no | later | ⚠️ deferred |
 | Computer use | yes | no | later (macOS 26) | ⚠️ deferred |
-| Artifacts (rendered inline) | yes | no | deferred (G3) | ⚠️ gap |
+| Artifacts (rendered inline) | yes | no | local block + editor/preview (§3.6) | ✅ local (10 diffs) |
 | Quick window / launcher | yes | command palette | ⌘K palette | ⚠️ partial |
 | Buddy window | yes | no | excluded | ⚠️ excluded |
 | Cowork / team | yes | no | excluded | ⚠️ by design |
@@ -534,7 +762,10 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 ### Include (added/clarified)
 - **G1. Single-owner, local-first scope** — stated explicitly in §1 Vision (no multi-user/team/cloud/mobile). Already intended; now explicit.
 - **G2. Model/effort separate for coordinator vs threads** — added to §9 (Claude Projects pattern).
-- **G3. Artifacts (rendered code/docs inline in chat)** — add "Artifacts" rendering in agent pane (markdown/code inline) as part of Phase B/C. Medium scope; cedia may emit artifact events.
+- **G3. Artifacts (rendered code/docs inline in chat)** — DONE 2026-10-27 (§3.6):
+  daemon-owned records (`cedian_artifact` + §5.4 files), artifact block beside
+  the agent pane (editor + Chromium preview), local exports, personal-only
+  20 MB text store. Cloud/shared/publish paths excluded by design (§3.6.3).
 
 ### Defer (phase later)
 - **G4. Inline AI completion / tab completion (ghost text)** (Cursor) — defer to Phase D or later; requires model routing; cedia may expose completion. Not blocking "complete tools".
@@ -545,7 +776,10 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 - **G9. Canvas/board block** (Tern) — freeform notes block; defer to Phase C/D.
 - **G10. Custom CSS / theming beyond tokens** (Tern) — defer.
 - **G11. Bug finder** (Cursor) — covered by code review (/code-review) + PR review; defer dedicated tool.
-- **G12. Artifacts rendering details** — UNKNOWN in clone spec; revisit when cedia emits artifacts.
+- **G12. Artifacts rendering details** — RESOLVED 2026-10-27 (§3.6): REA from
+  the public artifacts article; rules in `cedian_artifact` + `src/artifacts/`
+  with tests; cloud/shared/publish/connect-apps/use-Claude deferred or
+  excluded per §3.6.3.
 - **G13. Cloud execution** (cloud sessions while laptop closed, cloud environments, background agents cloud, GitHub App) — defer to post-v1 "remote execution" phase; local-first for v1 (daemon keep-awake covers local).
 - **G14. Cloud connectors** (claude.ai connectors) — defer; local MCP (cedia mcp) covers v1.
 
@@ -557,7 +791,8 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 - Heavy-work worker as separate process — Electron workers suffice if needed.
 
 ### Already covered (no gap)
-- Artifacts partially via viewers (images, PDF, CSV, notebooks) and markdown preview.
+- Artifacts viewers (images, PDF, CSV, notebooks) and markdown preview now fold
+  into §3.6 (artifact blocks); cloud/shared/publish paths stay excluded.
 - Quick window partially via ⌘K command palette.
 - Find in page via VS Code find.
 - Memory (per project) via Memory block (read; write via cedia memory add).
@@ -584,6 +819,10 @@ Consolidated checklist; details in referenced sections.
 - [ ] **Blocks** (§9, §11): full Tern parity (split/drag/zoom/park/PiP/tear-off/named layouts/overview/fold) working at 720–1440px, both themes, no leak.
 - [ ] **Browser** (§9): daemon Chromium + CDP + screencast; element selection + capture; per-project allowlist; safety banner.
 - [ ] **Multi-repo** (§3.5, §11): roots add/remove/validate; one thread per root; coordinator cards; auto-archive.
+- [ ] **Artifacts** (§3.6, §4.5, §5.4, §8.6): `cargo test -p cedian_artifact` +
+  `vitest src/artifacts` green; 15/16-line bar, plan table, 20 MB text-only,
+  fork/build-on isolation, local exports (no Google/MP4), 10 differences listed
+  and true.
 - [ ] **Roadmap exit gate** (docs/ARCHITECTURE.md phases 0-D): Phase D exit — "agent fixes a bug shown in a screen recording".
 
 ---
