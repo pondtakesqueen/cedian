@@ -1090,7 +1090,7 @@ impl Daemon {
     /// window shows are looked at, and each thread once per daemon. It runs on the model of the
     /// thread that opened it, so the model picked in the project chat reaches the work.
     pub fn start_queued(shared: &Shared) {
-        let queued: Vec<(PathBuf, String, String, Option<String>)> = {
+        let queued: Vec<(PathBuf, String, String, String, Option<String>)> = {
             let mut daemon = lock(shared);
             if !daemon.version.as_ref().is_ok_and(|v| {
                 v.capabilities
@@ -1127,15 +1127,28 @@ impl Daemon {
                         && daemon.started.insert((slug.clone(), thread.id.clone()))
                     {
                         let model = opener_model(&threads, thread.by.as_deref());
-                        found.push((cwd.clone(), thread.id.clone(), thread.task.clone(), model));
+                        // The worktree is named from the title the coordinator gave, which tells
+                        // threads apart better than the task's opening words.
+                        let name = if thread.title.trim().is_empty() {
+                            &thread.task
+                        } else {
+                            &thread.title
+                        };
+                        found.push((
+                            cwd.clone(),
+                            thread.id.clone(),
+                            thread.task.clone(),
+                            name.clone(),
+                            model,
+                        ));
                     }
                 }
             }
             found
         };
-        for (cwd, thread, task, model) in queued {
+        for (cwd, thread, task, name, model) in queued {
             log::info!("starting queued {thread}");
-            match crate::worktree::create(&cwd, &task) {
+            match crate::worktree::create(&cwd, &name) {
                 Ok((dir, branch)) => {
                     log::info!("worktree {} on {branch}", dir.display());
                     Self::prompt(

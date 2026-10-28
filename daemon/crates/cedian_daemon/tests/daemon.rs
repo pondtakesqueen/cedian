@@ -1293,12 +1293,13 @@ fn a_thread_the_coordinator_opened_starts_in_its_own_worktree() {
     assert!(args.windows(2).any(|w| w == ["--todo", "on"]), "{args:?}");
     // Nobody is waiting to come back to it: cedia's own cache lifetime.
     assert!(!args.contains(&"--cache-ttl"), "{args:?}");
+    // Its worktree is named from the title the coordinator gave it, not the task.
     let ran_in = std::fs::read_to_string(harness.threads.join("../cwd")).expect("cwd");
     let worktree = harness
         .cwd
         .canonicalize()
         .expect("repo")
-        .join(".cedian/worktrees/fix-the-login-form");
+        .join(".cedian/worktrees/fix-the-login");
     assert_eq!(Path::new(ran_in.trim()), worktree);
 }
 
