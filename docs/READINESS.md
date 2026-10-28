@@ -99,7 +99,7 @@
   openrouter/claude-haiku-5-5` ok in 25 s: a worktree run, quit and reopen
   with the thread intact, review and accept, daemon killed and a new one
   rebuilt the thread and its review
-- [ ] cedia pin to cedia main once cedia-code #153 merges
+- [x] cedia pin moved to cedia main 1b97cd5 (cedia-code #153 merged)
 
 ## Known gaps
 - `desktop.keymap` changes apply when a window opens, not live
