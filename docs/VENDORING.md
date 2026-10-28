@@ -71,8 +71,9 @@ need the Mac.
 6. Layer Cedian keybindings on top of VS Code defaults (Cedian wins on
    conflict; see spec §7). Done in Phase B: `src/keybindings/keybindings.ts`
    at weight ExternalExtension + 100; Cmd+K is inline edit where a text
-   editor has focus and the command palette elsewhere (VS Code's Cmd+K
-   chords are given up); `desktop.keymap` takes effect when a window opens.
+   editor has focus, and VS Code's Cmd+K chords keep working elsewhere (owner,
+   2026-10-28; the command palette stays on Cmd+Shift+P); `desktop.keymap`
+   takes effect when a window opens.
 7. Add the Cedian workbench contributions from `src/`: agent pane, composer,
    blocks layout engine (Tern-style, native DOM + CSS), browser panel
    (daemon Chromium screencast), settings window. Daemon IPC over the Unix

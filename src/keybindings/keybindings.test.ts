@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { isKey, KEYBINDINGS, parseKey, withKeymap } from "./keybindings";
 
 describe("keybinding layer", () => {
-  it("names each command once, except Cmd+K split by focus", () => {
+  it("names each command once; Cmd+K is inline edit in an editor only", () => {
     const ids = KEYBINDINGS.map((b) => b.command);
     expect(new Set(ids).size).toBe(ids.length);
     const cmdK = KEYBINDINGS.filter((b) => b.mac === "cmd+k");
-    expect(cmdK.map((b) => b.when)).toEqual(["editorTextFocus && !editorReadonly", "!editorTextFocus || editorReadonly"]);
+    expect(cmdK).toEqual([expect.objectContaining({ command: "cedian.inlineEdit", when: "editorTextFocus && !editorReadonly" })]);
     for (const b of KEYBINDINGS) expect(isKey(b.mac), b.mac).toBe(true);
   });
   it("takes the person's keys by command id, ignoring nonsense", () => {

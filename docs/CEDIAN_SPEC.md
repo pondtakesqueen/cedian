@@ -130,7 +130,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | Branch switching | Daemon (git commands) |
 | Worktree (per task) | Daemon (worktree create) |
 | Split view (side by side) | VS Code split editor |
-| Command palette (Cmd+K/Cmd+P) | VS Code command palette + Cedian blocks |
+| Command palette (Cmd+Shift+P/Cmd+P) | VS Code command palette + Cedian blocks |
 | Find in thread (Cmd+F) | VS Code find |
 
 ### 3.3 From Tern
@@ -612,14 +612,14 @@ draft → open → (edited | fixing | forked) → pinned → closed
 | `Cmd+Shift+M` | Permission mode menu |
 | `Cmd+Shift+I` | Model menu |
 | `Cmd+Shift+E` | Effort menu |
-| `Cmd+K` | Command palette |
+| `Cmd+K` | Inline edit (text editor focused; decided 2026-10-28) |
 | `Cmd+P` | Quick open file |
 | `Cmd+F` | Find in thread |
 | `Cmd+,` | Settings |
 | `Cmd+.` | Stop |
 | `Tab` / `→` | Accept prompt suggestion (empty composer only) |
 
-**Conflict reconciliation (VS Code defaults vs Cedian):** Cedian wins on conflict (§9). VS Code shortcuts that Cedian overrides: `Cmd+K` (command palette, VS Code uses as chord prefix), `Cmd+W` (close block vs close editor — Cedian closes focused block), `Cmd+Shift+E` (VS Code explorer focus → Cedian effort menu; explorer via sidebar). VS Code shortcuts preserved where no conflict: `Cmd+P` (quick open), `Cmd+Shift+P` (command palette variants), `Cmd+F` (find). Full override table to be finalized during Phase B (keybindings.json generation).
+**Conflict reconciliation (VS Code defaults vs Cedian):** Cedian wins on conflict (§9). VS Code shortcuts that Cedian overrides: `Cmd+K` only where a text editor has focus (inline edit; VS Code's Cmd+K chords keep working elsewhere, command palette on `Cmd+Shift+P`; owner 2026-10-28), `Cmd+W` (close block vs close editor — Cedian closes focused block), `Cmd+Shift+E` (VS Code explorer focus → Cedian effort menu; explorer via sidebar). VS Code shortcuts preserved where no conflict: `Cmd+P` (quick open), `Cmd+Shift+P` (command palette variants), `Cmd+F` (find). Full override table to be finalized during Phase B (keybindings.json generation).
 
 ## 8. Error behaviors
 
