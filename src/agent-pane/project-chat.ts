@@ -2,7 +2,7 @@
 // conversation with the project's coordinator, a cedia thread whose profile is `coordinator`,
 // which opens a thread per piece of work with `open_thread`. The chat shows a card for each
 // thread it opened: its state, its progress from the todo list, and its question when it asks.
-import type { Status, ThreadInfo } from "../protocol/wire.js";
+import type { PrChip, Status, ThreadInfo } from "../protocol/wire.js";
 import { type Completion, score } from "../composer/complete.js";
 import { todoCard } from "./cards.js";
 
@@ -28,6 +28,8 @@ export interface ChatCard {
   cwd?: string;
   /** Archived, by the daemon once nothing was owed on it or by the person: a finished card. */
   archived?: boolean;
+  /** Its pull request, while the daemon follows it. */
+  pr?: PrChip;
 }
 
 // A question first, then work going on, then what is finished.
@@ -54,6 +56,7 @@ export function chatCards(threads: ThreadInfo[], coordinator: string): ChatCard[
         ...(t.status === "asking" && t.question ? { question: { text: t.question.question, options: t.question.options ?? [] } } : {}),
         ...(t.cwd ? { cwd: t.cwd } : {}),
         ...(t.archived ? { archived: true } : {}),
+        ...(t.pr ? { pr: t.pr } : {}),
       };
     });
 }

@@ -12,6 +12,7 @@ import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { items } from "./items.js";
 import { renderItems } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
+import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
@@ -75,7 +76,7 @@ export function threadSearch(threads: ThreadInfo[]): ThreadSearchItem[] {
     const title = t.title || t.task;
     const progress = todoCard(t)?.progress;
     const state = t.archived ? "เก็บแล้ว" : t.needs_you ? `${STATUS_LABEL[t.status] ?? t.status} · ต้องดู` : STATUS_LABEL[t.status] ?? t.status;
-    return { id: t.id, label: title, description: [state, progress].filter(Boolean).join(" · "), ...(t.task && t.task !== title ? { detail: t.task } : {}) };
+    return { id: t.id, label: title, description: [state, progress, t.pr ? prText(t.pr) : undefined].filter(Boolean).join(" · "), ...(t.task && t.task !== title ? { detail: t.task } : {}) };
   };
   const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || b.updated_at.localeCompare(a.updated_at));
   return [{ id: CHAT, label: "แชทโปรเจกต์", description: coordinator ? STATUS_LABEL[coordinator.status] ?? coordinator.status : "" }, ...rest.map(item)];
@@ -478,6 +479,8 @@ export class AgentPane {
     const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
     mode.title = "สลับมุมมอง (Ctrl+O)";
     this.header.replaceChildren(picker, dot, mode);
+    const pr = this.state.thread ? this.threads.find((t) => t.id === this.state.thread)?.pr : undefined;
+    if (pr) this.header.insertBefore(this.prChip(pr), mode);
     const meter = contextMeter(this.state.view.context ?? undefined, currentModel(this.state.view.blocks as Block[], this.state.info), this.models);
     if (meter) {
       const ns = "http://www.w3.org/2000/svg";
@@ -531,6 +534,13 @@ export class AgentPane {
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
   }
 
+  /** The thread's PR: where it stands; a click opens it. */
+  private prChip(pr: NonNullable<ThreadInfo["pr"]>): HTMLElement {
+    const chip = button(this.doc, prText(pr), () => this.host.openUrl(pr.url), `chip pr pr-${prLabel(pr).tone}`);
+    chip.title = pr.url;
+    return chip;
+  }
+
   /** The coordinator's threads, one card each: open it, or answer its question here. */
   private threadCards(cards: ChatCard[]): HTMLElement {
     const d = this.doc;
@@ -540,7 +550,9 @@ export class AgentPane {
       row.dataset.thread = c.id;
       const head = el(d, "div", "row");
       const state = c.archived ? "เก็บแล้ว" : STATUS_LABEL[c.status] ?? c.status;
-      head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")), button(d, "เปิด", () => this.openThread(c.id), "btn small"));
+      head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")));
+      if (c.pr) head.append(this.prChip(c.pr));
+      head.append(button(d, "เปิด", () => this.openThread(c.id), "btn small"));
       row.append(head);
       if (c.step && !c.archived) row.append(el(d, "div", "small step", c.step));
       if (c.question) {
