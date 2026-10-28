@@ -46,6 +46,13 @@ fn start_with(fixture: &str, caps: &str) -> Harness {
         ("FAKE_THREADS".to_owned(), threads.display().to_string()),
         ("FAKE_CAPS".to_owned(), caps.to_owned()),
         (
+            "CEDIAN_GH".to_owned(),
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fake/gh")
+                .display()
+                .to_string(),
+        ),
+        (
             "FAKE_SESSIONS".to_owned(),
             home.join("sessions").join(&slug).display().to_string(),
         ),
@@ -1301,6 +1308,83 @@ fn a_thread_the_coordinator_opened_starts_in_its_own_worktree() {
         .expect("repo")
         .join(".cedian/worktrees/fix-the-login");
     assert_eq!(Path::new(ran_in.trim()), worktree);
+}
+
+#[test]
+fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
+    let harness = start("edit-and-check");
+    git(&harness.cwd, &["init", "-q"]);
+    git(&harness.cwd, &["checkout", "-q", "-b", "fix-login"]);
+    git(
+        &harness.cwd,
+        &["commit", "-q", "--allow-empty", "-m", "start"],
+    );
+    let state = harness.threads.join("..");
+    std::fs::create_dir_all(&state).expect("state");
+    std::fs::write(
+        state.join("pr.json"),
+        r#"{"number":7,"url":"https://github.com/o/r/pull/7","state":"OPEN","headRefOid":"abc123","mergeable":"MERGEABLE","reviewDecision":"REVIEW_REQUIRED",
+            "statusCheckRollup":[{"__typename":"CheckRun","name":"typescript","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/78/job/2"}],
+            "comments":[],"reviews":[]}"#,
+    )
+    .expect("pr");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Prompt {
+        cwd: harness.cwd.clone(),
+        text: "fix the login".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+    });
+    window.until(status_is(Status::Done));
+    // The run ended on a branch with a PR whose CI is red: the daemon's next look gives the
+    // thread a run with the failing check and its log.
+    let args_file = state.join("args");
+    let mut args = String::new();
+    for _ in 0..100 {
+        args = std::fs::read_to_string(&args_file).unwrap_or_default();
+        if args.contains("Your pull request #7") {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(
+        args.contains("--print=Your pull request #7 (https://github.com/o/r/pull/7) at abc123 failed CI: typescript."),
+        "{args}"
+    );
+    assert!(args.contains("error TS2322"), "{args}");
+    assert!(args.lines().any(|l| l == "--thread"), "{args}");
+    let calls = std::fs::read_to_string(state.join("gh-calls")).expect("gh calls");
+    assert!(
+        calls
+            .lines()
+            .any(|l| l.starts_with("pr view fix-login --json")),
+        "{calls}"
+    );
+    assert!(
+        calls.lines().any(|l| l == "run view 78 --log-failed"),
+        "{calls}"
+    );
+    // The thread's row carries the chip.
+    window.ask(Request::Threads {
+        cwd: harness.cwd.clone(),
+    });
+    let (_, seen) = window.until(
+        |n| matches!(n, Notice::Threads { threads, .. } if threads.iter().any(|t| t.pr.is_some())),
+    );
+    let Some(Notice::Threads { threads, .. }) = seen.last() else {
+        panic!("threads")
+    };
+    let chip = threads.iter().find_map(|t| t.pr.clone()).expect("chip");
+    assert_eq!(chip.number, 7);
+    assert_eq!(chip.ci, cedian_wire::CiState::Failing);
+    assert_eq!(chip.review.as_deref(), Some("review_required"));
+    assert!(chip.fixing);
 }
 
 #[test]

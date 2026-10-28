@@ -600,6 +600,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+0` | Project chat (the coordinator; phase C) |
+| `Cmd+T` | Search threads: the project chat, then threads by title, state and task, archived last (phase C; `Cmd+K` is the inline edit) |
 | `Cmd+N` | New session |
 | `Cmd+W` | Close session |
 | `Ctrl+Tab` | Next/previous session |

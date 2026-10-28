@@ -117,17 +117,20 @@
   chat's first message starts the project's coordinator thread
   (`--profile coordinator`, in the project itself); the chat shows a card
   per thread it opened (state, todo progress and step, its question with
-  answers as buttons, เปิด). Still to do: auto-archive cards, search
-  above the list
+  answers as buttons, เปิด)
+- [x] An archived thread keeps its card in the chat, last, as เก็บแล้ว (the
+  daemon's auto-archive was already in place); thread search on ⌘T, a quick
+  pick over the chat and every thread, archived last
 - [x] Threads the coordinator opens run on the chat's model (the opener's
   writer model, cedian #12; checked on the Mac: 2 threads queued → done)
 - [x] `@<thread> text` in the chat goes straight to that thread (its next
   run, or queued while it works); `@` at the start offers the coordinator's
   threads by title. Opened threads' worktrees are named from their titles
-- [ ] PR watch (owner, 2026-10-28): the daemon follows each thread's PR
+- [x] PR watch (owner, 2026-10-28): the daemon follows each thread's PR
   through `gh`; CI red, new review comments or a conflict become the
-  thread's next run; PR chip on the row and the card; merged counts toward
-  auto-archive (ARCHITECTURE, Phase C)
+  thread's next run; PR chip on the header, the card and the search; a
+  merged PR archives the thread (ARCHITECTURE, Phase C). To check on the
+  Mac with a real PR; per-thread หยุดเฝ้า still to do
 - [ ] Exit gate: three threads at once across two repos from one project
   chat; memory measured; scroll 10k blocks @60fps
 

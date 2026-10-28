@@ -15,6 +15,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
@@ -79,9 +80,25 @@ async function withPane(accessor: ServicesAccessor, act: (pane: AgentPane) => vo
 	}
 }
 
+/** The thread search: a quick pick over the project chat and the threads, by title, state and task. */
+async function searchThreads(accessor: ServicesAccessor): Promise<void> {
+	const quick = accessor.get(IQuickInputService);
+	await withPane(accessor, async pane => {
+		const picked = await quick.pick(pane.searchItems(), {
+			placeHolder: localize('cedian.searchThreads', "ค้นหาเธรด"),
+			matchOnDescription: true,
+			matchOnDetail: true,
+		});
+		if (picked) {
+			pane.pick(picked.id);
+		}
+	});
+}
+
 const COMMANDS: Record<string, (accessor: ServicesAccessor) => unknown> = {
 	'cedian.projectChat': a => withPane(a, p => p.projectChat()),
 	'cedian.newThread': a => withPane(a, p => p.newThread()),
+	'cedian.searchThreads': a => searchThreads(a),
 	'cedian.closeThread': a => withPane(a, p => p.newThread()),
 	'cedian.nextThread': a => withPane(a, p => p.stepThread(1)),
 	'cedian.previousThread': a => withPane(a, p => p.stepThread(-1)),

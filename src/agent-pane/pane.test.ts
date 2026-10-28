@@ -2,7 +2,7 @@
 // The live pane against a fake daemon: what it asks for, and what it draws from the answers.
 import { describe, expect, it } from "vitest";
 import type { Notice, Request, Review, ThreadInfo } from "../protocol/wire";
-import { AgentPane, threadList, type PaneHost } from "./pane";
+import { AgentPane, CHAT, threadList, threadSearch, type PaneHost } from "./pane";
 
 function setup(over: Partial<PaneHost> = {}) {
   const sent: Request[] = [];
@@ -206,6 +206,54 @@ describe("agent pane", () => {
     type(pane, "@t-9 hi");
     enter(pane);
     expect(last()).toMatchObject({ op: "prompt", cwd: "/r", text: "@t-9 hi", thread: "c-1" });
+  });
+
+  it("keeps an archived thread's card in the chat, last, as finished", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [] });
+    pane.projectChat();
+    type(pane, "go");
+    enter(pane);
+    emit({ kind: "started", cwd: "/r", thread: "c-1" });
+    const coordinator = info({ id: "c-1", profile: "coordinator", updated_at: "2026-10-28T11:00:00Z" });
+    emit({ kind: "threads", cwd: "/r", threads: [coordinator, info({ id: "t-2", title: "Shipped", by: "c-1", archived: true, updated_at: "2026-10-28T12:00:00Z" }), info({ id: "t-3", title: "Still going", by: "c-1", status: "working", state: "working" })] });
+    const cards = [...pane.root.querySelectorAll<HTMLElement>(".thread-card")];
+    expect(cards.map((c) => c.dataset.thread)).toEqual(["t-3", "t-2"]);
+    expect(cards[1]!.classList.contains("archived")).toBe(true);
+    expect(cards[1]!.textContent).toContain("เก็บแล้ว");
+  });
+
+  it("a thread's PR shows as a chip on its card and its header, and opens on a click", () => {
+    const urls: string[] = [];
+    const { pane, emit } = setup({ openUrl: (u) => urls.push(u) });
+    emit({ kind: "threads", cwd: "/r", threads: [] });
+    pane.projectChat();
+    type(pane, "go");
+    enter(pane);
+    emit({ kind: "started", cwd: "/r", thread: "c-1" });
+    const pr = { number: 7, url: "https://github.com/o/r/pull/7", state: "open", ci: "failing", conflict: false, review: null, fixing: true } as const;
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "c-1", profile: "coordinator" }), info({ id: "t-2", title: "Fix login", by: "c-1", pr })] });
+    const chip = pane.root.querySelector<HTMLElement>(".thread-card .chip.pr")!;
+    expect(chip.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
+    expect(chip.classList.contains("pr-bad")).toBe(true);
+    chip.click();
+    expect(urls).toEqual(["https://github.com/o/r/pull/7"]);
+    pane.openThread("t-2");
+    expect(pane.root.querySelector(".chip.pr")!.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
+  });
+
+  it("the thread search lists the chat first, then threads newest first, archived last", () => {
+    const items = threadSearch([
+      info({ id: "c-1", profile: "coordinator", status: "working", state: "working" }),
+      info({ id: "t-old", title: "Old", archived: true, updated_at: "2026-10-28T13:00:00Z" }),
+      info({ id: "t-a", title: "A", task: "fix the login form", updated_at: "2026-10-28T11:00:00Z", todo: [{ state: "done", text: "x" }, { state: "pending", text: "y" }] }),
+      info({ id: "t-b", title: "B", status: "asking", state: "asking", needs_you: true, updated_at: "2026-10-28T12:00:00Z" }),
+    ]);
+    expect(items.map((i) => i.id)).toEqual([CHAT, "t-b", "t-a", "t-old"]);
+    expect(items[0]!.description).toBe("กำลังทำ");
+    expect(items[1]!.description).toBe("รอคำตอบ · ต้องดู");
+    expect(items[2]).toEqual({ id: "t-a", label: "A", description: "เสร็จ · 1/2", detail: "fix the login form" });
+    expect(items[3]!.description).toBe("เก็บแล้ว");
   });
 
   it("lists threads newest first without archived ones", () => {

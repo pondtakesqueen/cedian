@@ -19,6 +19,8 @@ export const PANE_FOCUS = "cedianPaneFocus";
 export const KEYBINDINGS: Binding[] = [
   { command: "cedian.projectChat", mac: "cmd+0", label: "แชทโปรเจกต์" },
   { command: "cedian.newThread", mac: "cmd+n", label: "เธรดใหม่" },
+  // ⌘K is the inline edit (owner, 2026-10-28), so the thread search takes ⌘T, "go to".
+  { command: "cedian.searchThreads", mac: "cmd+t", label: "ค้นหาเธรด" },
   { command: "cedian.closeThread", mac: "cmd+w", label: "ปิดเธรด", when: PANE_FOCUS },
   { command: "cedian.nextThread", mac: "ctrl+tab", label: "เธรดถัดไป", when: PANE_FOCUS },
   { command: "cedian.previousThread", mac: "ctrl+shift+tab", label: "เธรดก่อนหน้า", when: PANE_FOCUS },

@@ -6,6 +6,7 @@ mod build;
 mod launch_agent;
 mod mcp;
 mod message;
+mod pr;
 mod schema;
 mod socket;
 mod status;
@@ -18,6 +19,7 @@ pub use mcp::{McpAdd, McpServer, McpTarget, McpTransport};
 pub use message::{
     Decision, Helpers, Notice, Position, Request, Selection, read_message, write_message,
 };
+pub use pr::{CiState, PrChip, PrState};
 pub use schema::wire_schema;
 pub use socket::{socket_path, state_dir};
 pub use status::{Status, ThreadInfo};

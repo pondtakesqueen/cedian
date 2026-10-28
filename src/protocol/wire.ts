@@ -220,6 +220,18 @@ export type Capability =
   | "threads.send-images"
   | "inline-edit";
 /**
+ * The checks on the PR's head commit, taken together.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CiState".
+ */
+export type CiState = ("pending" | "passing" | "failing") | "none";
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrState".
+ */
+export type PrState = "open" | "merged" | "closed";
+/**
  * `Rating`
  *
  * <details><summary>JSON schema</summary>
@@ -907,6 +919,10 @@ export interface ThreadInfo {
    */
   pending: string[];
   /**
+   * Its branch's pull request, while the daemon follows it.
+   */
+  pr?: PrChip | null;
+  /**
    * The profile its runs take unless another is named.
    */
   profile?: string | null;
@@ -961,6 +977,30 @@ export interface ThreadMessage {
   from: string;
   id: string;
   text: string;
+}
+/**
+ * A thread's pull request as the daemon last saw it through `gh` (ARCHITECTURE, Phase C "Watching a thread's pull request"), for the chip on its row and its card.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrChip".
+ */
+export interface PrChip {
+  ci: CiState;
+  /**
+   * GitHub cannot merge it into its base without a conflict.
+   */
+  conflict?: boolean;
+  /**
+   * A run the watch started for the PR's head is going or has not pushed yet.
+   */
+  fixing?: boolean;
+  number: number;
+  /**
+   * GitHub's review decision (`approved`, `changes_requested`, `review_required`); none when the repository asks for no review.
+   */
+  review?: string | null;
+  state: PrState;
+  url: string;
 }
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
