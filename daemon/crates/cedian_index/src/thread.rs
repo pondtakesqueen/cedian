@@ -104,6 +104,30 @@ pub struct ThreadMessage {
     pub at: String,
 }
 
+impl ThreadSummary {
+    /// The model the thread's writer ran on last (a session whose role is `code`, or none from
+    /// an older cedia), as the cedia ref it was given.
+    pub fn writer_model(&self) -> Option<&str> {
+        self.sessions
+            .iter()
+            .rev()
+            .find(|s| s.role.is_empty() || s.role == "code")
+            .map(|s| s.model.as_str())
+    }
+}
+
+/// The model a thread opened by `by` (the coordinator, or any thread with `open_thread`) runs
+/// on: its opener's writer model, so the model the person picked in the project chat reaches
+/// the threads it opens. None when the opener is not among `threads` or never ran.
+pub fn opener_model(threads: &[ThreadSummary], by: Option<&str>) -> Option<String> {
+    let by = by?;
+    threads
+        .iter()
+        .find(|t| t.id == by)?
+        .writer_model()
+        .map(str::to_string)
+}
+
 pub fn threads_dir(home: &Path, slug: &str) -> PathBuf {
     home.join("projects").join(slug).join("threads")
 }
@@ -478,6 +502,19 @@ mod tests {
         );
         let roles: Vec<_> = thread.sessions.iter().map(|s| s.role.as_str()).collect();
         assert_eq!(roles, ["triage", "code"]);
+        assert_eq!(thread.writer_model(), Some("opus"), "not the triage model");
+        let opened = fold(
+            "t-2",
+            &self::events(&[r#"{"kind":"open","title":"u","task":"u","by":"t-1","at":"6"}"#]),
+        );
+        assert_eq!(opened.by.as_deref(), Some("t-1"));
+        let threads = [thread, opened.clone()];
+        assert_eq!(
+            opener_model(&threads, opened.by.as_deref()).as_deref(),
+            Some("opus")
+        );
+        assert_eq!(opener_model(&threads, Some("gone")), None);
+        assert_eq!(opener_model(&threads, None), None);
     }
 
     #[test]

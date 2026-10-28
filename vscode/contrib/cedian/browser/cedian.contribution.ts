@@ -80,6 +80,7 @@ async function withPane(accessor: ServicesAccessor, act: (pane: AgentPane) => vo
 }
 
 const COMMANDS: Record<string, (accessor: ServicesAccessor) => unknown> = {
+	'cedian.projectChat': a => withPane(a, p => p.projectChat()),
 	'cedian.newThread': a => withPane(a, p => p.newThread()),
 	'cedian.closeThread': a => withPane(a, p => p.newThread()),
 	'cedian.nextThread': a => withPane(a, p => p.stepThread(1)),

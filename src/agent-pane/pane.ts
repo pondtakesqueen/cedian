@@ -12,6 +12,7 @@ import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { items } from "./items.js";
 import { renderItems } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
+import { chatCards, COORDINATOR, coordinatorThread, type ChatCard } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
@@ -41,6 +42,9 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
   return threads.filter((t) => !t.archived).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
+
+/** The thread picker's value for the project chat. */
+const CHAT = "@chat";
 
 const STATUS_LABEL: Record<string, string> = {
   queued: "รอคิว",
@@ -72,6 +76,8 @@ export class AgentPane {
   private completions: Completion[] = [];
   private picked = 0;
   private reviewOpen = true;
+  /** The project chat is showing: the coordinator's thread, or the chat before it starts. */
+  private chat = false;
 
   private readonly header: HTMLElement;
   private readonly log: HTMLElement;
@@ -140,6 +146,7 @@ export class AgentPane {
 
   newThread(): void {
     this.leave();
+    this.chat = false;
     this.state = openState(this.host.cwd);
     this.ship = idleShip();
     this.render();
@@ -147,7 +154,8 @@ export class AgentPane {
   }
 
   openThread(id: string): void {
-    if (id === this.state.thread) return;
+    this.chat = id === coordinatorThread(this.threads)?.id;
+    if (id === this.state.thread) return this.render();
     this.leave();
     this.chosen.delete("model");
     this.chosen.delete("effort");
@@ -161,6 +169,18 @@ export class AgentPane {
     this.wire.request({ op: "open", cwd: this.host.cwd, thread: id });
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
+  }
+
+  /** The project chat (⌘0): the coordinator's thread, or a new one started from the composer. */
+  projectChat(): void {
+    const coordinator = coordinatorThread(this.threads);
+    if (coordinator) this.openThread(coordinator.id);
+    else {
+      this.newThread();
+      this.chat = true;
+      this.render();
+    }
+    this.input.focus();
   }
 
   /** The next (1) or previous (-1) thread in the list. */
@@ -298,7 +318,9 @@ export class AgentPane {
     const choices = { ...this.choices };
     if (this.state.thread && !this.chosen.has("model")) choices.model = undefined;
     if (this.state.thread && !this.chosen.has("permission")) choices.permission = threadPermission(this.state.info) ?? choices.permission;
-    const requests = submit(this.draft, target, choices);
+    let requests = submit(this.draft, target, choices);
+    // The chat's first message starts the coordinator's thread in the project itself.
+    if (this.chat && !this.state.thread) requests = requests.map((r) => (r.op === "prompt" ? { ...r, profile: COORDINATOR, worktree: false } : r));
     if (requests.length === 0) return;
     for (const r of requests) this.wire.request(r);
     this.input.value = "";
@@ -382,8 +404,13 @@ export class AgentPane {
   private renderHeader(): void {
     const d = this.doc;
     const list = threadList(this.threads);
-    const options = [{ value: "", label: "เธรดใหม่" }, ...list.map((t) => ({ value: t.id, label: `${t.title || t.task}${t.needs_you ? " •" : ""}` }))];
-    const picker = select(d, options, this.state.thread ?? "", (id) => (id ? this.openThread(id) : this.newThread()), "sel threads");
+    const coordinator = coordinatorThread(this.threads);
+    const options = [
+      { value: CHAT, label: "แชทโปรเจกต์" },
+      { value: "", label: "เธรดใหม่" },
+      ...list.filter((t) => t.id !== coordinator?.id).map((t) => ({ value: t.id, label: `${t.title || t.task}${t.needs_you ? " •" : ""}` })),
+    ];
+    const picker = select(d, options, this.chat ? CHAT : (this.state.thread ?? ""), (id) => (id === CHAT ? this.projectChat() : id ? this.openThread(id) : this.newThread()), "sel threads");
     picker.setAttribute("aria-label", "เธรด");
     const status = this.state.status;
     const dot = el(d, "span", `dot st-${status ?? "none"}`);
@@ -423,10 +450,15 @@ export class AgentPane {
     const nearBottom = this.log.scrollHeight - this.log.scrollTop - this.log.clientHeight < 40;
     const parts: HTMLElement[] = [];
     if (!this.state.thread) {
-      parts.push(el(d, "div", "empty", this.state.preparing ?? "เริ่มเธรดใหม่: พิมพ์สิ่งที่อยากให้ทำด้านล่าง"));
+      const hint = this.chat ? "แชทโปรเจกต์: บอกสิ่งที่อยากให้ทำ แล้ว coordinator จะแบ่งงานและเปิดเธรดให้แต่ละงาน" : "เริ่มเธรดใหม่: พิมพ์สิ่งที่อยากให้ทำด้านล่าง";
+      parts.push(el(d, "div", "empty", this.state.preparing ?? hint));
     } else {
       parts.push(renderItems(d, items(visibleBlocks(withoutTriage(this.state.view.blocks as Block[]), this.viewMode))));
       if (!this.state.caught) parts.push(el(d, "div", "small loading", "กำลังโหลดเธรด…"));
+    }
+    if (this.chat && this.state.thread) {
+      const cards = chatCards(this.threads, this.state.thread);
+      if (cards.length) parts.push(this.threadCards(cards));
     }
     const todo = todoCard(this.state.info);
     if (todo) parts.push(this.todoCard(todo));
@@ -437,6 +469,35 @@ export class AgentPane {
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     this.log.replaceChildren(...parts);
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
+  }
+
+  /** The coordinator's threads, one card each: open it, or answer its question here. */
+  private threadCards(cards: ChatCard[]): HTMLElement {
+    const d = this.doc;
+    const box = el(d, "div", "card threads");
+    for (const c of cards) {
+      const row = el(d, "div", `thread-card st-${c.status}`);
+      row.dataset.thread = c.id;
+      const head = el(d, "div", "row");
+      head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [STATUS_LABEL[c.status] ?? c.status, c.progress].filter(Boolean).join(" · ")), button(d, "เปิด", () => this.openThread(c.id), "btn small"));
+      row.append(head);
+      if (c.step) row.append(el(d, "div", "small step", c.step));
+      if (c.question) {
+        const q = c.question;
+        row.append(el(d, "div", "q", q.text));
+        const choices = el(d, "div", "row");
+        q.options.forEach((option, i) =>
+          choices.append(button(d, option, () => {
+            const r = answer(c.cwd ?? this.host.cwd, c.id, option);
+            if (r) this.wire.request(r);
+          }, i === 0 ? "btn primary" : "btn")),
+        );
+        if (q.options.length === 0) choices.append(button(d, "ตอบในเธรด", () => this.openThread(c.id), "btn"));
+        row.append(choices);
+      }
+      box.append(row);
+    }
+    return box;
   }
 
   private todoCard(todo: NonNullable<ReturnType<typeof todoCard>>): HTMLElement {
