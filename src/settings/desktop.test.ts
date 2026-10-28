@@ -34,7 +34,7 @@ describe("roots", () => {
   });
   it("adds a git repository once and keeps the primary first", () => {
     const added = addRoot({}, primary, "/Users/pond/lib/", true);
-    expect(added).toEqual({ roots: { "Users-pond-My-Projects-a-b": ["/Users/pond/lib"] } });
+    expect(added).toEqual({ roots: { "Users-pond-My-Projects-a-b": [primary, "/Users/pond/lib"] } });
     const desktop = "roots" in added ? { roots: added.roots } : {};
     expect(rootsOf(desktop, primary)).toEqual([primary, "/Users/pond/lib"]);
     expect(addRoot(desktop, primary, "/Users/pond/lib", true)).toHaveProperty("error");
@@ -46,5 +46,6 @@ describe("roots", () => {
     const desktop = { roots: { "Users-pond-My-Projects-a-b": ["/x"], other: ["/y"] } };
     expect(removeRoot(desktop, primary, primary)).toHaveProperty("error");
     expect(removeRoot(desktop, primary, "/x")).toEqual({ roots: { other: ["/y"] } });
+    expect(removeRoot({ roots: { "Users-pond-My-Projects-a-b": [primary, "/x", "/z"] } }, primary, "/x")).toEqual({ roots: { "Users-pond-My-Projects-a-b": [primary, "/z"] } });
   });
 });

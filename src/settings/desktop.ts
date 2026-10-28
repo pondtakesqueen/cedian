@@ -84,7 +84,11 @@ export function projectSlug(root: string): string {
   return slug === "" ? "root" : slug;
 }
 
-/** A project's roots: the primary (the project's own folder, which keys it) first. */
+/**
+ * A project's roots: the primary (the project's own folder, which keys it) first. `desktop.roots`
+ * keeps the primary first in each list too, so the daemon can find a workspace from any of its
+ * roots; a list written before that holds only the others.
+ */
 export function rootsOf(desktop: Desktop, primary: string): string[] {
   const listed = desktop.roots?.[projectSlug(primary)];
   const rest = Array.isArray(listed) ? listed.filter((r): r is string => typeof r === "string" && r !== primary) : [];
@@ -103,7 +107,7 @@ export function addRoot(desktop: Desktop, primary: string, path: string, isGitRe
   if (!isGitRepo) return { error: `${root} ไม่ใช่ git repository` };
   const roots = rootsOf(desktop, primary);
   if (roots.includes(root)) return { error: `${root} อยู่ในรายการแล้ว` };
-  return { roots: { ...(desktop.roots ?? {}), [projectSlug(primary)]: [...roots.slice(1), root] } };
+  return { roots: { ...(desktop.roots ?? {}), [projectSlug(primary)]: [...roots, root] } };
 }
 
 /** `desktop.roots` without one root; the primary stays (it keys the project). */
@@ -111,7 +115,7 @@ export function removeRoot(desktop: Desktop, primary: string, path: string): { r
   if (path === primary) return { error: "root หลักของ project เอาออกไม่ได้" };
   const rest = rootsOf(desktop, primary).slice(1).filter((r) => r !== path);
   const roots = { ...(desktop.roots ?? {}) };
-  if (rest.length) roots[projectSlug(primary)] = rest;
+  if (rest.length) roots[projectSlug(primary)] = [primary, ...rest];
   else delete roots[projectSlug(primary)];
   return { roots };
 }
