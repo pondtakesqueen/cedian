@@ -24,10 +24,18 @@ export interface PaneHost {
   files(query: string): Promise<string[]>;
   /** Image files the person picks. */
   pickImages(): Promise<string[]>;
+  /**
+   * Writes a pasted image that has no file of its own and returns the file's path. It needs to last
+   * only until the run starts: cedia keeps its own copy by hash.
+   */
+  saveImage?(bytes: Uint8Array, mime: string): Promise<string>;
   /** The diff editor for the thread's review, at one file when named. */
   openReview(thread: string, cwd: string, review: Review, file?: string): void;
   openUrl(url: string): void;
 }
+
+/** What cedia shows a model (`ImageMime`). */
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
 /** Threads newest first; archived ones and side chats stay out of the list. */
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
@@ -98,6 +106,12 @@ export class AgentPane {
     this.root.append(this.header, this.log, this.queue, composer);
     this.input.addEventListener("input", () => this.typed());
     this.input.addEventListener("keydown", (e) => this.key(e));
+    this.input.addEventListener("paste", (e) => {
+      const files = [...(e.clipboardData?.files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type));
+      if (files.length === 0) return;
+      e.preventDefault();
+      void this.paste(files);
+    });
     this.off = wire.onAny((n) => this.notice(n));
     wire.request({ op: "threads", cwd: host.cwd });
     wire.request({ op: "commands", cwd: host.cwd });
@@ -194,6 +208,17 @@ export class AgentPane {
   attach(paths: string[]): void {
     this.images.push(...paths.filter((p) => !this.images.includes(p)));
     this.renderComposer();
+  }
+
+  /** Attaches pasted images: a copied file by its path, a screenshot or picture through `saveImage`. */
+  async paste(files: File[]): Promise<void> {
+    const paths: string[] = [];
+    for (const file of files) {
+      const path = (file as File & { path?: string }).path;
+      if (path) paths.push(path);
+      else if (this.host.saveImage) paths.push(await this.host.saveImage(new Uint8Array(await file.arrayBuffer()), file.type));
+    }
+    if (paths.length) this.attach(paths);
   }
 
   // ---- notices ----

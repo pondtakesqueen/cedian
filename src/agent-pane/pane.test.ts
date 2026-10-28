@@ -138,6 +138,16 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "look at @src/main.ts", thread: null, worktree: false, images: ["/tmp/shot.png"] });
   });
 
+  it("attaches a pasted screenshot through the host and a copied file by its path", async () => {
+    const saved: string[] = [];
+    const { pane } = setup({ saveImage: async (bytes, mime) => (saved.push(`${mime}:${bytes.length}`), "/cache/paste-1.png") });
+    const shot = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png" });
+    const copied = Object.assign(new File([new Uint8Array([9])], "a.jpg", { type: "image/jpeg" }), { path: "/Users/p/a.jpg" });
+    await pane.paste([shot, copied]);
+    expect(saved).toEqual(["image/png:3"]);
+    expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["paste-1.png", "a.jpg"]);
+  });
+
   it("lists threads newest first without archived ones", () => {
     expect(threadList([info({ id: "a", updated_at: "1" }), info({ id: "b", updated_at: "2" }), info({ id: "c", archived: true })]).map((t) => t.id)).toEqual(["b", "a"]);
   });

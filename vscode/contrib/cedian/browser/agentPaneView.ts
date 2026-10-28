@@ -5,13 +5,17 @@
 
 import './media/agentPane.css';
 import { $, append } from '../../../../base/browser/dom.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
-import { relativePath } from '../../../../base/common/resources.js';
+import { joinPath, relativePath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -59,6 +63,8 @@ export class AgentPaneView extends ViewPane {
 		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
 		@ISearchService private readonly searchService: ISearchService,
 		@IFileDialogService private readonly fileDialogService: IFileDialogService,
+		@IFileService private readonly fileService: IFileService,
+		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -92,6 +98,13 @@ export class AgentPaneView extends ViewPane {
 				});
 				return (picked ?? []).map(uri => uri.fsPath);
 			},
+			// A pasted image without a file goes in the window's cache folder; cedia copies it when the run starts.
+			saveImage: async (bytes, mime) => {
+				const extension = mime === 'image/jpeg' ? 'jpg' : mime.split('/')[1];
+				const file = joinPath(this.environmentService.cacheHome, 'cedian-paste', `${generateUuid()}.${extension}`);
+				await this.fileService.writeFile(file, VSBuffer.wrap(bytes));
+				return file.fsPath;
+			},
 			openReview: (thread, cwd, review, file) => { this.reviews.open(thread, cwd, review, file); },
 			openUrl: url => { this.openerService.open(URI.parse(url)); },
 		});
@@ -106,7 +119,7 @@ export class AgentPaneView extends ViewPane {
 		pane.composer.addEventListener('blur', () => composerFocus.set(false));
 		pane.root.addEventListener('focusin', () => paneFocus.set(true));
 		pane.root.addEventListener('focusout', () => paneFocus.set(false));
-		// An image pasted or dropped in the composer is attached by its file path when it has one.
+		// An image dropped in the composer is attached by its file path (the pane handles a paste).
 		pane.composer.addEventListener('drop', e => {
 			const files = [...(e.dataTransfer?.files ?? [])].map(f => (f as File & { path?: string }).path).filter((p): p is string => !!p && /\.(png|jpe?g|gif|webp)$/i.test(p));
 			if (files.length) {

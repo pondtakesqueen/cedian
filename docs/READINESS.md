@@ -104,7 +104,6 @@
 ## Known gaps
 - `desktop.keymap` changes apply when a window opens, not live
 - the composer's chips start from Settings, not from the reopened thread's permission (not on the wire), and the model chip can show the wrong model for a reopened thread
-- pasted images (no file path) are not attached yet; picked and dropped files are
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
   their attribution in THIRD_PARTY_NOTICES.md
