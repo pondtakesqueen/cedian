@@ -223,11 +223,30 @@ describe("agent pane", () => {
     expect(cards[1]!.textContent).toContain("เก็บแล้ว");
   });
 
+  it("a thread's PR shows as a chip on its card and its header, and opens on a click", () => {
+    const urls: string[] = [];
+    const { pane, emit } = setup({ openUrl: (u) => urls.push(u) });
+    emit({ kind: "threads", cwd: "/r", threads: [] });
+    pane.projectChat();
+    type(pane, "go");
+    enter(pane);
+    emit({ kind: "started", cwd: "/r", thread: "c-1" });
+    const pr = { number: 7, url: "https://github.com/o/r/pull/7", state: "open", ci: "failing", conflict: false, review: null, fixing: true } as const;
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "c-1", profile: "coordinator" }), info({ id: "t-2", title: "Fix login", by: "c-1", pr })] });
+    const chip = pane.root.querySelector<HTMLElement>(".thread-card .chip.pr")!;
+    expect(chip.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
+    expect(chip.classList.contains("pr-bad")).toBe(true);
+    chip.click();
+    expect(urls).toEqual(["https://github.com/o/r/pull/7"]);
+    pane.openThread("t-2");
+    expect(pane.root.querySelector(".chip.pr")!.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
+  });
+
   it("the thread search lists the chat first, then threads newest first, archived last", () => {
     const items = threadSearch([
       info({ id: "c-1", profile: "coordinator", status: "working", state: "working" }),
       info({ id: "t-old", title: "Old", archived: true, updated_at: "2026-10-28T13:00:00Z" }),
-      info({ id: "t-a", title: "A", task: "fix the login form", updated_at: "2026-10-28T11:00:00Z", todo: [{ state: "done", text: "x" }, { state: "todo", text: "y" }] }),
+      info({ id: "t-a", title: "A", task: "fix the login form", updated_at: "2026-10-28T11:00:00Z", todo: [{ state: "done", text: "x" }, { state: "pending", text: "y" }] }),
       info({ id: "t-b", title: "B", status: "asking", state: "asking", needs_you: true, updated_at: "2026-10-28T12:00:00Z" }),
     ]);
     expect(items.map((i) => i.id)).toEqual([CHAT, "t-b", "t-a", "t-old"]);
