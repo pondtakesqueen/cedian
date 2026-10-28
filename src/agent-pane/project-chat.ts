@@ -3,6 +3,7 @@
 // which opens a thread per piece of work with `open_thread`. The chat shows a card for each
 // thread it opened: its state, its progress from the todo list, and its question when it asks.
 import type { Status, ThreadInfo } from "../protocol/wire.js";
+import { type Completion, score } from "../composer/complete.js";
 import { todoCard } from "./cards.js";
 
 export const COORDINATOR = "coordinator";
@@ -48,4 +49,26 @@ export function chatCards(threads: ThreadInfo[], coordinator: string): ChatCard[
         ...(t.cwd ? { cwd: t.cwd } : {}),
       };
     });
+}
+
+/**
+ * `@<thread> text` at the start of a chat message (ARCHITECTURE "`@` sends a message straight to
+ * one thread"): the text goes to that thread, one the coordinator opened, and not to the
+ * coordinator. None when the message names no such thread.
+ */
+export function addressed(text: string, threads: ThreadInfo[], coordinator: string): { thread: ThreadInfo; text: string } | undefined {
+  const m = /^@(\S+)(?:\s+([\s\S]*))?$/.exec(text.trimStart());
+  if (!m) return undefined;
+  const thread = threads.find((t) => t.id === m[1] && t.by === coordinator && !t.archived);
+  return thread ? { thread, text: (m[2] ?? "").trim() } : undefined;
+}
+
+/** The chat's `@` at the start of a message: the coordinator's threads, by title or id. */
+export function threadCompletions(query: string, cards: ChatCard[], limit = 8): Completion[] {
+  return cards
+    .map((c) => ({ c, s: Math.max(score(query, c.title) ?? -1, score(query, c.id) ?? -1) }))
+    .filter((x) => x.s >= 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit)
+    .map(({ c }) => ({ label: c.title, detail: c.id, insert: `@${c.id} ` }));
 }

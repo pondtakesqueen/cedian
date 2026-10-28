@@ -12,7 +12,7 @@ import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { items } from "./items.js";
 import { renderItems } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
-import { chatCards, COORDINATOR, coordinatorThread, type ChatCard } from "./project-chat.js";
+import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
@@ -313,6 +313,7 @@ export class AgentPane {
   }
 
   private send(): void {
+    if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
     const choices = { ...this.choices };
@@ -321,6 +322,26 @@ export class AgentPane {
     let requests = submit(this.draft, target, choices);
     // The chat's first message starts the coordinator's thread in the project itself.
     if (this.chat && !this.state.thread) requests = requests.map((r) => (r.op === "prompt" ? { ...r, profile: COORDINATOR, worktree: false } : r));
+    this.sent(requests);
+  }
+
+  /**
+   * In the chat, `@<thread> text` goes to that thread: as its next run when it is at rest, else
+   * queued for its next turn. It goes on with its own model and permission. False when the
+   * message names no thread of the coordinator's.
+   */
+  private sendToThread(): boolean {
+    const to = addressed(this.input.value, this.threads, this.state.thread!);
+    if (!to) return false;
+    const t = to.thread;
+    const running = t.status === "working" || t.status === "queued";
+    const permission = threadPermission(t);
+    const requests = submit({ text: to.text, images: this.images }, { cwd: t.cwd ?? this.host.cwd, thread: t.id, running }, { worktree: false, ...(permission ? { permission } : {}) });
+    this.sent(requests);
+    return true;
+  }
+
+  private sent(requests: Request[]): void {
     if (requests.length === 0) return;
     for (const r of requests) this.wire.request(r);
     this.input.value = "";
@@ -339,8 +360,11 @@ export class AgentPane {
       return;
     }
     const asked = token;
+    // In the chat, an `@` that starts the message names one of the coordinator's threads first.
+    const threads = this.chat && this.state.thread && token.start === 0 ? threadCompletions(token.query, chatCards(this.threads, this.state.thread)) : [];
+    if (threads.length) this.showCompletions(threads);
     this.host.files(token.query).then((files) => {
-      if (this.token === asked) this.showCompletions(complete(asked, files, []));
+      if (this.token === asked) this.showCompletions([...threads, ...complete(asked, files, [])]);
     }, () => {});
   }
 
@@ -497,6 +521,7 @@ export class AgentPane {
       }
       box.append(row);
     }
+    box.append(el(d, "div", "small hint", "พิมพ์ @ ตามด้วยเธรดเพื่อส่งข้อความถึงเธรดนั้นโดยตรง"));
     return box;
   }
 
