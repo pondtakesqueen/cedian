@@ -100,6 +100,22 @@
   with the thread intact, review and accept, daemon killed and a new one
   rebuilt the thread and its review
 - [x] cedia pin moved to cedia main 1b97cd5 (cedia-code #153 merged)
+- [x] Phase B gaps closed after the gate (cedian #9, #10, checked on the
+  Mac): a reopened thread's model and permission chips, pasted images,
+  live `desktop.keymap`, and the window handing over from a daemon of
+  another build
+
+## Phase C (Parallel)
+- [x] cedia pin moved to cedia main 8cb0358 at the start of the phase
+  (cedia-code #158: multi-repo workspaces; schema unchanged)
+- [x] Multi-repo, cedia side: `CEDIA_ROOTS` keys every root by the primary
+  root's slug, `open_thread` takes a root of the workspace, a `--thread`
+  run goes on in its root, the other roots are named read-only
+- [x] Multi-repo, cedian side: the daemon passes `CEDIA_ROOTS` from
+  `desktop.roots` (cedian #11)
+- [ ] Project chat (⌘0) + coordinator cards
+- [ ] Exit gate: three threads at once across two repos from one project
+  chat; memory measured; scroll 10k blocks @60fps
 
 ## Known gaps
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
