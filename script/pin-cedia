@@ -22,3 +22,5 @@ cp "$tmp/src/protocol/protocol.schema.json" "$dest/protocol.schema.json"
 cp -R "$tmp/test/fixtures/sessions" "$dest/sessions"
 echo "$rev" > "$dest/REV"
 echo "pinned cedia $rev"
+# The window's TS types follow the same schema.
+node "$(dirname "$0")/protocol-types.mjs"
