@@ -3,8 +3,8 @@
 Pinned base: **VS Code `1.143.1`** (latest stable, verified 2026-10-26 via
 `https://update.code.visualstudio.com/api/releases/stable`).
 Spec: `docs/CEDIAN_SPEC.md` §9 (Base, License, Extension system) and §11 items 1–11.
-Merge policy: rebase onto VS Code latest stable quarterly; the owner decides
-each merge (spec §9).
+Merge policy: merge upstream rarely, only when needed (e.g. a security fix);
+the owner decides each merge (spec §9, 2026-10-28).
 
 ## Steps
 
@@ -41,4 +41,4 @@ each merge (spec §9).
 
 - `microsoft/vscode` Marketplace integration, Copilot, or any proprietary
   Microsoft/Cursor code (spec §9 License/IP policy).
-- Non-MIT dependencies without explicit owner approval (CI license scan).
+- Copyleft or proprietary dependencies (GPL, AGPL, LGPL-only, MPL, FSL/BSL/SSPL); permissive licenses pass the CI license scan (spec §9, 2026-10-28).

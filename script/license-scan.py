@@ -2,9 +2,10 @@
 """License gate for Cedian's Rust daemon (docs/CEDIAN_SPEC.md §9).
 
 Pass: every third-party package offers the code under MIT or another
-permissive MIT-compatible license (Apache-2.0, BSD, ISC, Zlib, Unlicense,
-CC0-1.0, 0BSD, Unicode-3.0/DFS). Packages that pass without an MIT option
-are listed for the owner's explicit approval before ship (§13 License gate).
+permissive license (Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0-1.0, 0BSD,
+Unicode-3.0/DFS); any permissive license is accepted (decided 2026-10-28).
+Packages without an MIT option are listed so their NOTICE/attribution is
+kept in THIRD_PARTY_NOTICES.md.
 
 Fail: strong/weak copyleft with no permissive option (GPL, AGPL, LGPL-only,
 MPL, CDDL, EPL, SSPL/FSL/BSL-only), proprietary, or unknown licenses.
@@ -83,7 +84,7 @@ def main():
         if "MIT" not in opts and "MIT-0" not in opts:
             non_mit.append((name, expression))
     if non_mit:
-        print("permissive but non-MIT (needs owner approval before ship):")
+        print("permissive, non-MIT (keep their NOTICE/attribution):")
         for name, expression in sorted(non_mit):
             print(f"  {name}: {expression}")
     if bad:

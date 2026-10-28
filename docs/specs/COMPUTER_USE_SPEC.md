@@ -71,5 +71,5 @@ Enable cedia to control local macOS apps when no API, MCP tool, or deterministic
 ## 9. License
 - core implementation is Cedian-owned
 - macOS public APIs only
-- MIT-only dependencies
+- permissive dependencies only (MIT, BSD, Apache-2.0, ISC; spec §9, 2026-10-28)
 - no proprietary/FSL code in core
