@@ -10,6 +10,20 @@ use cedian_protocol::{AssistantBlock, EventId, HeadlessResult, Line, SessionEven
 
 use crate::block::{Block, Permission, ToolCall, ToolState};
 
+/// One transcript's blocks from `from` on, which replace a view's from there: how the daemon
+/// tells a window what a line changed.
+#[derive(Clone, Debug)]
+pub struct Change {
+    /// The sub-thread the blocks are of; `None` for the transcript's own thread.
+    pub sub: Option<String>,
+    pub from: usize,
+    pub blocks: Vec<Block>,
+    /// [`Transcript::context`] after the change.
+    pub context: Option<u64>,
+    /// [`Transcript::run_cost`] after the change.
+    pub run_cost: f64,
+}
+
 #[derive(Debug, Default)]
 pub struct Transcript {
     blocks: Vec<Block>,
@@ -52,6 +66,29 @@ impl Transcript {
     fn push(&mut self, block: Block) {
         self.changed(self.blocks.len());
         self.blocks.push(block);
+    }
+
+    /// What changed since the last call, in this transcript and in each sub-thread's, with
+    /// sub-threads after the thread that started them. Empty when nothing did.
+    pub fn take_changes(&mut self) -> Vec<Change> {
+        let mut changes = Vec::new();
+        self.collect_changes(None, &mut changes);
+        changes
+    }
+
+    fn collect_changes(&mut self, sub: Option<&str>, changes: &mut Vec<Change>) {
+        if let Some(from) = self.take_changed_from() {
+            changes.push(Change {
+                sub: sub.map(str::to_owned),
+                from,
+                blocks: self.blocks[from..].to_vec(),
+                context: self.context,
+                run_cost: self.run_cost,
+            });
+        }
+        for (thread, transcript) in &mut self.subthreads {
+            transcript.collect_changes(Some(thread), changes);
+        }
     }
 
     /// Tokens in the context after the latest turn, for the header's meter.

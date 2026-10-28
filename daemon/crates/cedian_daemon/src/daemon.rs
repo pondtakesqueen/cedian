@@ -9,6 +9,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, mpsc::Sender},
 };
 
+use cedian_agent::{Change, Transcript};
 use cedian_index::{
     ThreadSummary, list_threads, memory_path, project_key, project_outputs, read_memory,
     read_thread, session_cwd, session_lines, session_path, threads_dir,
@@ -60,6 +61,8 @@ pub struct Daemon {
     /// window that connects.
     choices: Notice,
     clients: HashMap<ClientId, Client>,
+    /// Each open thread's lines folded into the agent pane's blocks, while a window reads it.
+    folds: HashMap<String, Transcript>,
     runs: HashMap<RunId, Run>,
     /// Each thread's latest run.
     by_thread: HashMap<String, RunId>,
@@ -123,6 +126,7 @@ impl Daemon {
             build: Build::current(),
             choices,
             clients: HashMap::new(),
+            folds: HashMap::new(),
             runs: HashMap::new(),
             by_thread: HashMap::new(),
             keep_awake: KeepAwake::default(),
@@ -446,8 +450,12 @@ impl Daemon {
             }
             Request::Open { cwd, thread } => lock(shared).open(client, &cwd, &thread),
             Request::Close { thread } => {
-                if let Some(c) = lock(shared).clients.get_mut(&client) {
+                let mut daemon = lock(shared);
+                if let Some(c) = daemon.clients.get_mut(&client) {
                     c.open.remove(&thread);
+                }
+                if !daemon.clients.values().any(|c| c.open.contains(&thread)) {
+                    daemon.folds.remove(&thread);
                 }
             }
             Request::Prompt {
@@ -982,15 +990,14 @@ impl Daemon {
         if let Some(run) = run {
             lines.extend(run.lines.iter().cloned());
         }
-        for line in lines {
-            self.send(
-                client,
-                Notice::Line {
-                    thread: thread.to_owned(),
-                    line,
-                },
-            );
+        let mut fold = Transcript::default();
+        for line in &lines {
+            fold_line(&mut fold, thread, line);
         }
+        for notice in blocks(thread, fold.take_changes()) {
+            self.send(client, notice);
+        }
+        self.folds.insert(thread.to_owned(), fold);
         let status = Status::of(summary.state, self.running(thread));
         self.send(
             client,
@@ -1285,7 +1292,16 @@ impl Daemon {
                 }
             },
         };
-        self.tell_readers(&thread.clone(), &Notice::Line { thread, line });
+        let read = self.clients.values().any(|c| c.open.contains(&thread));
+        if !read {
+            self.folds.remove(&thread);
+            return;
+        }
+        let fold = self.folds.entry(thread.clone()).or_default();
+        fold_line(fold, &thread, &line);
+        for notice in blocks(&thread, fold.take_changes()) {
+            self.tell_readers(&thread, &notice);
+        }
     }
 
     pub fn on_stderr(&mut self, id: RunId, line: String) {
@@ -1332,4 +1348,25 @@ impl Daemon {
             }
         }
     }
+}
+
+/// Applies one of cedia's lines to a thread's fold; a line that does not parse is logged and
+/// skipped, as the window would have had to.
+fn fold_line(fold: &mut Transcript, thread: &str, line: &str) {
+    match Line::parse(line) {
+        Ok(line) => fold.apply(&line),
+        Err(error) => log::warn!("{thread}: {error}"),
+    }
+}
+
+/// A fold's changes as the notices a window reads.
+fn blocks(thread: &str, changes: Vec<Change>) -> impl Iterator<Item = Notice> + '_ {
+    changes.into_iter().map(move |change| Notice::Blocks {
+        thread: thread.to_owned(),
+        sub: change.sub,
+        from: change.from,
+        blocks: change.blocks,
+        context: change.context,
+        run_cost: change.run_cost,
+    })
 }

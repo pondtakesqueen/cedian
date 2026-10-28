@@ -14,6 +14,7 @@ anyhow.workspace = true
 cedian_index = { path = "../cedian_index" }
 cedian_protocol = { path = "../cedian_protocol" }
 cedian_review = { path = "../cedian_review" }
+cedian_agent = { path = "../cedian_agent" }
 cedian_wire = { path = "../cedian_wire" }
 chrono.workspace = true
 futures.workspace = true

@@ -1,0 +1,143 @@
+{
+  "": [
+    {
+      "kind": "session",
+      "model": "faux/scripted",
+      "role": "code"
+    },
+    {
+      "images": [],
+      "kind": "user",
+      "text": "make f.txt say good"
+    },
+    {
+      "call_id": "s1",
+      "exit_code": null,
+      "input": {
+        "kind": "work",
+        "task": "Write good to f.txt, then run grep -q good f.txt."
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 155,
+      "name": "spawn",
+      "output": "<subthread thread=\"t-00000002\" kind=\"work\" model=\"faux/scripted\" ended=\"success\" cost=\"$0.0013\">\nWrote good to f.txt; grep -q good f.txt passes.\n</subthread>\nChanged: f.txt\nIts full log stays readable with read_thread t-00000002.",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "mode:workspace"
+      },
+      "started_at": "2026-10-27T07:42:36.402Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "call_id": "c3",
+      "exit_code": 0.0,
+      "input": {
+        "command": "grep -q good f.txt"
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 3,
+      "name": "bash",
+      "output": "(no output)\n[exit 0]",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "effect:read"
+      },
+      "started_at": "2026-10-27T07:42:36.558Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "kind": "text",
+      "streaming": false,
+      "text": "done, checked"
+    },
+    {
+      "cost_usd": 0.0046492,
+      "evidence": {
+        "changed": [
+          "f.txt"
+        ],
+        "checks": [
+          {
+            "command": "grep -q good f.txt",
+            "exitCode": 0.0,
+            "thread": "t-00000002"
+          },
+          {
+            "command": "grep -q good f.txt",
+            "exitCode": 0.0,
+            "thread": "t-00000001"
+          }
+        ],
+        "unverified": []
+      },
+      "kind": "result",
+      "subtype": "success",
+      "text": "done, checked",
+      "turns": 6,
+      "wall_ms": 275.0
+    }
+  ],
+  "t-00000002": [
+    {
+      "kind": "session",
+      "model": "faux/scripted",
+      "role": "code"
+    },
+    {
+      "images": [],
+      "kind": "user",
+      "text": "You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else.\n\n<task>\nWrite good to f.txt, then run grep -q good f.txt.\n</task>\n\nEnd with the report it asked for: findings or changes with paths and line numbers, how you confirmed them, and anything left undone. Keep it short; leave out the steps you took to get there."
+    },
+    {
+      "call_id": "c1",
+      "exit_code": 0.0,
+      "input": {
+        "command": "echo good > f.txt"
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 54,
+      "name": "bash",
+      "output": "(no output)\n[exit 0]",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "mode:workspace"
+      },
+      "started_at": "2026-10-27T07:42:36.445Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "call_id": "c2",
+      "exit_code": 0.0,
+      "input": {
+        "command": "grep -q good f.txt"
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 4,
+      "name": "bash",
+      "output": "(no output)\n[exit 0]",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "effect:read"
+      },
+      "started_at": "2026-10-27T07:42:36.500Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "kind": "text",
+      "streaming": false,
+      "text": "Wrote good to f.txt; grep -q good f.txt passes."
+    }
+  ]
+}

@@ -7,6 +7,7 @@ license-file.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+cedian_agent = { path = "../cedian_agent" }
 cedian_index = { path = "../cedian_index" }
 cedian_protocol = { path = "../cedian_protocol" }
 cedian_review = { path = "../cedian_review" }

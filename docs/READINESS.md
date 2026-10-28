@@ -53,16 +53,15 @@
 - [x] cedia pin bumped to cedia main be2a523 (protocol 19b13053b4771393);
   `docs/protocol/` copy dropped, the pinned schema is the only one
 - [x] App icon PR (#3) merged before vendoring step 2
+- [x] Structured agent events on the wire: the daemon folds cedia's lines
+  with `cedian_agent` and sends `Notice::Blocks` (blocks from an index on);
+  `Notice::Line` is gone
+- [x] Agent pane (`src/agent-pane/`) replays cedia's fixtures from the
+  blocks the fold records (`cedian_agent/tests/replay/*.blocks.json`)
 - [ ] Exit gate needs the owner's Mac (macOS 26 launch, stock VS Code budgets)
 
 ## Known gaps
-- `src/` has no implementation yet
 - no E2E tests yet (Playwright smoke is a Phase A exit item)
-- structured agent events (§6.2/§9) not yet on the wire: the daemon forwards
-  raw `Notice::Line` and `cedian_agent`'s fold is test-only (only
-  `cedian_index` dev-deps use it). Decided: the daemon folds via
-  `cedian_agent` and sends structured events over `cedian_wire` (Phase A,
-  spec §11).
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
   their attribution in THIRD_PARTY_NOTICES.md

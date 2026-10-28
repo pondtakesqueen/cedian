@@ -1,0 +1,107 @@
+{
+  "": [
+    {
+      "kind": "session",
+      "model": "faux/scripted",
+      "role": "code"
+    },
+    {
+      "images": [],
+      "kind": "user",
+      "text": "make f.txt say good"
+    },
+    {
+      "call_id": "w1",
+      "exit_code": null,
+      "input": {
+        "content": "bad\n",
+        "path": "f.txt"
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 55,
+      "name": "write",
+      "output": "created f.txt (1 lines)",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "mode:workspace"
+      },
+      "started_at": "2026-10-27T07:42:35.786Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "call_id": "e1",
+      "exit_code": null,
+      "input": {
+        "edits": [
+          {
+            "new_text": "good",
+            "old_text": "bad"
+          }
+        ],
+        "path": "f.txt"
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 33,
+      "name": "edit",
+      "output": "edited f.txt\nedit 1: lines 1-1",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "mode:workspace"
+      },
+      "started_at": "2026-10-27T07:42:35.853Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "call_id": "c1",
+      "exit_code": 0.0,
+      "input": {
+        "command": "grep -q good f.txt"
+      },
+      "is_error": false,
+      "kind": "tool",
+      "ms": 5,
+      "name": "bash",
+      "output": "(no output)\n[exit 0]",
+      "permission": {
+        "allowed": true,
+        "reason": null,
+        "rule": "effect:read"
+      },
+      "started_at": "2026-10-27T07:42:35.889Z",
+      "state": "done",
+      "status": "completed"
+    },
+    {
+      "kind": "text",
+      "streaming": false,
+      "text": "f.txt now says good, and grep -q good f.txt passes."
+    },
+    {
+      "cost_usd": 0.0037016,
+      "evidence": {
+        "changed": [
+          "f.txt"
+        ],
+        "checks": [
+          {
+            "command": "grep -q good f.txt",
+            "exitCode": 0.0,
+            "thread": "t-00000001"
+          }
+        ],
+        "unverified": []
+      },
+      "kind": "result",
+      "subtype": "success",
+      "text": "f.txt now says good, and grep -q good f.txt passes.",
+      "turns": 4,
+      "wall_ms": 147.0
+    }
+  ]
+}
