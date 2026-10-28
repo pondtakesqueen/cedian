@@ -49,8 +49,9 @@ def mark_svg(layout, seed, first):
     )
 
 
-# The macOS grid: an 824 px tile with 184.33 px corners on a 1024 px canvas; the seeds span 60%.
-TILE, CORNER, SCALE = 824, 184.33, 5.3
+# The macOS grid: an 824 px tile with 184.33 px corners on a 1024 px canvas; the seeds span about 75%
+# of the tile (owner, 2026-10-28: the spiral read small at 60%).
+TILE, CORNER, SCALE = 824, 184.33, 6.6
 
 
 def icon_svg(layout):
