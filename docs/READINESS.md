@@ -66,9 +66,9 @@
   stock vs 1544 ms Cedian, idle memory 1754 MB vs 1324 MB, keystroke 16.6 ms
   both (one frame: Playwright cannot resolve it; the HID + pixel harness is
   still to build)
-- [ ] App license scan: BlueOak-1.0.0 (tar, minipass, chownr, yallist,
+- [x] App license scan: BlueOak-1.0.0 (tar, minipass, chownr, yallist,
   lru-cache) and CC-BY-4.0 (@vscode/codicons) accepted as permissive;
-  `jschardet` (LGPL-2.1+, VS Code's encoding guesser) waits on the owner
+  `jschardet` (LGPL-2.1+) allowed by name as the owner's exception
 
 ## Known gaps
 - no E2E tests yet (Playwright smoke is a Phase A exit item)

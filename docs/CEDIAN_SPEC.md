@@ -733,7 +733,7 @@ Thai follows with the settings-window pass)
 
 ### License / IP policy
 - **Cedian-specific code**: proprietary (Cursor-style), unless explicitly marked MIT-compatible.
-- **Third-party code** (decided 2026-10-28): any permissive license (MIT, BSD, Apache-2.0, ISC, Zlib and the like), as cedia does. No GPL, AGPL, LGPL-only, MPL, FSL/BSL/SSPL or proprietary code. Apache-2.0 code keeps its NOTICE.
+- **Third-party code** (decided 2026-10-28): any permissive license (MIT, BSD, Apache-2.0, ISC, Zlib and the like), as cedia does. No GPL, AGPL, LGPL-only, MPL, FSL/BSL/SSPL or proprietary code. Apache-2.0 code keeps its NOTICE. One exception (owner, 2026-10-28): VS Code's `jschardet` (LGPL-2.1+), unmodified and its own module, with its notice in THIRD_PARTY_NOTICES.md; legal review rechecks it before ship.
 - **Computer-use core**: written in-house for Cedian; may use macOS public APIs only. External permissive code may be used as reference or dependency, with attribution.
 - **Dependency policy**: every dependency must pass the license scan in CI (`script/license-scan.py`); permissive passes without a separate approval.
 - **Attribution**: maintain `THIRD_PARTY_NOTICES.md` and preserve upstream license files.

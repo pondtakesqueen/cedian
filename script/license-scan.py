@@ -50,6 +50,14 @@ PERMISSIVE = {
     "CC-BY-4.0",
 }
 
+# Packages the owner allowed by name despite their license, with why. Each keeps its
+# notice in THIRD_PARTY_NOTICES.md.
+EXCEPTIONS = {
+    # VS Code's encoding guesser, shipped unmodified as its own module (owner, 2026-10-28;
+    # legal review before ship rechecks it).
+    "jschardet": "LGPL-2.1+",
+}
+
 SPLIT_OR = re.compile(r"\s+OR\s+|[()/]")
 
 
@@ -133,6 +141,7 @@ def scan_app(app):
         (name, f"{expression or 'missing license'} ({where})")
         for name, (expression, where) in seen.items()
         if not acceptable(expression or "")
+        and EXCEPTIONS.get(name.rsplit(" ", 1)[0]) != expression
     ]
     non_mit = [
         (name, expression)
