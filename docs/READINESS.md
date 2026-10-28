@@ -50,8 +50,9 @@
 
 ## Phase A go/no-go (2026-10-28)
 - [x] Phase 0 merged (cedian #1, #2; cedia-code #150, #151); history kept
-- [ ] cedia pin bumped to cedia main (first Phase A step)
-- [ ] App icon PR (#3) merged before vendoring step 2
+- [x] cedia pin bumped to cedia main be2a523 (protocol 19b13053b4771393);
+  `docs/protocol/` copy dropped, the pinned schema is the only one
+- [x] App icon PR (#3) merged before vendoring step 2
 - [ ] Exit gate needs the owner's Mac (macOS 26 launch, stock VS Code budgets)
 
 ## Known gaps
