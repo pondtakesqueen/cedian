@@ -142,3 +142,37 @@ describe("agent pane", () => {
     expect(threadList([info({ id: "a", updated_at: "1" }), info({ id: "b", updated_at: "2" }), info({ id: "c", archived: true })]).map((t) => t.id)).toEqual(["b", "a"]);
   });
 });
+
+describe("agent pane, from the Mac gate", () => {
+  it("leaves cedia's triage session out and the loading line goes once the run streams", () => {
+    const { pane, emit } = setup();
+    type(pane, "hi");
+    enter(pane);
+    emit({ kind: "started", cwd: "/r", thread: "t-2" });
+    emit({ kind: "blocks", thread: "t-2", from: 0, blocks: [
+      { kind: "session", model: "anthropic/h", role: "triage" },
+      { kind: "user", text: "<message>hi</message>", images: [] },
+      { kind: "text", text: "DIRECT", streaming: false },
+      { kind: "session", model: "openrouter/h", role: "code" },
+      { kind: "user", text: "hi", images: [] },
+      { kind: "text", text: "hello", streaming: false },
+    ], run_cost: 0 });
+    expect([...pane.root.querySelectorAll(".ubub")].map((b) => b.textContent)).toEqual(["hi"]);
+    expect(pane.root.textContent).not.toContain("DIRECT");
+    expect(pane.root.textContent).not.toContain("triage");
+    expect(pane.root.textContent).not.toContain("กำลังโหลดเธรด");
+  });
+
+  it("shows the thread's own model and keeps it unless the person picks another", () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "choices", models: { default: "anthropic/h", models: [{ ref: "anthropic/h", label: "H", provider: "anthropic", available: true, contextWindow: 200000, effort: false }], modes: [] } });
+    emit({ kind: "settings", desktop: { model: "anthropic/h" }, path: "" });
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "session", model: "openrouter/h", role: "code" }], run_cost: 0 });
+    expect(pane.root.querySelector<HTMLSelectElement>('select[data-chip="model"]')!.value).toBe("openrouter/h");
+    type(pane, "more");
+    enter(pane);
+    expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "more", thread: "t-1", worktree: false });
+  });
+});

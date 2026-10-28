@@ -13,7 +13,7 @@ import { items } from "./items.js";
 import { renderItems } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
 import { currentModel, isRunning, openState, queued, reduce, type ThreadState } from "./thread-state.js";
-import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, type ViewMode } from "./view-modes.js";
+import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
 
 /** What the pane needs from the workbench around it. */
@@ -135,6 +135,9 @@ export class AgentPane {
   openThread(id: string): void {
     if (id === this.state.thread) return;
     this.leave();
+    this.chosen.delete("model");
+    this.chosen.delete("effort");
+    this.choices.effort = undefined;
     this.state = openState(this.host.cwd, id);
     const info = this.threads.find((t) => t.id === id);
     if (info) this.state = { ...this.state, info, status: info.status };
@@ -264,7 +267,9 @@ export class AgentPane {
 
   private send(): void {
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
-    const requests = submit(this.draft, target, this.choices);
+    // A thread goes on with its own model unless the person picked another for it.
+    const choices = this.state.thread && !this.chosen.has("model") ? { ...this.choices, model: undefined } : this.choices;
+    const requests = submit(this.draft, target, choices);
     if (requests.length === 0) return;
     for (const r of requests) this.wire.request(r);
     this.input.value = "";
@@ -391,7 +396,7 @@ export class AgentPane {
     if (!this.state.thread) {
       parts.push(el(d, "div", "empty", this.state.preparing ?? "เริ่มเธรดใหม่: พิมพ์สิ่งที่อยากให้ทำด้านล่าง"));
     } else {
-      parts.push(renderItems(d, items(visibleBlocks(this.state.view.blocks as Block[], this.viewMode))));
+      parts.push(renderItems(d, items(visibleBlocks(withoutTriage(this.state.view.blocks as Block[]), this.viewMode))));
       if (!this.state.caught) parts.push(el(d, "div", "small loading", "กำลังโหลดเธรด…"));
     }
     const todo = todoCard(this.state.info);
@@ -637,11 +642,13 @@ export class AgentPane {
       this.renderComposer();
     };
     if (this.models) {
-      const s = select(d, [{ value: "", label: `โมเดล: ${this.models.default}` }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label }))], this.choices.model ?? "", pick("model"), "chip");
+      const threadModel = this.state.thread && !this.chosen.has("model") ? currentModel(this.state.view.blocks as Block[]) : undefined;
+      const shown = threadModel ?? this.choices.model ?? "";
+      const s = select(d, [{ value: "", label: `โมเดล: ${this.models.default}` }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
       s.dataset.chip = "model";
       s.title = "โมเดล (Cmd+Shift+I)";
       chips.push(s);
-      const entry = this.models.models.find((m) => m.ref === (this.choices.model ?? this.models!.default));
+      const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : ["low", "medium", "high", "xhigh", "max"];
         const e = select(d, [{ value: "", label: `effort: ${entry.defaultEffort ?? "เริ่มต้น"}` }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");

@@ -5,7 +5,7 @@
 // 3. review its changes and accept them;
 // 4. kill the daemon: the window starts another, and the thread rebuilds from cedia's files.
 // Runs a real model through the person's cedia (its default model unless --model), so it costs
-// a few cents. Prints what it saw; exits 1 on any failure.
+// a few cents; the account behind that model needs credit. Prints what it saw; exits 1 on any failure.
 // Usage: node test/smoke/gate-b.mjs <Cedian.app> [--model <ref>] [--shots <dir>]
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -60,10 +60,8 @@ try {
   await pane.locator(".chip.check input").check();
   await pane.locator(".composer textarea").fill(PROMPT);
   await pane.locator(".composer textarea").press("Enter");
-  await pane.locator("select.threads").evaluate((s) => new Promise((resolve) => {
-    const check = () => (s.value ? resolve() : setTimeout(check, 200));
-    check();
-  }));
+  // The header (and its select) is drawn again on each notice, so ask the page, not one element.
+  await window.waitForFunction(() => document.querySelector(".cedian-agent-pane.live select.threads")?.value, null, { timeout: 120_000 });
   threadId = await pane.locator("select.threads").inputValue();
   log(`started thread ${threadId} in a worktree`);
   await pane.locator(".dot.st-done, .dot.st-failed").waitFor({ timeout: 5 * 60_000 });
@@ -85,6 +83,8 @@ try {
   await pane.locator("select.threads").selectOption(threadId);
   await pane.locator(".ubub", { hasText: "hello from the gate" }).waitFor({ timeout: 30_000 });
   await pane.locator(".ans").first().waitFor({ timeout: 30_000 });
+  if ((await pane.locator(".ubub").count()) !== 1) throw new Error("the prompt is drawn more than once");
+  await shot(window, "2-reopened");
   log("reopened: the thread's prompt and answer are drawn again");
 
   // 3. Review and accept.

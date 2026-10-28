@@ -47,6 +47,10 @@ export async function launch(app, settings = {}, opts = {}) {
       "--skip-release-notes",
       "--disable-workspace-trust",
       "--disable-updates",
+      // Each ad hoc build signs differently, so the real keychain would ask for "Cedian Safe
+      // Storage" on every launch and block the main thread behind the prompt. Kept before the
+      // folder: VS Code's argument parser would take a bare argument after it as its value.
+      "--use-mock-keychain",
       "--new-window",
       folder,
     ],

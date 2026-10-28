@@ -39,3 +39,18 @@ export function visibleBlocks(blocks: Block[], mode: ViewMode): Block[] {
     }
   });
 }
+
+/**
+ * The blocks without cedia's routing sessions: `triage` decides whether a message needs the
+ * planner (its prompt is the message framed for it, its answer a word such as DIRECT), so it
+ * is cedia's own step, not part of the conversation, in every mode.
+ */
+export function withoutTriage(blocks: Block[]): Block[] {
+  const out: Block[] = [];
+  let skipping = false;
+  for (const block of blocks) {
+    if (block.kind === "session") skipping = block.role === "triage";
+    if (!skipping) out.push(block);
+  }
+  return out;
+}

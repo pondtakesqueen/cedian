@@ -31,7 +31,8 @@ export function reduce(state: ThreadState, notice: Notice): ThreadState {
     case "started":
     case "forked":
       if (notice.cwd !== state.cwd || (state.thread !== undefined && notice.kind === "started")) return state;
-      return { ...openState(state.cwd, notice.thread), caught: false };
+      // A thread this window started streams from its first line: nothing earlier to catch up on.
+      return { ...openState(state.cwd, notice.thread), caught: notice.kind === "started" };
     case "preparing":
       return notice.cwd === state.cwd && state.thread === undefined ? { ...state, preparing: notice.step } : state;
     case "blocks":
