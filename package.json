@@ -1,18 +1,24 @@
 {
   "name": "cedian-app",
   "version": "0.1.0",
-  "description": "Cedian — VS Code fork (Electron + TypeScript) UI for the cedian agent",
+  "description": "Cedian \u2014 VS Code fork (Electron + TypeScript) UI for the cedian agent",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
-    "build": "echo 'Phase A: VS Code fork not yet vendored'",
-    "dev": "echo 'Phase A: not yet'",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "theme": "python3 script/themes/cedian.py"
+    "theme": "python3 script/themes/cedian.py",
+    "protocol": "node script/protocol-types.mjs",
+    "vscode:prepare": "script/vscode/prepare",
+    "smoke": "node test/smoke/launch.mjs",
+    "budgets": "node test/smoke/budgets.mjs"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
+    "happy-dom": "^21.0.4",
+    "json-schema-to-typescript": "^16.0.0",
+    "playwright-core": "^1.64.1",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

@@ -1,6 +1,7 @@
 //! Replays cedia's recorded fixtures (at the pin in `cedian_protocol/cedia/REV`) through the
 //! protocol types and the transcript, and compares each outline with `tests/replay/<name>.txt`.
-//! `CEDIAN_RECORD=1 cargo test -p cedian_agent --test replay` re-records the outlines.
+//! `CEDIAN_RECORD=1 cargo test -p cedian_agent --test replay` re-records the outlines and the
+//! blocks the window is sent.
 
 use std::{fs, path::Path};
 
@@ -313,4 +314,95 @@ fn a_thinking_block_says_how_long_it_took() {
     assert!(!streaming);
     assert_eq!(*ms, Some(4200.));
     assert_eq!(transcript.run_cost(), 0.002);
+}
+
+/// A window's view: each transcript's blocks as JSON, the thread's own under `""`.
+type View = std::collections::BTreeMap<String, Vec<serde_json::Value>>;
+
+fn as_json(blocks: &[Block]) -> Vec<serde_json::Value> {
+    blocks
+        .iter()
+        .map(|b| serde_json::to_value(b).expect("block serializes"))
+        .collect()
+}
+
+/// The fold's whole state, as a window that opened the thread at the end would get it.
+fn full_view(transcript: &Transcript) -> View {
+    fn walk(sub: &str, transcript: &Transcript, view: &mut View) {
+        view.insert(sub.to_owned(), as_json(transcript.blocks()));
+        for (thread, t) in transcript.subthreads() {
+            walk(thread, t, view);
+        }
+    }
+    let mut view = View::new();
+    walk("", transcript, &mut view);
+    view
+}
+
+/// The changes after each line, applied as a window applies `Notice::Blocks`, end where the
+/// whole fold does; each block reads back as itself; and the view is recorded as
+/// `tests/replay/<name>.blocks.json`, which the agent pane's vitest renders.
+#[test]
+fn every_fixtures_changes_add_up_to_its_blocks() {
+    let record = std::env::var_os("CEDIAN_RECORD").is_some();
+    let expected_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/replay");
+    for name in fixture_names() {
+        let stream = fs::read_to_string(fixtures_dir().join(&name).join("stream.jsonl"))
+            .expect("stream.jsonl");
+        let mut transcript = Transcript::default();
+        let mut view = View::new();
+        for text in stream.lines() {
+            transcript.apply(&Line::parse(text).expect("line"));
+            for change in transcript.take_changes() {
+                let blocks = view.entry(change.sub.unwrap_or_default()).or_default();
+                blocks.truncate(change.from);
+                blocks.extend(as_json(&change.blocks));
+            }
+        }
+        assert!(transcript.take_changes().is_empty(), "{name}: changes left");
+        assert_eq!(
+            view,
+            full_view(&transcript),
+            "{name}: changes differ from the fold"
+        );
+        for block in view.values().flatten() {
+            let back: Block = serde_json::from_value(block.clone())
+                .unwrap_or_else(|e| panic!("{name}: {e} in {block}"));
+            assert_eq!(
+                &serde_json::to_value(&back).expect("block"),
+                block,
+                "{name}"
+            );
+        }
+        let path = expected_dir.join(format!("{name}.blocks.json"));
+        if record {
+            // Keys sorted, so the file reads the same whether or not another crate in the
+            // build turns on serde_json's preserve_order.
+            let json = serde_json::to_string_pretty(&sorted(serde_json::json!(view)))
+                .expect("view")
+                + "\n";
+            fs::write(&path, json).expect("write blocks");
+            continue;
+        }
+        let expected: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap_or_else(|_| {
+                panic!("missing {}; run with CEDIAN_RECORD=1", path.display())
+            }))
+            .expect("blocks JSON");
+        assert_eq!(serde_json::json!(view), expected, "{name} blocks changed");
+    }
+}
+
+fn sorted(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut entries: Vec<_> = map.into_iter().collect();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            serde_json::Value::Object(entries.into_iter().map(|(k, v)| (k, sorted(v))).collect())
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.into_iter().map(sorted).collect())
+        }
+        other => other,
+    }
 }

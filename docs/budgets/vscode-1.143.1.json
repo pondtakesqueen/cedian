@@ -1,0 +1,34 @@
+{
+  "app": "/Users/pond/cedian-build/stock/Visual Studio Code.app",
+  "at": "2026-10-28T09:23:40.893Z",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "25.6.0"
+  },
+  "runs": 5,
+  "coldStartMs": {
+    "median": 1581,
+    "all": [
+      1569,
+      1581,
+      1709,
+      1527,
+      1665
+    ]
+  },
+  "keystrokeMs": {
+    "median": 16.6,
+    "samples": 40
+  },
+  "idleMemoryMb": {
+    "median": 1754,
+    "all": [
+      1836,
+      1743,
+      1756,
+      1754,
+      1739
+    ]
+  }
+}

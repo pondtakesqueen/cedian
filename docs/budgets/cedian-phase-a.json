@@ -1,0 +1,34 @@
+{
+  "app": "/Users/pond/cedian-build/VSCode-darwin-arm64/Cedian.app",
+  "at": "2026-10-28T09:25:06.672Z",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "25.6.0"
+  },
+  "runs": 5,
+  "coldStartMs": {
+    "median": 1544,
+    "all": [
+      1886,
+      1544,
+      1505,
+      1480,
+      1549
+    ]
+  },
+  "keystrokeMs": {
+    "median": 16.6,
+    "samples": 40
+  },
+  "idleMemoryMb": {
+    "median": 1324,
+    "all": [
+      1425,
+      1378,
+      1324,
+      1319,
+      1322
+    ]
+  }
+}

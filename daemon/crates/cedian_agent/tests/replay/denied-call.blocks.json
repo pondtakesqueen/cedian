@@ -1,0 +1,48 @@
+{
+  "": [
+    {
+      "kind": "session",
+      "model": "faux/scripted",
+      "role": "code"
+    },
+    {
+      "images": [],
+      "kind": "user",
+      "text": "publish the package"
+    },
+    {
+      "call_id": "c1",
+      "exit_code": null,
+      "input": {
+        "command": "npm publish"
+      },
+      "is_error": true,
+      "kind": "tool",
+      "ms": null,
+      "name": "bash",
+      "output": "denied (deny-list:deploy): npm publish publishes or deploys; ask the user to run it. Do not retry it another way; go on with the rest of the task and tell the user what you needed.",
+      "permission": {
+        "allowed": false,
+        "reason": "npm publish publishes or deploys; ask the user to run it",
+        "rule": "deny-list:deploy"
+      },
+      "started_at": null,
+      "state": "done",
+      "status": "denied"
+    },
+    {
+      "kind": "text",
+      "streaming": false,
+      "text": "Publishing is on the deny list, so I left it for you."
+    },
+    {
+      "cost_usd": 0.0029723,
+      "evidence": null,
+      "kind": "result",
+      "subtype": "success",
+      "text": "Publishing is on the deny list, so I left it for you.",
+      "turns": 2,
+      "wall_ms": 3.0
+    }
+  ]
+}

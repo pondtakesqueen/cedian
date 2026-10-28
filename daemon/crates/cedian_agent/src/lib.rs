@@ -6,4 +6,4 @@ mod transcript;
 
 pub use block::{Block, DiffLine, Permission, ToolCall, ToolState};
 pub use file_checks::FileChecks;
-pub use transcript::Transcript;
+pub use transcript::{Change, Transcript};

@@ -19,7 +19,8 @@ struct Harness {
     home: PathBuf,
     cwd: PathBuf,
     threads: PathBuf,
-    stream_lines: usize,
+    /// The fixture's stream folded into the agent pane's blocks, as JSON.
+    blocks: Vec<serde_json::Value>,
 }
 
 fn start(fixture: &str) -> Harness {
@@ -71,8 +72,21 @@ fn start_with(fixture: &str, caps: &str) -> Harness {
         home,
         cwd,
         threads,
-        stream_lines: stream.lines().filter(|l| !l.trim().is_empty()).count(),
+        blocks: fold(&stream),
     }
+}
+
+/// A stream folded the way the daemon folds it, each block as the window reads it.
+fn fold(stream: &str) -> Vec<serde_json::Value> {
+    let mut transcript = cedian_agent::Transcript::default();
+    for line in stream.lines().filter(|l| !l.trim().is_empty()) {
+        transcript.apply(&cedian_protocol::Line::parse(line).expect("fixture line"));
+    }
+    transcript
+        .blocks()
+        .iter()
+        .map(|b| serde_json::to_value(b).expect("block"))
+        .collect()
 }
 
 struct Window {
@@ -114,19 +128,31 @@ impl Window {
             .expect("a notice")
     }
 
-    /// Notices until one matches, with the lines on the way.
-    fn until(&mut self, done: impl Fn(&Notice) -> bool) -> (Vec<String>, Vec<Notice>) {
-        let mut lines = Vec::new();
+    /// Notices until one matches, with the thread's own blocks as the notices on the way
+    /// left them.
+    fn until(&mut self, done: impl Fn(&Notice) -> bool) -> (Vec<serde_json::Value>, Vec<Notice>) {
+        let mut view = Vec::new();
         let mut seen = Vec::new();
         loop {
             let notice = self.next();
-            if let Notice::Line { line, .. } = &notice {
-                lines.push(line.clone());
+            if let Notice::Blocks {
+                sub: None,
+                from,
+                blocks,
+                ..
+            } = &notice
+            {
+                view.truncate(*from);
+                view.extend(
+                    blocks
+                        .iter()
+                        .map(|b| serde_json::to_value(b).expect("block")),
+                );
             }
             let stop = done(&notice);
             seen.push(notice);
             if stop {
-                return (lines, seen);
+                return (view, seen);
             }
         }
     }
@@ -649,26 +675,26 @@ fn a_prompt_runs_and_a_second_window_rebuilds_it() {
         helpers: Default::default(),
         images: Vec::new(),
     });
-    let (lines, seen) = window.until(status_is(Status::Done));
+    let (view, seen) = window.until(status_is(Status::Done));
     assert!(
         matches!(&seen[0], Notice::Started { thread, .. } if thread == "t-00000001"),
         "{seen:?}"
     );
-    assert_eq!(lines.len(), harness.stream_lines);
+    assert_eq!(view, harness.blocks);
     assert!(
         seen.iter()
             .any(|n| matches!(n, Notice::Threads { threads, .. }
         if threads.len() == 1 && threads[0].status == Status::Working))
     );
 
-    // The run's lines are kept; a window that opens the thread now gets all of them.
+    // The run's lines are kept; a window that opens the thread now gets all their blocks.
     let mut other = Window::connect(&harness);
     other.ask(Request::Open {
         cwd: harness.cwd.clone(),
         thread: "t-00000001".into(),
     });
-    let (lines, seen) = other.until(|n| matches!(n, Notice::Caught { .. }));
-    assert_eq!(lines.len(), harness.stream_lines, "{seen:?}");
+    let (view, seen) = other.until(|n| matches!(n, Notice::Caught { .. }));
+    assert_eq!(view, harness.blocks, "{seen:?}");
     assert!(matches!(
         other.next(),
         Notice::Status {
@@ -696,7 +722,7 @@ fn stop_ends_a_run_and_send_reaches_the_thread() {
         helpers: Default::default(),
         images: Vec::new(),
     });
-    window.until(|n| matches!(n, Notice::Line { .. }));
+    window.until(|n| matches!(n, Notice::Blocks { .. }));
 
     // A prompt to a working thread is a message for its next turn.
     window.ask(Request::Prompt {
@@ -772,7 +798,7 @@ fn a_queued_message_can_be_taken_back() {
         helpers: Default::default(),
         images: Vec::new(),
     });
-    window.until(|n| matches!(n, Notice::Line { .. }));
+    window.until(|n| matches!(n, Notice::Blocks { .. }));
     window.ask(Request::Send {
         cwd: harness.cwd.clone(),
         thread: "t-00000001".into(),

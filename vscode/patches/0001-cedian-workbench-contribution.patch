@@ -1,0 +1,14 @@
+diff --git a/src/vs/workbench/workbench.common.main.ts b/src/vs/workbench/workbench.common.main.ts
+index b2aaf10f..fb265245 100644
+--- a/src/vs/workbench/workbench.common.main.ts
++++ b/src/vs/workbench/workbench.common.main.ts
+@@ -354,6 +354,9 @@ import './contrib/remote/browser/remote.contribution.js';
+ // Emmet
+ import './contrib/emmet/browser/emmet.contribution.js';
+ 
++// Cedian
++import './contrib/cedian/browser/cedian.contribution.js';
++
+ // CodeEditor Contributions
+ import './contrib/codeEditor/browser/codeEditor.contribution.js';
+ 

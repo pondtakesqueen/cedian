@@ -117,7 +117,7 @@ fn a_new_daemon_follows_a_run_the_old_one_started() {
         },
     )
     .expect("prompt");
-    until(&mut reader, |n| matches!(n, Notice::Line { .. }));
+    until(&mut reader, |n| matches!(n, Notice::Blocks { .. }));
     first.0.kill().expect("kill the first daemon");
     first.0.wait().expect("reap");
     drop((writer, reader));
@@ -132,7 +132,7 @@ fn a_new_daemon_follows_a_run_the_old_one_started() {
         },
     )
     .expect("open");
-    // The followed run's lines come from its session log, read before or after the open.
+    // The followed run's blocks come from its session log, read before or after the open.
     let mut seen = until(&mut reader, |n| matches!(n, Notice::Status { .. }));
     assert!(
         matches!(
@@ -144,10 +144,10 @@ fn a_new_daemon_follows_a_run_the_old_one_started() {
         ),
         "{seen:?}"
     );
-    if !seen.iter().any(|n| matches!(n, Notice::Line { .. })) {
-        seen = until(&mut reader, |n| matches!(n, Notice::Line { .. }));
+    if !seen.iter().any(|n| matches!(n, Notice::Blocks { .. })) {
+        seen = until(&mut reader, |n| matches!(n, Notice::Blocks { .. }));
     }
-    assert!(seen.iter().any(|n| matches!(n, Notice::Line { .. })));
+    assert!(seen.iter().any(|n| matches!(n, Notice::Blocks { .. })));
 
     write_message(
         &mut writer,

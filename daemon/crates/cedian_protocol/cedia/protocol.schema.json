@@ -40,6 +40,9 @@
     "DeleteResult": {
       "$ref": "#/definitions/DeleteResult"
     },
+    "ForkResult": {
+      "$ref": "#/definitions/ForkResult"
+    },
     "McpList": {
       "$ref": "#/definitions/McpList"
     },
@@ -240,6 +243,7 @@
         "permissions",
         "commands",
         "threads.fork",
+        "threads.side",
         "usage",
         "browser",
         "threads.restore-json",
@@ -249,7 +253,8 @@
         "threads.delete",
         "mcp.manage",
         "commit",
-        "pr"
+        "pr",
+        "daemon"
       ]
     },
     "Check": {
@@ -640,8 +645,25 @@
         }
       },
       "required": [
-        "thread",
-        "run"
+        "thread"
+      ],
+      "additionalProperties": false
+    },
+    "ForkResult": {
+      "type": "object",
+      "properties": {
+        "thread": {
+          "type": "string"
+        },
+        "run": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "thread"
       ],
       "additionalProperties": false
     },
@@ -2960,6 +2982,12 @@
             "forkOf": {
               "$ref": "#/definitions/ForkOf"
             },
+            "side": {
+              "type": "boolean"
+            },
+            "root": {
+              "type": "string"
+            },
             "at": {
               "type": "string"
             },
@@ -3680,11 +3708,39 @@
             "additionalProperties": false
           }
         },
+        "blocked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "count": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "rule",
+              "count"
+            ],
+            "additionalProperties": false
+          }
+        },
         "overPriceLine": {
           "type": "number"
         },
         "maxEffort": {
           "type": "number"
+        },
+        "slowStart": {
+          "type": "number"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "handoffs": {
           "type": "number"
@@ -3790,8 +3846,11 @@
         "sources",
         "largest",
         "misses",
+        "blocked",
         "overPriceLine",
         "maxEffort",
+        "slowStart",
+        "warnings",
         "handoffs",
         "unpriced",
         "days",

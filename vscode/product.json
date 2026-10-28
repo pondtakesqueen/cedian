@@ -1,0 +1,22 @@
+{
+	"nameShort": "Cedian",
+	"nameLong": "Cedian",
+	"applicationName": "cedian",
+	"dataFolderName": ".cedian",
+	"sharedDataFolderName": ".cedian-shared",
+	"darwinBundleIdentifier": "dev.cedian.app",
+	"darwinProfileUUID": "8E0C2E64-3B0E-4C1F-9C55-2B1C7F0D7A11",
+	"darwinProfilePayloadUUID": "4B7E2D9A-6C3F-4E85-A1D2-9F0E3C6B5A22",
+	"urlProtocol": "cedian",
+	"reportIssueUrl": "https://github.com/pondtakesqueen/cedian/issues/new",
+	"extensionsGallery": {
+		"serviceUrl": "https://open-vsx.org/vscode/gallery",
+		"controlUrl": "",
+		"extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest",
+		"resourceUrlTemplate": "https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}",
+		"nlsBaseUrl": ""
+	},
+	"voiceWsUrl": null,
+	"agentsTelemetryAppName": null,
+	"enableTelemetry": false
+}

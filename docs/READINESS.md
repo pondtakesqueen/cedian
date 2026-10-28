@@ -50,18 +50,28 @@
 
 ## Phase A go/no-go (2026-10-28)
 - [x] Phase 0 merged (cedian #1, #2; cedia-code #150, #151); history kept
-- [ ] cedia pin bumped to cedia main (first Phase A step)
-- [ ] App icon PR (#3) merged before vendoring step 2
-- [ ] Exit gate needs the owner's Mac (macOS 26 launch, stock VS Code budgets)
+- [x] cedia pin bumped to cedia main be2a523 (protocol 19b13053b4771393);
+  `docs/protocol/` copy dropped, the pinned schema is the only one
+- [x] App icon PR (#3) merged before vendoring step 2
+- [x] Structured agent events on the wire: the daemon folds cedia's lines
+  with `cedian_agent` and sends `Notice::Blocks` (blocks from an index on);
+  `Notice::Line` is gone
+- [x] Agent pane (`src/agent-pane/`) replays cedia's fixtures from the
+  blocks the fold records (`cedian_agent/tests/replay/*.blocks.json`)
+- [x] Exit gate on the owner's Mac (macOS 26.6.2, arm64, 2026-10-28):
+  Cedian.app built from `script/vscode/prepare` + `build-mac`; smoke drew
+  `edit-and-check` with a verified receipt and no AI chat
+  (`docs/budgets/phase-a-smoke.png`); `cargo test --workspace` 106 passed,
+  vitest 30/30; budgets recorded (`docs/budgets/`): cold start 1581 ms
+  stock vs 1544 ms Cedian, idle memory 1754 MB vs 1324 MB, keystroke 16.6 ms
+  both (one frame: Playwright cannot resolve it; the HID + pixel harness is
+  still to build)
+- [x] App license scan: BlueOak-1.0.0 (tar, minipass, chownr, yallist,
+  lru-cache) and CC-BY-4.0 (@vscode/codicons) accepted as permissive;
+  `jschardet` (LGPL-2.1+) allowed by name as the owner's exception
 
 ## Known gaps
-- `src/` has no implementation yet
 - no E2E tests yet (Playwright smoke is a Phase A exit item)
-- structured agent events (§6.2/§9) not yet on the wire: the daemon forwards
-  raw `Notice::Line` and `cedian_agent`'s fold is test-only (only
-  `cedian_index` dev-deps use it). Decided: the daemon folds via
-  `cedian_agent` and sends structured events over `cedian_wire` (Phase A,
-  spec §11).
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
   their attribution in THIRD_PARTY_NOTICES.md

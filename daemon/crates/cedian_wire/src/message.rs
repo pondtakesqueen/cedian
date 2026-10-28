@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
 };
 
+use cedian_agent::Block;
 use cedian_index::{MemoryNote, Output};
 use cedian_protocol::{
     CommandEntry, CommitDraft, Committed, McpCheck, McpList, ModelList, PermissionList, PrOpened,
@@ -271,11 +272,21 @@ pub enum Notice {
         cwd: PathBuf,
         thread: String,
     },
-    /// One of cedia's stream-json lines, as cedia wrote it. History replays session logs in
-    /// the same shape.
-    Line {
+    /// The agent pane's blocks, folded by the daemon (`cedian_agent`) from cedia's stream-json
+    /// lines and, for history, its session logs. The blocks replace the view's from index
+    /// `from` on; opening a thread sends them all from 0.
+    Blocks {
         thread: String,
-        line: String,
+        /// The sub-thread these blocks are of, started from `thread`; none for its own.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sub: Option<String>,
+        from: usize,
+        blocks: Vec<Block>,
+        /// Tokens in the context after the latest turn, for the header's meter.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context: Option<u64>,
+        /// What the run in flight has cost so far; 0 once its receipt lands.
+        run_cost: f64,
     },
     /// The thread's history is all sent; what follows is live.
     Caught {

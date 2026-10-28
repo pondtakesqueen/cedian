@@ -1,8 +1,12 @@
 //! What the agent pane draws, one block per thing the person reads.
 
 use cedian_protocol::{EffectStatus, Evidence, ImageRef, ResultSubtype};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+/// The daemon sends blocks to the window as they are (`cedian_wire::Notice::Blocks`), tagged by
+/// `kind`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Block {
     /// A session began: the thread's first, or one after a handoff.
     Session {
@@ -53,12 +57,13 @@ impl Block {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ToolCall {
     pub call_id: String,
     pub name: String,
     pub input: serde_json::Map<String, serde_json::Value>,
     pub permission: Option<Permission>,
+    #[serde(flatten)]
     pub state: ToolState,
     pub output: Option<String>,
     pub is_error: bool,
@@ -125,14 +130,18 @@ pub enum DiffLine {
     Added(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Permission {
     pub allowed: bool,
     pub rule: String,
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// On the wire: `{"state": "requested"}`, `{"state": "running"}` or
+/// `{"state": "done", "status": <EffectStatus>}`.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "state", content = "status", rename_all = "snake_case")]
 pub enum ToolState {
     /// The model asked for it; no decision yet.
     Requested,
