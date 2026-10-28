@@ -554,7 +554,7 @@ fn an_older_cedia_is_not_asked_to_undo() {
 
 #[test]
 fn an_edited_message_forks_the_thread_and_runs_there() {
-    let harness = start_with("edit-and-check", "\"threads.fork\"");
+    let harness = start_with("edit-and-check", "\"threads.fork\",\"images\"");
     let mut window = Window::connect(&harness);
     window.ask(Request::Prompt {
         cwd: harness.cwd.clone(),
@@ -582,6 +582,7 @@ fn an_edited_message_forks_the_thread_and_runs_there() {
             goal: Some("f.txt says better".into()),
             ..Default::default()
         },
+        images: None,
     });
     let (_, seen) = window.until(|n| matches!(n, Notice::Forked { .. }));
     assert!(
@@ -622,6 +623,12 @@ fn an_edited_message_forks_the_thread_and_runs_there() {
         "{args:?}"
     );
     assert!(!args.contains(&"--plan"), "{args:?}");
+    // Unnamed, the resent message keeps the forked run's images, by their hash.
+    let kept = format!("sha256:{}", "a".repeat(64));
+    assert!(
+        args.windows(2).any(|w| w == ["--image", kept.as_str()]),
+        "{args:?}"
+    );
 }
 
 #[test]
@@ -637,6 +644,7 @@ fn a_cedia_that_cannot_fork_says_so() {
         permission: None,
         effort: None,
         helpers: Default::default(),
+        images: None,
     });
     assert!(matches!(window.next(), Notice::Error { .. }));
 }
@@ -803,6 +811,7 @@ fn a_queued_message_can_be_taken_back() {
         cwd: harness.cwd.clone(),
         thread: "t-00000001".into(),
         text: "also say why".into(),
+        images: Vec::new(),
     });
     let queued = |want: bool| {
         move |n: &Notice| {
@@ -1485,4 +1494,127 @@ fn a_cedia_without_schedules_lists_none() {
             ..
         }
     ));
+}
+
+#[test]
+fn the_daemon_holds_the_desktop_lock_while_it_serves() {
+    let harness = start("edit-and-check");
+    let text = std::fs::read_to_string(harness.home.join("desktop.lock")).expect("lock");
+    let lock: cedian_protocol::DesktopLock = serde_json::from_str(&text).expect("cedia's shape");
+    assert_eq!(lock.pid as u32, std::process::id());
+}
+
+#[test]
+fn a_message_to_a_running_thread_carries_its_images() {
+    let harness = start_with("edit-and-check", "\"threads.send-images\"");
+    std::fs::create_dir_all(harness.threads.join("..")).expect("state");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Send {
+        cwd: harness.cwd.clone(),
+        thread: "t-00000001".into(),
+        text: "look at this".into(),
+        images: vec!["/tmp/shot.png".into(), "sha256:abc".into()],
+    });
+    let sent = harness.threads.join("../sent");
+    for _ in 0..100 {
+        if sent.exists() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(
+        std::fs::read_to_string(&sent).expect("sent"),
+        "look at this"
+    );
+    let images = std::fs::read_to_string(harness.threads.join("../sent-images")).expect("images");
+    assert_eq!(images, "/tmp/shot.png\nsha256:abc\n");
+}
+
+#[test]
+fn a_cedia_without_send_images_refuses_an_image_message() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Send {
+        cwd: harness.cwd.clone(),
+        thread: "t-00000001".into(),
+        text: "look".into(),
+        images: vec!["/tmp/shot.png".into()],
+    });
+    assert!(matches!(window.next(), Notice::Error { .. }));
+}
+
+#[test]
+fn an_inline_edit_answers_with_its_patch_and_writes_nothing() {
+    let harness = start_with("edit-and-check", "\"inline-edit\"");
+    std::fs::create_dir_all(harness.threads.join("..")).expect("state");
+    let mut window = Window::connect(&harness);
+    let selection = cedian_wire::Selection {
+        start: cedian_wire::Position { line: 1, column: 1 },
+        end: cedian_wire::Position { line: 1, column: 4 },
+    };
+    window.ask(Request::InlineEdit {
+        id: "e-1".into(),
+        cwd: harness.cwd.clone(),
+        file: "f.txt".into(),
+        range: selection,
+        instruction: "say good".into(),
+        text: Some("bad\n".into()),
+        model: Some("faux/a".into()),
+    });
+    let (_, seen) = window.until(|n| matches!(n, Notice::InlineEdit { .. }));
+    let Some(Notice::InlineEdit { id, edit }) = seen.last().cloned() else {
+        unreachable!()
+    };
+    assert_eq!(id, "e-1");
+    assert!(
+        matches!(&edit, cedian_protocol::InlineEdit::Variant0 { replacement, patch, .. }
+            if replacement == "good" && patch.contains("+good")),
+        "{edit:?}"
+    );
+    let calls = std::fs::read_to_string(harness.threads.join("../edit-calls")).expect("calls");
+    let calls: Vec<&str> = calls.lines().collect();
+    assert!(calls.contains(&"--range=1:1-1:4"), "{calls:?}");
+    assert!(calls.contains(&"--instruction=say good"), "{calls:?}");
+    assert!(calls.contains(&"--model=faux/a"), "{calls:?}");
+    assert!(calls.contains(&"--stdin"), "{calls:?}");
+    assert_eq!(
+        std::fs::read_to_string(harness.threads.join("../edit-stdin")).expect("stdin"),
+        "bad\n"
+    );
+
+    window.ask(Request::InlineEdit {
+        id: "e-2".into(),
+        cwd: harness.cwd.clone(),
+        file: "f.txt".into(),
+        range: selection,
+        instruction: "refuse".into(),
+        text: None,
+        model: None,
+    });
+    let (_, seen) = window.until(|n| matches!(n, Notice::InlineEdit { .. }));
+    let notice = seen.last().cloned().expect("an answer");
+    assert!(
+        matches!(&notice, Notice::InlineEdit { id, edit: cedian_protocol::InlineEdit::Variant1 { error } }
+            if id == "e-2" && error.contains("empty")),
+        "{notice:?}"
+    );
+}
+
+#[test]
+fn a_cedia_without_inline_edit_says_so() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::InlineEdit {
+        id: "e-1".into(),
+        cwd: harness.cwd.clone(),
+        file: "f.txt".into(),
+        range: cedian_wire::Selection {
+            start: cedian_wire::Position { line: 1, column: 1 },
+            end: cedian_wire::Position { line: 1, column: 1 },
+        },
+        instruction: "x".into(),
+        text: None,
+        model: None,
+    });
+    assert!(matches!(window.next(), Notice::Error { .. }));
 }

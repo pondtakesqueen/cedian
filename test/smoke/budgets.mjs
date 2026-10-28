@@ -55,7 +55,10 @@ for (let run = 0; run < runs; run++) {
     await window.waitForSelector(".monaco-workbench .part.editor", { timeout: 60_000 });
     coldStarts.push(Math.round(performance.now() - startedAt));
     if (run === 0) {
-      await window.keyboard.press(process.platform === "darwin" ? "Meta+N" : "Control+N");
+      // Cmd+N is Cedian's new thread, so open the folder's README through Quick Open instead.
+      await window.keyboard.press(process.platform === "darwin" ? "Meta+P" : "Control+P");
+      await window.keyboard.type("README.md");
+      await window.keyboard.press("Enter");
       const editor = window.locator(".monaco-editor .view-lines").first();
       await editor.waitFor({ state: "visible" });
       // Click rather than focus the textarea: VS Code types through a native EditContext now,
@@ -64,6 +67,7 @@ for (let run = 0; run < runs; run++) {
       const times = [];
       for (let i = 0; i < 40; i++) {
         const want = "x".repeat(i + 1);
+        // README.md opens as "# smoke"; the x's go at the cursor, at its start.
         const t0 = performance.now();
         await window.keyboard.press("x");
         await window.waitForFunction(

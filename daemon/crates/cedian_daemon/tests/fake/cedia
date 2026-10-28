@@ -101,7 +101,7 @@ if [[ "${1:-}" == "threads" && "${4:-}" == "fork" ]]; then
   # threads --cwd <dir> fork <id> <run> --json
   printf '{"at":"2026-10-22T03:00:05.000Z","kind":"open","title":"forked","task":"forked","forkOf":{"thread":"%s","run":"%s"}}\n' "$5" "$6" \
     >"$FAKE_THREADS/t-0000fork.jsonl"
-  printf '{"thread":"t-0000fork","run":"%s"}\n' "$6"
+  printf '{"thread":"t-0000fork","run":"%s","images":[{"sha256":"%s","mime":"image/png","width":4,"height":3,"bytes":70}]}\n' "$6" "$(printf 'a%.0s' {1..64})"
   exit 0
 fi
 
@@ -150,9 +150,25 @@ if [[ "${1:-}" == "threads" && "${4:-}" == "rate" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "inline-edit" ]]; then
+  # inline-edit --file <f> --range=<r> --instruction=<i> --cwd <dir> --json [--model=<m>] [--stdin]:
+  # the arguments go to $FAKE_THREADS/../edit-calls, stdin to ../edit-stdin.
+  state="$FAKE_THREADS/.."
+  mkdir -p "$state"
+  printf '%s\n' "$@" >"$state/edit-calls"
+  if [[ " $* " == *" --stdin "* ]]; then cat >"$state/edit-stdin"; fi
+  if [[ " $* " == *"--instruction=refuse"* ]]; then echo '{"error":"the instruction is empty"}'; exit 1; fi
+  echo '{"file":"f.txt","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":4}},"replacement":"good","patch":"--- a/f.txt\n+++ b/f.txt\n@@ -1,1 +1,1 @@\n-bad\n+good\n","model":"faux/a","costUsd":0.001}'
+  exit 0
+fi
+
 if [[ "${1:-}" == "threads" ]]; then
-  # threads --cwd <dir> send <id> -- <text>
-  id="$5" text="$7"
+  # threads --cwd <dir> send <id> [--image <file>]... -- <text>; the images go to ../sent-images.
+  id="$5"
+  shift 5
+  : >"$FAKE_THREADS/../sent-images"
+  while [[ "$1" == "--image" ]]; do printf '%s\n' "$2" >>"$FAKE_THREADS/../sent-images"; shift 2; done
+  text="$2"
   printf '%s' "$text" >"$FAKE_THREADS/../sent"
   printf '{"at":"2026-10-22T03:00:00.000Z","kind":"message","id":"m-1","from":"user","text":"%s"}\n' "$text" \
     >>"$FAKE_THREADS/$id.jsonl"

@@ -6,8 +6,8 @@ use std::{
 use cedian_agent::Block;
 use cedian_index::{MemoryNote, Output};
 use cedian_protocol::{
-    CommandEntry, CommitDraft, Committed, McpCheck, McpList, ModelList, PermissionList, PrOpened,
-    PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport, VersionInfo,
+    CommandEntry, CommitDraft, Committed, InlineEdit, McpCheck, McpList, ModelList, PermissionList,
+    PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport, VersionInfo,
 };
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::{BrowserPage, Build, McpAdd, McpServer, Status, ThreadInfo};
 
 /// From the window to the daemon.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     /// The project's threads, answered with `Notice::Threads`, and again whenever one changes.
@@ -104,12 +104,35 @@ pub enum Request {
         effort: Option<String>,
         #[serde(default, skip_serializing_if = "Helpers::is_empty")]
         helpers: Helpers,
+        /// The images the resent message carries, each a file or `sha256:<hex>` for one cedia
+        /// stored. None keeps the forked run's own (cedia names them in its fork); an empty list
+        /// sends none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        images: Option<Vec<PathBuf>>,
     },
-    /// A message the running thread sees at its next turn.
+    /// A message the running thread sees at its next turn, with its images (`cedia threads send
+    /// --image`), when cedia lists `threads.send-images`.
     Send {
         cwd: PathBuf,
         thread: String,
         text: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        images: Vec<PathBuf>,
+    },
+    /// Cmd+K: the new text for a selection of `file` and the patch it makes (`cedia inline-edit
+    /// --json`), answered with `Notice::InlineEdit` carrying the same `id`, when cedia lists
+    /// `inline-edit`. Nothing is written; the window shows the patch for the person to accept.
+    InlineEdit {
+        id: String,
+        cwd: PathBuf,
+        file: PathBuf,
+        range: Selection,
+        instruction: String,
+        /// The file as the editor has it, unsaved changes included; none reads it from disk.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
     },
     /// Ends the thread's run.
     Stop { thread: String },
@@ -209,7 +232,7 @@ pub enum Request {
 
 /// The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]`
 /// or `none`; none keeps cedia's setting (`roles` in its settings).
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Helpers {
     /// `--plan`: a model plans before the writer starts.
@@ -232,8 +255,35 @@ impl Helpers {
     }
 }
 
+/// A selection in a file, as cedia's `InlineEditRange`: lines and columns from 1, columns in
+/// UTF-16 units as the editor counts them; `end` is just past the last character, and an empty
+/// selection asks for text inserted there.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Selection {
+    pub start: Position,
+    pub end: Position,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Position {
+    pub line: u32,
+    pub column: u32,
+}
+
+impl Selection {
+    /// `line:col-line:col`, as `cedia inline-edit --range` takes it.
+    pub fn arg(&self) -> String {
+        format!(
+            "{}:{}-{}:{}",
+            self.start.line, self.start.column, self.end.line, self.end.column
+        )
+    }
+}
+
 /// What the person decided about a hunk.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "decision", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Decision {
     Accept,
@@ -246,7 +296,7 @@ pub enum Decision {
 }
 
 /// From the daemon to the window.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Notice {
     /// The first notice on every connection.
@@ -383,6 +433,11 @@ pub enum Notice {
         list: McpList,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         refused: Option<String>,
+    },
+    /// The answer to `Request::InlineEdit`.
+    InlineEdit {
+        id: String,
+        edit: InlineEdit,
     },
     /// The answer to `Request::McpCheck`.
     McpChecked {

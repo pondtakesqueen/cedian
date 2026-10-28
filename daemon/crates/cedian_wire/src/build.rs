@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// daemon started. A window compares it with the daemon beside its own binary, so a window
 /// from a new app does not drive a daemon left running from an old one (or from a build
 /// replaced in place since).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Build {
     pub exe: PathBuf,

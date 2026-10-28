@@ -4,13 +4,39 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../base/common/codicons.js';
+import { KeyCodeUtils, KeyMod } from '../../../../base/common/keyCodes.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+import { isMacintosh } from '../../../../base/common/platform.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { localize, localize2 } from '../../../../nls.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { Extensions as ConfigurationExtensions, IConfigurationDefaults, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ColorScheme } from '../../../../platform/theme/common/theme.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+import { EditorExtensions } from '../../../common/editor.js';
 import { IViewContainersRegistry, IViewsRegistry, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
+import { ICedianDaemonService } from './daemonService.js';
+import { runInlineEdit } from './inlineEdit.js';
+import { KEYBINDINGS, parseKey, withKeymap } from './keybindings/keybindings.js';
+import { CedianPanes } from './panes.js';
+import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
+import { desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
+import { cssText } from './theme/theme.js';
+import type { AgentPane } from './agent-pane/pane.js';
+
+// ---- the agent pane ----
 
 const agentIcon = registerIcon('cedian-agent-view-icon', Codicon.commentDiscussion, localize('cedianAgentIcon', 'View icon of the Cedian agent pane.'));
 
@@ -31,3 +57,165 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 	canToggleVisibility: false,
 	canMoveView: true,
 }], container);
+
+// ---- the settings window ----
+
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(CedianSettingsEditor, CedianSettingsEditor.ID, localize('cedian.settings', "Cedian Settings")),
+	[new SyncDescriptor(CedianSettingsInput)],
+);
+
+// ---- commands and the keybinding layer (spec §7.2) ----
+
+/** Runs `act` on the agent pane, showing the pane first. */
+async function withPane(accessor: ServicesAccessor, act: (pane: AgentPane) => void): Promise<void> {
+	const views = accessor.get(IViewsService);
+	if (!CedianPanes.current) {
+		await views.openView(AGENT_PANE_VIEW_ID, true);
+	}
+	if (CedianPanes.current) {
+		act(CedianPanes.current);
+	}
+}
+
+const COMMANDS: Record<string, (accessor: ServicesAccessor) => unknown> = {
+	'cedian.newThread': a => withPane(a, p => p.newThread()),
+	'cedian.closeThread': a => withPane(a, p => p.newThread()),
+	'cedian.nextThread': a => withPane(a, p => p.stepThread(1)),
+	'cedian.previousThread': a => withPane(a, p => p.stepThread(-1)),
+	'cedian.toggleReview': a => withPane(a, p => p.toggleReview()),
+	'cedian.cycleViewMode': a => withPane(a, p => p.cycleViewMode()),
+	'cedian.permissionMenu': a => withPane(a, p => p.menu('permission')),
+	'cedian.modelMenu': a => withPane(a, p => p.menu('model')),
+	'cedian.effortMenu': a => withPane(a, p => p.menu('effort')),
+	'cedian.stop': a => withPane(a, p => p.stop()),
+	'cedian.focusComposer': a => withPane(a, p => p.focusComposer()),
+	'cedian.settings': a => a.get(IEditorService).openEditor(new CedianSettingsInput(), { pinned: true }),
+	'cedian.inlineEdit': a => runInlineEdit(a),
+};
+for (const [id, handler] of Object.entries(COMMANDS)) {
+	CommandsRegistry.registerCommand({ id, handler, metadata: { description: KEYBINDINGS.find(k => k.command === id)?.label ?? id } });
+}
+
+/** `cmd+shift+e` as VS Code's packed keybinding; `cmd` is Cmd on macOS and Ctrl elsewhere. */
+function packKey(text: string): number | undefined {
+	const key = parseKey(text);
+	if (!key) {
+		return undefined;
+	}
+	const code = KeyCodeUtils.fromUserSettings(key.key);
+	if (!code) {
+		return undefined;
+	}
+	let packed: number = code;
+	if (key.cmd) { packed |= KeyMod.CtrlCmd; }
+	if (key.ctrl) { packed |= isMacintosh ? KeyMod.WinCtrl : KeyMod.CtrlCmd; }
+	if (key.shift) { packed |= KeyMod.Shift; }
+	if (key.alt) { packed |= KeyMod.Alt; }
+	return packed;
+}
+
+const KEYMAP_CACHE = 'cedian.desktop.keymap';
+const DESKTOP_CACHE = 'cedian.desktop';
+
+function cached(key: string): unknown {
+	try {
+		const text = mainWindow.localStorage.getItem(key);
+		return text ? JSON.parse(text) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+// Registered before any keybinding is resolved, so Cedian's layer is in from the first key. The
+// person's `desktop.keymap` comes from the copy the last window kept, and a change to it takes
+// effect when the window next opens.
+for (const binding of withKeymap(KEYBINDINGS, cached(KEYMAP_CACHE))) {
+	const primary = packKey(binding.mac);
+	if (primary === undefined) {
+		continue;
+	}
+	KeybindingsRegistry.registerKeybindingRule({
+		id: binding.command,
+		primary,
+		weight: KeybindingWeight.ExternalExtension + 100,
+		when: binding.when ? ContextKeyExpr.deserialize(binding.when) : undefined,
+	});
+}
+
+// ---- desktop → VS Code settings, theme and the pane's type ----
+
+/**
+ * Keeps VS Code's settings what `desktop` says: they go in as VS Code's defaults, generated from
+ * the daemon's copy of `desktop` each time it changes (spec §9: VS Code settings.json is
+ * generated, never edited). Also lays the Warm & Lime `--cedian-*` properties over the window.
+ */
+class CedianDesktopContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.cedian.desktop';
+
+	private defaults: IConfigurationDefaults | undefined;
+	private desktop: Desktop = desktopOf(cached(DESKTOP_CACHE));
+	private readonly style: HTMLStyleElement;
+
+	constructor(
+		@ICedianDaemonService daemon: ICedianDaemonService,
+		@IThemeService private readonly themeService: IThemeService,
+	) {
+		super();
+		this.style = mainWindow.document.createElement('style');
+		this.style.id = 'cedian-tokens';
+		mainWindow.document.head.append(this.style);
+		this._register({ dispose: () => this.style.remove() });
+		this.apply();
+		this._register(themeService.onDidColorThemeChange(() => this.paint()));
+		const off = daemon.client.on('settings', notice => {
+			this.desktop = desktopOf(notice.desktop);
+			try {
+				mainWindow.localStorage.setItem(DESKTOP_CACHE, JSON.stringify(this.desktop));
+				mainWindow.localStorage.setItem(KEYMAP_CACHE, JSON.stringify(this.desktop.keymap ?? {}));
+			} catch {
+				// A window without storage applies `desktop` when the daemon sends it.
+			}
+			this.apply();
+		});
+		this._register({ dispose: off });
+		daemon.client.request({ op: 'settings' });
+	}
+
+	private apply(): void {
+		const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+		const systemDark = mainWindow.matchMedia('(prefers-color-scheme: dark)').matches;
+		const next: IConfigurationDefaults = { overrides: vscodeSettings(this.desktop, systemDark), donotCache: true };
+		if (this.defaults) {
+			registry.deregisterDefaultConfigurations([this.defaults]);
+		}
+		registry.registerDefaultConfigurations([next]);
+		this.defaults = next;
+		this.paint();
+	}
+
+	/** The tokens of the theme showing now, and the pane's type from `desktop`. */
+	private paint(): void {
+		const type = this.themeService.getColorTheme().type;
+		const appearance = type === ColorScheme.LIGHT || type === ColorScheme.HIGH_CONTRAST_LIGHT ? 'light' : 'dark';
+		const typography = Object.entries(paneTypography(this.desktop)).map(([k, v]) => `  ${k}: ${v};`).join('\n');
+		this.style.textContent = `${cssText(appearance, '.monaco-workbench')}.monaco-workbench {\n${typography}\n}\n`;
+	}
+}
+
+registerWorkbenchContribution2(CedianDesktopContribution.ID, CedianDesktopContribution, WorkbenchPhase.BlockRestore);
+
+// Cmd+, and VS Code's own settings commands open Cedian's settings window (spec §7.1: VS Code's
+// settings UI is off).
+class CedianSettingsRedirect implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.cedian.settingsRedirect';
+	private readonly redirects: IDisposable[] = [];
+
+	constructor(@ICommandService commandService: ICommandService) {
+		for (const id of ['workbench.action.openSettings', 'workbench.action.openSettings2', 'workbench.action.openGlobalSettings']) {
+			this.redirects.push(CommandsRegistry.registerCommand(id, () => commandService.executeCommand('cedian.settings')));
+		}
+	}
+}
+
+registerWorkbenchContribution2(CedianSettingsRedirect.ID, CedianSettingsRedirect, WorkbenchPhase.AfterRestored);

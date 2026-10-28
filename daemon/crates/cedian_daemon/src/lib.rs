@@ -7,6 +7,7 @@ mod browser;
 mod cedia;
 mod clone_ignored;
 mod daemon;
+mod desktop_lock;
 mod desktop_settings;
 mod environment;
 mod follow;

@@ -75,11 +75,7 @@ impl Plan {
 /// Whether the template can start on the given plan. Enterprise
 /// Dashboards/Motion need an owner toggle; the daemon models that as
 /// `enterprise_enabled`.
-pub fn template_allowed(
-    kind: ArtifactKind,
-    plan: Plan,
-    enterprise_enabled: bool,
-) -> bool {
+pub fn template_allowed(kind: ArtifactKind, plan: Plan, enterprise_enabled: bool) -> bool {
     match kind {
         ArtifactKind::Docs | ArtifactKind::Slides | ArtifactKind::Design => true,
         ArtifactKind::Dashboard => match plan {
@@ -121,9 +117,11 @@ mod tests {
 
     #[test]
     fn each_content_flag_is_required_without_an_explicit_ask() {
-        for (reusable, standalone, referable) in
-            [(false, true, true), (true, false, true), (true, true, false)]
-        {
+        for (reusable, standalone, referable) in [
+            (false, true, true),
+            (true, false, true),
+            (true, true, false),
+        ] {
             let c = Candidate {
                 reusable,
                 standalone,
@@ -165,11 +163,7 @@ mod tests {
     #[test]
     fn beta_templates_follow_the_plan_table() {
         // Dashboards: Pro+ yes, Free no, Enterprise needs the owner toggle.
-        assert!(template_allowed(
-            ArtifactKind::Dashboard,
-            Plan::Pro,
-            false
-        ));
+        assert!(template_allowed(ArtifactKind::Dashboard, Plan::Pro, false));
         assert!(!template_allowed(
             ArtifactKind::Dashboard,
             Plan::Free,

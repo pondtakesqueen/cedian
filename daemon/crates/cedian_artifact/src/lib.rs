@@ -12,5 +12,7 @@ mod trigger;
 
 pub use artifact::{Artifact, Version, VersionOrigin};
 pub use kind::ArtifactKind;
-pub use store::{MAX_BYTES, StorageMode, check_load, check_store, needs_publish, unpublish_deletes};
+pub use store::{
+    MAX_BYTES, StorageMode, check_load, check_store, needs_publish, unpublish_deletes,
+};
 pub use trigger::{Candidate, Plan, template_allowed};

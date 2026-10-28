@@ -66,6 +66,7 @@ version = "0.1.0"
 dependencies = [
  "cedian_protocol",
  "chrono",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -106,6 +107,7 @@ dependencies = [
  "cedian_agent",
  "cedian_protocol",
  "log",
+ "schemars",
  "serde",
  "serde_json",
  "tempfile",
@@ -130,6 +132,7 @@ name = "cedian_review"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "schemars",
  "serde",
  "tempfile",
 ]
@@ -143,6 +146,7 @@ dependencies = [
  "cedian_index",
  "cedian_protocol",
  "cedian_review",
+ "schemars",
  "serde",
  "serde_json",
 ]

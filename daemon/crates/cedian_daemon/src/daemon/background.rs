@@ -253,7 +253,7 @@ impl Daemon {
             log::info!("schedule {} wakes {}", schedule.id, schedule.thread);
             let running = lock(shared).running(&schedule.thread);
             if running {
-                if let Err(error) = cedia.send(cwd, &schedule.thread, &schedule.prompt) {
+                if let Err(error) = cedia.send(cwd, &schedule.thread, &schedule.prompt, &[]) {
                     log::warn!("{error:#}");
                 }
             } else {

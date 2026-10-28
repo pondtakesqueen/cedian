@@ -32,6 +32,10 @@ pub fn serve(config: Config) -> anyhow::Result<()> {
         return Ok(());
     };
     log::info!("serving {}", config.socket.display());
+    // From here this daemon runs the queued threads and schedules; `cedia daemon` yields.
+    if let Err(error) = crate::desktop_lock::hold(&config.home) {
+        log::warn!("desktop lock: {error:#}");
+    }
     let state_dir = config
         .socket
         .parent()

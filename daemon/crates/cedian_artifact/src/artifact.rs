@@ -140,8 +140,7 @@ mod tests {
         let mut a = Artifact::new("a1", "Deck", ArtifactKind::Slides, "v1");
         a.edit_direct("v2");
         a.claude_edit("v3");
-        let origins: Vec<VersionOrigin> =
-            a.versions.iter().map(|v| v.origin).collect();
+        let origins: Vec<VersionOrigin> = a.versions.iter().map(|v| v.origin).collect();
         assert_eq!(
             origins,
             [

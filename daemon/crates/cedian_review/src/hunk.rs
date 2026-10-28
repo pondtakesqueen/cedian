@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Where a hunk stands in the review.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HunkState {
     /// Waiting for a decision.
@@ -15,7 +15,7 @@ pub enum HunkState {
 }
 
 /// One hunk of a file's diff. `id` names it across reviews: the file and the hunk's text.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Hunk {
     pub id: String,
     pub path: String,

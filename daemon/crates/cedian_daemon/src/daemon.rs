@@ -482,13 +482,26 @@ impl Daemon {
                 };
                 let running = thread.as_deref().is_some_and(|t| lock(shared).running(t));
                 match thread {
-                    // `threads send` carries text only; an image goes with the next run.
-                    Some(_) if running && !images.is_empty() => lock(shared).error(
-                        client,
-                        "an image goes with a new run: send it once this one ends".into(),
-                    ),
+                    // A cedia older than `threads.send-images` sends text only; an image then
+                    // goes with the next run.
+                    Some(_)
+                        if running
+                            && !images.is_empty()
+                            && !Self::can(
+                                shared,
+                                cedian_protocol::Capability::ThreadsSendImages,
+                            )
+                            .1 =>
+                    {
+                        lock(shared).error(
+                            client,
+                            "an image goes with a new run: send it once this one ends".into(),
+                        )
+                    }
                     // A run is already working on it: the text joins at its next turn.
-                    Some(thread) if running => Self::message(shared, client, &cwd, &thread, &text),
+                    Some(thread) if running => {
+                        Self::message(shared, client, &cwd, &thread, &text, &images)
+                    }
                     None if worktree => Self::prompt_in_worktree(shared, client, cwd, &text, with),
                     thread => {
                         Self::prompt(shared, Some(client), cwd.clone(), cwd, &text, thread, with)
@@ -556,6 +569,7 @@ impl Daemon {
                 permission,
                 effort,
                 helpers,
+                images,
             } => {
                 let (cedia, can) = {
                     let daemon = lock(shared);
@@ -569,7 +583,16 @@ impl Daemon {
                     return lock(shared).error(client, "this cedia cannot fork a thread".into());
                 }
                 match cedia.fork(&cwd, &thread, &run) {
-                    Ok(forked) => {
+                    Ok((forked, kept)) => {
+                        // Unnamed, the resent message keeps the forked run's images, when this
+                        // cedia shows images at all.
+                        let images = images.unwrap_or_else(|| {
+                            if Self::can(shared, cedian_protocol::Capability::Images).1 {
+                                kept
+                            } else {
+                                Vec::new()
+                            }
+                        });
                         lock(shared).send(
                             client,
                             Notice::Forked {
@@ -583,6 +606,7 @@ impl Daemon {
                             permission: permission.as_deref(),
                             effort: effort.as_deref(),
                             helpers: Some(&helpers),
+                            images: &images,
                             cache_ttl: Some(PERSON_CACHE_TTL),
                             ..Flags::default()
                         };
@@ -640,8 +664,50 @@ impl Daemon {
                     Err(error) => lock(shared).error(client, format!("{error:#}")),
                 }
             }
-            Request::Send { cwd, thread, text } => {
-                Self::message(shared, client, &cwd, &thread, &text)
+            Request::Send {
+                cwd,
+                thread,
+                text,
+                images,
+            } => {
+                if !images.is_empty()
+                    && !Self::can(shared, cedian_protocol::Capability::ThreadsSendImages).1
+                {
+                    return lock(shared).error(
+                        client,
+                        "this cedia sends text only to a running thread".into(),
+                    );
+                }
+                Self::message(shared, client, &cwd, &thread, &text, &images)
+            }
+            Request::InlineEdit {
+                id,
+                cwd,
+                file,
+                range,
+                instruction,
+                text,
+                model,
+            } => {
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::InlineEdit);
+                if !can {
+                    return lock(shared).error(client, "this cedia has no inline edit".into());
+                }
+                // A model answers it: it holds none of the window's other asks.
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let edit = cedia
+                        .inline_edit(
+                            &cwd,
+                            &file,
+                            &range,
+                            &instruction,
+                            text.as_deref(),
+                            model.as_deref(),
+                        )
+                        .unwrap_or_else(|error| cedian_protocol::InlineEdit::Variant1 { error });
+                    lock(&shared).send(client, Notice::InlineEdit { id, edit });
+                });
             }
             Request::Stop { thread } => lock(shared).stop(client, &thread),
             Request::Unsend { cwd, thread, ids } => {
@@ -822,7 +888,7 @@ impl Daemon {
                 let told = lock(shared).review(client, &cwd, &thread, Some((&hunk, &decision)));
                 match told {
                     Some((work_tree, text)) => {
-                        Self::message(shared, client, &work_tree, &thread, &text)
+                        Self::message(shared, client, &work_tree, &thread, &text, &[])
                     }
                     // The last hunk decided may leave nothing owed.
                     None => Self::archive_if_done(shared, &cwd, &thread),
@@ -1246,9 +1312,16 @@ impl Daemon {
         (daemon.cedia.clone(), can)
     }
 
-    fn message(shared: &Shared, client: ClientId, cwd: &Path, thread: &str, text: &str) {
+    fn message(
+        shared: &Shared,
+        client: ClientId,
+        cwd: &Path,
+        thread: &str,
+        text: &str,
+        images: &[PathBuf],
+    ) {
         let cedia = lock(shared).cedia.clone();
-        if let Err(error) = cedia.send(cwd, thread, text) {
+        if let Err(error) = cedia.send(cwd, thread, text, images) {
             lock(shared).error(client, format!("{error:#}"));
         }
     }

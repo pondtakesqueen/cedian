@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// The daemon sends blocks to the window as they are (`cedian_wire::Notice::Blocks`), tagged by
 /// `kind`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Block {
     /// A session began: the thread's first, or one after a handoff.
@@ -57,7 +57,7 @@ impl Block {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ToolCall {
     pub call_id: String,
     pub name: String,
@@ -130,7 +130,7 @@ pub enum DiffLine {
     Added(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Permission {
     pub allowed: bool,
@@ -140,7 +140,7 @@ pub struct Permission {
 
 /// On the wire: `{"state": "requested"}`, `{"state": "running"}` or
 /// `{"state": "done", "status": <EffectStatus>}`.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "state", content = "status", rename_all = "snake_case")]
 pub enum ToolState {
     /// The model asked for it; no decision yet.

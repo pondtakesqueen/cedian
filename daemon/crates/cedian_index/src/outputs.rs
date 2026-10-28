@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ThreadSummary, list_threads, session_cwd, session_path, threads_dir};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Output {
     /// Where the session that changed it ran.
     pub cwd: PathBuf,

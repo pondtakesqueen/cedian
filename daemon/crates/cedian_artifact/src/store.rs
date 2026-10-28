@@ -54,8 +54,7 @@ pub fn unpublish_deletes(legacy: bool) -> bool {
 /// Read one stored value back, refusing binary payloads the same way writes
 /// do. Kept beside `check_store` so the rule cannot drift.
 pub fn check_load(bytes: &[u8]) -> anyhow::Result<String> {
-    let text = std::str::from_utf8(bytes)
-        .with_context(|| "artifact storage holds text only")?;
+    let text = std::str::from_utf8(bytes).with_context(|| "artifact storage holds text only")?;
     if text.len() > MAX_BYTES {
         bail!("artifact storage is 20 MB per artifact");
     }
@@ -88,8 +87,7 @@ mod tests {
 
     #[test]
     fn shared_storage_needs_a_confirmation_cedian_v1_has_no_share_with() {
-        let err =
-            check_store("x", false, StorageMode::Shared).expect_err("shared in v1");
+        let err = check_store("x", false, StorageMode::Shared).expect_err("shared in v1");
         assert!(err.to_string().contains("personal only"));
     }
 

@@ -77,7 +77,10 @@ mod tests {
 
     #[test]
     fn template_names_resolve() {
-        assert_eq!(ArtifactKind::from_template("Docs"), Some(ArtifactKind::Docs));
+        assert_eq!(
+            ArtifactKind::from_template("Docs"),
+            Some(ArtifactKind::Docs)
+        );
         assert_eq!(
             ArtifactKind::from_template("deck"),
             Some(ArtifactKind::Slides)
