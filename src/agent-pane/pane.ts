@@ -12,7 +12,7 @@ import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { items } from "./items.js";
 import { renderItems } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
-import { currentModel, isRunning, openState, queued, reduce, type ThreadState } from "./thread-state.js";
+import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
 
@@ -137,7 +137,9 @@ export class AgentPane {
     this.leave();
     this.chosen.delete("model");
     this.chosen.delete("effort");
+    this.chosen.delete("permission");
     this.choices.effort = undefined;
+    this.defaults();
     this.state = openState(this.host.cwd, id);
     const info = this.threads.find((t) => t.id === id);
     if (info) this.state = { ...this.state, info, status: info.status };
@@ -267,8 +269,10 @@ export class AgentPane {
 
   private send(): void {
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
-    // A thread goes on with its own model unless the person picked another for it.
-    const choices = this.state.thread && !this.chosen.has("model") ? { ...this.choices, model: undefined } : this.choices;
+    // A thread goes on with its own model and permission unless the person picked others for it.
+    const choices = { ...this.choices };
+    if (this.state.thread && !this.chosen.has("model")) choices.model = undefined;
+    if (this.state.thread && !this.chosen.has("permission")) choices.permission = threadPermission(this.state.info) ?? choices.permission;
     const requests = submit(this.draft, target, choices);
     if (requests.length === 0) return;
     for (const r of requests) this.wire.request(r);
@@ -362,7 +366,7 @@ export class AgentPane {
     const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
     mode.title = "สลับมุมมอง (Ctrl+O)";
     this.header.replaceChildren(picker, dot, mode);
-    const meter = contextMeter(this.state.view.context ?? undefined, currentModel(this.state.view.blocks as Block[]), this.models);
+    const meter = contextMeter(this.state.view.context ?? undefined, currentModel(this.state.view.blocks as Block[], this.state.info), this.models);
     if (meter) {
       const ns = "http://www.w3.org/2000/svg";
       const svg = d.createElementNS(ns, "svg");
@@ -642,7 +646,7 @@ export class AgentPane {
       this.renderComposer();
     };
     if (this.models) {
-      const threadModel = this.state.thread && !this.chosen.has("model") ? currentModel(this.state.view.blocks as Block[]) : undefined;
+      const threadModel = this.state.thread && !this.chosen.has("model") ? currentModel(this.state.view.blocks as Block[], this.state.info) : undefined;
       const shown = threadModel ?? this.choices.model ?? "";
       const s = select(d, [{ value: "", label: `โมเดล: ${this.models.default}` }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
       s.dataset.chip = "model";
@@ -658,7 +662,8 @@ export class AgentPane {
       }
     }
     if (this.permissions) {
-      const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
+      const threadMode = this.state.thread && !this.chosen.has("permission") ? threadPermission(this.state.info) : undefined;
+      const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
       s.title = "สิทธิ์ (Cmd+Shift+M)";
       chips.push(s);

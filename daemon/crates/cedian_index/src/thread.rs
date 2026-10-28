@@ -58,6 +58,9 @@ pub struct ThreadSummary {
 pub struct RunRef {
     pub id: String,
     pub prompt: String,
+    /// What the run ran under (`cedia --permission`); none from a cedia that did not record it.
+    #[serde(default)]
+    pub permission: Option<String>,
 }
 
 /// One step of a thread's todo list.
@@ -87,6 +90,9 @@ pub struct ThreadQuestion {
 pub struct SessionRef {
     pub session_id: String,
     pub model: String,
+    /// The session's role: `code` for the writer, else a helper such as `triage`, `explore` or `goal`.
+    #[serde(default)]
+    pub role: String,
     pub path: Option<String>,
 }
 
@@ -161,6 +167,7 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
             ThreadEvent::Session {
                 session_id,
                 model,
+                role,
                 path,
                 at,
                 ..
@@ -168,6 +175,7 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
                 thread.sessions.push(SessionRef {
                     session_id: session_id.clone(),
                     model: model.clone(),
+                    role: role.clone(),
                     path: path.clone(),
                 });
                 thread.updated_at = at.clone();
@@ -251,10 +259,17 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
                     .collect();
                 thread.updated_at = at.clone();
             }
-            ThreadEvent::Run { id, prompt, at, .. } => {
+            ThreadEvent::Run {
+                id,
+                prompt,
+                permission,
+                at,
+                ..
+            } => {
                 thread.runs.push(RunRef {
                     id: id.clone(),
                     prompt: prompt.clone(),
+                    permission: permission.as_ref().map(|p| p.to_string()),
                 });
                 if thread.state == ThreadState::Queued {
                     thread.state = ThreadState::Working;
@@ -442,6 +457,30 @@ mod tests {
     }
 
     #[test]
+    fn runs_keep_their_permission_and_sessions_their_role() {
+        let events = events(&[
+            r#"{"kind":"open","title":"t","task":"t","at":"1"}"#,
+            r#"{"kind":"run","id":"r1","prompt":"a","cwd":"/r","permission":"workspace","at":"2"}"#,
+            r#"{"kind":"session","sessionId":"s0","model":"cheap","role":"triage","why":"start","at":"3","run":"r1"}"#,
+            r#"{"kind":"session","sessionId":"s1","model":"opus","role":"code","why":"start","at":"4","run":"r1"}"#,
+            r#"{"kind":"run","id":"r2","prompt":"b","cwd":"/r","at":"5"}"#,
+        ]);
+        let thread = fold("t-1", &events);
+        let permissions: Vec<_> = thread
+            .runs
+            .iter()
+            .map(|r| r.permission.as_deref())
+            .collect();
+        assert_eq!(
+            permissions,
+            [Some("workspace"), None],
+            "an older cedia records none"
+        );
+        let roles: Vec<_> = thread.sessions.iter().map(|s| s.role.as_str()).collect();
+        assert_eq!(roles, ["triage", "code"]);
+    }
+
+    #[test]
     fn a_rewind_drops_the_runs_it_goes_back_over_but_not_the_messages() {
         let events = events(&[
             r#"{"kind":"open","title":"t","task":"t","at":"1"}"#,
@@ -471,7 +510,8 @@ mod tests {
             thread.runs,
             [RunRef {
                 id: "r1".into(),
-                prompt: "a".into()
+                prompt: "a".into(),
+                permission: None,
             }]
         );
         assert_eq!(thread.messages.len(), 1);

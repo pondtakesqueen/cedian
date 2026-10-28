@@ -3367,6 +3367,14 @@
         "id": {
           "type": "string"
         },
+        "permission": {
+          "default": null,
+          "description": "What the run ran under (`cedia --permission`); none from a cedia that did not record it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "prompt": {
           "type": "string"
         }
@@ -3457,6 +3465,11 @@
             "string",
             "null"
           ]
+        },
+        "role": {
+          "default": "",
+          "description": "The session's role: `code` for the writer, else a helper such as `triage`, `explore` or `goal`.",
+          "type": "string"
         },
         "session_id": {
           "type": "string"
