@@ -58,7 +58,9 @@ for (let run = 0; run < runs; run++) {
       await window.keyboard.press(process.platform === "darwin" ? "Meta+N" : "Control+N");
       const editor = window.locator(".monaco-editor .view-lines").first();
       await editor.waitFor({ state: "visible" });
-      await window.locator(".monaco-editor textarea").first().focus();
+      // Click rather than focus the textarea: VS Code types through a native EditContext now,
+      // and focusing its fallback textarea takes keys away from the editor.
+      await editor.click();
       const times = [];
       for (let i = 0; i < 40; i++) {
         const want = "x".repeat(i + 1);

@@ -12,8 +12,9 @@ if (!app) {
 const { electronApp, window } = await launch(app);
 try {
   await window.waitForSelector(".monaco-workbench", { timeout: 60_000 });
-  const title = await window.title();
-  if (!title.includes("Cedian")) throw new Error(`window title "${title}" does not name Cedian`);
+  // VS Code's macOS window title leaves out the app name, so ask Electron for it.
+  const title = await electronApp.evaluate(({ app }) => app.getName());
+  if (title !== "Cedian") throw new Error(`app is named "${title}", not Cedian`);
   const pane = window.locator(".cedian-agent-pane");
   await pane.waitFor({ state: "visible", timeout: 30_000 });
   const fixture = await pane.getAttribute("data-fixture");

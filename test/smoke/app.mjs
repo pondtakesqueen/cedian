@@ -1,7 +1,7 @@
 // Launches a built VS Code-based app (Cedian.app or stock VS Code) through Playwright's
 // Electron driver, in a fresh user-data dir with a throwaway folder open, so every launch is
 // a first launch.
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron } from "playwright-core";
@@ -9,9 +9,11 @@ import { _electron as electron } from "playwright-core";
 /** The executable inside a macOS .app bundle, or the path itself when it is one already. */
 export function executable(app) {
   if (!app.endsWith(".app")) return app;
-  const name = app.split("/").pop().replace(/\.app$/, "");
-  // Stock VS Code's binary is "Electron"; Cedian's and Code - OSS's take the product name.
-  return name === "Visual Studio Code" ? `${app}/Contents/MacOS/Electron` : `${app}/Contents/MacOS/${name}`;
+  // The bundle names its binary: stock VS Code's is "Code", Cedian's is "Cedian".
+  const plist = readFileSync(`${app}/Contents/Info.plist`, "utf8");
+  const name = plist.match(/<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/)?.[1];
+  if (!name) throw new Error(`${app}/Contents/Info.plist names no CFBundleExecutable`);
+  return `${app}/Contents/MacOS/${name}`;
 }
 
 export async function launch(app, settings = {}) {
