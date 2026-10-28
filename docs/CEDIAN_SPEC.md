@@ -72,7 +72,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 
 - **UI framework**: GPUI → Electron (VS Code fork)
 - **Blocks**: native GPUI → Tern-style blocks (drag/zoom/park/PiP) via VS Code workbench fork (TS/CSS, native DOM)
-- **Editor**: Zed's editor → VS Code's Monaco (built-in)
+- **Editor**: Zed's editor → the fork's own VS Code editor (built in, not a separate Monaco)
 - **Terminal**: Zed's terminal → VS Code's xterm.js (built-in)
 - **Browser**: screencast → daemon-owned Chromium (bundled), screencast into VS Code panel (not VS Code integrated browser)
 - **Thai text**: ICU4X → browser native (Chromium ICU line breaking + CSS font fallback; no ICU4X/Intl.Segmenter needed)
@@ -101,7 +101,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | PR monitoring (Auto-fix, Merge when ready) | Daemon + gh CLI |
 | Browser pane (tabbed, element selection, safety) | daemon Chromium (bundled) screencast into panel + CDP (agent drives) |
 | Terminal (integrated, xterm.js) | VS Code terminal |
-| File editor (open/edit/save) | VS Code editor (Monaco) |
+| File editor (open/edit/save) | VS Code editor (of the fork) |
 | View modes (Normal/Thinking/Verbose) | Agent pane view modes |
 | Side chat (`Cmd+;` / `/btw`) | Side chat panel |
 | Keyboard shortcuts | VS Code keybindings + Cedian additions |
@@ -793,7 +793,7 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 
 | Area | Claude Desktop | Cursor | Cedian | Notes |
 |------|----------------|--------|--------|-------|
-| Editor (Monaco/LSP/debug/git) | via web (Code tab) | full VS Code | VS Code fork | ✅ parity |
+| Editor (the fork's VS Code editor, LSP, debug, git) | via web (Code tab) | full VS Code | VS Code fork | ✅ parity |
 | Terminal | integrated | xterm.js | xterm.js | ✅ |
 | Chat panel | yes | yes | yes | ✅ |
 | Composer (prompt+attachments) | yes | yes | yes | ✅ |
