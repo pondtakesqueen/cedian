@@ -223,12 +223,6 @@ impl Seen {
             since,
         }
     }
-
-    /// Whether a run the watch started is still owed a new head: it was asked about the head
-    /// GitHub has now.
-    pub fn fixing(&self, head: &str) -> bool {
-        self.acted.iter().any(|(sha, _)| sha == head)
-    }
 }
 
 /// The next thing to ask of the thread about its open PR, if any, and records it as asked. A
@@ -344,6 +338,11 @@ pub fn prompt(pr: &Pr, action: &Action, logs: &[(String, String)]) -> String {
 }
 
 impl Gh {
+    /// The login environment `gh` and `git push` run in.
+    pub fn env(&self) -> &HashMap<String, String> {
+        &self.env
+    }
+
     pub fn of(env: &HashMap<String, String>) -> Self {
         let bin = env
             .get("CEDIAN_GH")
@@ -433,6 +432,39 @@ pub fn branch(cwd: &Path) -> Option<String> {
     (output.status.success() && !name.is_empty() && name != "HEAD").then_some(name)
 }
 
+/// Whether `cwd`'s repository has a remote at all: a branch with none has no PR to look up.
+pub fn has_remote(cwd: &Path) -> bool {
+    Command::new("git")
+        .arg("remote")
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .output()
+        .is_ok_and(|o| o.status.success() && !o.stdout.trim_ascii().is_empty())
+}
+
+/// Pushes what a run the watch asked for committed on `branch` to the PR's branch on `origin`.
+/// The run cannot: cedia's sandbox keeps its shell off github.com. Only when `branch` is still
+/// checked out, and never forced, so a branch that moved on GitHub is refused, not overwritten.
+pub fn push(env: &HashMap<String, String>, cwd: &Path, branch: &str) -> anyhow::Result<String> {
+    anyhow::ensure!(
+        self::branch(cwd).as_deref() == Some(branch),
+        "{} is no longer on {branch}",
+        cwd.display()
+    );
+    let output = Command::new("git")
+        .args(["push", "origin", &format!("HEAD:refs/heads/{branch}")])
+        .env_clear()
+        .envs(env)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .output()
+        .context("running git push")?;
+    let said = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    anyhow::ensure!(output.status.success(), "git push: {said}");
+    Ok(said)
+}
+
 /// One thread's PR as the daemon follows it.
 pub struct Watch {
     pub cwd: PathBuf,
@@ -445,6 +477,8 @@ pub struct Watch {
     pub changed_at: Instant,
     /// A look at GitHub is going on now.
     pub checking: bool,
+    /// The thread is on a run the watch asked for; when it ends, the daemon pushes its commits.
+    pub asked: bool,
 }
 
 impl Watch {
@@ -459,12 +493,13 @@ impl Watch {
             next_check: now,
             changed_at: now,
             checking: false,
+            asked: false,
         }
     }
 
     pub fn chip(&self) -> Option<PrChip> {
         let pr = self.pr.as_ref()?;
-        Some(pr.chip(self.seen.fixing(&pr.head_ref_oid)))
+        Some(pr.chip(self.asked))
     }
 
     /// Takes in what GitHub says now and sets when to look again.
@@ -503,6 +538,64 @@ impl Watch {
 mod tests {
     use super::*;
 
+    fn git(cwd: &Path, args: &[&str]) {
+        let status = Command::new("git")
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "init.defaultBranch=main",
+            ])
+            .args(args)
+            .current_dir(cwd)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .expect("git");
+        assert!(status.success(), "git {args:?}");
+    }
+
+    #[test]
+    fn a_fixed_branch_is_pushed_and_never_forced() {
+        let dir = tempfile::tempdir().expect("dir");
+        let (origin, work) = (dir.path().join("origin.git"), dir.path().join("work"));
+        std::fs::create_dir_all(&work).expect("work");
+        git(dir.path(), &["init", "--bare", "origin.git"]);
+        git(&work, &["init"]);
+        assert!(!has_remote(&work), "a repository with no remote has no PR");
+        git(
+            &work,
+            &["remote", "add", "origin", origin.to_str().expect("path")],
+        );
+        assert!(has_remote(&work));
+        git(&work, &["checkout", "-b", "fix-sum"]);
+        git(&work, &["commit", "--allow-empty", "-m", "one"]);
+        git(&work, &["push", "origin", "fix-sum"]);
+        git(&work, &["commit", "--allow-empty", "-m", "two"]);
+        let env: HashMap<String, String> = std::env::vars().collect();
+
+        push(&env, &work, "fix-sum").expect("push");
+        let head = |cwd: &Path, rev: &str| {
+            let out = Command::new("git")
+                .args(["rev-parse", rev])
+                .current_dir(cwd)
+                .output();
+            String::from_utf8_lossy(&out.expect("rev-parse").stdout)
+                .trim()
+                .to_string()
+        };
+        assert_eq!(head(&origin, "fix-sum"), head(&work, "HEAD"));
+
+        // Another branch checked out: nothing goes up.
+        assert!(push(&env, &work, "other").is_err());
+        // History that would overwrite the remote is refused, not forced.
+        git(&work, &["reset", "--hard", "HEAD~1"]);
+        git(&work, &["commit", "--allow-empty", "-m", "diverged"]);
+        assert!(push(&env, &work, "fix-sum").is_err());
+    }
+
     fn pr(json: &str) -> Pr {
         serde_json::from_str(json).expect("pr")
     }
@@ -525,7 +618,6 @@ mod tests {
                 runs: vec!["78".into()]
             })
         );
-        assert!(seen.fixing("abc123"));
         assert_eq!(red.chip(true).ci, CiState::Failing);
         // Nothing new on the same head: the run pushed nothing, so the watch waits.
         assert_eq!(next(&red, &[], "me", &mut seen), None);
@@ -534,7 +626,6 @@ mod tests {
             head_ref_oid: "def456".into(),
             ..red.clone()
         };
-        assert!(!seen.fixing("def456"));
         assert!(matches!(
             next(&again, &[], "me", &mut seen),
             Some(Action::FixCi { .. })
