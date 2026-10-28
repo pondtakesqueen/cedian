@@ -17,6 +17,7 @@ export const COMPOSER_FOCUS = "cedianComposerFocus";
 export const PANE_FOCUS = "cedianPaneFocus";
 
 export const KEYBINDINGS: Binding[] = [
+  { command: "cedian.projectChat", mac: "cmd+0", label: "แชทโปรเจกต์" },
   { command: "cedian.newThread", mac: "cmd+n", label: "เธรดใหม่" },
   { command: "cedian.closeThread", mac: "cmd+w", label: "ปิดเธรด", when: PANE_FOCUS },
   { command: "cedian.nextThread", mac: "ctrl+tab", label: "เธรดถัดไป", when: PANE_FOCUS },

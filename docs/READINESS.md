@@ -113,7 +113,12 @@
   run goes on in its root, the other roots are named read-only
 - [x] Multi-repo, cedian side: the daemon passes `CEDIA_ROOTS` from
   `desktop.roots` (cedian #11)
-- [ ] Project chat (⌘0) + coordinator cards
+- [x] Project chat, first pass (⌘0, the thread picker's first entry): the
+  chat's first message starts the project's coordinator thread
+  (`--profile coordinator`, in the project itself); the chat shows a card
+  per thread it opened (state, todo progress and step, its question with
+  answers as buttons, เปิด). Still to do: `@` to one thread, auto-archive
+  cards, search above the list
 - [ ] Exit gate: three threads at once across two repos from one project
   chat; memory measured; scroll 10k blocks @60fps
 

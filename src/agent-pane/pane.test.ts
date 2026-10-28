@@ -57,7 +57,7 @@ describe("agent pane", () => {
   it("draws a thread, queues while it runs, and reviews when it ends", () => {
     const { pane, emit, last, opened } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a", status: "working", state: "working" }), info({ id: "t-0", archived: true })] });
-    expect(pane.root.querySelectorAll("select.threads option")).toHaveLength(2);
+    expect(pane.root.querySelectorAll("select.threads option")).toHaveLength(3);
     pane.openThread("t-1");
     expect(last()).toEqual({ op: "review", cwd: "/r/.cedian/worktrees/a", thread: "t-1" });
     emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "user", text: "fix", images: [] }, { kind: "text", text: "on it", streaming: true }], run_cost: 0.12 });
@@ -146,6 +146,35 @@ describe("agent pane", () => {
     await pane.paste([shot, copied]);
     expect(saved).toEqual(["image/png:3"]);
     expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["paste-1.png", "a.jpg"]);
+  });
+
+  it("⌘0 starts the project chat as the coordinator, then shows a card per thread it opened", () => {
+    const { pane, emit, sent, last } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [] });
+    pane.projectChat();
+    expect(pane.root.textContent).toContain("แชทโปรเจกต์");
+    type(pane, "fix login and update the docs");
+    enter(pane);
+    expect(last()).toMatchObject({ op: "prompt", cwd: "/r", text: "fix login and update the docs", profile: "coordinator", worktree: false });
+    emit({ kind: "started", cwd: "/r", thread: "c-1" });
+    const coordinator = info({ id: "c-1", title: "Project chat", profile: "coordinator", status: "working", state: "working", updated_at: "2026-10-28T11:00:00Z" });
+    const login = info({ id: "t-2", title: "Fix login", by: "c-1", status: "working", state: "working", cwd: "/r/.cedian/worktrees/login", todo: [{ state: "done", text: "find" }, { state: "doing", text: "patch the redirect" }] });
+    const docs = info({ id: "t-3", title: "Update docs", by: "c-1", status: "asking", state: "asking", question: { question: "Which README?", options: ["root", "packages"] } });
+    emit({ kind: "threads", cwd: "/r", threads: [coordinator, login, docs, info({ id: "t-9", title: "Unrelated" })] });
+    const cards = [...pane.root.querySelectorAll<HTMLElement>(".thread-card")];
+    expect(cards.map((c) => c.dataset.thread)).toEqual(["t-3", "t-2"]);
+    expect(cards[1]!.textContent).toContain("1/2");
+    expect(cards[1]!.textContent).toContain("patch the redirect");
+    // Answering on the card replies to that thread, in its own place.
+    buttons(cards[0]!, "root")[0]!.click();
+    expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "root", thread: "t-3", worktree: false });
+    buttons(cards[1]!, "เปิด")[0]!.click();
+    expect(sent).toContainEqual({ op: "open", cwd: "/r", thread: "t-2" });
+    expect(pane.root.querySelector(".thread-card")).toBeNull();
+    // ⌘0 goes back to the chat.
+    pane.projectChat();
+    expect(sent.at(-2)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
+    expect(pane.root.querySelector<HTMLSelectElement>("select.threads")!.value).toBe("@chat");
   });
 
   it("lists threads newest first without archived ones", () => {

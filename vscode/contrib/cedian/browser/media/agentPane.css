@@ -32,6 +32,13 @@
 .cedian-agent-pane .card { max-width: 680px; margin: 8px auto 0; width: calc(100% - 32px); box-sizing: border-box; border-radius: 12px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .cedian-agent-pane .card.ask { box-shadow: inset 0 0 0 1px var(--cedian-accent); }
 .cedian-agent-pane .card .q { font-weight: 600; }
+.cedian-agent-pane .card.threads { gap: 0; padding: 4px 12px; }
+.cedian-agent-pane .thread-card { padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .thread-card + .thread-card { border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .thread-card .row { display: flex; align-items: center; gap: 8px; }
+.cedian-agent-pane .thread-card .title { flex: 1; min-width: 0; font-weight: 600; }
+.cedian-agent-pane .thread-card.st-asking { box-shadow: inset 2px 0 0 var(--cedian-accent); padding-left: 8px; }
+.cedian-agent-pane .thread-card .step { color: var(--cedian-text-muted); }
 .cedian-agent-pane .steps { list-style: none; margin: 0; padding: 0; }
 .cedian-agent-pane .step { display: flex; gap: 8px; }
 .cedian-agent-pane .step.done { color: var(--cedian-text-muted); }
