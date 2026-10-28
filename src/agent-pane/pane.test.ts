@@ -281,6 +281,26 @@ describe("agent pane, from the Mac gate", () => {
     expect(pane.root.textContent).not.toContain("กำลังโหลดเธรด");
   });
 
+  it("shows a later run that goes on with the writer's session after its triage", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [
+      { kind: "session", model: "openrouter/h", role: "code" },
+      { kind: "user", text: "read sum.js", images: [] },
+      { kind: "text", text: "it subtracts", streaming: false },
+      // The next run: triage first, then the writer's own session goes on with no session line.
+      { kind: "session", model: "openrouter/h", role: "triage" },
+      { kind: "user", text: "<message>Your pull request #1 failed CI</message>", images: [] },
+      { kind: "text", text: "DIRECT", streaming: false },
+      { kind: "user", text: "Your pull request #1 failed CI", images: [] },
+      { kind: "text", text: "fixed sum", streaming: false },
+    ], run_cost: 0 });
+    expect([...pane.root.querySelectorAll(".ubub")].map((b) => b.textContent)).toEqual(["read sum.js", "Your pull request #1 failed CI"]);
+    expect(pane.root.textContent).toContain("fixed sum");
+    expect(pane.root.textContent).not.toContain("DIRECT");
+  });
+
   it("shows the thread's own model and keeps it unless the person picks another", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "choices", models: { default: "anthropic/h", models: [{ ref: "anthropic/h", label: "H", provider: "anthropic", available: true, contextWindow: 200000, effort: false }], modes: [] } });
