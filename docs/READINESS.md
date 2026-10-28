@@ -93,12 +93,17 @@
   the (multi-)diff editor, Cedian Settings editor, Cmd+K inline edit as a
   diff with รับ / ไม่เอา, `desktop` as VS Code defaults; type-checks with
   VS Code's `src/tsconfig.json` (0 errors)
-- [ ] Exit gate on the owner's Mac: delegate a task into a worktree, quit and
-  reopen with the thread intact, review and accept; kill the daemon and the
-  thread rebuilds from cedia's files
+- [x] Exit gate on the owner's Mac (macOS 26.6.2, arm64, 2026-10-28, at
+  28e296d): `build-mac` 236 s; `npm run smoke` ok (daemon reached, four
+  permission modes, accent on); `test/smoke/gate-b.mjs --model
+  openrouter/claude-haiku-5-5` ok in 25 s: a worktree run, quit and reopen
+  with the thread intact, review and accept, daemon killed and a new one
+  rebuilt the thread and its review
+- [ ] cedia pin to cedia main once cedia-code #153 merges
 
 ## Known gaps
 - `desktop.keymap` changes apply when a window opens, not live
+- the composer's chips start from Settings, not from the reopened thread's permission (not on the wire), and the model chip can show the wrong model for a reopened thread
 - pasted images (no file path) are not attached yet; picked and dropped files are
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
