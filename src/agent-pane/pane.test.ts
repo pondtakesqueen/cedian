@@ -177,6 +177,37 @@ describe("agent pane", () => {
     expect(pane.root.querySelector<HTMLSelectElement>("select.threads")!.value).toBe("@chat");
   });
 
+  it("@ in the chat sends straight to one of the coordinator's threads", async () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [] });
+    pane.projectChat();
+    type(pane, "split the work");
+    enter(pane);
+    emit({ kind: "started", cwd: "/r", thread: "c-1" });
+    const coordinator = info({ id: "c-1", profile: "coordinator", status: "done", updated_at: "2026-10-28T11:00:00Z" });
+    const login = info({ id: "t-2", title: "Fix login", by: "c-1", status: "working", state: "working", cwd: "/r/wt/login" });
+    const docs = info({ id: "t-3", title: "Update docs", by: "c-1", cwd: "/r/wt/docs", runs: [{ id: "r1", prompt: "docs", permission: "workspace" }] });
+    emit({ kind: "threads", cwd: "/r", threads: [coordinator, login, docs, info({ id: "t-9", title: "Unrelated" })] });
+    // `@` at the start of the message offers the coordinator's threads before files.
+    type(pane, "@upd");
+    await tick();
+    const options = [...pane.root.querySelectorAll(".opt")].map((o) => o.textContent);
+    expect(options[0]).toBe("Update docst-3");
+    enter(pane);
+    expect(pane.composer.value).toBe("@t-3 ");
+    // A thread at rest takes it as its next run, with its own permission; a working one queues it.
+    type(pane, "@t-3 use the root README");
+    enter(pane);
+    expect(last()).toEqual({ op: "prompt", cwd: "/r/wt/docs", text: "use the root README", thread: "t-3", worktree: false, permission: "workspace" });
+    type(pane, "@t-2 cover logout too");
+    enter(pane);
+    expect(last()).toEqual({ op: "send", cwd: "/r/wt/login", thread: "t-2", text: "cover logout too" });
+    // Any other `@` is the coordinator's.
+    type(pane, "@t-9 hi");
+    enter(pane);
+    expect(last()).toMatchObject({ op: "prompt", cwd: "/r", text: "@t-9 hi", thread: "c-1" });
+  });
+
   it("lists threads newest first without archived ones", () => {
     expect(threadList([info({ id: "a", updated_at: "1" }), info({ id: "b", updated_at: "2" }), info({ id: "c", archived: true })]).map((t) => t.id)).toEqual(["b", "a"]);
   });
