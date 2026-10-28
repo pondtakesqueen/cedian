@@ -1,0 +1,4145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Block": {
+      "description": "The daemon sends blocks to the window as they are (`cedian_wire::Notice::Blocks`), tagged by `kind`.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A session began: the thread's first, or one after a handoff.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "session"
+              ],
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "model",
+            "role"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "images": {
+              "description": "The images shown to the writer with the text (`--image`), stored by cedia in `~/.cedia/blobs/<sha256>`.",
+              "items": {
+                "$ref": "#/definitions/ImageRef"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "user"
+              ],
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "images",
+            "kind",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The model's answer text. `streaming` until the turn's assistant event lands.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "text"
+              ],
+              "type": "string"
+            },
+            "streaming": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "streaming",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "thinking"
+              ],
+              "type": "string"
+            },
+            "ms": {
+              "description": "How long the model thought, from the assistant event once it lands.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "streaming": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "streaming",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "On the wire: `{\"state\": \"requested\"}`, `{\"state\": \"running\"}` or `{\"state\": \"done\", \"status\": <EffectStatus>}`.",
+          "oneOf": [
+            {
+              "description": "The model asked for it; no decision yet.",
+              "properties": {
+                "state": {
+                  "enum": [
+                    "requested"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "running"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "done"
+                  ],
+                  "type": "string"
+                },
+                "status": {
+                  "$ref": "#/definitions/EffectStatus"
+                }
+              },
+              "required": [
+                "state",
+                "status"
+              ],
+              "type": "object"
+            }
+          ],
+          "properties": {
+            "call_id": {
+              "type": "string"
+            },
+            "exit_code": {
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "input": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "is_error": {
+              "type": "boolean"
+            },
+            "kind": {
+              "enum": [
+                "tool"
+              ],
+              "type": "string"
+            },
+            "ms": {
+              "description": "From the start to the result.",
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "output": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "permission": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Permission"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "started_at": {
+              "description": "When the tool started, from its intent event, until the result gives `ms`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "call_id",
+            "input",
+            "is_error",
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The run's receipt.",
+          "properties": {
+            "cost_usd": {
+              "format": "double",
+              "type": "number"
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Evidence"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "enum": [
+                "result"
+              ],
+              "type": "string"
+            },
+            "subtype": {
+              "$ref": "#/definitions/ResultSubtype"
+            },
+            "text": {
+              "type": "string"
+            },
+            "turns": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "wall_ms": {
+              "description": "How long the run took, from its timing.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "cost_usd",
+            "kind",
+            "subtype",
+            "text",
+            "turns"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "BrowserPage": {
+      "description": "A project's page in the shared Chromium the daemon runs: the page the Browser block shows and the one the project's runs get with cedia's `--browser`.",
+      "properties": {
+        "endpoint": {
+          "description": "The browser's DevTools endpoint, `http://127.0.0.1:<port>`.",
+          "type": "string"
+        },
+        "socket": {
+          "description": "The page's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endpoint",
+        "socket"
+      ],
+      "type": "object"
+    },
+    "Build": {
+      "additionalProperties": false,
+      "description": "Which build of the daemon answers: its binary, and that file's modification time when the daemon started. A window compares it with the daemon beside its own binary, so a window from a new app does not drive a daemon left running from an old one (or from a build replaced in place since).",
+      "properties": {
+        "exe": {
+          "type": "string"
+        },
+        "modified": {
+          "description": "Seconds since the Unix epoch.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "exe",
+        "modified"
+      ],
+      "type": "object"
+    },
+    "Capability": {
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"inline-edit\" ] } ``` </details>",
+      "enum": [
+        "stream-json",
+        "threads",
+        "threads.send",
+        "threads.unsend",
+        "threads.rate",
+        "evidence.check-thread",
+        "keychain",
+        "spawn",
+        "handoff",
+        "plan",
+        "review",
+        "ask",
+        "worktree.newest-wins",
+        "spawn.best-of-n",
+        "todo",
+        "profiles",
+        "open_thread",
+        "schedules",
+        "models",
+        "permissions",
+        "commands",
+        "threads.fork",
+        "threads.side",
+        "usage",
+        "browser",
+        "threads.restore-json",
+        "images",
+        "cache-ttl",
+        "threads.rename",
+        "threads.delete",
+        "mcp.manage",
+        "commit",
+        "pr",
+        "daemon",
+        "daemon.desktop-lock",
+        "threads.send-images",
+        "inline-edit"
+      ],
+      "type": "string"
+    },
+    "Check": {
+      "description": "`Check`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"command\", \"exitCode\" ], \"properties\": { \"command\": { \"type\": \"string\" }, \"exitCode\": { \"type\": \"number\" }, \"thread\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "exitCode": {
+          "format": "double",
+          "type": "number"
+        },
+        "thread": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "command",
+        "exitCode"
+      ],
+      "type": "object"
+    },
+    "CommandEntry": {
+      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } } } ``` </details>",
+      "properties": {
+        "argumentHint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/definitions/CommandEntrySource"
+        }
+      },
+      "required": [
+        "description",
+        "kind",
+        "name",
+        "source"
+      ],
+      "type": "object"
+    },
+    "CommandEntrySource": {
+      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } ``` </details>",
+      "enum": [
+        "user",
+        "repository"
+      ],
+      "type": "string"
+    },
+    "CommitDraft": {
+      "anyOf": [
+        {
+          "properties": {
+            "branch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "files": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "files",
+            "message"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`CommitDraft`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"files\", \"message\" ], \"properties\": { \"branch\": { \"type\": \"string\" }, \"files\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"message\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
+    },
+    "Committed": {
+      "anyOf": [
+        {
+          "properties": {
+            "commit": {
+              "type": "string"
+            },
+            "files": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "subject": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "commit",
+            "files",
+            "subject"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`Committed`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"commit\", \"files\", \"subject\" ], \"properties\": { \"commit\": { \"type\": \"string\" }, \"files\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"subject\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
+    },
+    "Decision": {
+      "description": "What the person decided about a hunk.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "enum": [
+                "accept"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "decision"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Takes back an accept.",
+          "properties": {
+            "decision": {
+              "enum": [
+                "undo"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "decision"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Puts the old lines back in the thread's worktree and tells the thread why.",
+          "properties": {
+            "decision": {
+              "enum": [
+                "reject"
+              ],
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "decision",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "EffectStatus": {
+      "description": "`EffectStatus`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"completed\", \"failed\", \"denied\", \"not_started\", \"interrupted_safe\", \"interrupted_unknown\" ] } ``` </details>",
+      "enum": [
+        "completed",
+        "failed",
+        "denied",
+        "not_started",
+        "interrupted_safe",
+        "interrupted_unknown"
+      ],
+      "type": "string"
+    },
+    "Effort": {
+      "description": "`Effort`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"low\", \"medium\", \"high\", \"xhigh\", \"max\" ] } ``` </details>",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "type": "string"
+    },
+    "Evidence": {
+      "description": "`Evidence`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"changed\", \"checks\", \"unverified\" ], \"properties\": { \"changed\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"checks\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Check\" } }, \"flags\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"unverified\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } } ``` </details>",
+      "properties": {
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/definitions/Check"
+          },
+          "type": "array"
+        },
+        "flags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unverified": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "changed",
+        "checks",
+        "unverified"
+      ],
+      "type": "object"
+    },
+    "FileReview": {
+      "properties": {
+        "added": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "binary": {
+          "type": "boolean"
+        },
+        "hunks": {
+          "items": {
+            "$ref": "#/definitions/Hunk"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        },
+        "removed": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "added",
+        "binary",
+        "hunks",
+        "path",
+        "removed"
+      ],
+      "type": "object"
+    },
+    "Helpers": {
+      "additionalProperties": false,
+      "description": "The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).",
+      "properties": {
+        "advisor": {
+          "description": "`--advisor`: a model reads each writer turn and may leave a note.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "goal": {
+          "description": "`--goal`: the run goes on until a judge finds this holds.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plan": {
+          "description": "`--plan`: a model plans before the writer starts.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review": {
+          "description": "`--review`: a model reviews the change once the done gate passes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Hunk": {
+      "description": "One hunk of a file's diff. `id` names it across reviews: the file and the hunk's text.",
+      "properties": {
+        "header": {
+          "description": "The `@@ -a,b +c,d @@` line, without the `@@`s' trailing text.",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lines": {
+          "description": "The diff's lines with their ` `, `-` or `+`, newlines left off.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "new_start": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/HunkState"
+        }
+      },
+      "required": [
+        "header",
+        "id",
+        "lines",
+        "new_start",
+        "path",
+        "state"
+      ],
+      "type": "object"
+    },
+    "HunkState": {
+      "description": "Where a hunk stands in the review.",
+      "oneOf": [
+        {
+          "enum": [
+            "accepted"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Waiting for a decision.",
+          "enum": [
+            "pending"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Put back to its old lines, and the thread told why.",
+          "enum": [
+            "rejected"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Edited by hand after the agent wrote it, so it is not the agent's any more and is never rejected.",
+          "enum": [
+            "stale"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "ImageMime": {
+      "description": "`ImageMime`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"image/png\", \"image/jpeg\", \"image/gif\", \"image/webp\" ] } ``` </details>",
+      "enum": [
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp"
+      ],
+      "type": "string"
+    },
+    "ImageRef": {
+      "description": "`ImageRef`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"bytes\", \"height\", \"mime\", \"sha256\", \"width\" ], \"properties\": { \"bytes\": { \"type\": \"number\" }, \"height\": { \"type\": \"number\" }, \"mime\": { \"$ref\": \"#/definitions/ImageMime\" }, \"name\": { \"type\": \"string\" }, \"sha256\": { \"type\": \"string\" }, \"width\": { \"type\": \"number\" } } } ``` </details>",
+      "properties": {
+        "bytes": {
+          "format": "double",
+          "type": "number"
+        },
+        "height": {
+          "format": "double",
+          "type": "number"
+        },
+        "mime": {
+          "$ref": "#/definitions/ImageMime"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "width": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "bytes",
+        "height",
+        "mime",
+        "sha256",
+        "width"
+      ],
+      "type": "object"
+    },
+    "InlineEdit": {
+      "anyOf": [
+        {
+          "properties": {
+            "costUsd": {
+              "format": "double",
+              "type": "number"
+            },
+            "file": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "patch": {
+              "type": "string"
+            },
+            "range": {
+              "$ref": "#/definitions/InlineEditRange"
+            },
+            "replacement": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "costUsd",
+            "file",
+            "model",
+            "patch",
+            "range",
+            "replacement"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`InlineEdit`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"costUsd\", \"file\", \"model\", \"patch\", \"range\", \"replacement\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"file\": { \"type\": \"string\" }, \"model\": { \"type\": \"string\" }, \"patch\": { \"type\": \"string\" }, \"range\": { \"$ref\": \"#/definitions/InlineEditRange\" }, \"replacement\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
+    },
+    "InlineEditPosition": {
+      "description": "`InlineEditPosition`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"column\", \"line\" ], \"properties\": { \"column\": { \"type\": \"number\" }, \"line\": { \"type\": \"number\" } } } ``` </details>",
+      "properties": {
+        "column": {
+          "format": "double",
+          "type": "number"
+        },
+        "line": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "column",
+        "line"
+      ],
+      "type": "object"
+    },
+    "InlineEditRange": {
+      "description": "`InlineEditRange`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"end\", \"start\" ], \"properties\": { \"end\": { \"$ref\": \"#/definitions/InlineEditPosition\" }, \"start\": { \"$ref\": \"#/definitions/InlineEditPosition\" } } } ``` </details>",
+      "properties": {
+        "end": {
+          "$ref": "#/definitions/InlineEditPosition"
+        },
+        "start": {
+          "$ref": "#/definitions/InlineEditPosition"
+        }
+      },
+      "required": [
+        "end",
+        "start"
+      ],
+      "type": "object"
+    },
+    "McpAdd": {
+      "additionalProperties": false,
+      "description": "A server the person adds in Settings, as `cedia mcp add` takes it. The values of `env` and `headers` go to cedia once and are never sent back.",
+      "properties": {
+        "pairs": {
+          "description": "`NAME=value` pairs: the program's environment, or the HTTP server's headers.",
+          "items": {
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "read_only": {
+          "default": false,
+          "type": "boolean"
+        },
+        "target": {
+          "$ref": "#/definitions/McpTarget"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "type": "object"
+    },
+    "McpCheck": {
+      "anyOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "tools": {
+              "items": {
+                "$ref": "#/definitions/McpCheckVariant0ToolsItem"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "name",
+            "ok",
+            "tools"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ok": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "error",
+            "name",
+            "ok"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`McpCheck`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"name\", \"ok\", \"tools\" ], \"properties\": { \"name\": { \"type\": \"string\" }, \"ok\": { \"type\": \"boolean\", \"const\": true }, \"tools\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"description\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" } } } } } }, { \"type\": \"object\", \"required\": [ \"error\", \"name\", \"ok\" ], \"properties\": { \"error\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" }, \"ok\": { \"type\": \"boolean\", \"const\": false } } } ] } ``` </details>"
+    },
+    "McpCheckVariant0ToolsItem": {
+      "description": "`McpCheckVariant0ToolsItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"description\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "McpEntry": {
+      "description": "`McpEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"args\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"command\": { \"type\": \"string\" }, \"cwd\": { \"type\": \"string\" }, \"env\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"error\": { \"type\": \"string\" }, \"headers\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"name\": { \"type\": \"string\" }, \"readOnly\": { \"type\": \"boolean\" }, \"timeoutSec\": { \"type\": \"number\" }, \"url\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "command": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cwd": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "env": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "readOnly": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "timeoutSec": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "McpList": {
+      "description": "`McpList`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"servers\" ], \"properties\": { \"servers\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/McpEntry\" } } } } ``` </details>",
+      "properties": {
+        "servers": {
+          "items": {
+            "$ref": "#/definitions/McpEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "servers"
+      ],
+      "type": "object"
+    },
+    "McpServer": {
+      "description": "One MCP server under `mcpServers` in cedia's settings, as the Background tasks block lists it. Only what says which server it is: never its arguments, environment or headers, which can hold keys.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "read_only": {
+          "default": false,
+          "description": "cedia counts its tools as reads, not as commands.",
+          "type": "boolean"
+        },
+        "transport": {
+          "$ref": "#/definitions/McpTransport"
+        }
+      },
+      "required": [
+        "name",
+        "transport"
+      ],
+      "type": "object"
+    },
+    "McpTarget": {
+      "oneOf": [
+        {
+          "properties": {
+            "args": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "command": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "command"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "args",
+            "command",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "url"
+              ],
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "url"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "McpTransport": {
+      "oneOf": [
+        {
+          "description": "A program cedia starts: its file name, without the directory.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "command"
+              ],
+              "type": "string"
+            },
+            "program": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "program"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A server cedia reaches over HTTP: its host.",
+          "properties": {
+            "host": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "url"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "host",
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "MemoryNote": {
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "from": {
+          "description": "`user` for the person's notes, else the session that kept it.",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "from",
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "ModelEntry": {
+      "description": "`ModelEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"available\", \"contextWindow\", \"effort\", \"label\", \"provider\", \"ref\" ], \"properties\": { \"alias\": { \"type\": \"string\" }, \"available\": { \"type\": \"boolean\" }, \"contextWindow\": { \"type\": \"number\" }, \"defaultEffort\": { \"$ref\": \"#/definitions/Effort\" }, \"effort\": { \"type\": \"boolean\" }, \"effortLevels\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Effort\" } }, \"label\": { \"type\": \"string\" }, \"provider\": { \"type\": \"string\" }, \"reason\": { \"type\": \"string\" }, \"ref\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "alias": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "contextWindow": {
+          "format": "double",
+          "type": "number"
+        },
+        "defaultEffort": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Effort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effort": {
+          "type": "boolean"
+        },
+        "effortLevels": {
+          "items": {
+            "$ref": "#/definitions/Effort"
+          },
+          "type": "array"
+        },
+        "label": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "available",
+        "contextWindow",
+        "effort",
+        "label",
+        "provider",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelList": {
+      "description": "`ModelList`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"default\", \"models\", \"modes\" ], \"properties\": { \"default\": { \"type\": \"string\" }, \"models\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/ModelEntry\" } }, \"modes\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"label\", \"name\" ], \"properties\": { \"label\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" } } } } } } ``` </details>",
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/definitions/ModelEntry"
+          },
+          "type": "array"
+        },
+        "modes": {
+          "items": {
+            "$ref": "#/definitions/ModelListModesItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "default",
+        "models",
+        "modes"
+      ],
+      "type": "object"
+    },
+    "ModelListModesItem": {
+      "description": "`ModelListModesItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"label\", \"name\" ], \"properties\": { \"label\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "name"
+      ],
+      "type": "object"
+    },
+    "Notice": {
+      "description": "From the daemon to the window.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "The first notice on every connection.",
+          "properties": {
+            "build": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Build"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The daemon's own build; none from a daemon older than this field."
+            },
+            "cedia": {
+              "$ref": "#/definitions/Result_of_VersionInfo_or_String",
+              "description": "The cedia build the daemon runs, or why it could not be asked."
+            },
+            "daemon": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "welcome"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cedia",
+            "daemon",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "threads"
+              ],
+              "type": "string"
+            },
+            "threads": {
+              "items": {
+                "$ref": "#/definitions/ThreadInfo"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "threads"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A step before a new thread's run starts, such as creating its worktree.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "preparing"
+              ],
+              "type": "string"
+            },
+            "step": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "step"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A prompt with no thread got one.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "started"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The agent pane's blocks, folded by the daemon (`cedian_agent`) from cedia's stream-json lines and, for history, its session logs. The blocks replace the view's from index `from` on; opening a thread sends them all from 0.",
+          "properties": {
+            "blocks": {
+              "items": {
+                "$ref": "#/definitions/Block"
+              },
+              "type": "array"
+            },
+            "context": {
+              "description": "Tokens in the context after the latest turn, for the header's meter.",
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "from": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "blocks"
+              ],
+              "type": "string"
+            },
+            "run_cost": {
+              "description": "What the run in flight has cost so far; 0 once its receipt lands.",
+              "format": "double",
+              "type": "number"
+            },
+            "sub": {
+              "description": "The sub-thread these blocks are of, started from `thread`; none for its own.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "blocks",
+            "from",
+            "kind",
+            "run_cost",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The thread's history is all sent; what follows is live.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "caught"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "status"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/definitions/Status"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "status",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "review"
+              ],
+              "type": "string"
+            },
+            "review": {
+              "$ref": "#/definitions/Review"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "review",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The project's memory notes, oldest first.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "memory"
+              ],
+              "type": "string"
+            },
+            "notes": {
+              "items": {
+                "$ref": "#/definitions/MemoryNote"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "notes"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The files the project's threads changed, the most recent first.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "outputs"
+              ],
+              "type": "string"
+            },
+            "outputs": {
+              "items": {
+                "$ref": "#/definitions/Output"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "outputs"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "desktop": true,
+            "kind": {
+              "enum": [
+                "settings"
+              ],
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "desktop",
+            "kind",
+            "path"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "What a run can be given, when this cedia lists it: the models (`cedia models`) and the permission modes (`cedia permissions`). Sent after `Welcome`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "choices"
+              ],
+              "type": "string"
+            },
+            "models": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/ModelList"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "permissions": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/PermissionList"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "`thread` was forked from `from` and its run is starting.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "from": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "forked"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "from",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The project's `/` commands: its skills and the person's.",
+          "properties": {
+            "commands": {
+              "items": {
+                "$ref": "#/definitions/CommandEntry"
+              },
+              "type": "array"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "commands"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "commands",
+            "cwd",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The project's scheduled runs (`cedia schedules`), `None` when this cedia has none, and the MCP servers in cedia's settings.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "background"
+              ],
+              "type": "string"
+            },
+            "mcp": {
+              "items": {
+                "$ref": "#/definitions/McpServer"
+              },
+              "type": "array"
+            },
+            "schedules": {
+              "items": {
+                "$ref": "#/definitions/Schedule"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "mcp"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "What `Request::Restore` moved, and what it left.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "restored"
+              ],
+              "type": "string"
+            },
+            "result": {
+              "$ref": "#/definitions/Restored"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "result",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "What `Request::Rewind` did, or why it did not.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "rewound"
+              ],
+              "type": "string"
+            },
+            "n": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "result": {
+              "$ref": "#/definitions/RewindResult"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "n",
+            "result",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Usage`, with the request's `cwd` and `since`.",
+          "properties": {
+            "cwd": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "usage"
+              ],
+              "type": "string"
+            },
+            "report": {
+              "$ref": "#/definitions/UsageReport"
+            },
+            "since": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "report",
+            "since"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::CommitDraft`.",
+          "properties": {
+            "draft": {
+              "$ref": "#/definitions/CommitDraft"
+            },
+            "kind": {
+              "enum": [
+                "commit_draft"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "draft",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Commit`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "committed"
+              ],
+              "type": "string"
+            },
+            "result": {
+              "$ref": "#/definitions/Committed"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "result",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::PrCheck`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "pr_plan"
+              ],
+              "type": "string"
+            },
+            "plan": {
+              "$ref": "#/definitions/PrPlan"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "plan",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Pr`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "pr_opened"
+              ],
+              "type": "string"
+            },
+            "result": {
+              "$ref": "#/definitions/PrOpened"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "result",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The person's MCP servers, and why the change asked for last was refused, if it was.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "mcp"
+              ],
+              "type": "string"
+            },
+            "list": {
+              "$ref": "#/definitions/McpList"
+            },
+            "refused": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "list"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::InlineEdit`.",
+          "properties": {
+            "edit": {
+              "$ref": "#/definitions/InlineEdit"
+            },
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "inline_edit"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "edit",
+            "id",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::McpCheck`.",
+          "properties": {
+            "check": {
+              "$ref": "#/definitions/McpCheck"
+            },
+            "kind": {
+              "enum": [
+                "mcp_checked"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "check",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Browser`: the project's page, or why there is none (no Chromium found, or it did not start).",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            },
+            "page": {
+              "$ref": "#/definitions/Result_of_BrowserPage_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "page"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "error"
+              ],
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "message"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Output": {
+      "properties": {
+        "at": {
+          "description": "When it was changed last.",
+          "type": "string"
+        },
+        "cwd": {
+          "description": "Where the session that changed it ran.",
+          "type": "string"
+        },
+        "exists": {
+          "description": "It is still there: a later change, or the worktree's removal, may have taken it away.",
+          "type": "boolean"
+        },
+        "path": {
+          "description": "Relative to `cwd`.",
+          "type": "string"
+        },
+        "thread": {
+          "description": "The thread that changed it last, and its title.",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "cwd",
+        "exists",
+        "path",
+        "thread",
+        "title"
+      ],
+      "type": "object"
+    },
+    "Permission": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rule": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "allowed",
+        "rule"
+      ],
+      "type": "object"
+    },
+    "PermissionEntry": {
+      "description": "`PermissionEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"label\", \"mode\" ], \"properties\": { \"description\": { \"type\": \"string\" }, \"label\": { \"type\": \"string\" }, \"mode\": { \"$ref\": \"#/definitions/PermissionSetting\" } } } ``` </details>",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/definitions/PermissionSetting"
+        }
+      },
+      "required": [
+        "description",
+        "label",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "PermissionList": {
+      "description": "`PermissionList`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"default\", \"modes\" ], \"properties\": { \"default\": { \"$ref\": \"#/definitions/PermissionSetting\" }, \"modes\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/PermissionEntry\" } } } } ``` </details>",
+      "properties": {
+        "default": {
+          "$ref": "#/definitions/PermissionSetting"
+        },
+        "modes": {
+          "items": {
+            "$ref": "#/definitions/PermissionEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "default",
+        "modes"
+      ],
+      "type": "object"
+    },
+    "PermissionSetting": {
+      "description": "`PermissionSetting`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"string\", \"enum\": [ \"read-only\", \"workspace\" ] }, { \"type\": \"string\", \"const\": \"auto\" }, { \"type\": \"string\", \"const\": \"plan\" } ] } ``` </details>",
+      "enum": [
+        "read-only",
+        "workspace",
+        "auto",
+        "plan"
+      ],
+      "type": "string"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "line": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "column",
+        "line"
+      ],
+      "type": "object"
+    },
+    "PrOpened": {
+      "anyOf": [
+        {
+          "properties": {
+            "base": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "branch": {
+              "type": "string"
+            },
+            "out": {
+              "type": "string"
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "branch",
+            "out"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`PrOpened`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"branch\", \"out\" ], \"properties\": { \"base\": { \"type\": \"string\" }, \"branch\": { \"type\": \"string\" }, \"out\": { \"type\": \"string\" }, \"url\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
+    },
+    "PrPlan": {
+      "description": "`PrPlan`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"properties\": { \"base\": { \"type\": \"string\" }, \"blocked\": { \"type\": \"string\" }, \"branch\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "base": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blocked": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Rating": {
+      "description": "`Rating`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"up\", \"down\" ] } ``` </details>",
+      "enum": [
+        "up",
+        "down"
+      ],
+      "type": "string"
+    },
+    "Request": {
+      "description": "From the window to the daemon.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "The project's threads, answered with `Notice::Threads`, and again whenever one changes.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "threads"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A thread's history so far, then its lines as they arrive.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "open"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "No more lines for this thread.",
+          "properties": {
+            "op": {
+              "enum": [
+                "close"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One cedia run. With no thread it opens a new one, and the client is sent `Started` and then the run's lines.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "effort": {
+              "description": "How hard the writer starts thinking (`cedia --effort`): a level the model lists; none keeps the model's own.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "helpers": {
+              "$ref": "#/definitions/Helpers"
+            },
+            "images": {
+              "description": "Image files shown to the writer with the text (`cedia --image`), when cedia lists `images`. cedia stores each by its hash when the run starts, so a pasted image's file needs to last only until then.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "model": {
+              "description": "The model this run's writer takes (`cedia -m`); none keeps cedia's choice.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "prompt"
+              ],
+              "type": "string"
+            },
+            "permission": {
+              "description": "What the run may do (`cedia --permission`): a mode from `Notice::Choices`; none keeps cedia's default.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "profile": {
+              "description": "For a new thread: the cedia profile its runs take (`coordinator` for the project chat).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "thread": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "worktree": {
+              "default": false,
+              "description": "For a new thread: run it in a new git worktree of the project.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The `/` commands a run in the project can take (`cedia commands`), answered with `Notice::Commands` when this cedia lists them.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "commands"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Where the spend went since `since` (`7d`, `30d` or a day, `YYYY-MM-DD`), in the project at `cwd` or, with none, every project (`cedia usage --json --since`), answered with `Notice::Usage` when this cedia offers `usage`.",
+          "properties": {
+            "cwd": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "usage"
+              ],
+              "type": "string"
+            },
+            "since": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "since"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Puts the files of `thread`'s last turn that changed files back (`cedia threads undo`), or forward again with `redo`; `force` also moves a file changed since. The client is sent `Restored`, when this cedia offers `threads.restore-json`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "force": {
+              "default": false,
+              "type": "boolean"
+            },
+            "op": {
+              "enum": [
+                "restore"
+              ],
+              "type": "string"
+            },
+            "redo": {
+              "default": false,
+              "type": "boolean"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Takes `thread` back to just before its run `n`, from 1, conversation and files together (`cedia threads rewind`); `force` goes past a refusal that allows it. The client is sent `Rewound`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "force": {
+              "default": false,
+              "type": "boolean"
+            },
+            "n": {
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "rewind"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "n",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Edit and resend: a new thread whose conversation is `thread`'s just before `run` (`cedia threads fork`), then `text` as its next run. The client is sent `Forked`, then the run's lines as for an open thread.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "effort": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "helpers": {
+              "$ref": "#/definitions/Helpers"
+            },
+            "images": {
+              "description": "The images the resent message carries, each a file or `sha256:<hex>` for one cedia stored. None keeps the forked run's own (cedia names them in its fork); an empty list sends none.",
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "fork"
+              ],
+              "type": "string"
+            },
+            "permission": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "run",
+            "text",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A message the running thread sees at its next turn, with its images (`cedia threads send --image`), when cedia lists `threads.send-images`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "images": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "op": {
+              "enum": [
+                "send"
+              ],
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "text",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Cmd+K: the new text for a selection of `file` and the patch it makes (`cedia inline-edit --json`), answered with `Notice::InlineEdit` carrying the same `id`, when cedia lists `inline-edit`. Nothing is written; the window shows the patch for the person to accept.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "instruction": {
+              "type": "string"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "inline_edit"
+              ],
+              "type": "string"
+            },
+            "range": {
+              "$ref": "#/definitions/Selection"
+            },
+            "text": {
+              "description": "The file as the editor has it, unsaved changes included; none reads it from disk.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "cwd",
+            "file",
+            "id",
+            "instruction",
+            "op",
+            "range"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ends the thread's run.",
+          "properties": {
+            "op": {
+              "enum": [
+                "stop"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Takes back messages the thread has not seen yet, through `cedia threads unsend`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "op": {
+              "enum": [
+                "unsend"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "ids",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The person's 👍 or 👎 on the thread, through `cedia threads rate`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "rate"
+              ],
+              "type": "string"
+            },
+            "rating": {
+              "$ref": "#/definitions/Rating"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "rating",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Hides the thread from the list, or brings it back, through `cedia threads archive|unarchive`.",
+          "properties": {
+            "archived": {
+              "type": "boolean"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "archive"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "archived",
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Gives the thread the person's title, through `cedia threads rename`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "rename"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread",
+            "title"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Deletes the thread for good, its sub-threads and their logs, through `cedia threads delete`. Refused by cedia while it runs.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "delete"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The project's memory (`~/.cedia/projects/<slug>/memory.jsonl`), answered with `Notice::Memory`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "memory"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The files the project's threads changed, answered with `Notice::Outputs`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "outputs"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The thread's changes since its first snapshot, answered with `Notice::Review`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "review"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A decision on one hunk of the thread's review, answered with the review again.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "decision": {
+              "$ref": "#/definitions/Decision"
+            },
+            "hunk": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "decide"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "decision",
+            "hunk",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "What the Background tasks block lists beside the threads: the project's scheduled runs and the MCP servers cedia's settings name. Answered with `Notice::Background`, and again whenever the schedules change.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "background"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Pauses or resumes one scheduled run (`cedia schedules pause|resume`); every window showing the project's background gets `Notice::Background`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "schedule"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "enabled",
+            "id",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The project's page in the shared Chromium, which the daemon starts when none runs. Answered with `Notice::Browser`; from then on the project's runs get the page.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A message for the files `thread` changed in `cwd` (its worktree, else the project), drafted by its writer model (`cedia commit --thread --json`), answered with `Notice::CommitDraft`, when this cedia offers `commit`. Nothing is committed.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "commit_draft"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Commits `files` of `thread` with the person's `message` (`cedia commit --message --file`), answered with `Notice::Committed`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "files": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "message": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "commit"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "files",
+            "message",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Where a pull request from `cwd` would go, or why it cannot (`cedia pr --check`), answered with `Notice::PrPlan`, when this cedia offers `pr`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "pr_check"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Pushes `cwd`'s branch and opens its pull request (`cedia pr`), answered with `Notice::PrOpened`. Sent only after the person said yes to the plan.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "pr"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The person's MCP servers (`cedia mcp list --json`), answered with `Notice::Mcp`, when this cedia offers `mcp.manage`.",
+          "properties": {
+            "op": {
+              "enum": [
+                "mcp_list"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Starts one server as a run would and lists its tools (`cedia mcp check`), answered with `Notice::McpChecked`.",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "mcp_check"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Adds a server, or replaces the one of that name (`cedia mcp add`), answered with `Notice::Mcp`.",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "mcp_add"
+              ],
+              "type": "string"
+            },
+            "server": {
+              "$ref": "#/definitions/McpAdd"
+            }
+          },
+          "required": [
+            "name",
+            "op",
+            "server"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Removes a server (`cedia mcp remove`), answered with `Notice::Mcp`.",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "mcp_remove"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The `desktop` key of cedia's settings file, answered with `Notice::Settings`.",
+          "properties": {
+            "op": {
+              "enum": [
+                "settings"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Sets one key of `desktop`; `null` removes it. Every window gets `Notice::Settings`.",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "set_desktop"
+              ],
+              "type": "string"
+            },
+            "value": true
+          },
+          "required": [
+            "key",
+            "op",
+            "value"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Restored": {
+      "description": "`Restored`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"action\", \"restored\", \"skipped\" ], \"properties\": { \"action\": { \"type\": \"string\", \"enum\": [ \"undo\", \"redo\" ] }, \"restored\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"skipped\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } } ``` </details>",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/RestoredAction"
+        },
+        "restored": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "action",
+        "restored",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "RestoredAction": {
+      "description": "`RestoredAction`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"undo\", \"redo\" ] } ``` </details>",
+      "enum": [
+        "undo",
+        "redo"
+      ],
+      "type": "string"
+    },
+    "ResultSubtype": {
+      "description": "`ResultSubtype`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"success\", \"error_max_turns\", \"error_max_budget_usd\", \"error_during_execution\", \"interrupted\", \"error_unverified_claim\", \"error_stuck\", \"handoff\", \"asked\" ] } ``` </details>",
+      "enum": [
+        "success",
+        "error_max_turns",
+        "error_max_budget_usd",
+        "error_during_execution",
+        "interrupted",
+        "error_unverified_claim",
+        "error_stuck",
+        "handoff",
+        "asked"
+      ],
+      "type": "string"
+    },
+    "Result_of_BrowserPage_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/BrowserPage"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_VersionInfo_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/VersionInfo"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Review": {
+      "description": "A thread's changes from its first snapshot to its last.",
+      "properties": {
+        "base": {
+          "description": "The first snapshot's tree; none when the thread has not written anything.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "files": {
+          "items": {
+            "$ref": "#/definitions/FileReview"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "type": "object"
+    },
+    "RewindResult": {
+      "anyOf": [
+        {
+          "properties": {
+            "restored": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "run": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "restored",
+            "run"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "force": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`RewindResult`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"restored\", \"run\" ], \"properties\": { \"restored\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"run\": { \"type\": \"string\" }, \"sessionId\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" }, \"force\": { \"type\": \"boolean\", \"const\": true } } } ] } ``` </details>"
+    },
+    "RunRef": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "prompt"
+      ],
+      "type": "object"
+    },
+    "Schedule": {
+      "description": "`Schedule`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"createdAt\", \"enabled\", \"id\", \"prompt\", \"thread\" ], \"properties\": { \"by\": { \"type\": \"string\" }, \"createdAt\": { \"type\": \"string\" }, \"enabled\": { \"type\": \"boolean\" }, \"every\": { \"type\": \"number\" }, \"id\": { \"type\": \"string\" }, \"last\": { \"type\": \"string\" }, \"next\": { \"type\": \"string\" }, \"prompt\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "every": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "last": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "thread": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "createdAt",
+        "enabled",
+        "id",
+        "prompt",
+        "thread"
+      ],
+      "type": "object"
+    },
+    "Selection": {
+      "additionalProperties": false,
+      "description": "A selection in a file, as cedia's `InlineEditRange`: lines and columns from 1, columns in UTF-16 units as the editor counts them; `end` is just past the last character, and an empty selection asks for text inserted there.",
+      "properties": {
+        "end": {
+          "$ref": "#/definitions/Position"
+        },
+        "start": {
+          "$ref": "#/definitions/Position"
+        }
+      },
+      "required": [
+        "end",
+        "start"
+      ],
+      "type": "object"
+    },
+    "SessionRef": {
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "session_id"
+      ],
+      "type": "object"
+    },
+    "Status": {
+      "description": "What a thread's tab shows: cedia's state, corrected by whether a run is alive.",
+      "oneOf": [
+        {
+          "enum": [
+            "done",
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The project's coordinator opened it and its first run has not started yet.",
+          "enum": [
+            "queued"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A run of this thread is in progress.",
+          "enum": [
+            "working"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Stopped by the person.",
+          "enum": [
+            "stopped"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "cedia's last word was `working` but no run is alive: it crashed or the Mac restarted. The thread can go on with `--thread`.",
+          "enum": [
+            "interrupted"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The run ended on a question for the person; their answer goes on with the thread.",
+          "enum": [
+            "asking"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Step": {
+      "description": "One step of a thread's todo list.",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/TodoState"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "text"
+      ],
+      "type": "object"
+    },
+    "ThreadInfo": {
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "by": {
+          "default": null,
+          "description": "The thread that opened this one with `open_thread` (the project's coordinator), for a client to run: it waits `queued` until its first run.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cwd": {
+          "default": null,
+          "description": "Where the thread's latest session ran: its worktree, when it has one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "last_turn": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ThreadTurn"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The latest run that changed files: the shadow-git trees before its first write and after its last, what `cedia threads diff|undo|redo` call the thread's turn."
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/definitions/ThreadMessage"
+          },
+          "type": "array"
+        },
+        "needs_you": {
+          "default": false,
+          "description": "It finished, failed, was interrupted or asks something since the person last saw it: it counts in the badges until a window opens it.",
+          "type": "boolean"
+        },
+        "parent": {
+          "description": "The thread that spawned this one as a sub-thread.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pending": {
+          "description": "Messages no session has been shown yet.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "profile": {
+          "default": null,
+          "description": "The profile its runs take unless another is named.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "question": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ThreadQuestion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the thread asked the person, while it waits in `asking` for the answer."
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Rating"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The person's latest 👍 or 👎 on the thread (`cedia threads rate`)."
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rewound": {
+          "default": [],
+          "description": "Sessions a rewind dropped (`cedia rewind`): their logs stay, but they are no longer the thread's conversation, so they are not in `sessions`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "runs": {
+          "default": [],
+          "description": "The thread's runs in order, each with the prompt that started it: where a fork for edit and resend goes back to (`cedia threads fork`). A rewind's dropped runs are not here.",
+          "items": {
+            "$ref": "#/definitions/RunRef"
+          },
+          "type": "array"
+        },
+        "sessions": {
+          "items": {
+            "$ref": "#/definitions/SessionRef"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/definitions/ThreadState",
+          "description": "cedia's last state. A run that died leaves `working`."
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
+        },
+        "task": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "todo": {
+          "default": [],
+          "description": "The writer's latest list of steps, whole: the thread's progress.",
+          "items": {
+            "$ref": "#/definitions/Step"
+          },
+          "type": "array"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "archived",
+        "id",
+        "messages",
+        "pending",
+        "sessions",
+        "state",
+        "status",
+        "task",
+        "title",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "ThreadMessage": {
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "from",
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "ThreadQuestion": {
+      "properties": {
+        "options": {
+          "description": "Two to four choices, the recommended one first; none for a free answer.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "question": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "options",
+        "question"
+      ],
+      "type": "object"
+    },
+    "ThreadState": {
+      "description": "`ThreadState`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"queued\", \"working\", \"done\", \"failed\", \"stopped\", \"asking\" ] } ``` </details>",
+      "enum": [
+        "queued",
+        "working",
+        "done",
+        "failed",
+        "stopped",
+        "asking"
+      ],
+      "type": "string"
+    },
+    "ThreadTurn": {
+      "properties": {
+        "after": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        },
+        "before": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "sessions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "after",
+        "at",
+        "before",
+        "cwd",
+        "sessions"
+      ],
+      "type": "object"
+    },
+    "TodoState": {
+      "description": "`TodoState`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"pending\", \"doing\", \"done\" ] } ``` </details>",
+      "enum": [
+        "pending",
+        "doing",
+        "done"
+      ],
+      "type": "string"
+    },
+    "UsageReport": {
+      "description": "`UsageReport`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"blocked\", \"compactUsd\", \"costUsd\", \"days\", \"handoffs\", \"keepaliveUsd\", \"largest\", \"maxEffort\", \"misses\", \"models\", \"overPriceLine\", \"projects\", \"requests\", \"sessions\", \"slowStart\", \"sources\", \"threads\", \"tokens\", \"unpriced\", \"warnings\" ], \"properties\": { \"blocked\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"count\", \"rule\" ], \"properties\": { \"count\": { \"type\": \"number\" }, \"rule\": { \"type\": \"string\" } } } }, \"compactUsd\": { \"type\": \"number\" }, \"costUsd\": { \"type\": \"number\" }, \"days\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"day\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"day\": { \"type\": \"string\" } } } }, \"handoffs\": { \"type\": \"number\" }, \"keepaliveUsd\": { \"type\": \"number\" }, \"largest\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"callId\", \"chars\", \"resent\", \"session\", \"tool\" ], \"properties\": { \"callId\": { \"type\": \"string\" }, \"chars\": { \"type\": \"number\" }, \"resent\": { \"type\": \"number\" }, \"session\": { \"type\": \"string\" }, \"tool\": { \"type\": \"string\" } } } }, \"maxEffort\": { \"type\": \"number\" }, \"misses\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"cause\", \"count\", \"tokens\" ], \"properties\": { \"cause\": { \"type\": \"string\" }, \"count\": { \"type\": \"number\" }, \"tokens\": { \"type\": \"number\" } } } }, \"models\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"model\", \"requests\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"model\": { \"type\": \"string\" }, \"requests\": { \"type\": \"number\" } } } }, \"overPriceLine\": { \"type\": \"number\" }, \"projects\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"project\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" } } } }, \"requests\": { \"type\": \"number\" }, \"sessions\": { \"type\": \"number\" }, \"slowStart\": { \"type\": \"number\" }, \"sources\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"chars\", \"share\", \"source\" ], \"properties\": { \"chars\": { \"type\": \"number\" }, \"share\": { \"type\": \"number\" }, \"source\": { \"type\": \"string\" } } } }, \"threads\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"thread\", \"title\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" }, \"title\": { \"type\": \"string\" } } } }, \"tokens\": { \"type\": \"object\", \"required\": [ \"cacheRead\", \"input\", \"output\" ], \"properties\": { \"cacheRead\": { \"type\": \"number\" }, \"input\": { \"type\": \"number\" }, \"output\": { \"type\": \"number\" } } }, \"unpriced\": { \"type\": \"number\" }, \"warnings\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } } ``` </details>",
+      "properties": {
+        "blocked": {
+          "items": {
+            "$ref": "#/definitions/UsageReportBlockedItem"
+          },
+          "type": "array"
+        },
+        "compactUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "costUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "days": {
+          "items": {
+            "$ref": "#/definitions/UsageReportDaysItem"
+          },
+          "type": "array"
+        },
+        "handoffs": {
+          "format": "double",
+          "type": "number"
+        },
+        "keepaliveUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "largest": {
+          "items": {
+            "$ref": "#/definitions/UsageReportLargestItem"
+          },
+          "type": "array"
+        },
+        "maxEffort": {
+          "format": "double",
+          "type": "number"
+        },
+        "misses": {
+          "items": {
+            "$ref": "#/definitions/UsageReportMissesItem"
+          },
+          "type": "array"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/definitions/UsageReportModelsItem"
+          },
+          "type": "array"
+        },
+        "overPriceLine": {
+          "format": "double",
+          "type": "number"
+        },
+        "projects": {
+          "items": {
+            "$ref": "#/definitions/UsageReportProjectsItem"
+          },
+          "type": "array"
+        },
+        "requests": {
+          "format": "double",
+          "type": "number"
+        },
+        "sessions": {
+          "format": "double",
+          "type": "number"
+        },
+        "slowStart": {
+          "format": "double",
+          "type": "number"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/definitions/UsageReportSourcesItem"
+          },
+          "type": "array"
+        },
+        "threads": {
+          "items": {
+            "$ref": "#/definitions/UsageReportThreadsItem"
+          },
+          "type": "array"
+        },
+        "tokens": {
+          "$ref": "#/definitions/UsageReportTokens"
+        },
+        "unpriced": {
+          "format": "double",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "blocked",
+        "compactUsd",
+        "costUsd",
+        "days",
+        "handoffs",
+        "keepaliveUsd",
+        "largest",
+        "maxEffort",
+        "misses",
+        "models",
+        "overPriceLine",
+        "projects",
+        "requests",
+        "sessions",
+        "slowStart",
+        "sources",
+        "threads",
+        "tokens",
+        "unpriced",
+        "warnings"
+      ],
+      "type": "object"
+    },
+    "UsageReportBlockedItem": {
+      "description": "`UsageReportBlockedItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"count\", \"rule\" ], \"properties\": { \"count\": { \"type\": \"number\" }, \"rule\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "count": {
+          "format": "double",
+          "type": "number"
+        },
+        "rule": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "rule"
+      ],
+      "type": "object"
+    },
+    "UsageReportDaysItem": {
+      "description": "`UsageReportDaysItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"costUsd\", \"day\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"day\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "costUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "day": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "costUsd",
+        "day"
+      ],
+      "type": "object"
+    },
+    "UsageReportLargestItem": {
+      "description": "`UsageReportLargestItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"callId\", \"chars\", \"resent\", \"session\", \"tool\" ], \"properties\": { \"callId\": { \"type\": \"string\" }, \"chars\": { \"type\": \"number\" }, \"resent\": { \"type\": \"number\" }, \"session\": { \"type\": \"string\" }, \"tool\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "callId": {
+          "type": "string"
+        },
+        "chars": {
+          "format": "double",
+          "type": "number"
+        },
+        "resent": {
+          "format": "double",
+          "type": "number"
+        },
+        "session": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "callId",
+        "chars",
+        "resent",
+        "session",
+        "tool"
+      ],
+      "type": "object"
+    },
+    "UsageReportMissesItem": {
+      "description": "`UsageReportMissesItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"cause\", \"count\", \"tokens\" ], \"properties\": { \"cause\": { \"type\": \"string\" }, \"count\": { \"type\": \"number\" }, \"tokens\": { \"type\": \"number\" } } } ``` </details>",
+      "properties": {
+        "cause": {
+          "type": "string"
+        },
+        "count": {
+          "format": "double",
+          "type": "number"
+        },
+        "tokens": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "cause",
+        "count",
+        "tokens"
+      ],
+      "type": "object"
+    },
+    "UsageReportModelsItem": {
+      "description": "`UsageReportModelsItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"costUsd\", \"model\", \"requests\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"model\": { \"type\": \"string\" }, \"requests\": { \"type\": \"number\" } } } ``` </details>",
+      "properties": {
+        "costUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "model": {
+          "type": "string"
+        },
+        "requests": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "costUsd",
+        "model",
+        "requests"
+      ],
+      "type": "object"
+    },
+    "UsageReportProjectsItem": {
+      "description": "`UsageReportProjectsItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"costUsd\", \"project\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "costUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "project": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "costUsd",
+        "project"
+      ],
+      "type": "object"
+    },
+    "UsageReportSourcesItem": {
+      "description": "`UsageReportSourcesItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"chars\", \"share\", \"source\" ], \"properties\": { \"chars\": { \"type\": \"number\" }, \"share\": { \"type\": \"number\" }, \"source\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "chars": {
+          "format": "double",
+          "type": "number"
+        },
+        "share": {
+          "format": "double",
+          "type": "number"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "chars",
+        "share",
+        "source"
+      ],
+      "type": "object"
+    },
+    "UsageReportThreadsItem": {
+      "description": "`UsageReportThreadsItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"costUsd\", \"thread\", \"title\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" }, \"title\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "costUsd": {
+          "format": "double",
+          "type": "number"
+        },
+        "project": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thread": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "costUsd",
+        "thread",
+        "title"
+      ],
+      "type": "object"
+    },
+    "UsageReportTokens": {
+      "description": "`UsageReportTokens`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"cacheRead\", \"input\", \"output\" ], \"properties\": { \"cacheRead\": { \"type\": \"number\" }, \"input\": { \"type\": \"number\" }, \"output\": { \"type\": \"number\" } } } ``` </details>",
+      "properties": {
+        "cacheRead": {
+          "format": "double",
+          "type": "number"
+        },
+        "input": {
+          "format": "double",
+          "type": "number"
+        },
+        "output": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "cacheRead",
+        "input",
+        "output"
+      ],
+      "type": "object"
+    },
+    "VersionInfo": {
+      "description": "`VersionInfo`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"capabilities\", \"name\", \"protocol\", \"version\" ], \"properties\": { \"capabilities\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Capability\" } }, \"name\": { \"type\": \"string\", \"const\": \"cedia\" }, \"protocol\": { \"type\": \"string\" }, \"version\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "capabilities": {
+          "items": {
+            "$ref": "#/definitions/Capability"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "capabilities",
+        "name",
+        "protocol",
+        "version"
+      ],
+      "type": "object"
+    }
+  },
+  "roots": {
+    "Notice": {
+      "$ref": "#/definitions/Notice"
+    },
+    "Request": {
+      "$ref": "#/definitions/Request"
+    }
+  }
+}

@@ -7,7 +7,7 @@ use anyhow::Context as _;
 use cedian_protocol::{Rating, ThreadEvent, ThreadState, TodoState};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ThreadSummary {
     pub id: String,
     pub title: String,
@@ -54,20 +54,20 @@ pub struct ThreadSummary {
     pub updated_at: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RunRef {
     pub id: String,
     pub prompt: String,
 }
 
 /// One step of a thread's todo list.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Step {
     pub text: String,
     pub state: TodoState,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ThreadTurn {
     pub cwd: String,
     pub before: String,
@@ -76,21 +76,21 @@ pub struct ThreadTurn {
     pub at: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ThreadQuestion {
     pub question: String,
     /// Two to four choices, the recommended one first; none for a free answer.
     pub options: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct SessionRef {
     pub session_id: String,
     pub model: String,
     pub path: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ThreadMessage {
     pub id: String,
     pub from: String,

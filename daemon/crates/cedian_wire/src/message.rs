@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::{BrowserPage, Build, McpAdd, McpServer, Status, ThreadInfo};
 
 /// From the window to the daemon.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     /// The project's threads, answered with `Notice::Threads`, and again whenever one changes.
@@ -232,7 +232,7 @@ pub enum Request {
 
 /// The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]`
 /// or `none`; none keeps cedia's setting (`roles` in its settings).
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Helpers {
     /// `--plan`: a model plans before the writer starts.
@@ -258,14 +258,14 @@ impl Helpers {
 /// A selection in a file, as cedia's `InlineEditRange`: lines and columns from 1, columns in
 /// UTF-16 units as the editor counts them; `end` is just past the last character, and an empty
 /// selection asks for text inserted there.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Selection {
     pub start: Position,
     pub end: Position,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Position {
     pub line: u32,
@@ -283,7 +283,7 @@ impl Selection {
 }
 
 /// What the person decided about a hunk.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "decision", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Decision {
     Accept,
@@ -296,7 +296,7 @@ pub enum Decision {
 }
 
 /// From the daemon to the window.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Notice {
     /// The first notice on every connection.

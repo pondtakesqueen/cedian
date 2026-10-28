@@ -11,7 +11,7 @@ use crate::{Hunk, HunkState, Shadow, parse_patch};
 /// The decisions made so far, by hunk id: `Accepted` or `Rejected`.
 pub type Decisions = BTreeMap<String, HunkState>;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct FileReview {
     pub path: String,
     pub binary: bool,
@@ -21,7 +21,7 @@ pub struct FileReview {
 }
 
 /// A thread's changes from its first snapshot to its last.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Review {
     /// The first snapshot's tree; none when the thread has not written anything.
     pub base: Option<String>,

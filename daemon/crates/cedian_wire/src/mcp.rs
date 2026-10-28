@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// One MCP server under `mcpServers` in cedia's settings, as the Background tasks block lists
 /// it. Only what says which server it is: never its arguments, environment or headers, which
 /// can hold keys.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct McpServer {
     pub name: String,
     pub transport: McpTransport,
@@ -12,7 +12,7 @@ pub struct McpServer {
     pub read_only: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum McpTransport {
     /// A program cedia starts: its file name, without the directory.
@@ -23,7 +23,7 @@ pub enum McpTransport {
 
 /// A server the person adds in Settings, as `cedia mcp add` takes it. The values of `env` and
 /// `headers` go to cedia once and are never sent back.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct McpAdd {
     pub target: McpTarget,
@@ -34,7 +34,7 @@ pub struct McpAdd {
     pub read_only: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum McpTarget {
     Command { command: String, args: Vec<String> },

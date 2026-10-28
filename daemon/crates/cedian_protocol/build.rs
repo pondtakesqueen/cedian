@@ -18,6 +18,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut settings = typify::TypeSpaceSettings::default();
     settings.with_struct_builder(false);
+    // The wire's schema (`cedian_wire`, for the window's TS types) takes these types in.
+    settings.with_derive("schemars::JsonSchema".to_owned());
     let mut space = typify::TypeSpace::new(&settings);
     space
         .add_root_schema(schema)

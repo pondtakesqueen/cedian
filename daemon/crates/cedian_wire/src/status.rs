@@ -3,7 +3,7 @@ use cedian_protocol::ThreadState;
 use serde::{Deserialize, Serialize};
 
 /// What a thread's tab shows: cedia's state, corrected by whether a run is alive.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
     /// The project's coordinator opened it and its first run has not started yet.
@@ -35,7 +35,7 @@ impl Status {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ThreadInfo {
     #[serde(flatten)]
     pub thread: ThreadSummary,

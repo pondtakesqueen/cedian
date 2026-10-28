@@ -9,6 +9,7 @@ license-file.workspace = true
 anyhow.workspace = true
 cedian_protocol = { path = "../cedian_protocol" }
 log.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
