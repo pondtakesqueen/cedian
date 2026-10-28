@@ -58,11 +58,28 @@ export function reduce(state: ThreadState, notice: Notice): ThreadState {
 
 export const isRunning = (state: ThreadState) => state.status === "working" || state.status === "queued";
 
-/** The session's model the header names: the latest session block's. */
-export function currentModel(blocks: Block[]): string | undefined {
+/**
+ * The writer's model, which the header and the model chip name: the latest `code` session's, from
+ * the thread's row, else from its blocks. Helper sessions (triage, explore, goal) run on other models.
+ */
+export function currentModel(blocks: Block[], info?: ThreadInfo): string | undefined {
+  const writes = (role?: string | null) => !role || role === "code";
+  const sessions = info?.sessions ?? [];
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    if (writes(sessions[i]!.role)) return sessions[i]!.model;
+  }
   for (let i = blocks.length - 1; i >= 0; i--) {
     const block = blocks[i]!;
-    if (block.kind === "session") return block.model;
+    if (block.kind === "session" && writes(block.role)) return block.model;
+  }
+  return undefined;
+}
+
+/** What the thread's latest run ran under, when cedia recorded it. */
+export function threadPermission(info: ThreadInfo | undefined): string | undefined {
+  const runs = info?.runs ?? [];
+  for (let i = runs.length - 1; i >= 0; i--) {
+    if (runs[i]!.permission) return runs[i]!.permission!;
   }
   return undefined;
 }

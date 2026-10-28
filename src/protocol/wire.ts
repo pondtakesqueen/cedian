@@ -979,6 +979,10 @@ export interface ThreadQuestion {
  */
 export interface RunRef {
   id: string;
+  /**
+   * What the run ran under (`cedia --permission`); none from a cedia that did not record it.
+   */
+  permission?: string | null;
   prompt: string;
 }
 /**
@@ -988,6 +992,10 @@ export interface RunRef {
 export interface SessionRef {
   model: string;
   path?: string | null;
+  /**
+   * The session's role: `code` for the writer, else a helper such as `triage`, `explore` or `goal`.
+   */
+  role?: string;
   session_id: string;
 }
 /**

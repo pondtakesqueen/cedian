@@ -138,6 +138,16 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "look at @src/main.ts", thread: null, worktree: false, images: ["/tmp/shot.png"] });
   });
 
+  it("attaches a pasted screenshot through the host and a copied file by its path", async () => {
+    const saved: string[] = [];
+    const { pane } = setup({ saveImage: async (bytes, mime) => (saved.push(`${mime}:${bytes.length}`), "/cache/paste-1.png") });
+    const shot = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png" });
+    const copied = Object.assign(new File([new Uint8Array([9])], "a.jpg", { type: "image/jpeg" }), { path: "/Users/p/a.jpg" });
+    await pane.paste([shot, copied]);
+    expect(saved).toEqual(["image/png:3"]);
+    expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["paste-1.png", "a.jpg"]);
+  });
+
   it("lists threads newest first without archived ones", () => {
     expect(threadList([info({ id: "a", updated_at: "1" }), info({ id: "b", updated_at: "2" }), info({ id: "c", archived: true })]).map((t) => t.id)).toEqual(["b", "a"]);
   });
@@ -174,5 +184,21 @@ describe("agent pane, from the Mac gate", () => {
     type(pane, "more");
     enter(pane);
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "more", thread: "t-1", worktree: false });
+  });
+
+  it("a reopened thread's chips show its writer's model and its last run's permission", () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "choices", models: { default: "anthropic/h", models: [{ ref: "anthropic/h", label: "H", provider: "anthropic", available: true, contextWindow: 200000, effort: false }], modes: [] }, permissions: { default: "read-only", modes: [{ mode: "read-only", label: "อ่าน", description: "" }, { mode: "workspace", label: "แก้ได้", description: "" }] } });
+    emit({ kind: "settings", desktop: { model: "anthropic/h", permission: "read-only" }, path: "" });
+    // The triage helper ran last, on a cheaper model: the chip still names the writer's.
+    const sessions = [{ session_id: "s1", model: "openrouter/w", role: "code" }, { session_id: "s2", model: "anthropic/cheap", role: "triage" }];
+    emit({ kind: "threads", cwd: "/r", threads: [info({ sessions, runs: [{ id: "r1", prompt: "fix", permission: "workspace" }] })] });
+    pane.openThread("t-1");
+    const chip = (name: string) => pane.root.querySelector<HTMLSelectElement>(`select[data-chip="${name}"]`)!.value;
+    expect(chip("model")).toBe("openrouter/w");
+    expect(chip("permission")).toBe("workspace");
+    type(pane, "more");
+    enter(pane);
+    expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "more", thread: "t-1", worktree: false, permission: "workspace" });
   });
 });
