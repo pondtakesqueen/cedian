@@ -11,8 +11,8 @@ use std::{
 
 use cedian_agent::{Change, Transcript};
 use cedian_index::{
-    ThreadSummary, list_threads, memory_path, project_key, project_outputs, read_memory,
-    read_thread, session_cwd, session_lines, session_path, threads_dir,
+    ThreadSummary, list_threads, memory_path, opener_model, project_key, project_outputs,
+    read_memory, read_thread, session_cwd, session_lines, session_path, threads_dir,
 };
 use cedian_protocol::{Line, SessionEvent, ThreadState, VersionInfo};
 use cedian_wire::{Build, Notice, Request, Status, ThreadInfo};
@@ -1087,9 +1087,10 @@ impl Daemon {
     /// meanwhile.
     /// Starts each thread the project's coordinator opened (`open_thread`) and that waits
     /// `queued`, in a worktree of its own: `cedia -p <task> --thread <id>`. Only projects a
-    /// window shows are looked at, and each thread once per daemon.
+    /// window shows are looked at, and each thread once per daemon. It runs on the model of the
+    /// thread that opened it, so the model picked in the project chat reaches the work.
     pub fn start_queued(shared: &Shared) {
-        let queued: Vec<(PathBuf, String, String)> = {
+        let queued: Vec<(PathBuf, String, String, Option<String>)> = {
             let mut daemon = lock(shared);
             if !daemon.version.as_ref().is_ok_and(|v| {
                 v.capabilities
@@ -1118,20 +1119,21 @@ impl Daemon {
                         continue;
                     }
                 };
-                for thread in threads {
+                for thread in &threads {
                     if thread.state == ThreadState::Queued
                         && thread.by.is_some()
                         && !thread.archived
                         && !daemon.running(&thread.id)
                         && daemon.started.insert((slug.clone(), thread.id.clone()))
                     {
-                        found.push((cwd.clone(), thread.id, thread.task));
+                        let model = opener_model(&threads, thread.by.as_deref());
+                        found.push((cwd.clone(), thread.id.clone(), thread.task.clone(), model));
                     }
                 }
             }
             found
         };
-        for (cwd, thread, task) in queued {
+        for (cwd, thread, task, model) in queued {
             log::info!("starting queued {thread}");
             match crate::worktree::create(&cwd, &task) {
                 Ok((dir, branch)) => {
@@ -1143,7 +1145,10 @@ impl Daemon {
                         dir,
                         &task,
                         Some(thread),
-                        Flags::default(),
+                        Flags {
+                            model: model.as_deref(),
+                            ..Flags::default()
+                        },
                     );
                 }
                 Err(error) => log::warn!("starting {thread}: {error:#}"),
