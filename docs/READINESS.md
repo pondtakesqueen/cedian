@@ -70,6 +70,16 @@
   lru-cache) and CC-BY-4.0 (@vscode/codicons) accepted as permissive;
   `jschardet` (LGPL-2.1+) allowed by name as the owner's exception
 
+## Phase B (one live thread, started 2026-10-28)
+- [x] cedia's Phase B commands (cedia-code #153): `desktop.lock`, images on
+  `threads send` and `threads fork`, `cedia inline-edit`; pin moved to that
+  branch's head 39560d1 (protocol ff8c83a6b208152c), to move to cedia main
+  once #153 merges
+- [x] Daemon holds `~/.cedia/desktop.lock` while it serves (`cedia daemon`
+  yields); `Request::Send` and a running thread's `Prompt` carry images;
+  `Request::Fork` keeps the forked run's images unless the window names
+  others; `Request::InlineEdit` answers `Notice::InlineEdit`
+
 ## Known gaps
 - no E2E tests yet (Playwright smoke is a Phase A exit item)
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash

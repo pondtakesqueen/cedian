@@ -380,9 +380,78 @@ impl Cedia {
             .with_context(|| format!("starting {}", self.bin.display()))
     }
 
-    /// `cedia threads send <id> -- <text>`: the thread sees it at its next turn.
-    pub fn send(&self, cwd: &Path, thread: &str, text: &str) -> anyhow::Result<()> {
-        self.threads(cwd, &["send", thread, "--", text])
+    /// `cedia threads send <id> [--image <file>]... -- <text>`: the thread sees it, and its
+    /// images, at its next turn.
+    pub fn send(
+        &self,
+        cwd: &Path,
+        thread: &str,
+        text: &str,
+        images: &[PathBuf],
+    ) -> anyhow::Result<()> {
+        let images: Vec<String> = images
+            .iter()
+            .map(|image| image.to_string_lossy().into_owned())
+            .collect();
+        let mut args = vec!["send", thread];
+        for image in &images {
+            args.extend(["--image", image.as_str()]);
+        }
+        args.extend(["--", text]);
+        self.threads(cwd, &args)
+    }
+
+    /// `cedia inline-edit --file <f> --range <l:c-l:c> --instruction <text> [--stdin] [--model
+    /// <ref>] --cwd <cwd> --json`: a selection's new text and its patch. `text`, the editor's,
+    /// goes on stdin. A refusal is an answer too.
+    pub fn inline_edit(
+        &self,
+        cwd: &Path,
+        file: &Path,
+        range: &cedian_wire::Selection,
+        instruction: &str,
+        text: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<cedian_protocol::InlineEdit, String> {
+        let mut command = self.command(cwd);
+        command
+            .arg("inline-edit")
+            .arg("--file")
+            .arg(file)
+            .arg(format!("--range={}", range.arg()))
+            .arg(format!("--instruction={instruction}"))
+            .arg("--cwd")
+            .arg(cwd)
+            .arg("--json")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        if let Some(model) = model {
+            command.arg(format!("--model={model}"));
+        }
+        if text.is_some() {
+            command.arg("--stdin").stdin(Stdio::piped());
+        } else {
+            command.stdin(Stdio::null());
+        }
+        let mut child = command
+            .spawn()
+            .map_err(|e| format!("running {}: {e}", self.bin.display()))?;
+        if let (Some(text), Some(mut stdin)) = (text, child.stdin.take()) {
+            use std::io::Write as _;
+            stdin
+                .write_all(text.as_bytes())
+                .map_err(|e| format!("writing the file to cedia inline-edit: {e}"))?;
+        }
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("running {}: {e}", self.bin.display()))?;
+        serde_json::from_slice(&output.stdout).map_err(|_| {
+            format!(
+                "cedia inline-edit exited with {}: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            )
+        })
     }
 
     /// `cedia threads unsend <id> <message>...`: the messages leave the thread's queue.
@@ -418,16 +487,33 @@ impl Cedia {
     }
 
     /// `cedia threads fork <id> <run> --json`: a new thread whose conversation is `thread`'s
-    /// just before `run`, for the person's message there sent again, edited. Its id.
-    pub fn fork(&self, cwd: &Path, thread: &str, run: &str) -> anyhow::Result<String> {
+    /// just before `run`, for the person's message there sent again, edited. Its id, and the
+    /// images the forked run was shown, each as `sha256:<hex>` for `--image`.
+    pub fn fork(
+        &self,
+        cwd: &Path,
+        thread: &str,
+        run: &str,
+    ) -> anyhow::Result<(String, Vec<PathBuf>)> {
+        #[derive(serde::Deserialize)]
+        struct Image {
+            sha256: String,
+        }
         #[derive(serde::Deserialize)]
         struct Forked {
             thread: String,
+            #[serde(default)]
+            images: Vec<Image>,
         }
         let output = self.threads_output(cwd, &["fork", thread, run, "--json"])?;
         let forked: Forked =
             serde_json::from_slice(&output).context("reading cedia threads fork --json")?;
-        Ok(forked.thread)
+        let images = forked
+            .images
+            .into_iter()
+            .map(|image| PathBuf::from(format!("sha256:{}", image.sha256)))
+            .collect();
+        Ok((forked.thread, images))
     }
 
     /// `cedia threads undo|redo <id> --json [--force]`: the files of the thread's last turn that

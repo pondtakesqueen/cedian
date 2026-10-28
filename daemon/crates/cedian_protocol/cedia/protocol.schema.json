@@ -61,6 +61,12 @@
     "PrOpened": {
       "$ref": "#/definitions/PrOpened"
     },
+    "InlineEdit": {
+      "$ref": "#/definitions/InlineEdit"
+    },
+    "DesktopLock": {
+      "$ref": "#/definitions/DesktopLock"
+    },
     "VersionInfo": {
       "$ref": "#/definitions/VersionInfo"
     }
@@ -254,7 +260,10 @@
         "mcp.manage",
         "commit",
         "pr",
-        "daemon"
+        "daemon",
+        "daemon.desktop-lock",
+        "threads.send-images",
+        "inline-edit"
       ]
     },
     "Check": {
@@ -575,6 +584,22 @@
         }
       ]
     },
+    "DesktopLock": {
+      "type": "object",
+      "properties": {
+        "pid": {
+          "type": "number"
+        },
+        "at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "pid",
+        "at"
+      ],
+      "additionalProperties": false
+    },
     "EffectStatus": {
       "type": "string",
       "enum": [
@@ -660,6 +685,12 @@
         },
         "sessionId": {
           "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ImageRef"
+          }
         }
       },
       "required": [
@@ -1071,6 +1102,86 @@
       ],
       "additionalProperties": false
     },
+    "InlineEdit": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "range": {
+              "$ref": "#/definitions/InlineEditRange"
+            },
+            "replacement": {
+              "type": "string"
+            },
+            "patch": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "costUsd": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "file",
+            "range",
+            "replacement",
+            "patch",
+            "model",
+            "costUsd"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "InlineEditPosition": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "line",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "InlineEditRange": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/definitions/InlineEditPosition"
+        },
+        "end": {
+          "$ref": "#/definitions/InlineEditPosition"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
     "JsonObject": {
       "type": "object",
       "additionalProperties": {}
@@ -1463,6 +1574,7 @@
         "error_during_execution",
         "interrupted",
         "error_unverified_claim",
+        "error_stuck",
         "handoff",
         "asked"
       ]
@@ -2233,6 +2345,12 @@
                 "system",
                 "user"
               ]
+            },
+            "images": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ImageRef"
+              }
             },
             "id": {
               "$ref": "#/definitions/EventId"
@@ -3086,6 +3204,12 @@
             "text": {
               "type": "string"
             },
+            "images": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ImageRef"
+              }
+            },
             "at": {
               "type": "string"
             },
@@ -3341,6 +3465,12 @@
             },
             "permission": {
               "$ref": "#/definitions/RunPermission"
+            },
+            "images": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ImageRef"
+              }
             },
             "at": {
               "type": "string"
