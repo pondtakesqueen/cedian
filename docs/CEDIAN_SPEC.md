@@ -97,7 +97,9 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | Chat panel (agent conversation) | VS Code sidebar panel, cedia drives |
 | Composer (prompt box + attachments) | VS Code input box, image/file attach |
 | Permission modes (Manual/Accept edits/Plan/Auto/Bypass) | cedia's four modes only (auto/read-only/plan/workspace); no ask-per-edit (decided 2026-10-28) |
-| Diff view (file-by-file review) | VS Code diff editor + cedia's shadow git diffs |
+| Diff view (file-by-file review) | VS Code diff editor + cedia's shadow git diffs; a line in the diff opens the file at that line |
+| Git actions (pull, push, branch, commit, PR) | VS Code source control for pull/push/branch; `cedia commit` / `cedia pr` from the receipt card |
+| Empty states | Every block has one: what it will show and one action to start (Phase B) |
 | PR monitoring (Auto-fix, Merge when ready) | Daemon + gh CLI |
 | Browser pane (tabbed, element selection, safety) | daemon Chromium (bundled) screencast into panel + CDP (agent drives) |
 | Terminal (integrated, xterm.js) | VS Code terminal |
@@ -567,6 +569,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 - CDP for agent-driven browser (read/click/type/navigate)
 - Element selection via CDP DOM.inspect
 - Screenshot via Page.captureScreenshot
+- Console: the page's console messages and errors in the browser panel (CDP `Runtime.consoleAPICalled`, `Runtime.exceptionThrown`)
 - External sites: per-project allowlist only (localhost by default; owner adds each site); no classifier (§3.7)
 - Dev servers from `.cedia/launch.json`, else `.claude/launch.json` (`Dev servers` menu; localhost needs no approval)
 - Allowlist entries revocable in Settings
