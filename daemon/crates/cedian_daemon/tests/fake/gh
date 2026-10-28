@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# A stand-in for gh in the daemon's tests (`$CEDIAN_GH`). The PR is $FAKE_THREADS/../pr.json,
+# none when it is missing; each call is logged to $FAKE_THREADS/../gh-calls.
+set -euo pipefail
+state="$FAKE_THREADS/.."
+mkdir -p "$state"
+printf '%s\n' "$*" >>"$state/gh-calls"
+case "$1 ${2:-}" in
+  "pr view")
+    if [[ -f "$state/pr.json" ]]; then cat "$state/pr.json"; exit 0; fi
+    echo "no pull requests found for branch \"$3\"" >&2
+    exit 1
+    ;;
+  "api user") echo "cedian-owner" ;;
+  "api "*) cat "$state/line-comments.json" 2>/dev/null || echo '[]' ;;
+  "run view") printf 'step 1\nerror TS2322: Type string is not assignable\n' ;;
+  *) echo "fake gh: $*" >&2; exit 1 ;;
+esac

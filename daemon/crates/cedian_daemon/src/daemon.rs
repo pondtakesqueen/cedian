@@ -2,6 +2,7 @@
 //! piece can be rebuilt from cedia's files except the lines of a run in progress.
 
 mod background;
+mod prs;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -80,6 +81,11 @@ pub struct Daemon {
     /// The shared Chromium, locked on its own: starting it takes a moment, and only a
     /// Browser block starts it.
     browser: Arc<Mutex<Browser>>,
+    /// The pull requests followed, by thread (`pr_watch`).
+    prs: HashMap<String, crate::pr_watch::Watch>,
+    gh: crate::pr_watch::Gh,
+    /// The login `gh` acts as, once asked.
+    gh_login: Option<String>,
     next_id: u64,
 }
 
@@ -119,6 +125,7 @@ impl Daemon {
         }
         let choices = choices(&cedia, &version);
         let browser = Arc::new(Mutex::new(Browser::new(state_dir, cedia.env.clone())));
+        let gh = crate::pr_watch::Gh::of(&cedia.env);
         Self {
             cedia,
             home,
@@ -137,6 +144,9 @@ impl Daemon {
             started: HashSet::new(),
             schedules: background::Schedules::default(),
             browser,
+            prs: HashMap::new(),
+            gh,
+            gh_login: None,
             next_id: 1,
         }
     }
@@ -341,6 +351,10 @@ impl Daemon {
                     .needs_you(slug, &thread.id, &thread.updated_at, status),
                 status,
                 cwd: self.thread_cwd(slug, &thread),
+                pr: self
+                    .prs
+                    .get(&thread.id)
+                    .and_then(crate::pr_watch::Watch::chip),
                 thread,
             });
         }

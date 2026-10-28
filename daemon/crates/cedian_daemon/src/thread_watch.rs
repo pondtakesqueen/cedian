@@ -1,8 +1,8 @@
 //! Notices threads that change outside a run of this daemon (`cedia threads send` in a
 //! terminal, another cedia, an archive) by polling the threads directory of each project a
 //! window shows, and sends the new list when it moved. Each poll also starts the threads the
-//! project's coordinator opened and that wait `queued`, and wakes the scheduled runs that are
-//! due.
+//! project's coordinator opened and that wait `queued`, wakes the scheduled runs that are
+//! due, and looks at the pull requests it follows that are due a look.
 
 use std::{
     collections::HashMap,
@@ -65,6 +65,7 @@ pub fn watch_threads(shared: Shared) {
             lock(&shared).threads_seen(prints);
             Daemon::start_queued(&shared);
             Daemon::wake_schedules(&shared);
+            Daemon::check_prs(&shared);
         }
     });
 }

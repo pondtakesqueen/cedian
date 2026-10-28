@@ -87,6 +87,7 @@ pub fn watch(shared: Shared, id: RunId, mut child: Child) {
         let ended = lock(&shared).on_exit(id, how);
         if let Some((cwd, thread)) = ended {
             Daemon::archive_if_done(&shared, &cwd, &thread);
+            Daemon::follow_pr(&shared, &cwd, &thread);
         }
     });
 }

@@ -47,4 +47,7 @@ pub struct ThreadInfo {
     /// it counts in the badges until a window opens it.
     #[serde(default)]
     pub needs_you: bool,
+    /// Its branch's pull request, while the daemon follows it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pr: Option<crate::PrChip>,
 }

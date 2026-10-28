@@ -388,6 +388,26 @@
       ],
       "type": "object"
     },
+    "CiState": {
+      "description": "The checks on the PR's head commit, taken together.",
+      "oneOf": [
+        {
+          "enum": [
+            "pending",
+            "passing",
+            "failing"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "No check reports on the head.",
+          "enum": [
+            "none"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "CommandEntry": {
       "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } } } ``` </details>",
       "properties": {
@@ -2170,6 +2190,50 @@
       ],
       "type": "object"
     },
+    "PrChip": {
+      "description": "A thread's pull request as the daemon last saw it through `gh` (ARCHITECTURE, Phase C \"Watching a thread's pull request\"), for the chip on its row and its card.",
+      "properties": {
+        "ci": {
+          "$ref": "#/definitions/CiState"
+        },
+        "conflict": {
+          "default": false,
+          "description": "GitHub cannot merge it into its base without a conflict.",
+          "type": "boolean"
+        },
+        "fixing": {
+          "default": false,
+          "description": "A run the watch started for the PR's head is going or has not pushed yet.",
+          "type": "boolean"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "review": {
+          "default": null,
+          "description": "GitHub's review decision (`approved`, `changes_requested`, `review_required`); none when the repository asks for no review.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/PrState"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ci",
+        "number",
+        "state",
+        "url"
+      ],
+      "type": "object"
+    },
     "PrOpened": {
       "anyOf": [
         {
@@ -2236,6 +2300,14 @@
         }
       },
       "type": "object"
+    },
+    "PrState": {
+      "enum": [
+        "open",
+        "merged",
+        "closed"
+      ],
+      "type": "string"
     },
     "Rating": {
       "description": "`Rating`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"up\", \"down\" ] } ``` </details>",
@@ -3604,6 +3676,17 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "pr": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrChip"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Its branch's pull request, while the daemon follows it."
         },
         "profile": {
           "default": null,
