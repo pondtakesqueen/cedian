@@ -5,7 +5,7 @@
 
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCodeUtils, KeyMod } from '../../../../base/common/keyCodes.js';
-import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -14,6 +14,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationDefaults, IConfigu
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
@@ -127,21 +128,28 @@ function cached(key: string): unknown {
 	}
 }
 
-// Registered before any keybinding is resolved, so Cedian's layer is in from the first key. The
-// person's `desktop.keymap` comes from the copy the last window kept, and a change to it takes
-// effect when the window next opens.
-for (const binding of withKeymap(KEYBINDINGS, cached(KEYMAP_CACHE))) {
-	const primary = packKey(binding.mac);
-	if (primary === undefined) {
-		continue;
+const keymapRules = new DisposableStore();
+
+/** Cedian's layer with the person's `desktop.keymap` over it, in place of the one before. */
+function registerKeymap(keymap: unknown): void {
+	keymapRules.clear();
+	for (const binding of withKeymap(KEYBINDINGS, keymap)) {
+		const primary = packKey(binding.mac);
+		if (primary === undefined) {
+			continue;
+		}
+		keymapRules.add(KeybindingsRegistry.registerKeybindingRule({
+			id: binding.command,
+			primary,
+			weight: KeybindingWeight.ExternalExtension + 100,
+			when: binding.when ? ContextKeyExpr.deserialize(binding.when) : undefined,
+		}));
 	}
-	KeybindingsRegistry.registerKeybindingRule({
-		id: binding.command,
-		primary,
-		weight: KeybindingWeight.ExternalExtension + 100,
-		when: binding.when ? ContextKeyExpr.deserialize(binding.when) : undefined,
-	});
 }
+
+// Registered before any keybinding is resolved, so Cedian's layer is in from the first key, from
+// the copy of `desktop.keymap` the last window kept. A change the daemon sends later replaces it.
+registerKeymap(cached(KEYMAP_CACHE));
 
 // ---- desktop → VS Code settings, theme and the pane's type ----
 
@@ -155,11 +163,13 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 
 	private defaults: IConfigurationDefaults | undefined;
 	private desktop: Desktop = desktopOf(cached(DESKTOP_CACHE));
+	private keymap = JSON.stringify(cached(KEYMAP_CACHE) ?? {});
 	private readonly style: HTMLStyleElement;
 
 	constructor(
 		@ICedianDaemonService daemon: ICedianDaemonService,
 		@IThemeService private readonly themeService: IThemeService,
+		@IKeybindingService private readonly keybindingService: IKeybindingService,
 	) {
 		super();
 		this.style = mainWindow.document.createElement('style');
@@ -170,11 +180,17 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 		this._register(themeService.onDidColorThemeChange(() => this.paint()));
 		const off = daemon.client.on('settings', notice => {
 			this.desktop = desktopOf(notice.desktop);
+			const keymap = JSON.stringify(this.desktop.keymap ?? {});
 			try {
 				mainWindow.localStorage.setItem(DESKTOP_CACHE, JSON.stringify(this.desktop));
-				mainWindow.localStorage.setItem(KEYMAP_CACHE, JSON.stringify(this.desktop.keymap ?? {}));
+				mainWindow.localStorage.setItem(KEYMAP_CACHE, keymap);
 			} catch {
 				// A window without storage applies `desktop` when the daemon sends it.
+			}
+			if (keymap !== this.keymap) {
+				this.keymap = keymap;
+				registerKeymap(this.desktop.keymap ?? {});
+				this.refreshKeybindings();
 			}
 			this.apply();
 		});
@@ -192,6 +208,16 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 		registry.registerDefaultConfigurations([next]);
 		this.defaults = next;
 		this.paint();
+	}
+
+	/**
+	 * Has the keybinding service read the registry again. It has no public way to: it rereads on its
+	 * own only for keybindings.json, extensions and the keyboard layout, so this calls the private
+	 * method those use (VS Code 1.143.1), and a window without it takes the change when it next opens.
+	 */
+	private refreshKeybindings(): void {
+		const service = this.keybindingService as IKeybindingService & { updateResolver?: () => void };
+		service.updateResolver?.();
 	}
 
 	/** The tokens of the theme showing now, and the pane's type from `desktop`. */
