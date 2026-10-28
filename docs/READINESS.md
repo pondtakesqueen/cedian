@@ -38,6 +38,16 @@
 - [x] Decide whether to split computer-use spec into its own file (yes:
   `docs/specs/COMPUTER_USE_SPEC.md`, §14 is now a pointer)
 
+## Phase 0 (spec settle, 2026-10-28)
+- [x] Owner decisions Q1–Q12 + review applied to `docs/CEDIAN_SPEC.md`:
+  cedia's four permission modes; cedian daemon runs threads under a lock
+  `cedia daemon` yields to; permissive licenses; full Tern parity in v1;
+  primary root's slug keys a multi-repo project; browser allowlist only
+  (localhost by default); Cedian settings window; roadmap in §11; budgets
+  measured against stock VS Code; `.cedia/launch.json` first; cedia pin
+  bumped each phase; upstream merges rare; tab completion + inline edit in v1
+- [x] Stray `EOF`/`echo done` lines removed from two spec drafts
+
 ## Known gaps
 - `src/` has no implementation yet
 - no E2E tests yet (Playwright smoke is a Phase A exit item)
@@ -45,5 +55,6 @@
   raw `Notice::Line` and `cedian_agent`'s fold is test-only (only
   `cedian_index` dev-deps use it). Phase B decides: daemon folds via
   `cedian_agent`, or the window parses stream-json.
-- 6 permissive-but-non-MIT transitive deps need owner approval before ship
-  (`script/license-scan.py` lists them: typify ×4 build-only, foldhash ×2)
+- 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
+  ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
+  their attribution in THIRD_PARTY_NOTICES.md

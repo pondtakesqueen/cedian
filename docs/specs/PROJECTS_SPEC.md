@@ -57,7 +57,7 @@ automatically; conversation works from recent messages/threads/memory.
 
 Claude can run a thread per repository, each with its own PR. Overview shows which
 are ready for review. cedian maps this to: one coordinator, many roots, one thread
-per root in its own worktree.
+per root in its own worktree. The project's slug is the primary (first) root's; the other roots are extra (decided 2026-10-28).
 
 ## What cedian does NOT replicate
 
@@ -71,5 +71,3 @@ single-owner; roots are local checkouts; cedia owns thread files.
 2. "What's the status of the open threads?" → answer in place (quick question).
 3. A batch: "Bring every service up to the new lint config." → one thread per
    repository, each with its own PR.
-EOF
-echo done

@@ -7,5 +7,6 @@ original locations and/or in `daemon/` dependency manifests.
 - Rust crate dependencies: see `daemon/Cargo.lock`
 - TypeScript dependencies: see `package-lock.json`
 
-Only MIT-compatible code may be included in the Cedian core. See
+Only permissively licensed code (MIT, BSD, Apache-2.0, ISC and the like) may
+be included; Apache-2.0 components keep their NOTICE. See
 `docs/CEDIAN_SPEC.md` §9.

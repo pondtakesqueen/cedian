@@ -1,5 +1,9 @@
 # Draft: Roots section for the Settings window (unverified, needs Xcode build)
 
+> Written for the retired GPUI window (`cedian_window`). The data rules, validation and the
+> `RootsList/Add/Remove` wire requests still hold; the UI moves to `src/settings/` in Phase B
+> (`docs/CEDIAN_SPEC.md` §11).
+
 Follows `crates/cedian_window/src/settings_mcp.rs`. Add a new section "Roots" under
 Settings > Environment (or its own section) in `settings_window.rs`/`settings_view.rs`.
 
@@ -71,6 +75,8 @@ Recommendation: add wire requests `RootsAdd`/`RootsRemove`/`RootsList` handled b
 
 ## Remove (9-A lock)
 
+The primary root (the first; its slug keys the project's threads, memory and schedules) is never removed: its row has no ลบ (decided 2026-10-28).
+
 Before remove, check daemon's thread list for the slug: if any thread has `root == path` and status is Queued/Working, refuse with "มี thread ใช้ root นี้อยู่".
 
 ## Render
@@ -91,5 +97,3 @@ Before remove, check daemon's thread list for the slug: if any thread has `root 
 
 - No code written in this draft; needs a Mac with Xcode to build/verify.
 - Edge cases (symlink, spaces, order) deferred to grilling if needed.
-EOF
-echo done
