@@ -79,9 +79,27 @@
   yields); `Request::Send` and a running thread's `Prompt` carry images;
   `Request::Fork` keeps the forked run's images unless the window names
   others; `Request::InlineEdit` answers `Notice::InlineEdit`
+- [x] Window wire types generated from the Rust types
+  (`cedian_wire/wire.schema.json` → `src/protocol/wire.ts`)
+- [x] Window modules in `src/`, tested with vitest + happy-dom: daemon
+  client (queue while down, watches re-sent on reconnect), composer (queue,
+  Send now, `@`, `/`, images), live pane (view modes, context ring, ask card,
+  todo, review hunks, Commit / open PR, cedia's four permission modes, model
+  and effort chips, worktree), settings window (appearance, models, MCP,
+  roots, editor, keys), Warm & Lime + `--cedian-*`, keybinding layer, inline
+  edit
+- [x] VS Code glue (`vscode/contrib/cedian`): main-process `cedianDaemon`
+  channel (starts the daemon when none answers), live Agent view, review in
+  the (multi-)diff editor, Cedian Settings editor, Cmd+K inline edit as a
+  diff with รับ / ไม่เอา, `desktop` as VS Code defaults; type-checks with
+  VS Code's `src/tsconfig.json` (0 errors)
+- [ ] Exit gate on the owner's Mac: delegate a task into a worktree, quit and
+  reopen with the thread intact, review and accept; kill the daemon and the
+  thread rebuilds from cedia's files
 
 ## Known gaps
-- no E2E tests yet (Playwright smoke is a Phase A exit item)
+- `desktop.keymap` changes apply when a window opens, not live
+- pasted images (no file path) are not attached yet; picked and dropped files are
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
   their attribution in THIRD_PARTY_NOTICES.md

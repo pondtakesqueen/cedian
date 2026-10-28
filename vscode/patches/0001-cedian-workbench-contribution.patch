@@ -1,14 +1,37 @@
-diff --git a/src/vs/workbench/workbench.common.main.ts b/src/vs/workbench/workbench.common.main.ts
-index b2aaf10f..fb265245 100644
---- a/src/vs/workbench/workbench.common.main.ts
-+++ b/src/vs/workbench/workbench.common.main.ts
-@@ -354,6 +354,9 @@ import './contrib/remote/browser/remote.contribution.js';
- // Emmet
- import './contrib/emmet/browser/emmet.contribution.js';
+diff --git a/src/vs/code/electron-main/app.ts b/src/vs/code/electron-main/app.ts
+index 7b261981..f9662375 100644
+--- a/src/vs/code/electron-main/app.ts
++++ b/src/vs/code/electron-main/app.ts
+@@ -156,6 +156,8 @@ import ErrorTelemetry from '../../platform/telemetry/electron-main/errorTelemetr
+ import { IProtocolMainService } from '../../platform/protocol/electron-main/protocol.js';
+ import { createRemoteResourceRequestHandler } from '../../platform/protocol/electron-main/remoteResourceProtocol.js';
+ import { logNodeCompileCacheStatus, markNodeCompileCacheReady, waitForNodeCompileCacheReady } from '../../base/node/nodeCompileCache.js';
++import { CedianDaemonChannel } from '../../workbench/contrib/cedian/electron-main/daemonChannel.js';
++import { CEDIAN_DAEMON_CHANNEL } from '../../workbench/contrib/cedian/common/daemon.js';
+ 
+ type OSProxyConfigEvent = {
+ 	readonly success: boolean;
+@@ -1519,6 +1521,9 @@ export class CodeApplication extends Disposable {
+ 		mainProcessElectronServer.registerChannel('logger', loggerChannel);
+ 		sharedProcessClient.then(client => client.registerChannel('logger', loggerChannel));
+ 
++		// Cedian: each window's lines to the daemon's socket
++		mainProcessElectronServer.registerChannel(CEDIAN_DAEMON_CHANNEL, this._register(new CedianDaemonChannel(mainProcessElectronServer)));
++
+ 		// Extension Host Debug Broadcasting
+ 		const electronExtensionHostDebugBroadcastChannel = new ElectronExtensionHostDebugBroadcastChannel(accessor.get(IWindowsMainService));
+ 		mainProcessElectronServer.registerChannel('extensionhostdebugservice', electronExtensionHostDebugBroadcastChannel);
+diff --git a/src/vs/workbench/workbench.desktop.main.ts b/src/vs/workbench/workbench.desktop.main.ts
+index 5278709d..d12542e6 100644
+--- a/src/vs/workbench/workbench.desktop.main.ts
++++ b/src/vs/workbench/workbench.desktop.main.ts
+@@ -209,6 +209,9 @@ import './contrib/modernUI/electron-browser/frostedGlass.contribution.js';
+ // Emergency Alert
+ import './contrib/emergencyAlert/electron-browser/emergencyAlert.contribution.js';
  
 +// Cedian
-+import './contrib/cedian/browser/cedian.contribution.js';
++import './contrib/cedian/electron-browser/cedian.contribution.js';
 +
- // CodeEditor Contributions
- import './contrib/codeEditor/browser/codeEditor.contribution.js';
+ // MCP
+ import './contrib/mcp/electron-browser/mcp.contribution.js';
  

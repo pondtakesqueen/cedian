@@ -13,7 +13,9 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
 
 - `vscode/UPSTREAM`: the tag and its commit; prepare refuses any other.
 - `vscode/patches/*.patch`, applied in order: `0001` adds Cedian's workbench
-  contribution to `workbench.common.main.ts`; `0002` turns AI off
+  contribution to `workbench.desktop.main.ts` and registers the main
+  process's `cedianDaemon` channel (each window's lines relayed to
+  `daemon.sock`, the daemon started when none answers) in `app.ts`; `0002` turns AI off
   (`chat.disableAIFeatures` defaults to true, the `copilot` terminal command
   to false, the built-in Copilot extension is not built, and the Copilot
   runtime and `@vscode/copilot-api`, proprietary, are kept out of the app's
@@ -22,16 +24,23 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
   the Cedian names, bundle id `dev.cedian.app`, URL protocol `cedian`, Open
   VSX as the gallery, no voice or agents telemetry endpoints.
 - `vscode/contrib/cedian/`: the workbench contribution, copied to
-  `src/vs/workbench/contrib/cedian/` with `src/agent-pane` and the generated
-  `src/protocol/cedia.ts`. Phase A's Agent view (secondary side bar) draws one
-  recorded cedia fixture (`prepare <dir> <fixture>`, default
-  `edit-and-check`), folded by `cedian_agent` at the pin.
+  `src/vs/workbench/contrib/cedian/`, with the window's modules from `src/`
+  (agent-pane, composer, daemon-client, dom, inline-edit, keybindings,
+  protocol, review, settings, theme; tests left out) under `browser/`. The
+  contribution only hands those modules VS Code's services: the live Agent
+  view (secondary side bar), Cedian Settings (an editor, opened by Cmd+, and
+  VS Code's own settings commands), the review diff editors, Cmd+K inline
+  edit, the keybinding layer, and `desktop` applied as VS Code's defaults
+  with the Warm & Lime `--cedian-*` properties.
 - The app icon comes from `brand/`.
 
 Then, on the Mac: `script/vscode/build-mac <dir>` (Node per VS Code's
 `.nvmrc`) builds `<dir>/../VSCode-darwin-<arch>/Cedian.app`;
-`npm run smoke -- <Cedian.app>` launches it with Playwright and checks the
-fixture is drawn and no AI chat shows; `npm run budgets -- <app> --out
+`build-mac` also puts a release `cedian-daemon` in `Contents/MacOS` and
+signs the bundle ad hoc. `npm run smoke -- <Cedian.app>` launches it with
+Playwright and checks the live pane reaches the daemon, the permission
+picker lists cedia's four modes, the `--cedian-*` properties are on, and no
+AI chat shows; `npm run budgets -- <app> --out
 docs/budgets/<name>.json` records cold start, keystroke and idle memory, run
 on stock VS Code 1.143.1 and on Cedian.app; `python3 script/license-scan.py
 --app <Cedian.app>` scans every npm package the app ships.
@@ -53,19 +62,26 @@ need the Mac.
    products on the Marketplace; use Open VSX per spec §9).
 4. Point the extension gallery at Open VSX; keep VS Code built-ins (git,
    debugger/DAP, LSP client, markdown, JSON). No Cedian-specific extensions.
-5. Disable the VS Code settings UI; generate `settings.json` read-only from
-   cedia's `desktop` key via `ConfigurationService` (spec §9 Settings mapping).
-   The Cedian settings window is the only writer of `~/.cedia/settings.json`.
+5. Disable the VS Code settings UI; generate VS Code's settings from
+   cedia's `desktop` key (spec §9 Settings mapping). Done in Phase B: the
+   values go in as configuration defaults (`src/settings/desktop.ts`), so
+   nothing writes VS Code's `settings.json`; Cmd+, opens Cedian Settings.
+   The Cedian settings window is the only writer of `~/.cedia/settings.json`
+   (through the daemon's atomic `set_desktop`).
 6. Layer Cedian keybindings on top of VS Code defaults (Cedian wins on
-   conflict; see spec §7; full override table finalized in Phase B).
+   conflict; see spec §7). Done in Phase B: `src/keybindings/keybindings.ts`
+   at weight ExternalExtension + 100; Cmd+K is inline edit where a text
+   editor has focus and the command palette elsewhere (VS Code's Cmd+K
+   chords are given up); `desktop.keymap` takes effect when a window opens.
 7. Add the Cedian workbench contributions from `src/`: agent pane, composer,
    blocks layout engine (Tern-style, native DOM + CSS), browser panel
    (daemon Chromium screencast), settings window. Daemon IPC over the Unix
    socket `daemon.sock` via the `cedian_wire` protocol — Electron IPC stays
    window-local only.
 8. Theme: the Warm & Lime token table in `script/themes/cedian.py` is the color
-   source; its writer is Zed-era and refuses to run until Phase B retargets it
-   to a VS Code color theme plus `--cedian-*` CSS custom properties.
+   source; it writes `src/theme/tokens.ts` (`npm run theme`), and
+   `src/theme/theme.ts` maps it onto VS Code's Default Modern themes as
+   color and token customizations plus `--cedian-*` CSS custom properties.
 9. Verify license compliance before ship: MIT notice for VS Code portions in
    `LICENSE`/`NOTICE`, `THIRD_PARTY_NOTICES.md` updated, `python3
    script/license-scan.py` green (§13 License gate), legal review.

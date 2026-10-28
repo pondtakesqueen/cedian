@@ -5,30 +5,43 @@
 
 import './media/agentPane.css';
 import { $, append } from '../../../../base/browser/dom.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { relativePath } from '../../../../base/common/resources.js';
+import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
-import { FIXTURE, FIXTURE_NAME } from './agent-pane/fixture.js';
-import { items } from './agent-pane/items.js';
-import { renderItems } from './agent-pane/render.js';
-import { applyBlocks, emptyView } from './agent-pane/view.js';
+import { ISearchService } from '../../../services/search/common/search.js';
+import { QueryBuilder } from '../../../services/search/common/queryBuilder.js';
+import { AgentPane } from './agent-pane/pane.js';
+import { ICedianDaemonService } from './daemonService.js';
+import { COMPOSER_FOCUS, PANE_FOCUS } from './keybindings/keybindings.js';
+import { CedianPanes } from './panes.js';
+import { ICedianReviewService } from './review.js';
 
 export const AGENT_PANE_CONTAINER_ID = 'workbench.view.cedian.agent';
 export const AGENT_PANE_VIEW_ID = 'workbench.view.cedian.agent.pane';
 
+export const ComposerFocus = new RawContextKey<boolean>(COMPOSER_FOCUS, false);
+export const PaneFocus = new RawContextKey<boolean>(PANE_FOCUS, false);
+
 /**
- * The agent pane. Phase A draws one of cedia's recorded fixtures, folded by the daemon's
- * `cedian_agent` at the pin, through the same notices a live thread will send; Phase B
- * replaces the fixture with the daemon's `Notice::Blocks` over `daemon.sock`.
+ * The agent pane: one live thread of the window's project, drawn from the daemon's notices
+ * over `daemon.sock` (src/agent-pane/pane.ts holds the logic and the drawing; this view only
+ * hands it the workbench's services).
  */
 export class AgentPaneView extends ViewPane {
+
+	private pane: AgentPane | undefined;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -41,17 +54,98 @@ export class AgentPaneView extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
+		@ICedianDaemonService private readonly daemon: ICedianDaemonService,
+		@ICedianReviewService private readonly reviews: ICedianReviewService,
+		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
+		@ISearchService private readonly searchService: ISearchService,
+		@IFileDialogService private readonly fileDialogService: IFileDialogService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
 
 	protected override renderBody(parent: HTMLElement): void {
 		super.renderBody(parent);
-		const root = append(parent, $('.cedian-agent-pane'));
-		root.setAttribute('role', 'log');
-		root.setAttribute('aria-label', `cedia fixture ${FIXTURE_NAME}`);
-		root.dataset.fixture = FIXTURE_NAME;
-		const view = applyBlocks(emptyView('fixture'), { kind: 'blocks', thread: 'fixture', from: 0, blocks: FIXTURE, run_cost: 0 });
-		root.append(renderItems(root.ownerDocument, items(view.blocks)));
+		const folder = this.workspace.getWorkspace().folders[0];
+		if (!folder || folder.uri.scheme !== 'file') {
+			const empty = append(parent, $('.cedian-agent-pane'));
+			append(empty, $('.empty')).textContent = 'เปิดโฟลเดอร์ของ project ก่อน แล้วสั่งงาน agent ได้ที่นี่';
+			return;
+		}
+		const queryBuilder = this.instantiationService.createInstance(QueryBuilder);
+		const pane = new AgentPane(parent.ownerDocument, this.daemon.client, {
+			cwd: folder.uri.fsPath,
+			files: async query => {
+				const source = new CancellationTokenSource();
+				try {
+					const result = await this.searchService.fileSearch(queryBuilder.file([folder], { filePattern: query, maxResults: 40, sortByScore: true }), source.token);
+					return result.results.map(r => relativePath(folder.uri, r.resource) ?? r.resource.fsPath);
+				} finally {
+					source.dispose();
+				}
+			},
+			pickImages: async () => {
+				const picked = await this.fileDialogService.showOpenDialog({
+					canSelectFiles: true,
+					canSelectMany: true,
+					title: 'แนบรูป',
+					filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+				});
+				return (picked ?? []).map(uri => uri.fsPath);
+			},
+			openReview: (thread, cwd, review, file) => { this.reviews.open(thread, cwd, review, file); },
+			openUrl: url => { this.openerService.open(URI.parse(url)); },
+		});
+		this.pane = pane;
+		CedianPanes.current = pane;
+		parent.append(pane.root);
+		this.connectionState(pane.root);
+
+		const composerFocus = ComposerFocus.bindTo(this.scopedContextKeyService);
+		const paneFocus = PaneFocus.bindTo(this.scopedContextKeyService);
+		pane.composer.addEventListener('focus', () => composerFocus.set(true));
+		pane.composer.addEventListener('blur', () => composerFocus.set(false));
+		pane.root.addEventListener('focusin', () => paneFocus.set(true));
+		pane.root.addEventListener('focusout', () => paneFocus.set(false));
+		// An image pasted or dropped in the composer is attached by its file path when it has one.
+		pane.composer.addEventListener('drop', e => {
+			const files = [...(e.dataTransfer?.files ?? [])].map(f => (f as File & { path?: string }).path).filter((p): p is string => !!p && /\.(png|jpe?g|gif|webp)$/i.test(p));
+			if (files.length) {
+				e.preventDefault();
+				pane.attach(files);
+			}
+		});
+	}
+
+	/** A line over the pane while the daemon does not answer. */
+	private connectionState(root: HTMLElement): void {
+		const bar = $('.conn');
+		bar.setAttribute('role', 'status');
+		root.prepend(bar);
+		const show = (state: string) => {
+			bar.textContent = state === 'connected' ? '' : state === 'connecting' ? 'กำลังต่อ cedian daemon…' : 'ต่อ cedian daemon ไม่ได้ กำลังลองใหม่';
+			bar.hidden = state === 'connected';
+		};
+		show(this.daemon.client.connection);
+		this._register({ dispose: this.daemon.client.onConnection(show) });
+	}
+
+	override focus(): void {
+		super.focus();
+		this.pane?.focusComposer();
+	}
+
+	protected override layoutBody(height: number, width: number): void {
+		super.layoutBody(height, width);
+		if (this.pane) {
+			this.pane.root.style.height = `${height}px`;
+		}
+	}
+
+	override dispose(): void {
+		if (this.pane && CedianPanes.current === this.pane) {
+			CedianPanes.current = undefined;
+		}
+		this.pane?.dispose();
+		super.dispose();
 	}
 }

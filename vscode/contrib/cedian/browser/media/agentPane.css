@@ -1,24 +1,98 @@
-/* The agent pane's blocks, after the prototype (design/cedian-prototype.html); colors come
-   from the VS Code theme until Phase B's Warm & Lime tokens. */
-.cedian-agent-pane { height: 100%; overflow-y: auto; font-size: 13px; }
+/* The agent pane and Cedian's settings window, after the prototype (design/cedian-prototype.html),
+   drawn with the Warm & Lime --cedian-* properties the desktop contribution lays over the window.
+   Thai text keeps line-height 1.6 (spec §9 Accessibility). */
+.cedian-agent-pane { display: flex; flex-direction: column; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
+.cedian-agent-pane .conn { padding: 4px 12px; font-size: 12px; color: var(--cedian-warn); background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); }
+.cedian-agent-pane .head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--cedian-line); }
+.cedian-agent-pane .head .threads { flex: 1 1 auto; min-width: 0; }
+.cedian-agent-pane .log { flex: 1 1 auto; overflow-y: auto; padding: 8px 0; }
+.cedian-agent-pane .empty { padding: 24px 16px; color: var(--cedian-text-muted); text-align: center; }
 .cedian-agent-pane .conv { padding: 8px 16px 12px; }
-.cedian-agent-pane .col { display: flex; flex-direction: column; gap: 12px; max-width: 680px; margin: 0 auto; }
-.cedian-agent-pane .ubub { align-self: flex-end; max-width: 82%; background: var(--vscode-input-background); border-radius: 18px; padding: 8px 12px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
-.cedian-agent-pane .ans { line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
-.cedian-agent-pane .sdiv { text-align: center; color: var(--vscode-descriptionForeground); font-size: 11px; }
-.cedian-agent-pane .m { font-family: var(--monaco-monospace-font); font-size: 12px; }
-.cedian-agent-pane .small { color: var(--vscode-descriptionForeground); font-size: 12px; }
-.cedian-agent-pane .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cedian-agent-pane .tools summary, .cedian-agent-pane .think summary { cursor: pointer; color: var(--vscode-descriptionForeground); }
+.cedian-agent-pane .col { display: flex; flex-direction: column; gap: var(--cedian-gap, 12px); max-width: 680px; margin: 0 auto; }
+.cedian-agent-pane .ubub { align-self: flex-end; max-width: 82%; background: var(--cedian-raised); border-radius: 18px; padding: 8px 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane .ans { overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane .ans.streaming::after { content: '▍'; color: var(--cedian-accent); }
+.cedian-agent-pane .sdiv { text-align: center; color: var(--cedian-text-faint); font-size: 11px; }
+.cedian-agent-pane .m { font-family: var(--cedian-font-code); font-size: var(--cedian-code-size, 12px); }
+.cedian-agent-pane .small { color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-agent-pane .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cedian-agent-pane .tools summary, .cedian-agent-pane .think summary { cursor: pointer; color: var(--cedian-text-muted); }
 .cedian-agent-pane .tlist { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0 16px; }
 .cedian-agent-pane .ti { display: flex; gap: 8px; }
-.cedian-agent-pane .ti.bad, .cedian-agent-pane .bad { color: var(--vscode-errorForeground); }
-.cedian-agent-pane .ok { color: var(--vscode-testing-iconPassed); }
-.cedian-agent-pane .fail-out { white-space: pre-wrap; color: var(--vscode-errorForeground); }
-.cedian-agent-pane .thinkbody { white-space: pre-wrap; color: var(--vscode-descriptionForeground); border-left: 1px dashed var(--vscode-panel-border); padding-left: 8px; }
-.cedian-agent-pane .receipt { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--vscode-panel-border); }
-.cedian-agent-pane .receipt .row { display: flex; gap: 8px; align-items: baseline; }
+.cedian-agent-pane .ti.bad, .cedian-agent-pane .bad { color: var(--cedian-failed); }
+.cedian-agent-pane .ok { color: var(--cedian-diff-add); }
+.cedian-agent-pane .fail-out { white-space: pre-wrap; color: var(--cedian-failed); }
+.cedian-agent-pane .thinkbody { white-space: pre-wrap; color: var(--cedian-text-muted); border-left: 1px dashed var(--cedian-line-strong); padding-left: 8px; }
+.cedian-agent-pane .receipt { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--cedian-accent); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
+.cedian-agent-pane .row { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .cedian-agent-pane .receipt .verdict { flex: 1 1 auto; }
-.cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--vscode-focusBorder); }
-.cedian-agent-pane .ubadge { border-style: dashed; border-color: var(--vscode-panel-border); }
+.cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--cedian-accent); color: var(--cedian-accent-text); }
+.cedian-agent-pane .ubadge { border-style: dashed; border-color: var(--cedian-line-strong); color: var(--cedian-text-muted); }
+.cedian-agent-pane .card { max-width: 680px; margin: 8px auto 0; width: calc(100% - 32px); box-sizing: border-box; border-radius: 12px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.cedian-agent-pane .card.ask { box-shadow: inset 0 0 0 1px var(--cedian-accent); }
+.cedian-agent-pane .card .q { font-weight: 600; }
+.cedian-agent-pane .steps { list-style: none; margin: 0; padding: 0; }
+.cedian-agent-pane .step { display: flex; gap: 8px; }
+.cedian-agent-pane .step.done { color: var(--cedian-text-muted); }
+.cedian-agent-pane .step.doing .mark { color: var(--cedian-working); }
+.cedian-agent-pane .file { display: flex; gap: 8px; align-items: center; }
+.cedian-agent-pane .file .link { flex: 1 1 auto; text-align: left; }
+.cedian-agent-pane .error { max-width: 680px; margin: 8px auto 0; padding: 0 16px; white-space: pre-wrap; }
+.cedian-agent-pane .queue { padding: 0 12px; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .queue:empty { display: none; }
+.cedian-agent-pane .queued { background: var(--cedian-sheet); border-radius: 8px; padding: 4px 8px; }
+.cedian-agent-pane .queued .ell { flex: 1 1 auto; }
+.cedian-agent-pane .composer { position: relative; margin: 8px 12px 12px; border-radius: 14px; background: var(--cedian-field); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 2px var(--cedian-accent); }
+.cedian-agent-pane .composer .input { resize: none; border: 0; outline: none; background: transparent; color: inherit; font: inherit; line-height: var(--cedian-line-height, 1.6); }
+.cedian-agent-pane .composer > .row { justify-content: space-between; }
+.cedian-agent-pane .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.cedian-agent-pane .chip { font: inherit; font-size: 12px; color: var(--cedian-text-muted); background: var(--cedian-raised); border: 1px solid var(--cedian-line); border-radius: 999px; padding: 1px 8px; max-width: 180px; }
+.cedian-agent-pane .chip.check { display: inline-flex; align-items: center; gap: 4px; }
+.cedian-agent-pane .popup { position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 4px; background: var(--cedian-raised); border-radius: 10px; box-shadow: 0 0 0 1px var(--cedian-line-strong); max-height: 240px; overflow-y: auto; z-index: 10; }
+.cedian-agent-pane .popup .opt { display: flex; gap: 8px; padding: 4px 10px; cursor: pointer; }
+.cedian-agent-pane .popup .opt.on { background: var(--cedian-sel); }
+.cedian-agent-pane .attachments { display: flex; flex-wrap: wrap; gap: 4px; }
+.cedian-agent-pane .attachments:empty { display: none; }
+.cedian-agent-pane .tag, .cedian-settings .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--cedian-raised); color: var(--cedian-text-muted); }
+.cedian-agent-pane .btn, .cedian-settings .btn, .cedian-settings .tab { font: inherit; font-size: 12px; color: var(--cedian-text); background: var(--cedian-raised); border: 1px solid var(--cedian-line); border-radius: 8px; padding: 2px 10px; cursor: pointer; }
+.cedian-agent-pane .btn:hover, .cedian-settings .btn:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .btn.primary, .cedian-agent-pane .btn.send, .cedian-settings .tab.on { background: var(--cedian-accent); color: var(--cedian-frame); border-color: transparent; }
+.cedian-agent-pane .btn.send.stop { background: var(--cedian-raised); color: var(--cedian-text); }
+.cedian-agent-pane .btn.danger, .cedian-settings .btn.danger { color: var(--cedian-failed); }
+.cedian-agent-pane .btn.small { padding: 0 6px; }
+.cedian-agent-pane .link { font: inherit; background: none; border: 0; padding: 0; color: var(--cedian-working); cursor: pointer; }
+.cedian-agent-pane .x { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; }
+.cedian-agent-pane .sel, .cedian-settings .sel, .cedian-settings .input { font: inherit; font-size: 12px; color: var(--cedian-text); background: var(--cedian-field); border: 1px solid var(--cedian-line); border-radius: 6px; padding: 2px 6px; }
+.cedian-agent-pane .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cedian-text-faint); flex: none; }
+.cedian-agent-pane .dot.st-working, .cedian-agent-pane .dot.st-queued { background: var(--cedian-working); }
+.cedian-agent-pane .dot.st-done { background: var(--cedian-accent); }
+.cedian-agent-pane .dot.st-failed, .cedian-agent-pane .dot.st-interrupted { background: var(--cedian-failed); }
+.cedian-agent-pane .dot.st-asking { background: var(--cedian-warn); }
+.cedian-agent-pane .dot.st-none { display: none; }
+.cedian-agent-pane .ring { width: 16px; height: 16px; flex: none; }
+.cedian-agent-pane .ring circle { fill: none; stroke-width: 2.5; }
+.cedian-agent-pane .ring .track { stroke: var(--cedian-line-strong); }
+.cedian-agent-pane .ring .arc { stroke: var(--cedian-text-muted); }
+.cedian-agent-pane .ring.high .arc { stroke: var(--cedian-warn); }
+.cedian-agent-pane :focus-visible, .cedian-settings :focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane * { animation: none !important; transition: none !important; } }
+
+.cedian-settings { display: flex; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
+.cedian-settings .nav { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-right: 1px solid var(--cedian-line); min-width: 140px; }
+.cedian-settings .nav .tab { text-align: left; background: transparent; border-color: transparent; }
+.cedian-settings .body { flex: 1 1 auto; overflow-y: auto; padding: 16px 24px; }
+.cedian-settings .section { max-width: 640px; display: flex; flex-direction: column; gap: 10px; }
+.cedian-settings h2 { font-size: 18px; margin: 0 0 8px; }
+.cedian-settings .row { display: flex; gap: 12px; align-items: center; }
+.cedian-settings .row .label { min-width: 160px; }
+.cedian-settings .small { color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-settings .bad { color: var(--cedian-failed); }
+.cedian-settings .m { font-family: var(--cedian-font-code); }
+.cedian-settings .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cedian-settings .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cedian-settings .item { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: var(--cedian-sheet); }
+.cedian-settings .item.off { color: var(--cedian-text-faint); }
+.cedian-settings .form { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: var(--cedian-sheet); }
+.cedian-settings .keys td { padding: 2px 16px 2px 0; }
