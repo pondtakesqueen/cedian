@@ -124,6 +124,10 @@
 - [x] `@<thread> text` in the chat goes straight to that thread (its next
   run, or queued while it works); `@` at the start offers the coordinator's
   threads by title. Opened threads' worktrees are named from their titles
+- [ ] PR watch (owner, 2026-10-28): the daemon follows each thread's PR
+  through `gh`; CI red, new review comments or a conflict become the
+  thread's next run; PR chip on the row and the card; merged counts toward
+  auto-archive (ARCHITECTURE, Phase C)
 - [ ] Exit gate: three threads at once across two repos from one project
   chat; memory measured; scroll 10k blocks @60fps
 
