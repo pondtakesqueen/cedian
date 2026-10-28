@@ -26,9 +26,9 @@ export const KEYBINDINGS: Binding[] = [
   { command: "cedian.permissionMenu", mac: "cmd+shift+m", label: "เมนูสิทธิ์" },
   { command: "cedian.modelMenu", mac: "cmd+shift+i", label: "เมนูโมเดล" },
   { command: "cedian.effortMenu", mac: "cmd+shift+e", label: "เมนู effort" },
-  // Cmd+K: an inline edit where a text editor has focus, the command palette everywhere else.
+  // Cmd+K: an inline edit where a text editor has focus (owner, 2026-10-28). Elsewhere VS Code's
+  // Cmd+K chords keep working, and the command palette stays on Cmd+Shift+P.
   { command: "cedian.inlineEdit", mac: "cmd+k", label: "แก้ส่วนที่เลือก (inline edit)", when: "editorTextFocus && !editorReadonly" },
-  { command: "workbench.action.showCommands", mac: "cmd+k", label: "Command palette", when: "!editorTextFocus || editorReadonly" },
   { command: "cedian.settings", mac: "cmd+,", label: "Settings" },
   { command: "cedian.stop", mac: "cmd+.", label: "หยุด" },
   { command: "cedian.focusComposer", mac: "cmd+l", label: "ไปที่ช่องพิมพ์" },
