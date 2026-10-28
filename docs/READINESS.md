@@ -117,8 +117,10 @@
   chat's first message starts the project's coordinator thread
   (`--profile coordinator`, in the project itself); the chat shows a card
   per thread it opened (state, todo progress and step, its question with
-  answers as buttons, เปิด). Still to do: auto-archive cards, search
-  above the list
+  answers as buttons, เปิด)
+- [x] An archived thread keeps its card in the chat, last, as เก็บแล้ว (the
+  daemon's auto-archive was already in place); thread search on ⌘T, a quick
+  pick over the chat and every thread, archived last
 - [x] Threads the coordinator opens run on the chat's model (the opener's
   writer model, cedian #12; checked on the Mac: 2 threads queued → done)
 - [x] `@<thread> text` in the chat goes straight to that thread (its next

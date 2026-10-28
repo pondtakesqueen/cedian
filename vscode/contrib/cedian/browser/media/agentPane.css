@@ -38,6 +38,7 @@
 .cedian-agent-pane .thread-card .row { display: flex; align-items: center; gap: 8px; }
 .cedian-agent-pane .thread-card .title { flex: 1; min-width: 0; font-weight: 600; }
 .cedian-agent-pane .thread-card.st-asking { box-shadow: inset 2px 0 0 var(--cedian-accent); padding-left: 8px; }
+.cedian-agent-pane .thread-card.archived .title { font-weight: 400; color: var(--cedian-text-muted); }
 .cedian-agent-pane .thread-card .step { color: var(--cedian-text-muted); }
 .cedian-agent-pane .steps { list-style: none; margin: 0; padding: 0; }
 .cedian-agent-pane .step { display: flex; gap: 8px; }

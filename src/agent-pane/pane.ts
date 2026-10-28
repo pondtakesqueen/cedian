@@ -44,7 +44,7 @@ export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
 }
 
 /** The thread picker's value for the project chat. */
-const CHAT = "@chat";
+export const CHAT = "@chat";
 
 const STATUS_LABEL: Record<string, string> = {
   queued: "รอคิว",
@@ -55,6 +55,31 @@ const STATUS_LABEL: Record<string, string> = {
   interrupted: "ถูกขัด",
   asking: "รอคำตอบ",
 };
+
+export interface ThreadSearchItem {
+  /** A thread's id, or `CHAT` for the project chat. */
+  id: string;
+  label: string;
+  description: string;
+  detail?: string;
+}
+
+/**
+ * What the thread search lists (ARCHITECTURE "Search moves to the top of the thread list"): the
+ * project chat first, then the threads newest first, the archived ones last so a finished
+ * thread is still found. The coordinator's own thread is the project chat.
+ */
+export function threadSearch(threads: ThreadInfo[]): ThreadSearchItem[] {
+  const coordinator = coordinatorThread(threads);
+  const item = (t: ThreadInfo): ThreadSearchItem => {
+    const title = t.title || t.task;
+    const progress = todoCard(t)?.progress;
+    const state = t.archived ? "เก็บแล้ว" : t.needs_you ? `${STATUS_LABEL[t.status] ?? t.status} · ต้องดู` : STATUS_LABEL[t.status] ?? t.status;
+    return { id: t.id, label: title, description: [state, progress].filter(Boolean).join(" · "), ...(t.task && t.task !== title ? { detail: t.task } : {}) };
+  };
+  const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || b.updated_at.localeCompare(a.updated_at));
+  return [{ id: CHAT, label: "แชทโปรเจกต์", description: coordinator ? STATUS_LABEL[coordinator.status] ?? coordinator.status : "" }, ...rest.map(item)];
+}
 
 export class AgentPane {
   readonly root: HTMLElement;
@@ -172,6 +197,17 @@ export class AgentPane {
   }
 
   /** The project chat (⌘0): the coordinator's thread, or a new one started from the composer. */
+  /** The thread search's list, for the workbench's quick pick. */
+  searchItems(): ThreadSearchItem[] {
+    return threadSearch(this.threads);
+  }
+
+  /** Opens what the thread search picked. */
+  pick(id: string): void {
+    if (id === CHAT) this.projectChat();
+    else this.openThread(id);
+  }
+
   projectChat(): void {
     const coordinator = coordinatorThread(this.threads);
     if (coordinator) this.openThread(coordinator.id);
@@ -500,12 +536,13 @@ export class AgentPane {
     const d = this.doc;
     const box = el(d, "div", "card threads");
     for (const c of cards) {
-      const row = el(d, "div", `thread-card st-${c.status}`);
+      const row = el(d, "div", `thread-card st-${c.status}${c.archived ? " archived" : ""}`);
       row.dataset.thread = c.id;
       const head = el(d, "div", "row");
-      head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [STATUS_LABEL[c.status] ?? c.status, c.progress].filter(Boolean).join(" · ")), button(d, "เปิด", () => this.openThread(c.id), "btn small"));
+      const state = c.archived ? "เก็บแล้ว" : STATUS_LABEL[c.status] ?? c.status;
+      head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")), button(d, "เปิด", () => this.openThread(c.id), "btn small"));
       row.append(head);
-      if (c.step) row.append(el(d, "div", "small step", c.step));
+      if (c.step && !c.archived) row.append(el(d, "div", "small step", c.step));
       if (c.question) {
         const q = c.question;
         row.append(el(d, "div", "q", q.text));
