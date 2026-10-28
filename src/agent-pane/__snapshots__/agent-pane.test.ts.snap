@@ -1,0 +1,48 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`agent pane > ask > draws 1`] = `
+"thread:
+[ubub] make f.txt say good or great
+[tools] 2 tools · bash, ask_user | bash | echo good > f.txt | ask_user | Should f.txt say good or great? The task allows both; I wrote good.
+[receipt unv] asked | Should f.txt say good or great? The task allows both; I wrote good. | 2 turns · 0s · $0.00"
+`;
+
+exports[`agent pane > denied-call > draws 1`] = `
+"thread:
+[ubub] publish the package
+[tools fail] 1 tools · bash | bash | npm publish | denied by deny-list:deploy: npm publish publishes or deploys; ask the user to run it
+[ans] Publishing is on the deny list, so I left it for you.
+[receipt unv] unverified | Publishing is on the deny list, so I left it for you. | 2 turns · 0s · $0.00"
+`;
+
+exports[`agent pane > edit-and-check > draws 1`] = `
+"thread:
+[ubub] make f.txt say good
+[tools] 3 tools · write, edit, bash | write | f.txt | edit | f.txt | bash | grep -q good f.txt
+[ans] f.txt now says good, and grep -q good f.txt passes.
+[receipt] verified | f.txt now says good, and grep -q good f.txt passes. | 4 turns · 0s · $0.00 | ✓ | grep -q good f.txt | exit 0"
+`;
+
+exports[`agent pane > handoff > draws 1`] = `
+"thread:
+[ubub] make f.txt say good
+[tools] 2 tools · bash, read | bash | echo good > f.txt && seq 1 30000 > /tmp/cedia-handoff-big.txt && echo wrote | read | /tmp/cedia-handoff-big.txt
+[ans] Wrote f.txt. Next: run the check.
+[sdiv] code · faux/scripted
+[ubub] make f.txt say good
+[tools] 1 tools · bash | bash | grep -q good f.txt
+[ans] done
+[receipt] verified | done | 5 turns · 0s · $0.01 | ✓ | grep -q good f.txt | exit 0"
+`;
+
+exports[`agent pane > subthread > draws 1`] = `
+"thread:
+[ubub] make f.txt say good
+[tools] 2 tools · spawn, bash | spawn | Write good to f.txt, then run grep -q good f.txt. | bash | grep -q good f.txt
+[ans] done, checked
+[receipt] verified | done, checked | 6 turns · 0s · $0.00 | ✓ | grep -q good f.txt | exit 0 | ✓ | grep -q good f.txt | exit 0
+t-00000002:
+[ubub] You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else. <task> Write good to f.txt, then run grep -q good f.txt. </task> End with the report it asked for: findings or changes with paths and line numbers, how you confirmed them, and anything left undone. Keep it short; leave out the steps you took to get there.
+[tools] 2 tools · bash ×2 | bash | echo good > f.txt | bash | grep -q good f.txt
+[ans] Wrote good to f.txt; grep -q good f.txt passes."
+`;
