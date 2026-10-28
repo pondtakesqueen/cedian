@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Builds Cedian.app from a tree script/vscode/prepare made, on a Mac, with the Node version
+# VS Code pins (.nvmrc). The app lands next to the tree: <dir>/../VSCode-darwin-<arch>/Cedian.app.
+# Usage: script/vscode/build-mac <dir>
+set -euo pipefail
+dir="$(cd "${1:?usage: script/vscode/build-mac <dir>}" && pwd)"
+arch="$(uname -m)"; [[ "$arch" == "x86_64" ]] && arch=x64
+want="v$(cat "$dir/.nvmrc")"
+if [[ "$(node --version)" != "$want"* ]]; then
+  echo "node $(node --version); VS Code $(cat "$dir/.nvmrc") wants $want (nvm install $want)" >&2
+  exit 1
+fi
+cd "$dir"
+npm ci
+npm run gulp "vscode-darwin-$arch-min"
+echo "built $(dirname "$dir")/VSCode-darwin-$arch/Cedian.app"

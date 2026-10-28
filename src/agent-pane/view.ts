@@ -1,6 +1,6 @@
 // What a window holds of one open thread: the blocks the daemon last sent, its own and each
 // sub-thread's. A viewer only; the daemon can always send it all again.
-import type { Block } from "./block";
+import type { Block } from "./block.js";
 
 /** `cedian_wire::Notice::Blocks`. */
 export interface BlocksNotice {

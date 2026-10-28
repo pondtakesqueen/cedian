@@ -10,11 +10,16 @@ kept in THIRD_PARTY_NOTICES.md.
 Fail: strong/weak copyleft with no permissive option (GPL, AGPL, LGPL-only,
 MPL, CDDL, EPL, SSPL/FSL/BSL-only), proprietary, or unknown licenses.
 
-Usage: python3 script/license-scan.py  (run from the repo root)
+With --app <Cedian.app>, also scans the npm packages the built app ships:
+every package.json under node_modules in Contents/Resources/app, inside
+node_modules.asar too, and in each built-in extension.
+
+Usage: python3 script/license-scan.py [--app <Cedian.app>]  (run from the repo root)
 """
 
 import json
 import re
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -57,7 +62,82 @@ def acceptable(expression):
     )
 
 
+def npm_license(package):
+    """The SPDX expression a package.json declares, in any of npm's spellings."""
+    value = package.get("license")
+    if isinstance(value, dict):
+        value = value.get("type")
+    if not value and isinstance(package.get("licenses"), list):
+        value = " OR ".join(
+            l.get("type", "") if isinstance(l, dict) else str(l) for l in package["licenses"]
+        )
+    return value if isinstance(value, str) else None
+
+
+def asar_package_jsons(path):
+    """(inner path, parsed package.json) for each package.json in an asar (VS Code packs
+    node_modules itself, so its packages sit at the top)."""
+    data = path.read_bytes()
+    # Two Chromium pickles: one holding the header's size, then the header (size, length,
+    # JSON). File offsets count from the end of the header pickle.
+    header_size = struct.unpack_from("<I", data, 4)[0]
+    json_len = struct.unpack_from("<I", data, 12)[0]
+    header = json.loads(data[16 : 16 + json_len])
+    base = 8 + header_size
+
+    def walk(node, prefix):
+        for name, entry in node.get("files", {}).items():
+            inner = f"{prefix}/{name}" if prefix else name
+            if "files" in entry:
+                yield from walk(entry, inner)
+            elif name == "package.json" and not entry.get("unpacked"):
+                start = base + int(entry["offset"])
+                try:
+                    yield inner, json.loads(data[start : start + entry["size"]])
+                except ValueError:
+                    continue
+
+    yield from walk(header, "")
+
+
+def app_packages(app):
+    """(where, package.json) for every npm package a built app ships."""
+    resources = app / "Contents" / "Resources" / "app"
+    if not resources.is_dir():
+        sys.exit(f"{app} has no Contents/Resources/app")
+    asar = resources / "node_modules.asar"
+    if asar.is_file():
+        for inner, package in asar_package_jsons(asar):
+            yield f"node_modules.asar/{inner}", package
+    for path in resources.rglob("node_modules/**/package.json"):
+        try:
+            yield str(path.relative_to(resources)), json.loads(path.read_text())
+        except (ValueError, UnicodeDecodeError):
+            continue
+
+
+def scan_app(app):
+    """Rejected (package, license) pairs among the app's npm packages, and how many there are."""
+    seen = {}
+    for where, package in app_packages(app):
+        name, version = package.get("name"), package.get("version")
+        if not name or not version:
+            continue  # a nested package.json that only sets "type" or similar
+        seen.setdefault(f"{name} {version}", (npm_license(package), where))
+    bad = [
+        (name, f"{expression or 'missing license'} ({where})")
+        for name, (expression, where) in seen.items()
+        if not acceptable(expression or "")
+    ]
+    return bad, len(seen)
+
+
 def main():
+    app = None
+    if len(sys.argv) == 3 and sys.argv[1] == "--app":
+        app = Path(sys.argv[2])
+    elif len(sys.argv) != 1:
+        sys.exit("usage: python3 script/license-scan.py [--app <Cedian.app>]")
     meta = json.loads(
         subprocess.run(
             ["cargo", "metadata", "--format-version=1"],
@@ -87,6 +167,10 @@ def main():
         print("permissive, non-MIT (keep their NOTICE/attribution):")
         for name, expression in sorted(non_mit):
             print(f"  {name}: {expression}")
+    if app is not None:
+        app_bad, app_checked = scan_app(app)
+        bad += app_bad
+        checked += app_checked
     if bad:
         print("REJECTED licenses:", file=sys.stderr)
         for name, expression in sorted(bad):

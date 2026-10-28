@@ -1,7 +1,7 @@
 // Blocks grouped into what the agent pane draws (the prototype's conversation column): a run
 // of tool calls is one line, a handoff is a divider, a receipt sums up its checks.
-import type { ResultSubtype } from "../protocol/cedia";
-import type { Block, ToolCall } from "./block";
+import type { ResultSubtype } from "../protocol/cedia.js";
+import type { Block, ToolCall } from "./block.js";
 
 export interface ToolRow {
   name: string;

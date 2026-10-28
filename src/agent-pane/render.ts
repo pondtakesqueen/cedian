@@ -1,6 +1,6 @@
 // Draws the agent pane's items as DOM, with the prototype's class names, into any Document
 // (the workbench's, or a test's). Text always goes in as text, never as HTML.
-import type { Item } from "./items";
+import type { Item } from "./items.js";
 
 export function renderItems(doc: Document, items: Item[]): HTMLElement {
   const col = el(doc, "div", "col");

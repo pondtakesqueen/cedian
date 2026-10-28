@@ -1,7 +1,7 @@
 // The agent pane's blocks as the daemon sends them (`cedian_agent::Block`, folded from cedia's
 // stream in Rust; `Notice::Blocks` on `cedian_wire`). Kept by hand next to the Rust types:
 // `isBlock` checks every recorded fixture's blocks, so a change on either side fails a test.
-import type { EffectStatus, Evidence, ImageRef, ResultSubtype } from "../protocol/cedia";
+import type { EffectStatus, Evidence, ImageRef, ResultSubtype } from "../protocol/cedia.js";
 
 export type ToolState =
   | { state: "requested" }

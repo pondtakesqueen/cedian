@@ -1,0 +1,24 @@
+/* The agent pane's blocks, after the prototype (design/cedian-prototype.html); colors come
+   from the VS Code theme until Phase B's Warm & Lime tokens. */
+.cedian-agent-pane { height: 100%; overflow-y: auto; font-size: 13px; }
+.cedian-agent-pane .conv { padding: 8px 16px 12px; }
+.cedian-agent-pane .col { display: flex; flex-direction: column; gap: 12px; max-width: 680px; margin: 0 auto; }
+.cedian-agent-pane .ubub { align-self: flex-end; max-width: 82%; background: var(--vscode-input-background); border-radius: 18px; padding: 8px 12px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane .ans { line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane .sdiv { text-align: center; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.cedian-agent-pane .m { font-family: var(--monaco-monospace-font); font-size: 12px; }
+.cedian-agent-pane .small { color: var(--vscode-descriptionForeground); font-size: 12px; }
+.cedian-agent-pane .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cedian-agent-pane .tools summary, .cedian-agent-pane .think summary { cursor: pointer; color: var(--vscode-descriptionForeground); }
+.cedian-agent-pane .tlist { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0 16px; }
+.cedian-agent-pane .ti { display: flex; gap: 8px; }
+.cedian-agent-pane .ti.bad, .cedian-agent-pane .bad { color: var(--vscode-errorForeground); }
+.cedian-agent-pane .ok { color: var(--vscode-testing-iconPassed); }
+.cedian-agent-pane .fail-out { white-space: pre-wrap; color: var(--vscode-errorForeground); }
+.cedian-agent-pane .thinkbody { white-space: pre-wrap; color: var(--vscode-descriptionForeground); border-left: 1px dashed var(--vscode-panel-border); padding-left: 8px; }
+.cedian-agent-pane .receipt { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--vscode-panel-border); }
+.cedian-agent-pane .receipt .row { display: flex; gap: 8px; align-items: baseline; }
+.cedian-agent-pane .receipt .verdict { flex: 1 1 auto; }
+.cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--vscode-focusBorder); }
+.cedian-agent-pane .ubadge { border-style: dashed; border-color: var(--vscode-panel-border); }
