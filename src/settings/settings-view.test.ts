@@ -36,8 +36,8 @@ describe("settings window", () => {
     (view.root.querySelector("input") as HTMLInputElement).value = "/r/lib";
     [...view.root.querySelectorAll("button")].find((b) => b.textContent === "เพิ่ม root")!.click();
     await new Promise((r) => setTimeout(r, 0));
-    expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "roots", value: { "r-main": ["/r/lib"] } });
-    f.emit({ kind: "settings", desktop: { roots: { "r-main": ["/r/lib"] } }, path: "" });
+    expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "roots", value: { "r-main": ["/r/main", "/r/lib"] } });
+    f.emit({ kind: "settings", desktop: { roots: { "r-main": ["/r/main", "/r/lib"] } }, path: "" });
     const items = [...view.root.querySelectorAll("li")].map((li) => li.textContent);
     expect(items[0]).toContain("หลัก");
     expect(items[0]).not.toContain("เอาออก");

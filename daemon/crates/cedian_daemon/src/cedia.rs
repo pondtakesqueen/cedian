@@ -6,6 +6,8 @@ use std::{
 };
 
 use anyhow::Context as _;
+
+use crate::desktop_settings::{read_desktop, settings_path};
 use cedian_protocol::{
     Capability, CommandList, CommitDraft, Committed, McpCheck, McpList, ModelList, PermissionList,
     PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport, VersionInfo,
@@ -32,6 +34,42 @@ pub struct Flags<'a> {
     pub images: &'a [PathBuf],
     /// How long the writer's cached prompt lasts (`--cache-ttl`), when this cedia can set it.
     pub cache_ttl: Option<&'a str>,
+}
+
+/// The workspace a project root belongs to, from `desktop.roots` (slug of the primary root →
+/// its roots, the primary first; a list from before the primary was kept holds only the
+/// others). The primary first; empty when the root is in no workspace.
+pub fn workspace_of(desktop: &serde_json::Value, root: &Path) -> Vec<PathBuf> {
+    let Some(map) = desktop.get("roots").and_then(serde_json::Value::as_object) else {
+        return Vec::new();
+    };
+    let list = |value: &serde_json::Value| -> Vec<PathBuf> {
+        value
+            .as_array()
+            .map(|roots| {
+                roots
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(PathBuf::from)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    if let Some(value) = map.get(&cedian_index::project_slug(root)) {
+        let mut roots = vec![root.to_path_buf()];
+        roots.extend(list(value).into_iter().filter(|r| r != root));
+        return roots;
+    }
+    map.iter()
+        .map(|(slug, value)| (slug, list(value)))
+        .find(|(slug, roots)| {
+            roots
+                .first()
+                .is_some_and(|primary| &cedian_index::project_slug(primary) == *slug)
+                && roots.iter().any(|r| r == root)
+        })
+        .map(|(_, roots)| roots)
+        .unwrap_or_default()
 }
 
 /// How the daemon starts cedia: which binary, with which environment.
@@ -64,7 +102,32 @@ impl Cedia {
             .envs(&self.env)
             .current_dir(cwd)
             .stdin(Stdio::null());
+        if let Some(roots) = self.workspace(cwd) {
+            command.env("CEDIA_ROOTS", roots);
+        }
         command
+    }
+
+    /// `CEDIA_ROOTS` for a run in `cwd`: its project's roots from `desktop.roots`, primary
+    /// first, when the project has more than one.
+    fn workspace(&self, cwd: &Path) -> Option<String> {
+        if cwd == Path::new("/") {
+            return None;
+        }
+        let home = self.env.get("CEDIA_HOME").map(PathBuf::from).or_else(|| {
+            self.env
+                .get("HOME")
+                .map(|home| Path::new(home).join(".cedia"))
+        })?;
+        let desktop = read_desktop(&settings_path(&home)).ok()?;
+        let roots = workspace_of(&desktop, &cedian_index::project_root(cwd));
+        (roots.len() > 1).then(|| {
+            roots
+                .iter()
+                .map(|root| root.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(":")
+        })
     }
 
     /// `cedia --version --json`.
@@ -618,5 +681,27 @@ mod tests {
         )
         .expect("version");
         assert_eq!(version.capabilities, vec![Capability::Ask]);
+    }
+
+    #[test]
+    fn a_workspace_is_found_from_any_of_its_roots() {
+        let desktop = serde_json::json!({ "roots": {
+            "r-app": ["/r/app", "/r/lib"],
+            "r-old": ["/r/docs"],
+        }});
+        let roots = |path: &str| workspace_of(&desktop, Path::new(path));
+        let app = [PathBuf::from("/r/app"), PathBuf::from("/r/lib")];
+        assert_eq!(roots("/r/app"), app);
+        assert_eq!(roots("/r/lib"), app, "from another root");
+        // A list written before the primary was kept still works from the primary.
+        assert_eq!(
+            roots("/r/old"),
+            [PathBuf::from("/r/old"), PathBuf::from("/r/docs")]
+        );
+        assert!(
+            roots("/r/docs").is_empty(),
+            "its primary is not in the list"
+        );
+        assert!(roots("/r/else").is_empty());
     }
 }
