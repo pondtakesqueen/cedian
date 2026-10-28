@@ -43,6 +43,11 @@ PERMISSIVE = {
     "0BSD",
     "Unicode-3.0",
     "Unicode-DFS-2016",
+    # npm packages VS Code ships (Phase A app scan, 2026-10-28): tar, minipass,
+    # chownr, yallist, lru-cache are BlueOak; @vscode/codicons' icons are CC-BY.
+    # Both are permissive and only ask for attribution.
+    "BlueOak-1.0.0",
+    "CC-BY-4.0",
 }
 
 SPLIT_OR = re.compile(r"\s+OR\s+|[()/]")
@@ -129,7 +134,12 @@ def scan_app(app):
         for name, (expression, where) in seen.items()
         if not acceptable(expression or "")
     ]
-    return bad, len(seen)
+    non_mit = [
+        (name, expression)
+        for name, (expression, _) in seen.items()
+        if acceptable(expression or "") and not {"MIT", "MIT-0"} & set(options(expression))
+    ]
+    return bad, non_mit, len(seen)
 
 
 def main():
@@ -163,14 +173,15 @@ def main():
         opts = options(expression)
         if "MIT" not in opts and "MIT-0" not in opts:
             non_mit.append((name, expression))
+    if app is not None:
+        app_bad, app_non_mit, app_checked = scan_app(app)
+        bad += app_bad
+        non_mit += app_non_mit
+        checked += app_checked
     if non_mit:
         print("permissive, non-MIT (keep their NOTICE/attribution):")
         for name, expression in sorted(non_mit):
             print(f"  {name}: {expression}")
-    if app is not None:
-        app_bad, app_checked = scan_app(app)
-        bad += app_bad
-        checked += app_checked
     if bad:
         print("REJECTED licenses:", file=sys.stderr)
         for name, expression in sorted(bad):

@@ -58,7 +58,17 @@
   `Notice::Line` is gone
 - [x] Agent pane (`src/agent-pane/`) replays cedia's fixtures from the
   blocks the fold records (`cedian_agent/tests/replay/*.blocks.json`)
-- [ ] Exit gate needs the owner's Mac (macOS 26 launch, stock VS Code budgets)
+- [x] Exit gate on the owner's Mac (macOS 26.6.2, arm64, 2026-10-28):
+  Cedian.app built from `script/vscode/prepare` + `build-mac`; smoke drew
+  `edit-and-check` with a verified receipt and no AI chat
+  (`docs/budgets/phase-a-smoke.png`); `cargo test --workspace` 106 passed,
+  vitest 30/30; budgets recorded (`docs/budgets/`): cold start 1581 ms
+  stock vs 1544 ms Cedian, idle memory 1754 MB vs 1324 MB, keystroke 16.6 ms
+  both (one frame: Playwright cannot resolve it; the HID + pixel harness is
+  still to build)
+- [ ] App license scan: BlueOak-1.0.0 (tar, minipass, chownr, yallist,
+  lru-cache) and CC-BY-4.0 (@vscode/codicons) accepted as permissive;
+  `jschardet` (LGPL-2.1+, VS Code's encoding guesser) waits on the owner
 
 ## Known gaps
 - no E2E tests yet (Playwright smoke is a Phase A exit item)
