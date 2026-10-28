@@ -16,13 +16,16 @@ export function executable(app) {
   return `${app}/Contents/MacOS/${name}`;
 }
 
-export async function launch(app, settings = {}) {
+/** `opts.user` and `opts.folder` reopen an earlier launch's user data and folder. */
+export async function launch(app, settings = {}, opts = {}) {
   const scratch = mkdtempSync(join(tmpdir(), "cedian-smoke-"));
-  const user = join(scratch, "user");
-  const folder = join(scratch, "folder");
+  const user = opts.user ?? join(scratch, "user");
+  const folder = opts.folder ?? join(scratch, "folder");
   mkdirSync(join(user, "User"), { recursive: true });
-  mkdirSync(folder);
-  writeFileSync(join(folder, "README.md"), "# smoke\n");
+  if (!opts.folder) {
+    mkdirSync(folder);
+    writeFileSync(join(folder, "README.md"), "# smoke\n");
+  }
   writeFileSync(
     join(user, "User", "settings.json"),
     JSON.stringify({
@@ -50,5 +53,5 @@ export async function launch(app, settings = {}) {
     timeout: 60_000,
   });
   const window = await electronApp.firstWindow({ timeout: 60_000 });
-  return { electronApp, window, startedAt, folder };
+  return { electronApp, window, startedAt, folder, user };
 }
