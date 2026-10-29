@@ -1004,7 +1004,7 @@ Consolidated checklist; details in referenced sections.
   `vitest src/artifacts` green; 15/16-line bar, plan table, 20 MB text-only,
   fork/build-on isolation, local exports (no Google/MP4), 10 differences listed
   and true.
-- [ ] **Roadmap exit gate** (§11 phases 0–D): Phase D exit — "agent fixes a bug shown in a screen recording".
+- [x] **Roadmap exit gate** (§11 phases 0–D): Phase D exit — "agent fixes a bug shown in a screen recording" (`test/smoke/gate-d.mjs`, ok on the owner's Mac 2026-10-29; `docs/READINESS.md`).
 
 ---
 

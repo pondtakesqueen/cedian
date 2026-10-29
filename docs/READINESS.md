@@ -159,9 +159,9 @@
   where the screen changes; a run with images on a text-only model runs on
   `--media`, default Haiku 5.5). Pin at cedia main d609d53 (protocol
   094b076845b55b39), where #171 merged
-- [ ] Images and video in threads: the composer takes a video (picker,
+- [x] Images and video in threads: the composer takes a video (picker,
   paste, drop) once cedia says `video`; the agent pane counts its frames
-  as images. Unchecked on the Mac
+  as images. A pasted video checked on the Mac by gate-d
 - [x] §3.9 `Notice::Text` (2026-10-29): a streaming block that only grew goes
   out as its new characters. `node test/smoke/scroll.mjs` streams 250 deltas
   onto a 10k-block thread in headless Chromium on Linux: 21 KB on the wire
@@ -186,7 +186,22 @@
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget
 - [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
-- [ ] Exit gate: the agent fixes a bug shown in a screen recording
+- [x] Exit gate on the owner's Mac (2026-10-29, at 8057d79, cedia d609d53):
+  `node test/smoke/gate-d.mjs <Cedian.app> --model
+  openrouter/claude-haiku-5-5` ok. A page whose counter showed 2 with 3
+  items listed was filmed (MP4, 5.5 s) and pasted into the composer with
+  "the recording shows a bug; fix it". The writer, on Haiku 5.5, was shown
+  5 frames (0:00.0, 0:01.0, 0:02.5, 0:04.0, 0:05.5) and changed basket.js
+  so the counter reads the list's length; after two adds the page shows 2
+  with 2 listed. In the live pane: scroll 10k blocks median 16.7 ms, p95
+  18.5 ms, none over 25 ms; a 250-delta stream drawn median 11 ms, p95
+  16.8 ms, 21 KB on the wire. The first run fixed the bug too, but the
+  gate looked for frames under the original file name (a pasted video is
+  saved under a UUID name); 8057d79 fixed the gate. playwright-core wanted
+  Chromium 1248, so the run used the cached 1228 through `CEDIAN_CHROMIUM`
+- [ ] cedia follow-up from the gate: the writer's `read` of the video was
+  cut off ("not run: the plan arrived before this call ran") and never
+  retried, and its answer then said the read tool rejects video files
 
 ## Known gaps
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
