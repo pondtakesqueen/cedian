@@ -1388,6 +1388,10 @@
           "description": "The description, as Markdown.",
           "type": "string"
         },
+        "can_triage": {
+          "description": "The person may label, assign, close and reopen (triage or more on the repository).",
+          "type": "boolean"
+        },
         "comments": {
           "description": "Oldest first.",
           "items": {
@@ -1451,6 +1455,7 @@
         "assignees",
         "author",
         "body",
+        "can_triage",
         "comments",
         "labels",
         "linked",

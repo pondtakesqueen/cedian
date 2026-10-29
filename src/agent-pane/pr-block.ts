@@ -3,6 +3,7 @@
 // its checks, and Review and Merge. The daemon reads and acts through the person's own `gh`
 // (`Request::PrView`, `Request::PrAct`, `Request::PrLog`); this file only draws and asks.
 import { button, el } from "../dom/el.js";
+import { bodyText } from "./issues.js";
 import type { MergeMethod, PrAction, PrThread, PrView, ReviewEvent } from "../protocol/wire.js";
 
 export type PrTab = "conversation" | "checks" | "commits";
@@ -132,7 +133,7 @@ export function prBlock(d: Document, v: PrView, ui: PrUi, h: PrHandlers): HTMLEl
     }
     if (!v.checks.length) card.append(el(d, "div", "small", "No checks on this PR"));
   } else {
-    if (v.body) card.append(el(d, "div", "small", `${v.author} · description`), el(d, "div", "ans", v.body));
+    if (bodyText(v.body)) card.append(el(d, "div", "small", `${v.author} · description`), el(d, "div", "ans", bodyText(v.body)));
     for (const c of v.comments) card.append(el(d, "div", "small", c.author), el(d, "div", "ans", c.body));
     for (const t of ui.showResolved ? v.threads : open) card.append(threadView(d, t, ui, h));
     const resolved = v.threads.length - open.length;

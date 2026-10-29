@@ -2385,6 +2385,10 @@ export interface IssueView {
    */
   body: string;
   /**
+   * The person may label, assign, close and reopen (triage or more on the repository).
+   */
+  can_triage: boolean;
+  /**
    * Oldest first.
    */
   comments: PrComment[];

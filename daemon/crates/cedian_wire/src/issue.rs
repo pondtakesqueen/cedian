@@ -62,6 +62,8 @@ pub struct IssueView {
     pub comments: Vec<PrComment>,
     /// The pull requests that close it when merged.
     pub linked: Vec<LinkedPr>,
+    /// The person may label, assign, close and reopen (triage or more on the repository).
+    pub can_triage: bool,
     /// The repository's labels, for + Label.
     pub repo_labels: Vec<String>,
 }

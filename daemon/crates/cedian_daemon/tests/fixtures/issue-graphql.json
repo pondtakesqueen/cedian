@@ -1,4 +1,4 @@
-{"data": {"viewer": {"login": "pond"}, "repository": {
+{"data": {"viewer": {"login": "pond"}, "repository": {"viewerPermission": "ADMIN",
   "labels": {"nodes": [{"name": "bug"}, {"name": "enhancement"}]},
   "issue": {"number": 14, "url": "https://github.com/pondtakesqueen/stats/issues/14", "title": "Median is wrong for an even count",
     "body": "median([1, 2, 3, 4]) returns 3. It should average the two middle values and return 2.5.",

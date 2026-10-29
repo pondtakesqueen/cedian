@@ -9,7 +9,8 @@
   "reviewThreads":{"nodes":[{"id":"PRRT_1","isResolved":false,"path":"src/login/form.ts","line":42,"comments":{"nodes":[
     {"author":{"login":"mai-k"},"body":"Reset it in a finally.","createdAt":"2026-10-29T10:01:00Z","diffHunk":"@@ -40,3 +40,4 @@\n   } catch (e) {\n+    submitting = false;"}]}}]},
   "statusCheckRollup":{"nodes":[{"commit":{"statusCheckRollup":{"contexts":{"nodes":[
-    {"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://github.com/o/r/actions/runs/78/job/1"},
+    {"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://github.com/o/r/actions/runs/78/job/1","checkSuite":{"workflowRun":{"event":"pull_request"}}},
+    {"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://github.com/o/r/actions/runs/77/job/1","checkSuite":{"workflowRun":{"event":"push"}}},
     {"__typename":"CheckRun","name":"e2e (macos)","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/79/job/2"},
     {"__typename":"StatusContext","context":"deploy/preview","state":"PENDING","targetUrl":"https://example.com"}
   ]}}}}]}

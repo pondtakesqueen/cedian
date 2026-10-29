@@ -1042,7 +1042,7 @@ export class AgentPane {
       },
       openUrl: (url) => this.host.openUrl(url),
       // The thread's own diff when it has one; else GitHub's, since this thread did not write it.
-      openDiff: () => (this.state.review ? this.host.openReview(thread, this.cwd, this.state.review) : this.host.openUrl(`${view.url}/files`)),
+      openDiff: () => (this.state.review?.files.length ? this.host.openReview(thread, this.cwd, this.state.review) : this.host.openUrl(`${view.url}/files`)),
       redraw: () => this.render(),
     });
   }

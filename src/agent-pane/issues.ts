@@ -26,6 +26,11 @@ export interface IssuesUi {
   newBody: string;
 }
 
+/** A GitHub body as the card shows it: without the HTML comments GitHub hides. */
+export function bodyText(body: string): string {
+  return body.replace(/<!--[\s\S]*?-->/g, "").trim();
+}
+
 export const newIssuesUi = (): IssuesUi => ({ tab: "open", search: "", writing: false, closeMenu: false, draft: "", newTitle: "", newBody: "" });
 
 export function filterOf(ui: IssuesUi): IssueFilter {
@@ -147,19 +152,22 @@ function issueView(d: Document, ui: IssuesUi, h: IssuesHandlers): HTMLElement {
   const head = el(d, "div", "row");
   head.append(el(d, "span", `tag issue-${v.state}`, v.state === "open" ? "Open" : v.state_reason === "not_planned" ? "Closed · not planned" : "Closed"), el(d, "span", "ell grow", `#${v.number} ${v.title}`), button(d, "GitHub ↗", () => h.openUrl(v.url), "link small"));
   box.append(head);
-  box.append(el(d, "div", "small", `${v.author} · description`), el(d, "div", "ans", v.body || "No description"));
+  box.append(el(d, "div", "small", `${v.author} · description`), el(d, "div", "ans", bodyText(v.body) || "No description"));
 
   // Labels, assignees, milestone and linked PRs.
   const labels = el(d, "div", "row small wrap");
+  // Labels, assignees and close are GitHub's triage rights; Comment is anyone's.
+  const triage = v.can_triage;
   for (const l of v.labels) {
     const tag = el(d, "span", "tag", l);
+    labels.append(tag);
+    if (!triage) continue;
     const x = button(d, "×", () => act({ do: "labels", add: [], remove: [l] }, `Label ${l}`), "link small");
     x.setAttribute("aria-label", `Remove label ${l}`);
     x.disabled = busy;
     tag.append(x);
-    labels.append(tag);
   }
-  const more = v.repo_labels.filter((l) => !v.labels.includes(l));
+  const more = triage ? v.repo_labels.filter((l) => !v.labels.includes(l)) : [];
   if (more.length) {
     const pick = el(d, "select", "sel small");
     pick.setAttribute("aria-label", "Add a label");
@@ -178,13 +186,15 @@ function issueView(d: Document, ui: IssuesUi, h: IssuesHandlers): HTMLElement {
   people.append(el(d, "span", "m", "Assignee"));
   for (const a of v.assignees) {
     const tag = el(d, "span", "tag", a);
+    people.append(tag);
+    if (!triage) continue;
     const x = button(d, "×", () => act({ do: "assignees", add: [], remove: [a] }, `Assign ${a}`), "link small");
     x.setAttribute("aria-label", `Unassign ${a}`);
     x.disabled = busy;
     tag.append(x);
-    people.append(tag);
   }
-  if (v.me && !v.assignees.includes(v.me)) {
+  if (!v.assignees.length) people.append(el(d, "span", "", "No one"));
+  if (triage && v.me && !v.assignees.includes(v.me)) {
     const me = button(d, "Assign me", () => act({ do: "assignees", add: [v.me], remove: [] }, "Assign me"), "link small");
     me.disabled = busy;
     people.append(me);
@@ -212,7 +222,11 @@ function issueView(d: Document, ui: IssuesUi, h: IssuesHandlers): HTMLElement {
   const label = (l: string) => (ui.busy === l ? `${l}…` : l);
   const comment = button(d, label("Comment"), () => text.value.trim() && act({ do: "comment", body: text.value.trim() }, "Comment"), "btn small");
   row.append(comment);
-  if (v.state === "open") {
+  // Its author may close and reopen it without triage.
+  const closer = triage || (!!v.me && v.me === v.author);
+  if (!closer) {
+    // No Close as or Reopen: GitHub would refuse them.
+  } else if (v.state === "open") {
     const closeAs = button(d, ui.busy === "Close" ? "Closing…" : "Close as ▾", () => ((ui.closeMenu = !ui.closeMenu), h.redraw()), "btn small");
     closeAs.setAttribute("aria-expanded", String(ui.closeMenu));
     row.append(closeAs);

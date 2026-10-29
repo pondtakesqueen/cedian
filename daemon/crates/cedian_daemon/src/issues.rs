@@ -16,6 +16,7 @@ use crate::pr_watch::{Author, Gh};
 const QUERY: &str = r#"query($owner: String!, $repo: String!, $number: Int!) {
   viewer { login }
   repository(owner: $owner, name: $repo) {
+    viewerPermission
     labels(first: 100) { nodes { name } }
     issue(number: $number) {
       number url title body state stateReason author { login }
@@ -23,7 +24,7 @@ const QUERY: &str = r#"query($owner: String!, $repo: String!, $number: Int!) {
       assignees(first: 20) { nodes { login } }
       milestone { title }
       comments(first: 100) { nodes { author { login } body createdAt } }
-      closedByPullRequestsReferences(first: 10) { nodes { number title url headRefName } }
+      closedByPullRequestsReferences(first: 10, includeClosedPrs: true) { nodes { number title url headRefName } }
     }
   }
 }"#;
@@ -184,6 +185,10 @@ pub fn parse(value: &Value) -> anyhow::Result<IssueView> {
                 head: s(p, "headRefName"),
             })
             .collect(),
+        can_triage: matches!(
+            s(repo, "viewerPermission").as_str(),
+            "ADMIN" | "MAINTAIN" | "WRITE" | "TRIAGE"
+        ),
         repo_labels: nodes(repo, "labels").map(|l| s(l, "name")).collect(),
     })
 }
@@ -302,6 +307,7 @@ mod tests {
             }]
         );
         assert_eq!(view.repo_labels, ["bug", "enhancement"]);
+        assert!(view.can_triage);
     }
 
     #[test]

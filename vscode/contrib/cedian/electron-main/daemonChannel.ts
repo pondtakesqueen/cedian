@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execFile, spawn } from 'child_process';
-import { existsSync, realpathSync, statSync } from 'fs';
+import { closeSync, existsSync, mkdirSync, openSync, realpathSync, renameSync, statSync } from 'fs';
 import { connect, Socket } from 'net';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
@@ -70,7 +70,12 @@ export class CedianDaemonChannel<TContext> extends Disposable implements IServer
 		this.started = true;
 		const binary = daemonBinary();
 		try {
-			const child = spawn(binary, [], { detached: true, stdio: 'ignore' });
+			// Its log goes where the launch agent's does (`daemon.log`), so a person can read it.
+			const log = openLog(join(dirname(socketPath()), 'daemon.log'));
+			const child = spawn(binary, [], { detached: true, stdio: ['ignore', log ?? 'ignore', log ?? 'ignore'] });
+			if (log !== undefined) {
+				closeSync(log);
+			}
 			child.on('error', error => console.error(`[cedian] could not start ${binary}: ${error.message}`));
 			child.unref();
 		} catch (error) {
@@ -207,6 +212,20 @@ class WindowConnection {
 		this.socket = undefined;
 		this._onLine.dispose();
 		this._onState.dispose();
+	}
+}
+
+/** Opens the daemon's log to append, after moving one past 5 MB to `daemon.log.old`. */
+function openLog(path: string): number | undefined {
+	try {
+		mkdirSync(dirname(path), { recursive: true });
+		if (existsSync(path) && statSync(path).size > 5 * 1024 * 1024) {
+			renameSync(path, `${path}.old`);
+		}
+		return openSync(path, 'a');
+	} catch (error) {
+		console.error(`[cedian] could not open ${path}: ${error}`);
+		return undefined;
 	}
 }
 

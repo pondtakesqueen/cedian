@@ -296,7 +296,7 @@ describe("agent pane", () => {
     emit({ kind: "issues", cwd: "/r", filter: { state: "open", assigned: false, search: "" }, list: { Ok: [{ number: 14, url: "u", title: "Median", author: "m", mine: false, state: "open", labels: [], comments: 0, created: "" }] } });
     buttons(pane.root, "Median")[0]!.click();
     expect(last()).toEqual({ op: "issue", cwd: "/r", number: 14 });
-    emit({ kind: "issue", cwd: "/r", number: 14, view: { Ok: { number: 14, url: "u", title: "Median", body: "b", state: "open", author: "m", labels: [], assignees: [], me: "p", comments: [], linked: [], repo_labels: [] } } });
+    emit({ kind: "issue", cwd: "/r", number: 14, view: { Ok: { number: 14, url: "u", title: "Median", body: "b", state: "open", author: "m", labels: [], assignees: [], me: "p", comments: [], linked: [], repo_labels: [], can_triage: true } } });
     buttons(pane.root, "Start a thread")[0]!.click();
     expect(pane.root.querySelector(".card.issues")).toBeNull();
     expect(pane.root.querySelector("textarea")!.value).toContain("Fix issue #14: Median");

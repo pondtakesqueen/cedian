@@ -31,7 +31,7 @@ const QUERY: &str = r#"query($owner: String!, $repo: String!, $number: Int!) {
         comments(first: 50) { nodes { author { login } body createdAt diffHunk } } } }
       statusCheckRollup: commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 100) { nodes {
         __typename
-        ... on CheckRun { name status conclusion detailsUrl }
+        ... on CheckRun { name status conclusion detailsUrl checkSuite { workflowRun { event } } }
         ... on StatusContext { context state targetUrl }
       } } } } } }
     }
@@ -180,13 +180,27 @@ pub fn parse(value: &Value) -> anyhow::Result<PrView> {
             });
         }
     }
-    let checks = pr
+    let contexts: Vec<&Value> = pr
         .pointer("/statusCheckRollup/nodes/0/commit/statusCheckRollup/contexts/nodes")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
-        .map(check)
         .collect();
+    let mut checks: Vec<PrCheck> = contexts.iter().map(|v| check(v)).collect();
+    // A workflow on both push and pull_request runs each job twice under one name: say which.
+    let names: Vec<String> = checks.iter().map(|c| c.name.clone()).collect();
+    for (i, v) in contexts.iter().enumerate() {
+        let name = &names[i];
+        if names.iter().filter(|n| *n == name).count() > 1 {
+            let event = v
+                .pointer("/checkSuite/workflowRun/event")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if !event.is_empty() {
+                checks[i].name = format!("{name} · {}", event.replace('_', " "));
+            }
+        }
+    }
     let threads = nodes(pr, "reviewThreads")
         .map(|t| {
             let comments: Vec<&Value> = nodes(t, "comments").collect();
@@ -457,7 +471,8 @@ mod tests {
                 .map(|c| (c.name.as_str(), c.state, c.run.as_deref()))
                 .collect::<Vec<_>>(),
             [
-                ("lint", CheckState::Passed, Some("78")),
+                ("lint · pull request", CheckState::Passed, Some("78")),
+                ("lint · push", CheckState::Passed, Some("77")),
                 ("e2e (macos)", CheckState::Failed, Some("79")),
                 ("deploy/preview", CheckState::Pending, None),
             ]
