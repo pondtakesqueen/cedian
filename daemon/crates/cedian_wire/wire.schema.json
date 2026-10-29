@@ -3088,7 +3088,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Stops following the thread's pull request, or follows it again (หยุดเฝ้า, เฝ้า PR). Kept across restarts.",
+          "description": "Stops following the thread's pull request, or follows it again (Stop watching, Watch PR). Kept across restarts.",
           "properties": {
             "cwd": {
               "type": "string"
@@ -4115,7 +4115,7 @@
           "description": "Its branch's pull request, while the daemon follows it."
         },
         "pr_unwatched": {
-          "description": "The person stopped the daemon following this thread's pull request (หยุดเฝ้า).",
+          "description": "The person stopped the daemon following this thread's pull request (Stop watching).",
           "type": "boolean"
         },
         "profile": {

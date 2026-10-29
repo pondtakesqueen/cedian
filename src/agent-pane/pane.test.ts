@@ -47,8 +47,8 @@ describe("agent pane", () => {
     enter(pane);
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "add a test", thread: null, worktree: true, permission: "auto" });
     expect(pane.composer.value).toBe("");
-    emit({ kind: "preparing", cwd: "/r", step: "กำลังสร้าง worktree" });
-    expect(pane.root.textContent).toContain("กำลังสร้าง worktree");
+    emit({ kind: "preparing", cwd: "/r", step: "Creating worktree" });
+    expect(pane.root.textContent).toContain("Creating worktree");
     emit({ kind: "started", cwd: "/r", thread: "t-9" });
     expect(pane.thread).toBe("t-9");
     expect(last()).toEqual({ op: "threads", cwd: "/r" });
@@ -69,16 +69,16 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "send", cwd: "/r/.cedian/worktrees/a", thread: "t-1", text: "also docs" });
     emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a", status: "working", state: "working", pending: ["m-1"], messages: [{ id: "m-1", from: "user", text: "also docs", at: "" }] })] });
     expect(pane.root.querySelector(".queued")?.textContent).toContain("also docs");
-    buttons(pane.root, "ส่งเลย")[0]!.click();
+    buttons(pane.root, "Send now")[0]!.click();
     expect(last()).toEqual({ op: "stop", thread: "t-1" });
     // The send button stops an empty composer's running thread.
-    expect(pane.root.querySelector(".send")?.textContent).toBe("หยุด");
+    expect(pane.root.querySelector(".send")?.textContent).toBe("Stop");
     emit({ kind: "status", thread: "t-1", status: "stopped" });
     expect(last()).toEqual({ op: "prompt", cwd: "/r/.cedian/worktrees/a", text: "also docs", thread: "t-1", worktree: false });
     const review: Review = { files: [{ path: "src/a.ts", added: 2, removed: 1, binary: false, hunks: [{ id: "h1", header: "@@ -1 +1,2 @@", lines: ["-a", "+b", "+c"], new_start: 1, path: "src/a.ts", state: "pending" }] }] };
     emit({ kind: "review", thread: "t-1", review });
-    expect(pane.root.querySelector(".review")?.textContent).toContain("1 ไฟล์");
-    buttons(pane.root, "รับทั้งหมด")[0]!.click();
+    expect(pane.root.querySelector(".review")?.textContent).toContain("1 file");
+    buttons(pane.root, "Accept all")[0]!.click();
     expect(last()).toEqual({ op: "decide", cwd: "/r/.cedian/worktrees/a", thread: "t-1", hunk: "h1", decision: { decision: "accept" } });
     buttons(pane.root, "src/a.ts")[0]!.click();
     expect(opened).toEqual(["t-1:src/a.ts"]);
@@ -98,7 +98,7 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "code_review", cwd: "/r", thread: "t-1" });
     expect(pane.composer.value).toBe("");
     emit({ kind: "notes", thread: "t-1", notes: { comments: [], reviewing: true } });
-    expect(pane.root.querySelector(".code-review")?.textContent).toContain("กำลังรีวิว");
+    expect(pane.root.querySelector(".code-review")?.textContent).toContain("Reviewing");
     const findings = [
       { id: "f1", path: "src/a.ts", line: 4, text: "src/a.ts:4 drops the last item" },
       { id: "f2", path: "src/b.ts", line: 2, text: "src/b.ts:2 never closes" },
@@ -106,22 +106,22 @@ describe("agent pane", () => {
     ];
     emit({ kind: "notes", thread: "t-1", notes: { comments: [], review: { model: "faux/review", verdict: "changes", summary: "Read both.", files: ["src/a.ts", "src/b.ts"], dropped: [], costUsd: 0, findings } } });
     const card = pane.root.querySelector(".code-review")!;
-    expect(card.textContent).toContain("3 ข้อ");
-    expect([...card.querySelectorAll(".m.small")].map((e) => e.textContent)).toEqual(["src/a.ts", "src/b.ts", "ไม่ระบุไฟล์"]);
-    buttons(pane.root, "ไล่ดูใน diff")[0]!.click();
-    buttons(pane.root, "ข้อถัดไป (1/2)")[0]!.click();
+    expect(card.textContent).toContain("3 findings");
+    expect([...card.querySelectorAll(".m.small")].map((e) => e.textContent)).toEqual(["src/a.ts", "src/b.ts", "No file"]);
+    buttons(pane.root, "Walk through")[0]!.click();
+    buttons(pane.root, "Next (1/2)")[0]!.click();
     expect(opened).toEqual(["t-1:src/a.ts:4", "t-1:src/b.ts:2"]);
-    buttons(pane.root, "แก้ข้อนี้")[1]!.click();
+    buttons(pane.root, "Fix this one")[1]!.click();
     expect(last()).toEqual({ op: "fix_findings", cwd: "/r", thread: "t-1", findings: ["f2"] });
-    buttons(pane.root, "ข้าม")[0]!.click();
+    buttons(pane.root, "Dismiss")[0]!.click();
     expect(last()).toEqual({ op: "dismiss", thread: "t-1", finding: "f1", dismissed: true });
     emit({ kind: "notes", thread: "t-1", notes: { comments: [], dismissed: ["f1"], review: { model: "faux/review", verdict: "changes", summary: "", files: [], dropped: [], costUsd: 0, findings } } });
-    expect(pane.root.querySelector(".code-review")?.textContent).toContain("ข้ามแล้ว 1");
-    expect(buttons(pane.root, "เอากลับ")).toHaveLength(1);
-    buttons(pane.root, "แก้ทั้งหมด")[0]!.click();
+    expect(pane.root.querySelector(".code-review")?.textContent).toContain("1 skipped");
+    expect(buttons(pane.root, "Restore")).toHaveLength(1);
+    buttons(pane.root, "Fix all")[0]!.click();
     expect(last()).toEqual({ op: "fix_findings", cwd: "/r", thread: "t-1", findings: [] });
     emit({ kind: "notes", thread: "t-1", notes: { comments: [], review: { error: "no snapshots" } } });
-    expect(pane.root.querySelector(".code-review")?.textContent).toContain("รีวิวไม่สำเร็จ: no snapshots");
+    expect(pane.root.querySelector(".code-review")?.textContent).toContain("Review failed: no snapshots");
   });
 
   it("line comments wait in a card until Send all; one can be removed", () => {
@@ -133,10 +133,10 @@ describe("agent pane", () => {
       { id: "c2", path: "src/b.ts", line: 9, text: "why?" },
     ];
     emit({ kind: "notes", thread: "t-1", notes: { comments } });
-    expect(pane.root.querySelector(".comments")?.textContent).toContain("คอมเมนต์ใน diff 2 รายการ");
-    buttons(pane.root, "ลบ")[0]!.click();
+    expect(pane.root.querySelector(".comments")?.textContent).toContain("2 diff comments");
+    buttons(pane.root, "Delete")[0]!.click();
     expect(last()).toEqual({ op: "comments", thread: "t-1", comments: [comments[1]] });
-    buttons(pane.root, "ส่งทั้งหมด")[0]!.click();
+    buttons(pane.root, "Send all")[0]!.click();
     expect(last()).toEqual({ op: "send_comments", cwd: "/r", thread: "t-1" });
   });
 
@@ -146,7 +146,7 @@ describe("agent pane", () => {
     type(pane, "/code-review");
     enter(pane);
     expect(sent).toHaveLength(before);
-    expect(pane.root.textContent).toContain("เปิดเธรดที่มีการแก้ไฟล์ก่อน");
+    expect(pane.root.textContent).toContain("Open a thread that changed files first");
   });
 
   it("commits and opens a PR from the receipt", () => {
@@ -162,9 +162,9 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "commit", cwd: "/r", thread: "t-1", message: "Fix sum", files: ["a"] });
     emit({ kind: "committed", thread: "t-1", result: { commit: "abcdef123", subject: "Fix sum", files: ["a"] } });
     expect(pane.root.textContent).toContain("abcdef1 Fix sum");
-    buttons(pane.root, "เปิด PR")[0]!.click();
+    buttons(pane.root, "Open PR")[0]!.click();
     emit({ kind: "pr_plan", thread: "t-1", plan: { branch: "fix", base: "main" } });
-    buttons(pane.root, "เปิดเลย")[0]!.click();
+    buttons(pane.root, "Open it")[0]!.click();
     expect(last()).toEqual({ op: "pr", cwd: "/r", thread: "t-1" });
   });
 
@@ -173,7 +173,7 @@ describe("agent pane", () => {
     emit({ kind: "threads", cwd: "/r", threads: [info({ status: "asking", state: "asking", question: { question: "ลบไฟล์เก่าด้วยไหม", options: ["ลบ", "เก็บไว้"] }, todo: [{ state: "done", text: "อ่าน" }, { state: "doing", text: "แก้" }] })] });
     pane.openThread("t-1");
     expect(pane.root.querySelector(".ask .q")?.textContent).toBe("ลบไฟล์เก่าด้วยไหม");
-    expect(pane.root.querySelector(".todo")?.textContent).toContain("ขั้นตอน 1/2");
+    expect(pane.root.querySelector(".todo")?.textContent).toContain("Steps 1/2");
     buttons(pane.root, "เก็บไว้")[0]!.click();
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "เก็บไว้", thread: "t-1", worktree: false });
     emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "thinking", text: "hmm", streaming: false, ms: 1000 }, { kind: "text", text: "ok", streaming: false }], run_cost: 0 });
@@ -196,7 +196,7 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".popup .opt")?.textContent).toBe("src/main.ts");
     enter(pane);
     expect(pane.composer.value).toBe("look at @src/main.ts ");
-    buttons(pane.root, "+ รูป")[0]!.click();
+    buttons(pane.root, "+ Image")[0]!.click();
     await tick();
     expect(pane.root.querySelector(".attachments")?.textContent).toContain("shot.png");
     enter(pane);
@@ -225,10 +225,10 @@ describe("agent pane", () => {
     };
     const clip = Object.assign(new File([new Uint8Array([0])], "bug.mp4", { type: "video/mp4" }), { path: "/Users/p/bug.mp4" });
     welcome(["images"]);
-    expect(buttons(pane.root, "+ รูป")).toHaveLength(1);
+    expect(buttons(pane.root, "+ Image")).toHaveLength(1);
     expect(paste(clip)).toBe(false);
     welcome(["images", "video"]);
-    buttons(pane.root, "+ รูป/วิดีโอ")[0]!.click();
+    buttons(pane.root, "+ Image/video")[0]!.click();
     await tick();
     expect(asked).toEqual([true]);
     expect(paste(clip)).toBe(true);
@@ -240,7 +240,7 @@ describe("agent pane", () => {
     const { pane, emit, sent, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [] });
     pane.projectChat();
-    expect(pane.root.textContent).toContain("แชทโปรเจกต์");
+    expect(pane.root.textContent).toContain("Project chat");
     type(pane, "fix login and update the docs");
     enter(pane);
     expect(last()).toMatchObject({ op: "prompt", cwd: "/r", text: "fix login and update the docs", profile: "coordinator", worktree: false });
@@ -256,7 +256,7 @@ describe("agent pane", () => {
     // Answering on the card replies to that thread, in its own place.
     buttons(cards[0]!, "root")[0]!.click();
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "root", thread: "t-3", worktree: false });
-    buttons(cards[1]!, "เปิด")[0]!.click();
+    buttons(cards[1]!, "Open")[0]!.click();
     expect(sent).toContainEqual({ op: "open", cwd: "/r", thread: "t-2" });
     expect(pane.root.querySelector(".thread-card")).toBeNull();
     // ⌘0 goes back to the chat.
@@ -308,7 +308,7 @@ describe("agent pane", () => {
     const cards = [...pane.root.querySelectorAll<HTMLElement>(".thread-card")];
     expect(cards.map((c) => c.dataset.thread)).toEqual(["t-3", "t-2"]);
     expect(cards[1]!.classList.contains("archived")).toBe(true);
-    expect(cards[1]!.textContent).toContain("เก็บแล้ว");
+    expect(cards[1]!.textContent).toContain("Archived");
   });
 
   it("a thread's PR shows as a chip on its card and its header, and opens on a click", () => {
@@ -322,28 +322,28 @@ describe("agent pane", () => {
     const pr = { number: 7, url: "https://github.com/o/r/pull/7", state: "open", ci: "failing", conflict: false, review: null, fixing: true } as const;
     emit({ kind: "threads", cwd: "/r", threads: [info({ id: "c-1", profile: "coordinator" }), info({ id: "t-2", title: "Fix login", by: "c-1", pr })] });
     const chip = pane.root.querySelector<HTMLElement>(".thread-card .chip.pr")!;
-    expect(chip.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
+    expect(chip.textContent).toBe("#7 · CI failing · fixing");
     expect(chip.classList.contains("pr-bad")).toBe(true);
     chip.click();
     expect(urls).toEqual(["https://github.com/o/r/pull/7"]);
     pane.openThread("t-2");
-    expect(pane.root.querySelector(".chip.pr")!.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
+    expect(pane.root.querySelector(".chip.pr")!.textContent).toBe("#7 · CI failing · fixing");
   });
 
-  it("หยุดเฝ้า stops following an open PR, and เฝ้า PR follows it again", () => {
+  it("× stops following an open PR, and Watch PR follows it again", () => {
     const { pane, emit, last } = setup();
     const pr = { number: 7, url: "https://github.com/o/r/pull/7", state: "open", ci: "passing", conflict: false, review: null, fixing: false } as const;
     emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-2", pr })] });
     pane.openThread("t-2");
-    pane.root.querySelector<HTMLElement>('button[title="หยุดเฝ้า PR ของเธรดนี้"]')!.click();
+    pane.root.querySelector<HTMLElement>(`button[title="Stop watching this thread's PR"]`)!.click();
     expect(last()).toEqual({ op: "pr_watch", cwd: "/r", thread: "t-2", watch: false });
     emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-2", pr_unwatched: true })] });
     expect(pane.root.querySelector(".chip.pr")).toBeNull();
-    buttons(pane.root, "เฝ้า PR")[0]!.click();
+    buttons(pane.root, "Watch PR")[0]!.click();
     expect(last()).toEqual({ op: "pr_watch", cwd: "/r", thread: "t-2", watch: true });
     // A merged PR is no longer followed: nothing to stop.
     emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-2", pr: { ...pr, state: "merged" } })] });
-    expect(pane.root.querySelector('button[title="หยุดเฝ้า PR ของเธรดนี้"]')).toBeNull();
+    expect(pane.root.querySelector(`button[title="Stop watching this thread's PR"]`)).toBeNull();
   });
 
   it("a new block draws one element and keeps the rest, with what the person opened", () => {
@@ -406,10 +406,10 @@ describe("agent pane", () => {
       info({ id: "t-b", title: "B", status: "asking", state: "asking", needs_you: true, updated_at: "2026-10-28T12:00:00Z" }),
     ]);
     expect(items.map((i) => i.id)).toEqual([CHAT, "t-b", "t-a", "t-old"]);
-    expect(items[0]!.description).toBe("กำลังทำ");
-    expect(items[1]!.description).toBe("รอคำตอบ · ต้องดู");
-    expect(items[2]).toEqual({ id: "t-a", label: "A", description: "เสร็จ · 1/2", detail: "fix the login form" });
-    expect(items[3]!.description).toBe("เก็บแล้ว");
+    expect(items[0]!.description).toBe("Working");
+    expect(items[1]!.description).toBe("Waiting for you · needs you");
+    expect(items[2]).toEqual({ id: "t-a", label: "A", description: "Done · 1/2", detail: "fix the login form" });
+    expect(items[3]!.description).toBe("Archived");
   });
 
   it("lists threads newest first without archived ones", () => {
@@ -434,7 +434,7 @@ describe("agent pane, from the Mac gate", () => {
     expect([...pane.root.querySelectorAll(".ubub")].map((b) => b.textContent)).toEqual(["hi"]);
     expect(pane.root.textContent).not.toContain("DIRECT");
     expect(pane.root.textContent).not.toContain("triage");
-    expect(pane.root.textContent).not.toContain("กำลังโหลดเธรด");
+    expect(pane.root.textContent).not.toContain("Loading thread");
   });
 
   it("shows a later run that goes on with the writer's session after its triage", () => {

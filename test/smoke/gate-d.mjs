@@ -151,7 +151,7 @@ try {
   const pane = window.locator(".cedian-agent-pane.live");
   await pane.waitFor({ state: "visible", timeout: 60_000 });
   await pane.locator(".conn").waitFor({ state: "hidden", timeout: 60_000 });
-  await pane.getByRole("button", { name: "+ รูป/วิดีโอ" }).waitFor({ timeout: 30_000 });
+  await pane.getByRole("button", { name: "+ Image/video" }).waitFor({ timeout: 30_000 });
   const model = opt("--model");
   if (model) await pane.locator('select[data-chip="model"]').selectOption(model);
 

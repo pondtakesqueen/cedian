@@ -104,7 +104,7 @@ impl Browser {
             .ok();
         let bin = find_chromium(&self.env, exe.as_deref()).ok_or_else(|| {
             anyhow!(
-                "ไม่พบ Chromium: รัน script/fetch-chromium, ติดตั้ง Google Chrome หรือตั้ง CEDIAN_CHROMIUM"
+                "No Chromium found: run script/fetch-chromium, install Google Chrome, or set CEDIAN_CHROMIUM"
             )
         })?;
         std::fs::create_dir_all(&self.profile)

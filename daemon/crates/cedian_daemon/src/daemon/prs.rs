@@ -79,7 +79,7 @@ impl Daemon {
             .or_insert_with(|| Watch::new(project.to_path_buf(), cwd, branch, since));
     }
 
-    /// หยุดเฝ้า and เฝ้า PR: the person's choice for one thread, which outlasts a restart. Watching
+    /// Stop watching and Watch PR: the person's choice for one thread, which outlasts a restart. Watching
     /// again looks at once; stopping drops the watch and its chip, and a run it asked for
     /// that is still going is no longer pushed for.
     pub fn watch_pr(shared: &Shared, cwd: &Path, thread: &str, watch: bool) {

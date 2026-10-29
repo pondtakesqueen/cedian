@@ -29,19 +29,19 @@ describe("settings window", () => {
     view.show("roots");
     const input = view.root.querySelector("input")!;
     input.value = "/r/notes";
-    const add = [...view.root.querySelectorAll("button")].find((b) => b.textContent === "เพิ่ม root")!;
+    const add = [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Add root")!;
     add.click();
     await new Promise((r) => setTimeout(r, 0));
-    expect(view.root.textContent).toContain("ไม่ใช่ git repository");
+    expect(view.root.textContent).toContain("is not a git repository");
     (view.root.querySelector("input") as HTMLInputElement).value = "/r/lib";
-    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "เพิ่ม root")!.click();
+    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Add root")!.click();
     await new Promise((r) => setTimeout(r, 0));
     expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "roots", value: { "r-main": ["/r/main", "/r/lib"] } });
     f.emit({ kind: "settings", desktop: { roots: { "r-main": ["/r/main", "/r/lib"] } }, path: "" });
     const items = [...view.root.querySelectorAll("li")].map((li) => li.textContent);
-    expect(items[0]).toContain("หลัก");
-    expect(items[0]).not.toContain("เอาออก");
-    expect(items[1]).toContain("เอาออก");
+    expect(items[0]).toContain("Primary");
+    expect(items[0]).not.toContain("Remove");
+    expect(items[1]).toContain("Remove");
   });
 
   it("lists MCP servers with checks", () => {
@@ -49,10 +49,10 @@ describe("settings window", () => {
     const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
     view.show("mcp");
     f.emit({ kind: "mcp", list: { servers: [{ name: "gh", command: "npx", args: ["gh-mcp"], env: ["GH_TOKEN"] }] } });
-    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "ตรวจ")!.click();
+    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Check")!.click();
     expect(f.sent.at(-1)).toEqual({ op: "mcp_check", name: "gh" });
     f.emit({ kind: "mcp_checked", check: { name: "gh", ok: true, tools: [{ name: "a" }, { name: "b" }] as never } });
-    expect(view.root.textContent).toContain("ต่อได้ · 2 tools");
+    expect(view.root.textContent).toContain("Connected · 2 tools");
     expect(view.root.textContent).toContain("GH_TOKEN");
   });
 

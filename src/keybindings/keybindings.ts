@@ -17,24 +17,24 @@ export const COMPOSER_FOCUS = "cedianComposerFocus";
 export const PANE_FOCUS = "cedianPaneFocus";
 
 export const KEYBINDINGS: Binding[] = [
-  { command: "cedian.projectChat", mac: "cmd+0", label: "แชทโปรเจกต์" },
-  { command: "cedian.newThread", mac: "cmd+n", label: "เธรดใหม่" },
+  { command: "cedian.projectChat", mac: "cmd+0", label: "Project chat" },
+  { command: "cedian.newThread", mac: "cmd+n", label: "New thread" },
   // ⌘K is the inline edit (owner, 2026-10-28), so the thread search takes ⌘T, "go to".
-  { command: "cedian.searchThreads", mac: "cmd+t", label: "ค้นหาเธรด" },
-  { command: "cedian.closeThread", mac: "cmd+w", label: "ปิดเธรด", when: PANE_FOCUS },
-  { command: "cedian.nextThread", mac: "ctrl+tab", label: "เธรดถัดไป", when: PANE_FOCUS },
-  { command: "cedian.previousThread", mac: "ctrl+shift+tab", label: "เธรดก่อนหน้า", when: PANE_FOCUS },
-  { command: "cedian.toggleReview", mac: "cmd+shift+d", label: "เปิด/ปิดรีวิว" },
-  { command: "cedian.cycleViewMode", mac: "ctrl+o", label: "สลับมุมมอง (คำตอบ / + ความคิด / ทุก tool)" },
-  { command: "cedian.permissionMenu", mac: "cmd+shift+m", label: "เมนูสิทธิ์" },
-  { command: "cedian.modelMenu", mac: "cmd+shift+i", label: "เมนูโมเดล" },
-  { command: "cedian.effortMenu", mac: "cmd+shift+e", label: "เมนู effort" },
+  { command: "cedian.searchThreads", mac: "cmd+t", label: "Search threads" },
+  { command: "cedian.closeThread", mac: "cmd+w", label: "Close thread", when: PANE_FOCUS },
+  { command: "cedian.nextThread", mac: "ctrl+tab", label: "Next thread", when: PANE_FOCUS },
+  { command: "cedian.previousThread", mac: "ctrl+shift+tab", label: "Previous thread", when: PANE_FOCUS },
+  { command: "cedian.toggleReview", mac: "cmd+shift+d", label: "Toggle review" },
+  { command: "cedian.cycleViewMode", mac: "ctrl+o", label: "Switch view (Answers / + Thinking / All tools)" },
+  { command: "cedian.permissionMenu", mac: "cmd+shift+m", label: "Permission menu" },
+  { command: "cedian.modelMenu", mac: "cmd+shift+i", label: "Model menu" },
+  { command: "cedian.effortMenu", mac: "cmd+shift+e", label: "Effort menu" },
   // Cmd+K: an inline edit where a text editor has focus (owner, 2026-10-28). Elsewhere VS Code's
   // Cmd+K chords keep working, and the command palette stays on Cmd+Shift+P.
-  { command: "cedian.inlineEdit", mac: "cmd+k", label: "แก้ส่วนที่เลือก (inline edit)", when: "editorTextFocus && !editorReadonly" },
+  { command: "cedian.inlineEdit", mac: "cmd+k", label: "Edit selection (inline edit)", when: "editorTextFocus && !editorReadonly" },
   { command: "cedian.settings", mac: "cmd+,", label: "Settings" },
-  { command: "cedian.stop", mac: "cmd+.", label: "หยุด" },
-  { command: "cedian.focusComposer", mac: "cmd+l", label: "ไปที่ช่องพิมพ์" },
+  { command: "cedian.stop", mac: "cmd+.", label: "Stop" },
+  { command: "cedian.focusComposer", mac: "cmd+l", label: "Focus the composer" },
 ];
 
 /** The table with the person's keys in place of Cedian's, by command id. */

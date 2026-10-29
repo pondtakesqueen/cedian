@@ -91,12 +91,12 @@ try {
   const review = pane.locator(".card.review");
   await review.waitFor({ timeout: 30_000 });
   log(`review: ${(await review.locator(".row").first().textContent()).trim()}`);
-  await review.getByRole("button", { name: "เปิดใน diff" }).click();
+  await review.getByRole("button", { name: "Open diff" }).click();
   await window.locator(".monaco-diff-editor, .multiDiffEditor").first().waitFor({ timeout: 30_000 });
   await shot(window, "3-review");
-  const all = review.getByRole("button", { name: "รับทั้งหมด" });
+  const all = review.getByRole("button", { name: "Accept all" });
   if (await all.count()) await all.click();
-  await pane.locator(".card.review", { hasText: "รับแล้ว" }).waitFor({ timeout: 30_000 });
+  await pane.locator(".card.review", { hasText: "Accepted" }).waitFor({ timeout: 30_000 });
   log("accepted every hunk");
 
   // 4. Kill the daemon: the window starts another and the thread rebuilds.
@@ -108,7 +108,7 @@ try {
   const again = JSON.parse(readFileSync(join(process.env.CEDIA_HOME ?? join(homedir(), ".cedia"), "desktop.lock"), "utf8"));
   if (again.pid === lock.pid) throw new Error("no new daemon holds the lock");
   await pane.locator(".ubub", { hasText: "hello from the gate" }).waitFor({ timeout: 30_000 });
-  await pane.locator(".card.review", { hasText: "รับแล้ว" }).waitFor({ timeout: 30_000 });
+  await pane.locator(".card.review", { hasText: "Accepted" }).waitFor({ timeout: 30_000 });
   await shot(window, "4-rebuilt");
   log(`a new daemon (pid ${again.pid}) rebuilt the thread and its review from cedia's files`);
 } finally {
