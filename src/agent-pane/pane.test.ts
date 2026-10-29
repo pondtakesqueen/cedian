@@ -178,6 +178,23 @@ describe("agent pane", () => {
     expect(pane.root.textContent).toContain("Not archived: this worktree has uncommitted changes (a, b, c and 1 more)");
   });
 
+  it("says inline which hunks were changed since the agent wrote them", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    const hunk = (id: string, state: "pending" | "stale") => ({ id, header: "@@ -1 +1 @@", lines: ["-a", "+b"], new_start: 1, path: "a", state });
+    emit({ kind: "review", thread: "t-1", review: { files: [
+      { path: "a", added: 1, removed: 1, binary: false, hunks: [hunk("h1", "stale")] },
+      { path: "b", added: 1, removed: 1, binary: false, hunks: [hunk("h2", "pending")] },
+    ] } });
+    const card = pane.root.querySelector(".review")!;
+    expect(card.querySelector(".row")?.textContent).toContain("1 changed since");
+    const rows = [...card.querySelectorAll(".file")];
+    expect(rows[0]?.textContent).toContain("Changed since");
+    expect(rows[0]?.querySelector("button.danger")).toBeNull();
+    expect(rows[1]?.textContent).toContain("Accept");
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

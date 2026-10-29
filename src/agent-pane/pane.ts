@@ -710,6 +710,9 @@ export class AgentPane {
     const head = el(d, "div", "row");
     head.append(el(d, "span", "", `${sum.files} ${sum.files === 1 ? "file" : "files"}`), el(d, "span", "ok m", `+${sum.added}`), el(d, "span", "bad m", `−${sum.removed}`));
     if (sum.pending) head.append(el(d, "span", "small", `${sum.pending} to review`));
+    // Spec §8.4: a stale hunk is said inline. Its lines were edited after the agent wrote them,
+    // so accepting or rejecting it no longer applies.
+    if (sum.stale) head.append(el(d, "span", "small warn", `${sum.stale} changed since`));
     head.append(button(d, "Open diff", () => this.host.openReview(thread, this.cwd, review)));
     const pending = review.files.flatMap((f) => f.hunks).filter((h) => h.state === "pending");
     if (pending.length) {
@@ -729,6 +732,10 @@ export class AgentPane {
           button(d, "Accept", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "accept" } })), "btn small"),
           button(d, "Reject", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "reject", reason: "" } })), "btn small danger"),
         );
+      } else if (states.length && states.every((s) => s === "stale")) {
+        const tag = el(d, "span", "small warn", "Changed since");
+        tag.title = "These lines were edited after the agent wrote them; there is nothing left to accept or reject";
+        row.append(tag);
       } else if (states.length) {
         row.append(el(d, "span", "small", states.every((s) => s === "accepted") ? "Accepted" : states.every((s) => s === "rejected") ? "Rejected" : "Reviewed"));
       }
