@@ -153,7 +153,9 @@
 ## Phase D (Media, depth, started 2026-10-29)
 - [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
   only schema change is `plugin` as a command source
-- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model)
+- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model):
+  `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, built
+  2026-10-29, pinned at b612454), on `roles.complete`, default the code model
 - [x] cedia: prompt images route to a model that reads images; video frames
   (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
   where the screen changes; a run with images on a text-only model runs on
@@ -195,7 +197,23 @@
   open ones. Tested in vitest and against the fake cedia; anchoring comments
   by hunk context (§11 Annotate AI Diff) is still to come
 - [ ] Git pane; pop-out panes; Help → Check for updates
-- [ ] Tab completion (ghost text) with a measured latency budget
+- [ ] Tab completion (ghost text) with a measured latency budget (built
+  2026-10-29, tried in the app on the owner's Mac): an inline-completions
+  provider for project files asks the daemon's `complete` 250 ms after typing
+  stops, not mid-word; a newer ask stops the cedia answering the one before;
+  Tab takes the ghost text; Settings → Editor → Tab completion turns it off
+  (`editor.inlineSuggest.enabled`) and, while on, keeps the suggest list from
+  opening over ghost text already shown
+  (`editor.inlineSuggest.suppressSuggestions`); with the list open and part of
+  the word typed, cedia is asked at the end of its pick and the ghost text
+  goes on from it; right after `.` the list wins (its pick is only its first
+  item) Budget, on the
+  default `anthropic/claude-haiku-5-5`: `cedia complete` p95 under 2.5 s and
+  no errors over 6 spots × 10 (measured at 5b34421: p50 1309 ms, p95 2159 ms,
+  0/60 errors, about $0.00006 a call); pause to ghost text p50 1.8 s in the
+  app. Ghost text showed, Tab took it, typing on cleared it and the toggle
+  turned it off; the suggest list hiding it and a doubled `}` are fixed
+  since and still to be tried again
 - [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
 - [x] Exit gate on the owner's Mac (2026-10-29, at 8057d79, cedia d609d53):
   `node test/smoke/gate-d.mjs <Cedian.app> --model

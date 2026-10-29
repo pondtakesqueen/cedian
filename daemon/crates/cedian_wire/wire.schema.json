@@ -323,7 +323,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -364,6 +364,7 @@
         "video",
         "media-route",
         "code-review",
+        "complete",
         "inline-edit"
       ],
       "type": "string"
@@ -633,6 +634,55 @@
         }
       ],
       "description": "`Committed`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"commit\", \"files\", \"subject\" ], \"properties\": { \"commit\": { \"type\": \"string\" }, \"files\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"subject\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
+    },
+    "Completion": {
+      "anyOf": [
+        {
+          "properties": {
+            "at": {
+              "$ref": "#/definitions/InlineEditPosition"
+            },
+            "costUsd": {
+              "format": "double",
+              "type": "number"
+            },
+            "file": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "ms": {
+              "format": "double",
+              "type": "number"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "at",
+            "costUsd",
+            "file",
+            "model",
+            "ms",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`Completion`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"at\", \"costUsd\", \"file\", \"model\", \"ms\", \"text\" ], \"properties\": { \"at\": { \"$ref\": \"#/definitions/InlineEditPosition\" }, \"costUsd\": { \"type\": \"number\" }, \"file\": { \"type\": \"string\" }, \"model\": { \"type\": \"string\" }, \"ms\": { \"type\": \"number\" }, \"text\": { \"type\": \"string\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
     },
     "Decision": {
       "description": "What the person decided about a hunk.",
@@ -2220,6 +2270,30 @@
         },
         {
           "additionalProperties": false,
+          "description": "The answer to `Request::Complete`.",
+          "properties": {
+            "completion": {
+              "$ref": "#/definitions/Completion"
+            },
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "completion"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "completion",
+            "id",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The answer to `Request::InlineEdit`.",
           "properties": {
             "edit": {
@@ -2927,6 +3001,51 @@
             "op",
             "text",
             "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Tab completion: the text to insert at `at` in `file` (`cedia complete --json`), answered with `Notice::Completion` carrying the same `id`, when cedia lists `complete`. A newer ask from the same window stops the one before, which gets no answer. Nothing is written; the editor shows the text as ghost text.",
+          "properties": {
+            "at": {
+              "$ref": "#/definitions/Position"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "complete"
+              ],
+              "type": "string"
+            },
+            "text": {
+              "description": "The file as the editor has it, unsaved changes included; none reads it from disk.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "at",
+            "cwd",
+            "file",
+            "id",
+            "op"
           ],
           "type": "object"
         },

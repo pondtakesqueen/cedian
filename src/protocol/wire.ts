@@ -169,6 +169,11 @@ export type Notice =
       refused?: string | null;
     }
   | {
+      completion: Completion;
+      id: string;
+      kind: "completion";
+    }
+  | {
       edit: InlineEdit;
       id: string;
       kind: "inline_edit";
@@ -191,7 +196,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -236,6 +241,7 @@ export type Capability =
   | "video"
   | "media-route"
   | "code-review"
+  | "complete"
   | "inline-edit";
 /**
  * The checks on the PR's head commit, taken together.
@@ -576,6 +582,28 @@ export type PrOpened =
       error: string;
     };
 /**
+ * `Completion`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "anyOf": [ { "type": "object", "required": [ "at", "costUsd", "file", "model", "ms", "text" ], "properties": { "at": { "$ref": "#/definitions/InlineEditPosition" }, "costUsd": { "type": "number" }, "file": { "type": "string" }, "model": { "type": "string" }, "ms": { "type": "number" }, "text": { "type": "string" } } }, { "type": "object", "required": [ "error" ], "properties": { "error": { "type": "string" } } } ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Completion".
+ */
+export type Completion =
+  | {
+      at: InlineEditPosition;
+      costUsd: number;
+      file: string;
+      model: string;
+      ms: number;
+      text: string;
+    }
+  | {
+      error: string;
+    };
+/**
  * `InlineEdit`
  *
  * <details><summary>JSON schema</summary>
@@ -728,6 +756,18 @@ export type Request =
       op: "send";
       text: string;
       thread: string;
+    }
+  | {
+      at: Position;
+      cwd: string;
+      file: string;
+      id: string;
+      model?: string | null;
+      op: "complete";
+      /**
+       * The file as the editor has it, unsaved changes included; none reads it from disk.
+       */
+      text?: string | null;
     }
   | {
       cwd: string;
@@ -1728,20 +1768,6 @@ export interface McpEntry {
   url?: string | null;
 }
 /**
- * `InlineEditRange`
- *
- * <details><summary>JSON schema</summary>
- *
- * ```json { "type": "object", "required": [ "end", "start" ], "properties": { "end": { "$ref": "#/definitions/InlineEditPosition" }, "start": { "$ref": "#/definitions/InlineEditPosition" } } } ``` </details>
- *
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "InlineEditRange".
- */
-export interface InlineEditRange {
-  end: InlineEditPosition;
-  start: InlineEditPosition;
-}
-/**
  * `InlineEditPosition`
  *
  * <details><summary>JSON schema</summary>
@@ -1754,6 +1780,20 @@ export interface InlineEditRange {
 export interface InlineEditPosition {
   column: number;
   line: number;
+}
+/**
+ * `InlineEditRange`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "end", "start" ], "properties": { "end": { "$ref": "#/definitions/InlineEditPosition" }, "start": { "$ref": "#/definitions/InlineEditPosition" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "InlineEditRange".
+ */
+export interface InlineEditRange {
+  end: InlineEditPosition;
+  start: InlineEditPosition;
 }
 /**
  * `McpCheckVariant0ToolsItem`
@@ -1810,6 +1850,14 @@ export interface Helpers {
   review?: string | null;
 }
 /**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Position".
+ */
+export interface Position {
+  column: number;
+  line: number;
+}
+/**
  * A selection in a file, as cedia's `InlineEditRange`: lines and columns from 1, columns in UTF-16 units as the editor counts them; `end` is just past the last character, and an empty selection asks for text inserted there.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -1818,14 +1866,6 @@ export interface Helpers {
 export interface Selection {
   end: Position;
   start: Position;
-}
-/**
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "Position".
- */
-export interface Position {
-  column: number;
-  line: number;
 }
 /**
  * A server the person adds in Settings, as `cedia mcp add` takes it. The values of `env` and `headers` go to cedia once and are never sent back.

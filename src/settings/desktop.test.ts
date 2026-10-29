@@ -8,6 +8,7 @@ describe("VS Code settings from desktop", () => {
     expect(s["editor.fontFamily"]).toMatch(/^'Lilex'/);
     expect(s["editor.lineHeight"]).toBeGreaterThanOrEqual(1.6);
     expect(s["files.autoSave"]).toBe("afterDelay");
+    expect(s["editor.inlineSuggest.enabled"]).toBe(true);
     expect(Object.keys(s["workbench.colorCustomizations"] as object)).toEqual(["[Dark Modern]", "[Light Modern]"]);
   });
   it("follows the keys the person set", () => {
@@ -16,6 +17,9 @@ describe("VS Code settings from desktop", () => {
     expect(s["editor.fontSize"]).toBe(15);
     expect(s["files.autoSave"]).toBe("off");
     expect(s["editor.formatOnSave"]).toBe(true);
+    expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.enabled"]).toBe(false);
+    expect(vscodeSettings({}, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(true);
+    expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(false);
     expect(vscodeSettings({ theme: "system" }, false)["window.autoDetectColorScheme"]).toBe(true);
     expect(vscodeSettings({ code_font_size: 400 }, true)["editor.fontSize"]).toBe(13);
   });
