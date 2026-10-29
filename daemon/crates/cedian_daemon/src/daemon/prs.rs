@@ -187,6 +187,13 @@ impl Daemon {
                 .collect(),
             _ => Vec::new(),
         };
+        if pr_watch::never_ran(&logs) {
+            log::warn!(
+                "{thread}: PR #{} failed CI with no log; not asking for a fix",
+                pr.number
+            );
+            return;
+        }
         let text = pr_watch::prompt(&pr, &action, &logs);
         log::info!("{thread}: PR #{} asks for {action:?}", pr.number);
         Self::tell_thread(shared, &project, cwd, thread, &text);
