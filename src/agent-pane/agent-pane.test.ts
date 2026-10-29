@@ -7,8 +7,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { isBlock, type Block } from "./block";
-import { items } from "./items";
-import { renderItems } from "./render";
+import { items, shownText } from "./items";
+import { itemLabel, renderItems } from "./render";
 import { applyBlocks, applyText, emptyView } from "./view";
 
 // node:path, not URL: happy-dom puts its own URL in the test's globals.
@@ -87,6 +87,23 @@ describe("agent pane", () => {
     expect(checked.find((i) => i.k === "receipt")).toMatchObject({ verified: true, checks: [{ exitCode: 0 }] });
     const denied = items(load("denied-call")[""]).find((i) => i.k === "tools");
     expect(denied).toMatchObject({ failure: expect.stringContaining("denied by deny-list:deploy") });
+  });
+
+  it("shows the person's message without the plan note cedia adds for the model", () => {
+    expect(shownText('fix the bug\n\n<plan-pending by="claude-code:opus@medium">\nA plan is being written now.\n</plan-pending>')).toBe("fix the bug");
+    expect(shownText("a <b> stays")).toBe("a <b> stays");
+  });
+
+  it("labels each item for a screen reader: who said it, or what it is and how it went", () => {
+    const root = renderItems(document, [
+      { k: "user", text: "fix it", images: 1 },
+      { k: "answer", text: "On it", streaming: true },
+      { k: "tools", calls: [{ name: "bash", detail: "bun test", failed: true }, { name: "read", detail: "a.ts", failed: false }] as never, running: false, failure: "exit 1" },
+    ]);
+    const groups = [...root.querySelectorAll('[role="group"]')];
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual(["You, with 1 image", "cedia is answering", "2 tool calls, 1 failed"]);
+    expect(groups[1]!.getAttribute("aria-busy")).toBe("true");
+    expect(itemLabel({ k: "receipt", subtype: "success", verified: false, unverified: 2, verdict: "", turns: 1, seconds: null, costUsd: 0, checks: [] })).toBe("Run ended: unverified 2");
   });
 
   it("puts text in as text", () => {

@@ -19,10 +19,13 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
   (`chat.disableAIFeatures` defaults to true, the `copilot` terminal command
   to false, the built-in Copilot extension is not built, and the Copilot
   runtime and `@vscode/copilot-api`, proprietary, are kept out of the app's
-  node_modules); `0003` defaults telemetry to off.
+  node_modules); `0003` defaults telemetry to off; `0004` keeps crash reports
+  on the machine, in `~/Library/Logs/Cedian` on macOS, never uploaded.
 - `vscode/product.json`: keys merged over VS Code's (`null` removes one):
   the Cedian names, bundle id `dev.cedian.app`, URL protocol `cedian`, Open
   VSX as the gallery, no voice or agents telemetry endpoints.
+- `NOTICE`: copied to `licenses/Cedian-NOTICE.txt`, which VS Code's build
+  ships in the app beside its own `LICENSE.txt` and `ThirdPartyNotices.txt`.
 - `vscode/contrib/cedian/`: the workbench contribution, copied to
   `src/vs/workbench/contrib/cedian/`, with the window's modules from `src/`
   (agent-pane, composer, daemon-client, dom, inline-edit, keybindings,

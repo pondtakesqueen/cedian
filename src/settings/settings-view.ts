@@ -124,6 +124,11 @@ export class SettingsView {
         this.mcp = n.list.servers;
         this.mcpNote = n.refused ?? undefined;
         break;
+      // An ask of this window's that failed (an MCP change, a setting it could not write).
+      case "error":
+        if (!n.settings) return;
+        this.mcpNote = n.message;
+        break;
       case "mcp_checked": {
         const c = n.check;
         this.checks.set(c.name, "error" in c ? c.error : `Connected · ${c.tools.length} tools`);
@@ -303,7 +308,9 @@ export class SettingsView {
     const error = el(d, "div", "small bad", this.rootError ?? "");
     const add = button(d, "Add root", async () => {
       const path = input.value.trim();
-      const r = addRoot(this.desktop, primary, path, await this.host.isGitRepo(path.replace(/\/+$/, "")));
+      // A folder that can't be read counts as not a repository, so its error shows below.
+      const isRepo = await this.host.isGitRepo(path.replace(/\/+$/, "")).catch(() => false);
+      const r = addRoot(this.desktop, primary, path, isRepo);
       this.rootError = "error" in r ? r.error : undefined;
       if ("roots" in r) this.set("roots", r.roots);
       else this.render();

@@ -61,6 +61,10 @@ describe("thread state", () => {
     expect(reduce(s, { kind: "started", cwd: "/r", thread: "t-9" }).thread).toBe("t-1");
     s = reduce(s, { kind: "error", message: "no" });
     expect(s.error).toBe("no");
+    // An error about another thread, or one for the settings window, is not this pane's.
+    expect(reduce(s, { kind: "error", message: "other", thread: "t-9" }).error).toBe("no");
+    expect(reduce(s, { kind: "error", message: "mcp", settings: true }).error).toBe("no");
+    expect(reduce(s, { kind: "error", message: "mine", thread: "t-1" }).error).toBe("mine");
   });
 
   it("takes the thread's row from the list, with its queue", () => {

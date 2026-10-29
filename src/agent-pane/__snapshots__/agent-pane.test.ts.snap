@@ -10,7 +10,7 @@ exports[`agent pane > ask > draws 1`] = `
 exports[`agent pane > denied-call > draws 1`] = `
 "thread:
 [ubub] publish the package
-[tools fail] 1 tools · bash | bash | npm publish | denied by deny-list:deploy: npm publish publishes or deploys; ask the user to run it
+[tools fail] 1 tool · bash | bash | npm publish | denied by deny-list:deploy: npm publish publishes or deploys; ask the user to run it
 [ans] Publishing is on the deny list, so I left it for you.
 [receipt unv] unverified | Publishing is on the deny list, so I left it for you. | 2 turns · 0s · $0.00"
 `;
@@ -30,7 +30,7 @@ exports[`agent pane > handoff > draws 1`] = `
 [ans] Wrote f.txt. Next: run the check.
 [sdiv] code · faux/scripted
 [ubub] make f.txt say good
-[tools] 1 tools · bash | bash | grep -q good f.txt
+[tools] 1 tool · bash | bash | grep -q good f.txt
 [ans] done
 [receipt] verified | done | 5 turns · 0s · $0.01 | ✓ | grep -q good f.txt | exit 0"
 `;

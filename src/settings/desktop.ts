@@ -66,6 +66,13 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     // While ghost text shows, typing on doesn't open the suggest list over it (VS Code shows ghost
     // text only where it agrees with the list's pick). A list already open still wins.
     "editor.inlineSuggest.suppressSuggestions": desktop.editor?.tab_completion !== false,
+    // Thai has no spaces between words (spec §9 Thai text): word moves and selection go by
+    // Intl.Segmenter's Thai dictionary, and the files that wrap by default (prose) wrap where the
+    // browser's line breaker says, between words, not at any character. Code files keep the
+    // faster simple wrapping.
+    "editor.wordSegmenterLocales": "th",
+    "[markdown]": { "editor.wrappingStrategy": "advanced" },
+    "[plaintext]": { "editor.wrappingStrategy": "advanced" },
   };
 }
 

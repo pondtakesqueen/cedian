@@ -215,6 +215,32 @@
   turned it off; the suggest list hiding it and a doubled `}` are fixed
   since and still to be tried again
 - [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
+  (2026-10-29, on the owner's Mac at cedian 9d14508 + the offline fix,
+  cedia main b140712):
+  - [x] Telemetry: `node test/smoke/offline.mjs <Cedian.app>` launches with
+    VS Code's own telemetry and update defaults, edits a file and idles 90 s:
+    no outside connection from the app, its daemon or cedia (lsof over the
+    tree; nettop agrees). Crash reports stay in `~/Library/Logs/Cedian`
+    (patch 0004; crashpad runs with that database, nothing uploaded)
+  - [x] Thai: `node test/smoke/thai.mjs`, 16 cases at 4 pane widths, no
+    mid-word break, line height 1.6; the editor moves by Thai words
+    (`editor.wordSegmenterLocales`) and wraps prose with the browser's
+    breaker
+  - [x] Accessibility: each pane item is a labelled group ("You", "cedia",
+    "2 tool calls, 1 failed", "Run ended: unverified 1"), read from
+    Chromium's accessibility tree in the app; 2px accent focus ring and
+    Reduce Motion in the pane and settings. VoiceOver itself not driven
+  - [ ] Errors: the three levels are mapped (a modal when cedia can't run or
+    speaks another protocol; errors inline in their own thread or the
+    settings window; notifications for a review that can't open); no
+    unhandled rejections in the window, no unwrap on client input in the
+    daemon. Not built yet: the archive guard, "a thread is using this root",
+    "Claude tools are off for this site", stale hunks shown inline, and the
+    browser's transient errors as notifications
+  - [ ] License: `python3 script/license-scan.py --app <Cedian.app>` passes
+    (309 packages, no copyleft beyond the allowed jschardet); NOTICE ships
+    in the app as `licenses/Cedian-NOTICE.txt` beside VS Code's LICENSE.txt
+    and ThirdPartyNotices.txt. Legal review needs a person
 - [x] Exit gate on the owner's Mac (2026-10-29, at 8057d79, cedia d609d53):
   `node test/smoke/gate-d.mjs <Cedian.app> --model
   openrouter/claude-haiku-5-5` ok. A page whose counter showed 2 with 3

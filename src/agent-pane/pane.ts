@@ -288,10 +288,16 @@ export class AgentPane {
   /** Attaches pasted images and videos: a copied file by its path, a screenshot or picture through `saveImage`. */
   async paste(files: File[]): Promise<void> {
     const paths: string[] = [];
-    for (const file of files) {
-      const path = (file as File & { path?: string }).path;
-      if (path) paths.push(path);
-      else if (this.host.saveImage) paths.push(await this.host.saveImage(new Uint8Array(await file.arrayBuffer()), file.type));
+    try {
+      for (const file of files) {
+        const path = (file as File & { path?: string }).path;
+        if (path) paths.push(path);
+        else if (this.host.saveImage) paths.push(await this.host.saveImage(new Uint8Array(await file.arrayBuffer()), file.type));
+      }
+    } catch (e) {
+      // Shown in the pane (spec §8.4 inline), with what was saved before it still attached.
+      this.state = { ...this.state, error: `Couldn't attach the pasted file: ${(e as Error).message}` };
+      this.render();
     }
     if (paths.length) this.attach(paths);
   }

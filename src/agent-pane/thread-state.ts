@@ -55,7 +55,9 @@ export function reduce(state: ThreadState, notice: Notice): ThreadState {
       const info = notice.threads.find((t) => t.id === state.thread);
       return info ? { ...state, info, status: info.status } : state;
     }
+    // The settings window's errors show there; one about another thread waits for that thread.
     case "error":
+      if (notice.settings || (notice.thread && notice.thread !== state.thread)) return state;
       return { ...state, error: notice.message };
     default:
       return state;

@@ -213,6 +213,13 @@ describe("agent pane", () => {
     expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["paste-1.png", "a.jpg"]);
   });
 
+  it("says in the pane when a pasted screenshot can't be saved, and attaches nothing", async () => {
+    const { pane } = setup({ saveImage: async () => Promise.reject(new Error("disk full")) });
+    await pane.paste([new File([new Uint8Array([1])], "image.png", { type: "image/png" })]);
+    expect(pane.root.querySelector(".error")?.textContent).toBe("Couldn't attach the pasted file: disk full");
+    expect(pane.root.querySelectorAll(".tag .ell").length).toBe(0);
+  });
+
   it("takes a video once cedia says it can: the chip, the picker and a paste", async () => {
     const asked: (boolean | undefined)[] = [];
     const { pane, emit } = setup({ pickImages: async (video) => (asked.push(video), ["/tmp/bug.mov"]) });

@@ -1,0 +1,16 @@
+diff --git a/src/mainImpl.ts b/src/mainImpl.ts
+index 3d34aea..a53f83e 100644
+--- a/src/mainImpl.ts
++++ b/src/mainImpl.ts
+@@ -93,6 +93,11 @@ perf.mark('code/willStartCrashReporter');
+ // * --disable-crash-reporter command line parameter is not set
+ //
+ // Disable crash reporting in all other cases.
++// Cedian (spec §9 Telemetry): crash reports stay on this machine, in ~/Library/Logs/Cedian on
++// macOS, and are never uploaded; --disable-crash-reporter turns them off.
++if (!args['crash-reporter-directory'] && process.platform === 'darwin' && !args['disable-crash-reporter']) {
++	args['crash-reporter-directory'] = path.join(os.homedir(), 'Library', 'Logs', product.nameShort ?? 'Cedian');
++}
+ if (args['crash-reporter-directory'] || (argvConfig['enable-crash-reporter'] && !args['disable-crash-reporter'])) {
+ 	configureCrashReporter();
+ }

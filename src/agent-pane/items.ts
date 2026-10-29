@@ -45,7 +45,7 @@ export function items(blocks: Block[]): Item[] {
         }
         break;
       case "user":
-        out.push({ k: "user", text: block.text, images: block.images.length });
+        out.push({ k: "user", text: shownText(block.text), images: block.images.length });
         break;
       case "thinking":
         out.push({
@@ -114,4 +114,12 @@ function failure(call: ToolCall): string {
   }
   const output = call.output ?? (call.state === "done" ? call.status : "");
   return output.split("\n").slice(-6).join("\n");
+}
+
+/**
+ * The person's message as they wrote it: cedia adds a `<plan-pending>` note for the model while a
+ * plan is being written, which is not theirs to see or to have read out.
+ */
+export function shownText(text: string): string {
+  return text.replace(/\s*<plan-pending\b[^>]*>[\s\S]*?<\/plan-pending>\s*/g, "\n").trim();
 }

@@ -24,6 +24,10 @@ export type Notice =
           };
       daemon: string;
       kind: "welcome";
+      /**
+       * The cedia protocol the daemon was built on (the pin's schema hash), to hold against `cedia`'s; none from a daemon older than this field.
+       */
+      protocol?: string | null;
     }
   | {
       cwd: string;
@@ -190,6 +194,8 @@ export type Notice =
   | {
       kind: "error";
       message: string;
+      settings?: boolean;
+      thread?: string | null;
     };
 /**
  * `Capability`

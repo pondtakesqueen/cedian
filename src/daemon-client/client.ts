@@ -27,6 +27,8 @@ export class DaemonClient {
   private readonly stateListeners = new Set<(state: ConnectionState) => void>();
   /** Lines that did not parse, for the log. */
   readonly unreadable: string[] = [];
+  /** The daemon's latest welcome, for a listener that starts after it came. */
+  welcome?: NoticeOf<"welcome">;
 
   constructor(private readonly transport: Transport) {
     transport.onLine((line) => this.receive(line));
@@ -105,6 +107,7 @@ export class DaemonClient {
       this.unreadable.push(line);
       return;
     }
+    if (notice.kind === "welcome") this.welcome = notice;
     for (const listener of this.listeners.get(notice.kind) ?? []) listener(notice);
     for (const listener of this.listeners.get("*") ?? []) listener(notice);
   }

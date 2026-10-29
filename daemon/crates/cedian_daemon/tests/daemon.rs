@@ -117,8 +117,15 @@ impl Window {
         let mut reader = BufReader::new(stream.try_clone().expect("clone"));
         let mut next = || read_message(&mut reader).expect("read").expect("a notice");
         match next() {
-            Notice::Welcome { cedia, .. } => {
-                assert_eq!(cedia.expect("fake version").version, "0.0.0-fake")
+            Notice::Welcome {
+                cedia, protocol, ..
+            } => {
+                assert_eq!(cedia.expect("fake version").version, "0.0.0-fake");
+                // The pin's hash, for the window to hold against cedia's.
+                assert_eq!(
+                    protocol.as_deref(),
+                    Some(cedian_protocol::PROTOCOL_HASH.trim())
+                );
             }
             other => panic!("expected welcome, got {other:?}"),
         }
@@ -601,8 +608,9 @@ fn line_comments_and_a_code_review_are_kept_for_the_thread_and_sent_as_its_next_
         cwd: cwd.clone(),
         thread: thread(),
     });
-    window
-        .until(|n| matches!(n, Notice::Error { message } if message == "no line comments to send"));
+    window.until(
+        |n| matches!(n, Notice::Error { message, .. } if message == "no line comments to send"),
+    );
 }
 
 #[test]
@@ -613,7 +621,26 @@ fn a_cedia_without_code_review_says_so() {
         cwd: harness.cwd.clone(),
         thread: "t-1".into(),
     });
-    assert!(matches!(window.next(), Notice::Error { .. }));
+    // About that thread, so the pane shows it only there.
+    assert!(
+        matches!(window.next(), Notice::Error { thread: Some(t), settings: false, .. } if t == "t-1")
+    );
+}
+
+#[test]
+fn opening_a_thread_the_project_has_no_record_of_says_so() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Open {
+        cwd: harness.cwd.clone(),
+        thread: "t-nope".into(),
+    });
+    let (_, seen) = window.until(|n| matches!(n, Notice::Error { .. }));
+    let notice = seen.last().expect("an error");
+    assert!(
+        matches!(notice, Notice::Error { message, thread: Some(t), .. } if message == "no thread t-nope in this project" && t == "t-nope"),
+        "{notice:?}"
+    );
 }
 
 #[test]
@@ -632,7 +659,15 @@ fn a_cedia_without_mcp_manage_says_so() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);
     window.ask(Request::McpList);
-    assert!(matches!(window.next(), Notice::Error { .. }));
+    // The settings window asked, so it shows there and not in the agent pane.
+    assert!(matches!(
+        window.next(),
+        Notice::Error {
+            settings: true,
+            thread: None,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -2108,7 +2143,7 @@ fn a_completion_answers_the_latest_ask_and_stops_the_one_before() {
 }
 
 #[test]
-fn a_cedia_without_inline_edit_says_so() {
+fn a_cedia_without_inline_edit_or_completion_answers_the_ask_with_why() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);
     window.ask(Request::InlineEdit {
@@ -2123,5 +2158,21 @@ fn a_cedia_without_inline_edit_says_so() {
         text: None,
         model: None,
     });
-    assert!(matches!(window.next(), Notice::Error { .. }));
+    // The refusal is the answer to that ask, so the window stops waiting for it.
+    assert!(matches!(
+        window.next(),
+        Notice::InlineEdit { id, edit: cedian_protocol::InlineEdit::Variant1 { .. } } if id == "e-1"
+    ));
+    window.ask(Request::Complete {
+        id: "c-1".into(),
+        cwd: harness.cwd.clone(),
+        file: "f.txt".into(),
+        at: cedian_wire::Position { line: 1, column: 1 },
+        text: None,
+        model: None,
+    });
+    assert!(matches!(
+        window.next(),
+        Notice::Completion { id, completion: cedian_protocol::Completion::Variant1 { .. } } if id == "c-1"
+    ));
 }

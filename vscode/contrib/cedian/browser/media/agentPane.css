@@ -93,7 +93,7 @@
 .cedian-agent-pane .ring .arc { stroke: var(--cedian-text-muted); }
 .cedian-agent-pane .ring.high .arc { stroke: var(--cedian-warn); }
 .cedian-agent-pane :focus-visible, .cedian-settings :focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
-@media (prefers-reduced-motion: reduce) { .cedian-agent-pane * { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane *, .cedian-settings * { animation: none !important; transition: none !important; } }
 
 .cedian-settings { display: flex; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
 .cedian-settings .nav { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-right: 1px solid var(--cedian-line); min-width: 140px; }

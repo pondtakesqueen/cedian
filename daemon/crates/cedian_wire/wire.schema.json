@@ -1587,6 +1587,13 @@
                 "welcome"
               ],
               "type": "string"
+            },
+            "protocol": {
+              "description": "The cedia protocol the daemon was built on (the pin's schema hash), to hold against `cedia`'s; none from a daemon older than this field.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -2362,6 +2369,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "An ask that failed, and why. `thread`: the thread it was about, so the agent pane shows it only there; `settings`: the settings window asked, so it shows there and not in the pane (spec §8.4: inline where it happened).",
           "properties": {
             "kind": {
               "enum": [
@@ -2371,6 +2379,15 @@
             },
             "message": {
               "type": "string"
+            },
+            "settings": {
+              "type": "boolean"
+            },
+            "thread": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
