@@ -170,6 +170,20 @@ if [[ "${1:-}" == "inline-edit" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "complete" ]]; then
+  # complete --file <f> --at=<l:c> --cwd <dir> --json [--model=<m>] [--stdin]: the arguments go to
+  # $FAKE_THREADS/../complete-calls. A file that says "slow" takes 5 seconds, so a newer ask can
+  # stop it, and then leaves ../slow-done.
+  state="$FAKE_THREADS/.."
+  mkdir -p "$state"
+  printf '%s\n' "$@" >"$state/complete-calls"
+  text=""
+  if [[ " $* " == *" --stdin "* ]]; then text="$(cat)"; fi
+  if [[ "$text" == *slow* ]]; then sleep 5; : >"$state/slow-done"; fi
+  echo '{"file":"f.txt","at":{"line":1,"column":4},"text":"d();","model":"faux/a","costUsd":0.0001,"ms":12}'
+  exit 0
+fi
+
 if [[ "${1:-}" == "threads" ]]; then
   # threads --cwd <dir> send <id> [--image <file>]... -- <text>; the images go to ../sent-images.
   id="$5"

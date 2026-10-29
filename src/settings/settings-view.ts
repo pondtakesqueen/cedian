@@ -317,7 +317,8 @@ export class SettingsView {
     const e = this.desktop.editor ?? {};
     this.row(p, "Auto save", this.check(e.auto_save !== false, (v) => this.set("editor", { ...e, auto_save: v })));
     this.row(p, "Format on save", this.check(e.format_on_save === true, (v) => this.set("editor", { ...e, format_on_save: v })));
-    p.append(el(this.doc, "div", "small", "VS Code's settings (fonts, theme, auto save) are made from this page; there is no need to edit VS Code's settings.json"));
+    this.row(p, "Tab completion", this.check(e.tab_completion !== false, (v) => this.set("editor", { ...e, tab_completion: v })));
+    p.append(el(this.doc, "div", "small", "VS Code's settings (fonts, theme, auto save, tab completion) are made from this page; there is no need to edit VS Code's settings.json"));
   }
 
   private keys(p: HTMLElement): void {

@@ -153,7 +153,9 @@
 ## Phase D (Media, depth, started 2026-10-29)
 - [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
   only schema change is `plugin` as a command source
-- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model)
+- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model):
+  `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, built
+  2026-10-29, pinned at 704704a), on `roles.complete`, default the code model
 - [x] cedia: prompt images route to a model that reads images; video frames
   (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
   where the screen changes; a run with images on a text-only model runs on
@@ -195,7 +197,12 @@
   open ones. Tested in vitest and against the fake cedia; anchoring comments
   by hunk context (§11 Annotate AI Diff) is still to come
 - [ ] Git pane; pop-out panes; Help → Check for updates
-- [ ] Tab completion (ghost text) with a measured latency budget
+- [ ] Tab completion (ghost text) with a measured latency budget (built
+  2026-10-29, not yet tried in the app): an inline-completions provider for
+  project files asks the daemon's `complete` 250 ms after typing stops, not
+  mid-word; a newer ask stops the cedia answering the one before; Tab takes
+  the ghost text; Settings → Editor → Tab completion turns it off
+  (`editor.inlineSuggest.enabled`). The budget is still to be measured
 - [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
 - [x] Exit gate on the owner's Mac (2026-10-29, at 8057d79, cedia d609d53):
   `node test/smoke/gate-d.mjs <Cedian.app> --model

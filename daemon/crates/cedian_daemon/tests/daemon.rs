@@ -2052,6 +2052,62 @@ fn an_inline_edit_answers_with_its_patch_and_writes_nothing() {
 }
 
 #[test]
+fn a_completion_answers_the_latest_ask_and_stops_the_one_before() {
+    let harness = start_with("edit-and-check", "\"complete\"");
+    std::fs::create_dir_all(harness.threads.join("..")).expect("state");
+    let mut window = Window::connect(&harness);
+    let ask = |id: &str, text: &str| Request::Complete {
+        id: id.into(),
+        cwd: harness.cwd.clone(),
+        file: "f.txt".into(),
+        at: cedian_wire::Position { line: 1, column: 4 },
+        text: Some(text.into()),
+        model: Some("faux/a".into()),
+    };
+    window.ask(ask("c-1", "slow\n"));
+    // Give the slow one time to start, so the newer ask has a cedia to stop.
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    let started = std::time::Instant::now();
+    window.ask(ask("c-2", "abc\n"));
+    let (_, seen) = window.until(|n| matches!(n, Notice::Completion { .. }));
+    let answers: Vec<_> = seen
+        .iter()
+        .filter_map(|n| match n {
+            Notice::Completion { id, completion } => Some((id.clone(), completion.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(answers.len(), 1, "{answers:?}");
+    assert_eq!(answers[0].0, "c-2");
+    assert!(
+        matches!(&answers[0].1, cedian_protocol::Completion::Variant0 { text, .. } if text == "d();"),
+        "{answers:?}"
+    );
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(4),
+        "the newer ask waited on the older"
+    );
+    let calls = std::fs::read_to_string(harness.threads.join("../complete-calls")).expect("calls");
+    let calls: Vec<&str> = calls.lines().collect();
+    assert!(calls.contains(&"--at=1:4"), "{calls:?}");
+    assert!(calls.contains(&"--model=faux/a"), "{calls:?}");
+    assert!(calls.contains(&"--stdin"), "{calls:?}");
+    // The stopped one never finishes, and never answers.
+    std::thread::sleep(std::time::Duration::from_secs(5));
+    assert!(
+        !harness.threads.join("../slow-done").exists(),
+        "the older ask's cedia ran on"
+    );
+    window.ask(ask("c-3", "abc\n"));
+    let (_, seen) = window.until(|n| matches!(n, Notice::Completion { .. }));
+    assert!(
+        seen.iter()
+            .all(|n| !matches!(n, Notice::Completion { id, .. } if id == "c-1")),
+        "{seen:?}"
+    );
+}
+
+#[test]
 fn a_cedia_without_inline_edit_says_so() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);

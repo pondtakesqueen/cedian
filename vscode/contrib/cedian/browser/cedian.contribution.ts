@@ -36,6 +36,7 @@ import './lineComments.js';
 import { KEYBINDINGS, parseKey, withKeymap } from './keybindings/keybindings.js';
 import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
+import { CedianTabCompletion } from './tabCompletion.js';
 import { desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
 import type { AgentPane } from './agent-pane/pane.js';
@@ -265,3 +266,4 @@ class CedianSettingsRedirect implements IWorkbenchContribution {
 }
 
 registerWorkbenchContribution2(CedianSettingsRedirect.ID, CedianSettingsRedirect, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianTabCompletion.ID, CedianTabCompletion, WorkbenchPhase.AfterRestored);

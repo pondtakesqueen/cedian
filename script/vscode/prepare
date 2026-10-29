@@ -56,7 +56,7 @@ rm -rf "$contrib"
 cp -R "$repo/vscode/contrib/cedian" "$contrib"
 # The window's logic and drawing live in src/ (tested there with vitest); each module dir is
 # copied under browser/ as it is, tests left out.
-for mod in agent-pane composer daemon-client dom inline-edit keybindings protocol review settings theme; do
+for mod in agent-pane completion composer daemon-client dom inline-edit keybindings protocol review settings theme; do
   mkdir -p "$contrib/browser/$mod"
   for f in "$repo/src/$mod"/*.ts; do
     case "$f" in *.test.ts) continue ;; esac

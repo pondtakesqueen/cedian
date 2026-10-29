@@ -93,6 +93,9 @@ pub struct Daemon {
     gh_login: Option<String>,
     /// Threads whose PR the person stopped watching.
     pr_unwatched: crate::pr_watch::Unwatched,
+    /// Each window's latest tab completion: its id, and the pid of the cedia answering it once
+    /// started. A newer ask stops the one before.
+    completing: HashMap<ClientId, (String, Option<u32>)>,
     next_id: u64,
 }
 
@@ -156,6 +159,7 @@ impl Daemon {
             gh,
             gh_login: None,
             pr_unwatched: crate::pr_watch::Unwatched::new(state_dir),
+            completing: HashMap::new(),
             next_id: 1,
         }
     }
@@ -297,6 +301,9 @@ impl Daemon {
 
     pub fn disconnect(&mut self, id: ClientId) {
         self.clients.remove(&id);
+        if let Some((_, Some(pid))) = self.completing.remove(&id) {
+            stop_child(pid);
+        }
         for run in self.runs.values_mut() {
             if run.requester == Some(id) {
                 run.requester = None;
@@ -734,6 +741,54 @@ impl Daemon {
                         )
                         .unwrap_or_else(|error| cedian_protocol::InlineEdit::Variant1 { error });
                     lock(&shared).send(client, Notice::InlineEdit { id, edit });
+                });
+            }
+            Request::Complete {
+                id,
+                cwd,
+                file,
+                at,
+                text,
+                model,
+            } => {
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::Complete);
+                if !can {
+                    return lock(shared).error(client, "this cedia has no tab completion".into());
+                }
+                // The window typed on: the ask before this one is stale, so its cedia stops.
+                if let Some((_, Some(pid))) =
+                    lock(shared).completing.insert(client, (id.clone(), None))
+                {
+                    stop_child(pid);
+                }
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let mine =
+                        |d: &Daemon| d.completing.get(&client).is_some_and(|(i, _)| *i == id);
+                    let completion = cedia.complete(
+                        &cwd,
+                        &file,
+                        &at,
+                        text.as_deref(),
+                        model.as_deref(),
+                        |pid| {
+                            let mut d = lock(&shared);
+                            if mine(&d) {
+                                d.completing.insert(client, (id.clone(), Some(pid)));
+                            } else {
+                                stop_child(pid);
+                            }
+                        },
+                    );
+                    let mut d = lock(&shared);
+                    // A stopped ask gets no answer: the window has moved on to a newer one.
+                    if !mine(&d) {
+                        return;
+                    }
+                    d.completing.remove(&client);
+                    let completion = completion
+                        .unwrap_or_else(|error| cedian_protocol::Completion::Variant1 { error });
+                    d.send(client, Notice::Completion { id, completion });
                 });
             }
             Request::Stop { thread } => lock(shared).stop(client, &thread),
@@ -1734,4 +1789,14 @@ fn blocks(thread: &str, changes: Vec<Change>) -> impl Iterator<Item = Notice> + 
             run_cost: change.run_cost,
         },
     })
+}
+
+/// Stops a cedia the daemon started for an ask that is no longer wanted.
+fn stop_child(pid: u32) {
+    if let Ok(pid) = libc::pid_t::try_from(pid) {
+        // SAFETY: kill only sends a signal. The pid is a child of this daemon whose ask is still
+        // open; only in the moment between its exit and its thread clearing the entry could the
+        // pid be reused, and a SIGTERM is all that could stray.
+        unsafe { libc::kill(pid, libc::SIGTERM) };
+    }
 }

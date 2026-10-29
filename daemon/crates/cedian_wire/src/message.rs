@@ -6,8 +6,9 @@ use std::{
 use cedian_agent::Block;
 use cedian_index::{MemoryNote, Output};
 use cedian_protocol::{
-    CommandEntry, CommitDraft, Committed, InlineEdit, McpCheck, McpList, ModelList, PermissionList,
-    PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport, VersionInfo,
+    CommandEntry, CommitDraft, Committed, Completion, InlineEdit, McpCheck, McpList, ModelList,
+    PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport,
+    VersionInfo,
 };
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -122,6 +123,21 @@ pub enum Request {
         text: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         images: Vec<PathBuf>,
+    },
+    /// Tab completion: the text to insert at `at` in `file` (`cedia complete --json`), answered
+    /// with `Notice::Completion` carrying the same `id`, when cedia lists `complete`. A newer
+    /// ask from the same window stops the one before, which gets no answer. Nothing is written;
+    /// the editor shows the text as ghost text.
+    Complete {
+        id: String,
+        cwd: PathBuf,
+        file: PathBuf,
+        at: Position,
+        /// The file as the editor has it, unsaved changes included; none reads it from disk.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
     },
     /// Cmd+K: the new text for a selection of `file` and the patch it makes (`cedia inline-edit
     /// --json`), answered with `Notice::InlineEdit` carrying the same `id`, when cedia lists
@@ -486,6 +502,11 @@ pub enum Notice {
         list: McpList,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         refused: Option<String>,
+    },
+    /// The answer to `Request::Complete`.
+    Completion {
+        id: String,
+        completion: Completion,
     },
     /// The answer to `Request::InlineEdit`.
     InlineEdit {

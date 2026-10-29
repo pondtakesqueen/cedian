@@ -15,7 +15,7 @@ export interface Desktop {
   notifications?: { sound?: boolean };
   keymap?: Record<string, string>;
   roots?: Record<string, string[]>;
-  editor?: { auto_save?: boolean; format_on_save?: boolean };
+  editor?: { auto_save?: boolean; format_on_save?: boolean; tab_completion?: boolean };
   [key: string]: unknown;
 }
 
@@ -61,6 +61,8 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "markdown.preview.lineHeight": LINE_HEIGHT,
     "files.autoSave": desktop.editor?.auto_save === false ? "off" : "afterDelay",
     "editor.formatOnSave": desktop.editor?.format_on_save === true,
+    // Cedia's ghost text is the only inline suggestion provider; off turns tab completion off.
+    "editor.inlineSuggest.enabled": desktop.editor?.tab_completion !== false,
   };
 }
 

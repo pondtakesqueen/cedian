@@ -524,6 +524,58 @@ impl Cedia {
         })
     }
 
+    /// `cedia complete --file <f> --at <l:c> [--stdin] [--model <ref>] --cwd <cwd> --json`: the
+    /// text tab completion offers at the cursor. `text`, the editor's, goes on stdin. `started`
+    /// is told the child's pid before it is waited on, so a newer ask can stop it.
+    pub fn complete(
+        &self,
+        cwd: &Path,
+        file: &Path,
+        at: &cedian_wire::Position,
+        text: Option<&str>,
+        model: Option<&str>,
+        started: impl FnOnce(u32),
+    ) -> Result<cedian_protocol::Completion, String> {
+        let mut command = self.command(cwd);
+        command
+            .arg("complete")
+            .arg("--file")
+            .arg(file)
+            .arg(format!("--at={}:{}", at.line, at.column))
+            .arg("--cwd")
+            .arg(cwd)
+            .arg("--json")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        if let Some(model) = model {
+            command.arg(format!("--model={model}"));
+        }
+        if text.is_some() {
+            command.arg("--stdin").stdin(Stdio::piped());
+        } else {
+            command.stdin(Stdio::null());
+        }
+        let mut child = command
+            .spawn()
+            .map_err(|e| format!("running {}: {e}", self.bin.display()))?;
+        started(child.id());
+        if let (Some(text), Some(mut stdin)) = (text, child.stdin.take()) {
+            use std::io::Write as _;
+            // A child stopped by a newer ask closes its stdin; that is no error worth reporting.
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("running {}: {e}", self.bin.display()))?;
+        serde_json::from_slice(&output.stdout).map_err(|_| {
+            format!(
+                "cedia complete exited with {}: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            )
+        })
+    }
+
     /// `cedia threads unsend <id> <message>...`: the messages leave the thread's queue.
     pub fn unsend(&self, cwd: &Path, thread: &str, ids: &[String]) -> anyhow::Result<()> {
         let mut args = vec!["unsend", thread];
