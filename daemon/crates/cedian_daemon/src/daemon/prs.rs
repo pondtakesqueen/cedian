@@ -7,7 +7,7 @@ use std::{
 };
 
 use cedian_index::{project_key, read_thread, threads_dir};
-use cedian_wire::PrState;
+use cedian_wire::{Helpers, PrState};
 
 use super::{Daemon, Shared, lock};
 use crate::{
@@ -15,6 +15,16 @@ use crate::{
     desktop_settings::{read_desktop, settings_path},
     pr_watch::{self, Action, Watch},
 };
+
+/// A run the watch asks for goes without the planner and the reviewer: it has one failure or
+/// a few comments to answer, and the person's plan and review roles cost a model round each.
+fn fix_helpers() -> Helpers {
+    Helpers {
+        plan: Some("none".into()),
+        review: Some("none".into()),
+        ..Helpers::default()
+    }
+}
 
 impl Daemon {
     /// Whether the person left `desktop.prWatch` on (the default).
@@ -35,6 +45,18 @@ impl Daemon {
             }
             if let Some(watch) = daemon.prs.get_mut(thread) {
                 watch.next_check = Instant::now();
+                if !std::mem::take(&mut watch.asked) {
+                    return;
+                }
+                // The run the watch asked for ended: its commits go up from here.
+                let (cwd, branch) = (watch.cwd.clone(), watch.branch.clone());
+                let env = daemon.gh.env().clone();
+                daemon.refresh(&project_key(project));
+                drop(daemon);
+                match pr_watch::push(&env, &cwd, &branch) {
+                    Ok(said) => log::info!("{thread}: pushed {branch}: {said}"),
+                    Err(error) => log::warn!("{thread}: pushing {branch}: {error:#}"),
+                }
                 return;
             }
             let slug = project_key(project);
@@ -46,7 +68,7 @@ impl Daemon {
                 .thread_cwd(&slug, &summary)
                 .unwrap_or_else(|| project.to_path_buf())
         };
-        let Some(branch) = pr_watch::branch(&cwd) else {
+        let Some(branch) = pr_watch::branch(&cwd).filter(|_| pr_watch::has_remote(&cwd)) else {
             return;
         };
         let since = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
@@ -86,6 +108,10 @@ impl Daemon {
         let gh = lock(shared).gh.clone();
         let pr = match gh.view(cwd, branch) {
             Ok(pr) => pr,
+            Err(error) if error.to_string().contains("no git remotes") => {
+                lock(shared).prs.remove(thread);
+                return;
+            }
             Err(error) => {
                 log::warn!("watching {thread}'s PR: {error:#}");
                 if let Some(watch) = lock(shared).prs.get_mut(thread) {
@@ -157,7 +183,7 @@ impl Daemon {
         let logs: Vec<(String, String)> = match &action {
             Action::FixCi { runs, .. } => runs
                 .iter()
-                .map(|run| (run.clone(), gh.failed_log(cwd, run)))
+                .map(|run| (run.clone(), Self::failed_log(&gh, cwd, run)))
                 .collect(),
             _ => Vec::new(),
         };
@@ -170,7 +196,10 @@ impl Daemon {
     /// and under its last permission.
     fn tell_thread(shared: &Shared, project: &Path, cwd: &Path, thread: &str, text: &str) {
         let (running, cedia, model, permission) = {
-            let daemon = lock(shared);
+            let mut daemon = lock(shared);
+            if let Some(watch) = daemon.prs.get_mut(thread) {
+                watch.asked = true;
+            }
             let summary =
                 read_thread(&threads_dir(&daemon.home, &project_key(project)), thread).ok();
             let model = summary
@@ -192,6 +221,7 @@ impl Daemon {
             }
             return;
         }
+        let helpers = fix_helpers();
         Self::prompt(
             shared,
             None,
@@ -202,9 +232,24 @@ impl Daemon {
             Flags {
                 model: model.as_deref(),
                 permission: permission.as_deref(),
+                helpers: Some(&helpers),
                 ..Flags::default()
             },
         );
+    }
+
+    /// The end of a failed run's log. GitHub may not have it the moment the check fails, so
+    /// it is asked again a few times, 15 seconds apart.
+    fn failed_log(gh: &pr_watch::Gh, cwd: &Path, run: &str) -> String {
+        let mut log = gh.failed_log(cwd, run);
+        for _ in 0..3 {
+            if !log.starts_with("(no log") {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(15));
+            log = gh.failed_log(cwd, run);
+        }
+        log
     }
 
     fn archive_merged(shared: &Shared, project: &Path, thread: &str) {

@@ -48,8 +48,17 @@ export function visibleBlocks(blocks: Block[], mode: ViewMode): Block[] {
 export function withoutTriage(blocks: Block[]): Block[] {
   const out: Block[] = [];
   let skipping = false;
+  let answered = false;
   for (const block of blocks) {
-    if (block.kind === "session") skipping = block.role === "triage";
+    if (block.kind === "session") {
+      skipping = block.role === "triage";
+      answered = false;
+    } else if (skipping && answered && block.kind !== "text") {
+      // A run that goes on with the thread's writer session writes no new session line, so
+      // triage ends with its answer, not with the next session.
+      skipping = false;
+    }
+    if (skipping && block.kind === "text") answered = true;
     if (!skipping) out.push(block);
   }
   return out;

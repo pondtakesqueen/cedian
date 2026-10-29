@@ -1320,6 +1320,15 @@ fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
         &["commit", "-q", "--allow-empty", "-m", "start"],
     );
     let state = harness.threads.join("..");
+    let origin = state.join("origin.git");
+    git(
+        &harness.cwd,
+        &["init", "-q", "--bare", origin.to_str().expect("path")],
+    );
+    git(
+        &harness.cwd,
+        &["remote", "add", "origin", origin.to_str().expect("path")],
+    );
     std::fs::create_dir_all(&state).expect("state");
     std::fs::write(
         state.join("pr.json"),
@@ -1359,6 +1368,9 @@ fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
     );
     assert!(args.contains("error TS2322"), "{args}");
     assert!(args.lines().any(|l| l == "--thread"), "{args}");
+    // A fix goes without the person's planner and reviewer.
+    assert!(args.contains("--plan\nnone\n"), "{args}");
+    assert!(args.contains("--review\nnone\n"), "{args}");
     let calls = std::fs::read_to_string(state.join("gh-calls")).expect("gh calls");
     assert!(
         calls
@@ -1384,7 +1396,30 @@ fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
     assert_eq!(chip.number, 7);
     assert_eq!(chip.ci, cedian_wire::CiState::Failing);
     assert_eq!(chip.review.as_deref(), Some("review_required"));
-    assert!(chip.fixing);
+    // The fix run cannot reach GitHub from cedia's sandbox: when it ends, the daemon pushes
+    // the branch for it, and the chip stops saying it is being fixed.
+    let pushed = || {
+        std::process::Command::new("git")
+            .args(["rev-parse", "--verify", "-q", "refs/heads/fix-login"])
+            .current_dir(&origin)
+            .status()
+            .is_ok_and(|s| s.success())
+    };
+    for _ in 0..100 {
+        if pushed() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(pushed(), "the daemon pushed the fix run's branch");
+    window.ask(Request::Threads {
+        cwd: harness.cwd.clone(),
+    });
+    let (_, seen) = window.until(|n| {
+        matches!(n, Notice::Threads { threads, .. }
+            if threads.iter().any(|t| t.pr.as_ref().is_some_and(|p| !p.fixing)))
+    });
+    assert!(matches!(seen.last(), Some(Notice::Threads { .. })));
 }
 
 #[test]
