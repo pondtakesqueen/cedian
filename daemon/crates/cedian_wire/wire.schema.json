@@ -2824,6 +2824,34 @@
         },
         {
           "additionalProperties": false,
+          "description": "Stops following the thread's pull request, or follows it again (หยุดเฝ้า, เฝ้า PR). Kept across restarts.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "pr_watch"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            },
+            "watch": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread",
+            "watch"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "Gives the thread the person's title, through `cedia threads rename`.",
           "properties": {
             "cwd": {
@@ -3687,6 +3715,10 @@
             }
           ],
           "description": "Its branch's pull request, while the daemon follows it."
+        },
+        "pr_unwatched": {
+          "description": "The person stopped the daemon following this thread's pull request (หยุดเฝ้า).",
+          "type": "boolean"
         },
         "profile": {
           "default": null,

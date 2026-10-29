@@ -40,7 +40,8 @@ impl Daemon {
     pub fn follow_pr(shared: &Shared, project: &Path, thread: &str) {
         let cwd = {
             let mut daemon = lock(shared);
-            if !daemon.pr_watch_on() {
+            if !daemon.pr_watch_on() || daemon.pr_unwatched.contains(&project_key(project), thread)
+            {
                 return;
             }
             if let Some(watch) = daemon.prs.get_mut(thread) {
@@ -76,6 +77,26 @@ impl Daemon {
             .prs
             .entry(thread.to_string())
             .or_insert_with(|| Watch::new(project.to_path_buf(), cwd, branch, since));
+    }
+
+    /// หยุดเฝ้า and เฝ้า PR: the person's choice for one thread, which outlasts a restart. Watching
+    /// again looks at once; stopping drops the watch and its chip, and a run it asked for
+    /// that is still going is no longer pushed for.
+    pub fn watch_pr(shared: &Shared, cwd: &Path, thread: &str, watch: bool) {
+        let slug = project_key(cwd);
+        {
+            let mut daemon = lock(shared);
+            if !daemon.pr_unwatched.set(&slug, thread, watch) {
+                return;
+            }
+            if !watch {
+                daemon.prs.remove(thread);
+            }
+            daemon.refresh(&slug);
+        }
+        if watch {
+            Self::follow_pr(shared, cwd, thread);
+        }
     }
 
     /// Looks at each followed PR that is due, each on a thread of its own.

@@ -86,6 +86,8 @@ pub struct Daemon {
     gh: crate::pr_watch::Gh,
     /// The login `gh` acts as, once asked.
     gh_login: Option<String>,
+    /// Threads whose PR the person stopped watching.
+    pr_unwatched: crate::pr_watch::Unwatched,
     next_id: u64,
 }
 
@@ -147,6 +149,7 @@ impl Daemon {
             prs: HashMap::new(),
             gh,
             gh_login: None,
+            pr_unwatched: crate::pr_watch::Unwatched::new(state_dir),
             next_id: 1,
         }
     }
@@ -355,6 +358,7 @@ impl Daemon {
                     .prs
                     .get(&thread.id)
                     .and_then(crate::pr_watch::Watch::chip),
+                pr_unwatched: self.pr_unwatched.contains(slug, &thread.id),
                 thread,
             });
         }
@@ -740,6 +744,7 @@ impl Daemon {
                     lock(shared).error(client, format!("{error:#}"));
                 }
             }
+            Request::PrWatch { cwd, thread, watch } => Self::watch_pr(shared, &cwd, &thread, watch),
             Request::Archive {
                 cwd,
                 thread,

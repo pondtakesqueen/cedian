@@ -242,6 +242,22 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".chip.pr")!.textContent).toBe("#7 · CI ไม่ผ่าน · กำลังแก้");
   });
 
+  it("หยุดเฝ้า stops following an open PR, and เฝ้า PR follows it again", () => {
+    const { pane, emit, last } = setup();
+    const pr = { number: 7, url: "https://github.com/o/r/pull/7", state: "open", ci: "passing", conflict: false, review: null, fixing: false } as const;
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-2", pr })] });
+    pane.openThread("t-2");
+    pane.root.querySelector<HTMLElement>('button[title="หยุดเฝ้า PR ของเธรดนี้"]')!.click();
+    expect(last()).toEqual({ op: "pr_watch", cwd: "/r", thread: "t-2", watch: false });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-2", pr_unwatched: true })] });
+    expect(pane.root.querySelector(".chip.pr")).toBeNull();
+    buttons(pane.root, "เฝ้า PR")[0]!.click();
+    expect(last()).toEqual({ op: "pr_watch", cwd: "/r", thread: "t-2", watch: true });
+    // A merged PR is no longer followed: nothing to stop.
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-2", pr: { ...pr, state: "merged" } })] });
+    expect(pane.root.querySelector('button[title="หยุดเฝ้า PR ของเธรดนี้"]')).toBeNull();
+  });
+
   it("the thread search lists the chat first, then threads newest first, archived last", () => {
     const items = threadSearch([
       info({ id: "c-1", profile: "coordinator", status: "working", state: "working" }),

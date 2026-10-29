@@ -479,8 +479,11 @@ export class AgentPane {
     const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
     mode.title = "สลับมุมมอง (Ctrl+O)";
     this.header.replaceChildren(picker, dot, mode);
-    const pr = this.state.thread ? this.threads.find((t) => t.id === this.state.thread)?.pr : undefined;
-    if (pr) this.header.insertBefore(this.prChip(pr), mode);
+    const open = this.state.thread ? this.threads.find((t) => t.id === this.state.thread) : undefined;
+    if (open?.pr) {
+      this.header.insertBefore(this.prChip(open.pr), mode);
+      if (open.pr.state === "open") this.header.insertBefore(this.watchButton(open.id, false), mode);
+    } else if (open?.pr_unwatched) this.header.insertBefore(this.watchButton(open.id, true), mode);
     const meter = contextMeter(this.state.view.context ?? undefined, currentModel(this.state.view.blocks as Block[], this.state.info), this.models);
     if (meter) {
       const ns = "http://www.w3.org/2000/svg";
@@ -539,6 +542,13 @@ export class AgentPane {
     const chip = button(this.doc, prText(pr), () => this.host.openUrl(pr.url), `chip pr pr-${prLabel(pr).tone}`);
     chip.title = pr.url;
     return chip;
+  }
+
+  /** หยุดเฝ้า beside an open PR's chip, or เฝ้า PR once the person stopped it. */
+  private watchButton(thread: string, watch: boolean): HTMLElement {
+    const b = button(this.doc, watch ? "เฝ้า PR" : "×", () => this.wire.request({ op: "pr_watch", cwd: this.host.cwd, thread, watch }), "chip pr-watch");
+    b.title = watch ? "เฝ้า PR ของเธรดนี้อีกครั้ง" : "หยุดเฝ้า PR ของเธรดนี้";
+    return b;
   }
 
   /** The coordinator's threads, one card each: open it, or answer its question here. */
