@@ -651,7 +651,8 @@ export class AgentPane {
     if (this.state.review && this.state.review.files.length > 0 && !isRunning(this.state)) parts.push(this.reviewCard(this.state.review));
     if (this.state.notes?.comments.length) parts.push(this.commentsCard(this.state.notes.comments));
     if (this.state.notes?.reviewing || this.state.notes?.review) parts.push(this.codeReviewCard());
-    if (this.state.thread && !isRunning(this.state) && this.state.review && this.state.review.files.length > 0) parts.push(this.shipCard());
+    // A commit started from the Git card shows here too, with or without a review.
+    if (this.state.thread && !isRunning(this.state) && ((this.state.review && this.state.review.files.length > 0) || this.ship.commit.step !== "idle")) parts.push(this.shipCard());
     if (this.gitOpen && this.state.thread) parts.push(this.gitCard());
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
@@ -892,6 +893,15 @@ export class AgentPane {
       row.append(b);
     }
     if (this.host.openSourceControl) row.append(button(d, "Source Control", () => this.host.openSourceControl!(this.cwd), "btn small"));
+    // Commit as the receipt does (`cedia commit` drafts the message), from where git says what is uncommitted.
+    if (git.changed > 0 && this.ship.commit.step === "idle" && !isRunning(this.state) && (this.capabilities.length === 0 || this.capabilities.includes("commit"))) {
+      row.append(button(d, "Commit", () => {
+        const r = startCommit(this.ship, this.cwd, thread);
+        this.ship = r.ship;
+        if (r.request) this.wire.request(r.request);
+        this.render();
+      }, "btn small primary"));
+    }
     if (row.childElementCount) card.append(row);
     return card;
   }

@@ -230,6 +230,10 @@ describe("agent pane", () => {
     expect(buttons(pane.root, "Pull")).toHaveLength(1);
     buttons(pane.root, "Source Control")[0]!.click();
     expect(sc).toEqual(["/r/.cedian/worktrees/a"]);
+    // Commit from the card drafts the message as the receipt's Commit does.
+    pane.root.querySelector<HTMLButtonElement>(".card.git button.primary")!.click();
+    expect(last()).toEqual({ op: "commit_draft", cwd: "/r/.cedian/worktrees/a", thread: "t-1" });
+    expect(pane.root.textContent).toContain("Drafting the commit message");
     // A folder outside git says so in the card.
     emit({ kind: "git", thread: "t-1", state: { Err: "not a git repository" } });
     expect(pane.root.querySelector(".card.git")?.textContent).toContain("not a git repository");
