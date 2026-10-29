@@ -133,10 +133,22 @@
   Mac with a real PR 2026-10-29: the daemon pushes the fix run's commits;
   CI going green is unchecked (the scratch repo's Actions would not
   start, a billing limit). Per-thread หยุดเฝ้า built 2026-10-29
-- [ ] Exit gate: three threads at once across two repos from one project
-  chat; memory measured; scroll 10k blocks @60fps
+- [x] Exit gate on the owner's Mac (macOS 26.6.2, arm64, 2026-10-29, at
+  4505b92): `node test/smoke/gate-c.mjs <Cedian.app> --model
+  openrouter/claude-haiku-5-5` ok. The coordinator opened three threads,
+  one in the primary repo and two in the second root; all three worked at
+  once, each in a worktree of its own repo, and each committed its change.
+  Memory over 12 samples: the window peaked at 1164 MB (median 626), the
+  daemon with its cedia runs at 1555 MB (median 744), 2181 MB together.
+  Scrolling 10k blocks (36,665 nodes) in the live pane: median frame
+  16.7 ms, p95 16.8 ms, worst 18.6 ms, none over 25 ms; drawn in 209 ms.
+  The gate found and 77c4037 fixed a thread opened in another root never
+  starting
 
 ## Known gaps
+- The agent pane draws its whole log again on each notice: 209 ms for 10k
+  blocks on the owner's Mac (1.0 s in headless Chromium on Linux), so a long
+  thread that streams will stutter. Scrolling is fine (Phase C gate)
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
   their attribution in THIRD_PARTY_NOTICES.md
