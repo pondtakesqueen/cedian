@@ -50,6 +50,9 @@ echo "merged product.json"
 
 cp "$repo/brand/AppIcon.icns" "$dir/resources/darwin/code.icns"
 cp "$repo/brand/app-icon/macos-1024.png" "$dir/resources/linux/code.png"
+# VS Code's build ships licenses/** beside its LICENSE.txt and ThirdPartyNotices.txt.
+mkdir -p "$dir/licenses"
+cp "$repo/NOTICE" "$dir/licenses/Cedian-NOTICE.txt"
 
 contrib="$dir/src/vs/workbench/contrib/cedian"
 rm -rf "$contrib"

@@ -24,6 +24,8 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
 - `vscode/product.json`: keys merged over VS Code's (`null` removes one):
   the Cedian names, bundle id `dev.cedian.app`, URL protocol `cedian`, Open
   VSX as the gallery, no voice or agents telemetry endpoints.
+- `NOTICE`: copied to `licenses/Cedian-NOTICE.txt`, which VS Code's build
+  ships in the app beside its own `LICENSE.txt` and `ThirdPartyNotices.txt`.
 - `vscode/contrib/cedian/`: the workbench contribution, copied to
   `src/vs/workbench/contrib/cedian/`, with the window's modules from `src/`
   (agent-pane, composer, daemon-client, dom, inline-edit, keybindings,
