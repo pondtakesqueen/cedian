@@ -24,6 +24,10 @@ pub struct ThreadSummary {
     /// The profile its runs take unless another is named.
     #[serde(default)]
     pub profile: Option<String>,
+    /// The workspace root it works in, when `open_thread` named one other than the primary
+    /// (a multi-repo project, `desktop.roots`).
+    #[serde(default)]
+    pub root: Option<String>,
     /// The writer's latest list of steps, whole: the thread's progress.
     #[serde(default)]
     pub todo: Vec<Step>,
@@ -142,6 +146,7 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
         parent: None,
         by: None,
         profile: None,
+        root: None,
         todo: Vec::new(),
         archived: false,
         sessions: Vec::new(),
@@ -173,6 +178,7 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
                 parent,
                 by,
                 profile,
+                root,
                 at,
                 ..
             } if !opened => {
@@ -182,6 +188,7 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
                 thread.parent = parent.clone();
                 thread.by = by.clone();
                 thread.profile = profile.clone();
+                thread.root = root.clone();
                 if by.is_some() {
                     thread.state = ThreadState::Queued;
                 }

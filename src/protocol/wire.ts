@@ -950,6 +950,10 @@ export interface ThreadInfo {
    */
   rewound?: string[];
   /**
+   * The workspace root it works in, when `open_thread` named one other than the primary (a multi-repo project, `desktop.roots`).
+   */
+  root?: string | null;
+  /**
    * The thread's runs in order, each with the prompt that started it: where a fork for edit and resend goes back to (`cedia threads fork`). A rewind's dropped runs are not here.
    */
   runs?: RunRef[];

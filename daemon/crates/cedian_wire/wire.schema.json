@@ -3766,6 +3766,14 @@
           },
           "type": "array"
         },
+        "root": {
+          "default": null,
+          "description": "The workspace root it works in, when `open_thread` named one other than the primary (a multi-repo project, `desktop.roots`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "runs": {
           "default": [],
           "description": "The thread's runs in order, each with the prompt that started it: where a fork for edit and resend goes back to (`cedia threads fork`). A rewind's dropped runs are not here.",
