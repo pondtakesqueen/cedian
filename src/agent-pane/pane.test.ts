@@ -258,6 +258,27 @@ describe("agent pane", () => {
     expect(pane.root.querySelector('button[title="หยุดเฝ้า PR ของเธรดนี้"]')).toBeNull();
   });
 
+  it("a new block draws one element and keeps the rest, with what the person opened", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    const tool = { kind: "tool", id: "c1", name: "read", input: { path: "a.ts" }, result: { text: "x", is_error: false } };
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "user", text: "fix", images: [] }, tool, { kind: "text", text: "on", streaming: true }], run_cost: 0 } as Notice);
+    const user = pane.root.querySelector(".ubub")!;
+    const tools = pane.root.querySelector<HTMLDetailsElement>("details.tools")!;
+    tools.open = true;
+    emit({ kind: "blocks", thread: "t-1", from: 2, blocks: [{ kind: "text", text: "on it", streaming: true }], run_cost: 0 });
+    expect(pane.root.querySelector(".ubub")).toBe(user);
+    expect(pane.root.querySelector("details.tools")).toBe(tools);
+    expect(tools.open).toBe(true);
+    expect(pane.root.querySelector(".ans")!.textContent).toBe("on it");
+    // Another thread draws from nothing.
+    emit({ kind: "threads", cwd: "/r", threads: [info({}), info({ id: "t-2" })] });
+    pane.openThread("t-2");
+    emit({ kind: "blocks", thread: "t-2", from: 0, blocks: [{ kind: "user", text: "fix", images: [] }], run_cost: 0 });
+    expect(pane.root.querySelector(".ubub")).not.toBe(user);
+  });
+
   it("the thread search lists the chat first, then threads newest first, archived last", () => {
     const items = threadSearch([
       info({ id: "c-1", profile: "coordinator", status: "working", state: "working" }),

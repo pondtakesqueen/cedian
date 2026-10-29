@@ -10,7 +10,7 @@ import { summarize } from "../review/original.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { items } from "./items.js";
-import { renderItems } from "./render.js";
+import { ItemsView, setChildren } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
 import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
@@ -107,6 +107,9 @@ export class AgentPane {
 
   private readonly header: HTMLElement;
   private readonly log: HTMLElement;
+  private itemsView: ItemsView;
+  /** The thread `itemsView` holds, so another thread starts from nothing drawn. */
+  private drawnThread?: string;
   private readonly queue: HTMLElement;
   private readonly popup: HTMLElement;
   private readonly attachments: HTMLElement;
@@ -120,6 +123,7 @@ export class AgentPane {
     this.root = el(doc, "div", "cedian-agent-pane live");
     this.header = el(doc, "div", "head");
     this.log = el(doc, "div", "log");
+    this.itemsView = new ItemsView(doc);
     this.log.setAttribute("role", "log");
     this.log.setAttribute("aria-live", "polite");
     this.queue = el(doc, "div", "queue");
@@ -519,7 +523,9 @@ export class AgentPane {
       const hint = this.chat ? "แชทโปรเจกต์: บอกสิ่งที่อยากให้ทำ แล้ว coordinator จะแบ่งงานและเปิดเธรดให้แต่ละงาน" : "เริ่มเธรดใหม่: พิมพ์สิ่งที่อยากให้ทำด้านล่าง";
       parts.push(el(d, "div", "empty", this.state.preparing ?? hint));
     } else {
-      parts.push(renderItems(d, items(visibleBlocks(withoutTriage(this.state.view.blocks as Block[]), this.viewMode))));
+      // A new thread starts from no drawn items; the same thread reuses what is drawn.
+      if (this.drawnThread !== this.state.thread) (this.itemsView = new ItemsView(d)), (this.drawnThread = this.state.thread);
+      parts.push(this.itemsView.update(items(visibleBlocks(withoutTriage(this.state.view.blocks as Block[]), this.viewMode))));
       if (!this.state.caught) parts.push(el(d, "div", "small loading", "กำลังโหลดเธรด…"));
     }
     if (this.chat && this.state.thread) {
@@ -533,7 +539,7 @@ export class AgentPane {
     if (this.state.review && this.state.review.files.length > 0 && !isRunning(this.state)) parts.push(this.reviewCard(this.state.review));
     if (this.state.thread && !isRunning(this.state) && this.state.review && this.state.review.files.length > 0) parts.push(this.shipCard());
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
-    this.log.replaceChildren(...parts);
+    setChildren(this.log, parts);
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
   }
 

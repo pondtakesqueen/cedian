@@ -4,8 +4,9 @@
 // step per animation frame, and times the frames. In the app (gate-c.mjs) it draws into the live
 // pane, so the workbench's CSS and DOM are the real ones; run alone it draws into a bare page in
 // Playwright's Chromium with agentPane.css, which is quicker to iterate on.
-// Passes when the median frame is within a 60 Hz frame and at most 5% of frames take longer
-// than 25 ms (a dropped frame at 60 Hz). Prints JSON.
+// Also times a notice on a thread that long (one more streamed answer, drawn and painted).
+// Passes when the median frame is within a 60 Hz frame, at most 5% of frames take longer than
+// 25 ms (a dropped frame at 60 Hz), and such a notice paints within two frames. Prints JSON.
 // Usage: node test/smoke/scroll.mjs [--blocks 10000] [--frames 600]
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
@@ -28,7 +29,7 @@ export function blocks(count) {
 export function bundle() {
   const entry = `
     import { items } from "./src/agent-pane/items";
-    import { renderItems } from "./src/agent-pane/render";
+    import { ItemsView } from "./src/agent-pane/render";
     globalThis.cedianScroll = async (selector, blocks, frames) => {
       const log = document.querySelector(selector);
       if (!log) throw new Error("no " + selector);
@@ -37,11 +38,21 @@ export function bundle() {
       const idle = [];
       let last = await frame();
       for (let i = 0; i < 60; i++) { const t = await frame(); idle.push(t - last); last = t; }
+      const view = new ItemsView(document);
       const started = performance.now();
-      log.replaceChildren(renderItems(document, items(blocks)));
+      log.replaceChildren(view.update(items(blocks)));
       log.scrollTop = 0;
       await frame();
       const renderMs = performance.now() - started;
+      // What a notice that streams one more answer costs on a thread this long: the pane draws
+      // from all its blocks again, and only what changed is new.
+      const updates = [];
+      for (let i = 0; i < 10; i++) {
+        const t0 = performance.now();
+        view.update(items([...blocks, { kind: "text", text: "streaming " + i, streaming: true }]));
+        await frame();
+        updates.push(performance.now() - t0);
+      }
       const max = log.scrollHeight - log.clientHeight;
       const deltas = [];
       last = await frame();
@@ -51,7 +62,7 @@ export function bundle() {
         deltas.push(t - last);
         last = t;
       }
-      return { idle, deltas, renderMs, height: log.scrollHeight, nodes: log.querySelectorAll("*").length };
+      return { idle, deltas, renderMs, updates, height: log.scrollHeight, nodes: log.querySelectorAll("*").length };
     };`;
   return execFileSync(join(root, "node_modules/.bin/esbuild"), ["--bundle", "--format=iife", "--loader=ts"], {
     cwd: root,
@@ -78,13 +89,14 @@ export async function measureScroll(page, selector, { count = 10_000, frames = 6
     nodes: raw.nodes,
     heightPx: raw.height,
     renderMs: ms(raw.renderMs),
+    updateMs: ms(median(raw.updates)),
     refreshMs: ms(median(raw.idle)),
     medianFrameMs: ms(median(raw.deltas)),
     p95FrameMs: ms(percentile(raw.deltas, 0.95)),
     worstFrameMs: ms(Math.max(...raw.deltas)),
     over25ms: raw.deltas.filter((d) => d > 25).length,
   };
-  result.ok = result.medianFrameMs <= 1000 / 60 + 1 && result.over25ms <= frames * 0.05;
+  result.ok = result.medianFrameMs <= 1000 / 60 + 1 && result.over25ms <= frames * 0.05 && result.updateMs <= 2000 / 60;
   return result;
 }
 

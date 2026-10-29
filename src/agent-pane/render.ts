@@ -3,11 +3,44 @@
 import type { Item } from "./items.js";
 
 export function renderItems(doc: Document, items: Item[]): HTMLElement {
-  const col = el(doc, "div", "col");
-  for (const item of items) col.append(renderItem(doc, item));
-  const conv = el(doc, "div", "conv");
-  conv.append(col);
-  return conv;
+  return new ItemsView(doc).update(items);
+}
+
+/**
+ * The drawn items of one log, kept between draws: an item drawn the same as last time keeps its
+ * element (and a `details` the person opened stays open), so a notice that adds a block costs
+ * one element, not the whole thread (10k blocks took 209 ms to draw again on the owner's Mac).
+ */
+export class ItemsView {
+  readonly root: HTMLElement;
+  private readonly col: HTMLElement;
+  private drawn: { key: string; node: HTMLElement }[] = [];
+
+  constructor(private readonly doc: Document) {
+    this.col = el(doc, "div", "col");
+    this.root = el(doc, "div", "conv");
+    this.root.append(this.col);
+  }
+
+  update(items: Item[]): HTMLElement {
+    const next = items.map((item, i) => {
+      const key = JSON.stringify(item);
+      const old = this.drawn[i];
+      return old && old.key === key ? old : { key, node: renderItem(this.doc, item) };
+    });
+    setChildren(this.col, next.map((d) => d.node));
+    this.drawn = next;
+    return this.root;
+  }
+}
+
+/** Makes `parent`'s children `nodes`, moving only the ones not already in place. */
+export function setChildren(parent: HTMLElement, nodes: Node[]): void {
+  nodes.forEach((node, i) => {
+    const at = parent.childNodes[i];
+    if (at !== node) parent.insertBefore(node, at ?? null);
+  });
+  while (parent.childNodes.length > nodes.length) parent.lastChild!.remove();
 }
 
 function renderItem(doc: Document, item: Item): HTMLElement {
