@@ -63,8 +63,8 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "editor.formatOnSave": desktop.editor?.format_on_save === true,
     // Cedia's ghost text is the only inline suggestion provider; off turns tab completion off.
     "editor.inlineSuggest.enabled": desktop.editor?.tab_completion !== false,
-    // VS Code shows ghost text only where it agrees with the suggest list's pick, so an open list
-    // after `xs.` hid it; with this the list stays closed while ghost text is there.
+    // While ghost text shows, typing on doesn't open the suggest list over it (VS Code shows ghost
+    // text only where it agrees with the list's pick). A list already open still wins.
     "editor.inlineSuggest.suppressSuggestions": desktop.editor?.tab_completion !== false,
   };
 }

@@ -76,7 +76,7 @@ export class CedianTabCompletion extends Disposable implements IWorkbenchContrib
 			this.log.info(`[cedian] tab completion: ${completion.error}`);
 			return undefined;
 		}
-		this.log.trace(`[cedian] tab completion from ${completion.model} in ${completion.ms} ms`);
+		this.log.trace(`[cedian] tab completion from ${completion.model} in ${completion.ms} ms: ${completion.text.length} characters`);
 		const item = inlineItem(lineText, position.column, completion);
 		if (!item) {
 			return undefined;

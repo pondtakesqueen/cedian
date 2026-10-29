@@ -155,7 +155,7 @@
   only schema change is `plugin` as a command source
 - [ ] cedia: completion command (fill-in-the-middle on a fast cheap model):
   `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, built
-  2026-10-29, pinned at 55fe014), on `roles.complete`, default the code model
+  2026-10-29, pinned at 426ae89), on `roles.complete`, default the code model
 - [x] cedia: prompt images route to a model that reads images; video frames
   (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
   where the screen changes; a run with images on a text-only model runs on
