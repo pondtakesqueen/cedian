@@ -98,6 +98,8 @@
 .cedian-settings { display: flex; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
 .cedian-settings .nav { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-right: 1px solid var(--cedian-line); min-width: 140px; }
 .cedian-settings .nav .tab { text-align: left; background: transparent; border-color: transparent; }
+.cedian-settings .nav .tab.on { background: var(--cedian-accent); }
+.cedian-agent-pane input[type="checkbox"], .cedian-settings input[type="checkbox"] { accent-color: var(--cedian-accent); }
 .cedian-settings .body { flex: 1 1 auto; overflow-y: auto; padding: 16px 24px; }
 .cedian-settings .section { max-width: 640px; display: flex; flex-direction: column; gap: 10px; }
 .cedian-settings h2 { font-size: 18px; margin: 0 0 8px; }
