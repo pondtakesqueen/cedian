@@ -248,6 +248,21 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".card.git")?.textContent).toContain("not a git repository");
   });
 
+  it("draws the PR block for a thread with a PR, and acts through the daemon", () => {
+    const { pane, emit, last, sent } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ pr: { number: 7, url: "u", state: "open", ci: "failing", conflict: false, review: null, fixing: false } })] });
+    pane.openThread("t-1");
+    expect(sent).toContainEqual({ op: "pr_view", cwd: "/r", thread: "t-1" });
+    const view = { number: 7, url: "u", title: "Fix it", body: "", state: "open" as const, draft: false, author: "x", mine: false, head: "h", base: "main", additions: 1, deletions: 0, commits: 1, changed_files: 1, conflict: false, behind: false, review_decision: null, reviewers: [], labels: [], closes: [], checks: [], comments: [], threads: [], auto_merge: null };
+    emit({ kind: "pr_view", thread: "t-1", view: { Ok: view } });
+    expect(pane.root.querySelector(".pr-block")?.textContent).toContain("#7 Fix it");
+    buttons(pane.root, "Approve")[0]!.click();
+    expect(last()).toEqual({ op: "pr_act", cwd: "/r", thread: "t-1", action: { do: "review", event: "approve", body: "" } });
+    expect(buttons(pane.root, "Approve…")[0]!.disabled).toBe(true);
+    emit({ kind: "pr_view", thread: "t-1", view: { Ok: { ...view, review_decision: "approved" } }, acted: true });
+    expect(buttons(pane.root, "Approve")[0]!.disabled).toBe(false);
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

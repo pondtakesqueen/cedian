@@ -5,12 +5,13 @@
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, Request, Review, ThreadInfo } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, findingCount, openFindings, reviewed, sendComments, setComments, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
+import { newPrUi, prBlock, type PrUi } from "./pr-block.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
@@ -111,6 +112,9 @@ export class AgentPane {
   private git?: GitState | string;
   private gitOpen = false;
   private gitBusy?: GitAction;
+  /** The open thread's pull request for the PR block: none yet, none at all, or why not. */
+  private pr?: PrView | null | string;
+  private prUi: PrUi = newPrUi();
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
@@ -237,6 +241,12 @@ export class AgentPane {
     this.git = undefined;
     this.gitOpen = false;
     this.gitBusy = undefined;
+    this.pr = undefined;
+    this.prUi = newPrUi();
+    if (info?.pr) {
+      this.pr = null;
+      this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: id });
+    }
     this.wire.request({ op: "git", cwd: this.host.cwd, thread: id });
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
@@ -347,6 +357,11 @@ export class AgentPane {
         break;
       case "threads":
         if (n.cwd === this.host.cwd) this.threads = n.threads;
+        // The PR watch found the open thread's PR since it opened: draw its block.
+        if (this.state.thread && this.state.info?.pr && this.pr === undefined) {
+          this.pr = null;
+          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: this.state.thread });
+        }
         break;
       case "choices":
         if (n.models) this.models = n.models;
@@ -360,6 +375,14 @@ export class AgentPane {
         this.desktop = (typeof n.desktop === "object" && n.desktop) ? (n.desktop as Record<string, unknown>) : {};
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
+        break;
+      case "pr_view":
+        if (n.thread !== this.state.thread) break;
+        this.pr = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        if (n.acted) this.prUi.busy = undefined;
+        break;
+      case "pr_log":
+        if (n.thread === this.state.thread && this.prUi.log?.run === n.run) this.prUi.log = { run: n.run, text: n.log };
         break;
       case "git":
         if (n.thread !== this.state.thread) break;
@@ -380,6 +403,7 @@ export class AgentPane {
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
           this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+          if (this.state.info?.pr) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
             this.wire.request(this.then);
@@ -655,6 +679,7 @@ export class AgentPane {
     // A commit started from the Git card shows here too, with or without a review.
     if (this.state.thread && !isRunning(this.state) && ((this.state.review && this.state.review.files.length > 0) || this.ship.commit.step !== "idle")) parts.push(this.shipCard());
     if (this.gitOpen && this.state.thread) parts.push(this.gitCard());
+    if (this.state.thread && this.pr && typeof this.pr === "object") parts.push(this.prCard(this.pr));
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
@@ -861,6 +886,32 @@ export class AgentPane {
       }
     }
     return card;
+  }
+
+  /** The PR block: the thread's pull request, its conversation and checks, Review and Merge. */
+  private prCard(view: PrView): HTMLElement {
+    const thread = this.state.thread!;
+    return prBlock(this.doc, view, this.prUi, {
+      act: (action, label) => {
+        this.prUi.busy = label;
+        this.wire.request({ op: "pr_act", cwd: this.host.cwd, thread, action });
+        this.render();
+      },
+      log: (run) => {
+        this.prUi.log = this.prUi.log?.run === run ? undefined : { run };
+        if (this.prUi.log) this.wire.request({ op: "pr_log", cwd: this.host.cwd, thread, run });
+        this.render();
+      },
+      // The message waits in the composer for the person to send, or change first.
+      fix: (text) => {
+        this.input.value = text;
+        this.input.focus();
+        this.render();
+      },
+      openUrl: (url) => this.host.openUrl(url),
+      openDiff: () => this.state.review && this.host.openReview(thread, this.cwd, this.state.review),
+      redraw: () => this.render(),
+    });
   }
 
   /** The Git card, from the branch chip: where the branch stands, and Pull and Push. */
