@@ -2108,7 +2108,7 @@ fn a_completion_answers_the_latest_ask_and_stops_the_one_before() {
 }
 
 #[test]
-fn a_cedia_without_inline_edit_says_so() {
+fn a_cedia_without_inline_edit_or_completion_answers_the_ask_with_why() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);
     window.ask(Request::InlineEdit {
@@ -2123,5 +2123,21 @@ fn a_cedia_without_inline_edit_says_so() {
         text: None,
         model: None,
     });
-    assert!(matches!(window.next(), Notice::Error { .. }));
+    // The refusal is the answer to that ask, so the window stops waiting for it.
+    assert!(matches!(
+        window.next(),
+        Notice::InlineEdit { id, edit: cedian_protocol::InlineEdit::Variant1 { .. } } if id == "e-1"
+    ));
+    window.ask(Request::Complete {
+        id: "c-1".into(),
+        cwd: harness.cwd.clone(),
+        file: "f.txt".into(),
+        at: cedian_wire::Position { line: 1, column: 1 },
+        text: None,
+        model: None,
+    });
+    assert!(matches!(
+        window.next(),
+        Notice::Completion { id, completion: cedian_protocol::Completion::Variant1 { .. } } if id == "c-1"
+    ));
 }

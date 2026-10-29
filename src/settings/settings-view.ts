@@ -303,7 +303,9 @@ export class SettingsView {
     const error = el(d, "div", "small bad", this.rootError ?? "");
     const add = button(d, "Add root", async () => {
       const path = input.value.trim();
-      const r = addRoot(this.desktop, primary, path, await this.host.isGitRepo(path.replace(/\/+$/, "")));
+      // A folder that can't be read counts as not a repository, so its error shows below.
+      const isRepo = await this.host.isGitRepo(path.replace(/\/+$/, "")).catch(() => false);
+      const r = addRoot(this.desktop, primary, path, isRepo);
       this.rootError = "error" in r ? r.error : undefined;
       if ("roots" in r) this.set("roots", r.roots);
       else this.render();

@@ -19,6 +19,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -69,6 +70,7 @@ export class AgentPaneView extends ViewPane {
 		@IFileDialogService private readonly fileDialogService: IFileDialogService,
 		@IFileService private readonly fileService: IFileService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
+		@INotificationService private readonly notifications: INotificationService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -110,7 +112,8 @@ export class AgentPaneView extends ViewPane {
 				await this.fileService.writeFile(file, VSBuffer.wrap(bytes));
 				return file.fsPath;
 			},
-			openReview: (thread, cwd, review, file, line) => { this.reviews.open(thread, cwd, review, file, line); },
+			// A review that can't open says so in a notification (spec §8.4: transient).
+			openReview: (thread, cwd, review, file, line) => { this.reviews.open(thread, cwd, review, file, line).catch(e => this.notifications.warn(`Couldn't open the review: ${e instanceof Error ? e.message : e}`)); },
 			openUrl: url => { this.openerService.open(URI.parse(url)); },
 		});
 		this.pane = pane;

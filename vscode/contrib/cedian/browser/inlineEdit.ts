@@ -106,5 +106,5 @@ export async function runInlineEdit(accessor: ServicesAccessor): Promise<void> {
 			},
 		},
 		{ label: 'Reject', run: close },
-	], { sticky: true, onCancel: () => { void close(); } });
+	], { sticky: true, onCancel: () => { close().catch(() => { /* the proposal's editor is gone already */ }); } });
 }

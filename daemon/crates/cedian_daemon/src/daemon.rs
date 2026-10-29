@@ -724,8 +724,12 @@ impl Daemon {
                 model,
             } => {
                 let (cedia, can) = Self::can(shared, cedian_protocol::Capability::InlineEdit);
+                // The refusal answers the ask, so the window's wait for it ends.
                 if !can {
-                    return lock(shared).error(client, "this cedia has no inline edit".into());
+                    let edit = cedian_protocol::InlineEdit::Variant1 {
+                        error: "this cedia has no inline edit".into(),
+                    };
+                    return lock(shared).send(client, Notice::InlineEdit { id, edit });
                 }
                 // A model answers it: it holds none of the window's other asks.
                 let shared = shared.clone();
@@ -752,8 +756,12 @@ impl Daemon {
                 model,
             } => {
                 let (cedia, can) = Self::can(shared, cedian_protocol::Capability::Complete);
+                // Answered like any completion, not as an error in the agent pane on every pause.
                 if !can {
-                    return lock(shared).error(client, "this cedia has no tab completion".into());
+                    let completion = cedian_protocol::Completion::Variant1 {
+                        error: "this cedia has no tab completion".into(),
+                    };
+                    return lock(shared).send(client, Notice::Completion { id, completion });
                 }
                 // The window typed on: the ask before this one is stale, so its cedia stops.
                 if let Some((_, Some(pid))) =
