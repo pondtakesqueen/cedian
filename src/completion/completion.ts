@@ -35,3 +35,15 @@ export function inlineItem(lineText: string, column: number, completion: Complet
   if (!text.trim()) return undefined;
   return { insertText: before + text, startColumn: 1, endColumn: column };
 }
+
+/**
+ * The cursor's line as it would be with the suggest list's pick taken: VS Code shows ghost text
+ * while the list is open only where it goes on from the picked item, so cedia is asked at the end
+ * of the item. `startColumn`/`endColumn` are the item's range on the cursor's line. A snippet
+ * item has placeholders, not text, so there is nothing to ask after it.
+ */
+export function withSuggestion(lineText: string, column: number, pick: { startColumn: number; endColumn: number; text: string; isSnippetText: boolean }): { lineText: string; column: number; endColumn: number } | undefined {
+  if (pick.isSnippetText || pick.text.includes("\n") || pick.startColumn > column) return undefined;
+  const endColumn = Math.max(column, pick.endColumn);
+  return { lineText: lineText.slice(0, pick.startColumn - 1) + pick.text + lineText.slice(endColumn - 1), column: pick.startColumn + pick.text.length, endColumn };
+}

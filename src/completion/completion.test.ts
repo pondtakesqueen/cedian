@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completionRequest, inlineItem, shouldAsk } from "./completion.js";
+import { completionRequest, inlineItem, shouldAsk, withSuggestion } from "./completion.js";
 
 const ok = (text: string) => ({ file: "a.ts", at: { line: 1, column: 1 }, text, model: "faux/a", costUsd: 0, ms: 5 });
 
@@ -32,5 +32,16 @@ describe("tab completion", () => {
     expect(inlineItem("x", 2, ok(""))).toBeUndefined();
     expect(inlineItem("x", 2, ok("  "))).toBeUndefined();
     expect(inlineItem("x", 2, { error: "no completion" })).toBeUndefined();
+  });
+
+  it("with the suggest list open, asks at the end of its pick, and the item goes on from it", () => {
+    // `  n = xs.le|` with `length` picked over `le`.
+    const at = withSuggestion("  n = xs.le", 12, { startColumn: 10, endColumn: 12, text: "length", isSnippetText: false });
+    expect(at).toEqual({ lineText: "  n = xs.length", column: 16, endColumn: 12 });
+    // The item replaces the original line up to the pick's end, so it carries the pick and goes on.
+    expect(inlineItem(at!.lineText, at!.column, ok(";"))).toMatchObject({ insertText: "  n = xs.length;" });
+    // Right after `.`, the pick's range is empty at the cursor.
+    expect(withSuggestion("xs.", 4, { startColumn: 4, endColumn: 4, text: "map", isSnippetText: false })).toEqual({ lineText: "xs.map", column: 7, endColumn: 4 });
+    expect(withSuggestion("xs.", 4, { startColumn: 4, endColumn: 4, text: "map(${1})", isSnippetText: true })).toBeUndefined();
   });
 });

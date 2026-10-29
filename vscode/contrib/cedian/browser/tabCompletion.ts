@@ -15,7 +15,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { ICedianDaemonService } from './daemonService.js';
-import { completionRequest, DEBOUNCE_MS, inlineItem, shouldAsk } from './completion/completion.js';
+import { completionRequest, DEBOUNCE_MS, inlineItem, shouldAsk, withSuggestion } from './completion/completion.js';
 import type { Completion } from './protocol/wire.js';
 
 /**
@@ -43,14 +43,35 @@ export class CedianTabCompletion extends Disposable implements IWorkbenchContrib
 		this._register(languageFeatures.inlineCompletionsProvider.register({ scheme: 'file' }, provider));
 	}
 
-	private async provide(model: ITextModel, position: Position, _context: InlineCompletionContext, token: CancellationToken): Promise<InlineCompletions | undefined> {
-		const lineText = model.getLineContent(position.lineNumber);
+	private async provide(model: ITextModel, position: Position, context: InlineCompletionContext, token: CancellationToken): Promise<InlineCompletions | undefined> {
 		const folder = this.workspace.getWorkspaceFolder(model.uri);
-		if (!folder || !shouldAsk(lineText, position.column) || this.daemon.client.connection !== 'connected') {
+		if (!folder || this.daemon.client.connection !== 'connected') {
+			return undefined;
+		}
+		// While the suggest list is open, VS Code shows only ghost text that goes on from its pick,
+		// so cedia is asked as if the pick were taken, at its end.
+		let lineText = model.getLineContent(position.lineNumber);
+		let column = position.column;
+		let endColumn = position.column;
+		let text = model.getValue();
+		const pick = context.selectedSuggestionInfo;
+		if (pick) {
+			const range = Range.lift(pick.range);
+			const at = range.startLineNumber === position.lineNumber && range.endLineNumber === position.lineNumber
+				? withSuggestion(lineText, column, { startColumn: range.startColumn, endColumn: range.endColumn, text: pick.text, isSnippetText: pick.isSnippetText })
+				: undefined;
+			if (!at) {
+				return undefined;
+			}
+			const lineStart = model.getOffsetAt(new Position(position.lineNumber, 1));
+			text = text.slice(0, lineStart) + at.lineText + text.slice(lineStart + lineText.length);
+			({ lineText, column, endColumn } = at);
+		}
+		if (!shouldAsk(lineText, column)) {
 			return undefined;
 		}
 		const id = generateUuid();
-		const request = completionRequest({ id, cwd: folder.uri.fsPath, file: model.uri.fsPath, line: position.lineNumber, column: position.column, text: model.getValue() });
+		const request = completionRequest({ id, cwd: folder.uri.fsPath, file: model.uri.fsPath, line: position.lineNumber, column, text });
 		if (!request) {
 			return undefined;
 		}
@@ -77,10 +98,11 @@ export class CedianTabCompletion extends Disposable implements IWorkbenchContrib
 			return undefined;
 		}
 		this.log.trace(`[cedian] tab completion from ${completion.model} in ${completion.ms} ms: ${completion.text.length} characters`);
-		const item = inlineItem(lineText, position.column, completion);
+		const item = inlineItem(lineText, column, completion);
 		if (!item) {
 			return undefined;
 		}
-		return { items: [{ insertText: item.insertText, range: new Range(position.lineNumber, item.startColumn, position.lineNumber, item.endColumn) }] };
+		// The item replaces the line up to the cursor, or to the pick's end, which it carries.
+		return { items: [{ insertText: item.insertText, range: new Range(position.lineNumber, item.startColumn, position.lineNumber, endColumn) }] };
 	}
 }

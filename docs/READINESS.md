@@ -203,7 +203,9 @@
   stops, not mid-word; a newer ask stops the cedia answering the one before;
   Tab takes the ghost text; Settings → Editor → Tab completion turns it off
   (`editor.inlineSuggest.enabled`) and, while on, keeps the suggest list from
-  opening over it (`editor.inlineSuggest.suppressSuggestions`). Budget, on the
+  opening over ghost text already shown
+  (`editor.inlineSuggest.suppressSuggestions`); with the list open, cedia is
+  asked at the end of its pick and the ghost text goes on from it. Budget, on the
   default `anthropic/claude-haiku-5-5`: `cedia complete` p95 under 2.5 s and
   no errors over 6 spots × 10 (measured at 5b34421: p50 1309 ms, p95 2159 ms,
   0/60 errors, about $0.00006 a call); pause to ghost text p50 1.8 s in the
