@@ -85,7 +85,8 @@ await window.keyboard.press("Enter");
 await window.waitForTimeout(1500);
 await window.keyboard.type("hello from the offline gate\n");
 await sampling;
-await electronApp.close();
+// Closing can wait on the daemon the app started; the summary does not depend on it.
+await Promise.race([electronApp.close(), new Promise((r) => setTimeout(r, 15_000))]);
 
 const crashDir = join(homedir(), "Library", "Logs", "Cedian");
 const summary = {
