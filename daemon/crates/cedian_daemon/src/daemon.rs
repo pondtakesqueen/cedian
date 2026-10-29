@@ -73,6 +73,8 @@ pub struct Daemon {
     keep_awake: KeepAwake,
     ledger: Ledger,
     decisions: DecisionStore,
+    /// Line comments and code reviews, by thread (`notes`).
+    notes: crate::notes::NoteStore,
     /// The threads directories windows show, as last listed.
     prints: Fingerprints,
     seen: Seen,
@@ -144,6 +146,7 @@ impl Daemon {
             keep_awake: KeepAwake::default(),
             ledger: Ledger::new(state_dir),
             decisions: DecisionStore::new(state_dir),
+            notes: crate::notes::NoteStore::new(state_dir),
             prints: Fingerprints::default(),
             seen: Seen::new(state_dir),
             started: HashSet::new(),
@@ -904,6 +907,83 @@ impl Daemon {
                     Err(error) => daemon.error(client, format!("{error:#}")),
                 }
             }
+            Request::Comments { thread, comments } => {
+                lock(shared).change_notes(client, &thread, |notes| {
+                    notes.comments = comments;
+                    Ok(())
+                });
+            }
+            Request::Dismiss {
+                thread,
+                finding,
+                dismissed,
+            } => {
+                lock(shared).change_notes(client, &thread, |notes| {
+                    notes.dismissed.retain(|id| *id != finding);
+                    if dismissed {
+                        notes.dismissed.push(finding);
+                    }
+                    Ok(())
+                });
+            }
+            Request::SendComments { cwd, thread } => {
+                let mut text = None;
+                lock(shared).change_notes(client, &thread, |notes| {
+                    if notes.comments.is_empty() {
+                        return Err("no line comments to send".into());
+                    }
+                    text = Some(crate::notes::comments_message(&notes.comments));
+                    notes.comments.clear();
+                    Ok(())
+                });
+                if let Some(text) = text {
+                    Self::deliver(shared, client, cwd, &thread, &text);
+                }
+            }
+            Request::FixFindings {
+                cwd,
+                thread,
+                findings,
+            } => {
+                let notes = lock(shared).notes.load(&thread);
+                let text = notes.review.as_ref().and_then(|review| {
+                    let open = crate::notes::open_findings(review, &notes.dismissed, &findings);
+                    (!open.is_empty()).then(|| crate::notes::fix_message(review, &open))
+                });
+                match text {
+                    Some(text) => Self::deliver(shared, client, cwd, &thread, &text),
+                    None => lock(shared).error(client, "no open finding to fix".into()),
+                }
+            }
+            Request::CodeReview { cwd, thread } => {
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::CodeReview);
+                if !can {
+                    lock(shared).error(client, "this cedia does not review a thread yet".into());
+                    return;
+                }
+                let mut busy = false;
+                lock(shared).change_notes(client, &thread, |notes| {
+                    busy = notes.reviewing;
+                    notes.reviewing = true;
+                    Ok(())
+                });
+                if busy {
+                    return;
+                }
+                // A review asks a model: it holds none of the window's other asks.
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let review = cedia
+                        .code_review(&cwd, &thread)
+                        .unwrap_or_else(|error| cedian_protocol::CodeReview::Variant1 { error });
+                    lock(&shared).change_notes(client, &thread, |notes| {
+                        notes.review = Some(review);
+                        notes.dismissed.clear();
+                        notes.reviewing = false;
+                        Ok(())
+                    });
+                });
+            }
             Request::Decide {
                 cwd,
                 thread,
@@ -920,6 +1000,30 @@ impl Daemon {
                 }
             }
         }
+    }
+
+    /// Changes the thread's notes, saves them and tells every window that has it open. An
+    /// error from `change` goes to the client and changes nothing.
+    fn change_notes(
+        &mut self,
+        client: ClientId,
+        thread: &str,
+        change: impl FnOnce(&mut cedian_wire::Notes) -> Result<(), String>,
+    ) {
+        let mut notes = self.notes.load(thread);
+        if let Err(error) = change(&mut notes) {
+            return self.error(client, error);
+        }
+        if let Err(error) = self.notes.save(thread, &notes) {
+            return self.error(client, format!("{error:#}"));
+        }
+        self.tell_readers(
+            thread,
+            &Notice::Notes {
+                thread: thread.to_owned(),
+                notes,
+            },
+        );
     }
 
     fn settings(&mut self, client: ClientId) {
@@ -1106,6 +1210,16 @@ impl Daemon {
                 status,
             },
         );
+        let notes = self.notes.load(thread);
+        if crate::notes::any(&notes) {
+            self.send(
+                client,
+                Notice::Notes {
+                    thread: thread.to_owned(),
+                    notes,
+                },
+            );
+        }
         if let Some(c) = self.clients.get_mut(&client) {
             c.open.insert(thread.to_owned());
             if let Some(flow) = c.flows.get_mut(thread) {
@@ -1441,6 +1555,42 @@ impl Daemon {
             .as_ref()
             .is_ok_and(|v| v.capabilities.contains(&capability));
         (daemon.cedia.clone(), can)
+    }
+
+    /// The person's next message to the thread, written by the daemon (line comments, a fix):
+    /// queued for its next turn when it runs, else its next run, under the permission its
+    /// latest run had, so a thread that could edit still can.
+    fn deliver(shared: &Shared, client: ClientId, cwd: PathBuf, thread: &str, text: &str) {
+        let (running, permission) = {
+            let daemon = lock(shared);
+            let permission = read_thread(&threads_dir(&daemon.home, &project_key(&cwd)), thread)
+                .ok()
+                .and_then(|summary| {
+                    summary
+                        .runs
+                        .iter()
+                        .rev()
+                        .find_map(|run| run.permission.clone())
+                });
+            (daemon.running(thread), permission)
+        };
+        if running {
+            return Self::message(shared, client, &cwd, thread, text, &[]);
+        }
+        let with = Flags {
+            permission: permission.as_deref(),
+            cache_ttl: Some(PERSON_CACHE_TTL),
+            ..Flags::default()
+        };
+        Self::prompt(
+            shared,
+            Some(client),
+            cwd.clone(),
+            cwd,
+            text,
+            Some(thread.to_owned()),
+            with,
+        );
     }
 
     fn message(

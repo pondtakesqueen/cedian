@@ -63,6 +63,13 @@ if [[ "${1:-}" == "usage" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "review" ]]; then
+  # review --thread=<id> --cwd <dir> --json: two findings on f.txt.
+  printf '%s\n' "$*" >>"$FAKE_THREADS/../review-calls"
+  echo '{"model":"faux/review","verdict":"changes","findings":[{"id":"f1","path":"f.txt","line":1,"text":"f.txt:1 says good, not great"},{"id":"f2","path":"f.txt","line":1,"text":"f.txt:1 has no newline"}],"summary":"Read f.txt.","files":["f.txt"],"dropped":[],"costUsd":0.01}'
+  exit 0
+fi
+
 if [[ "${1:-}" == "commit" || "${1:-}" == "pr" ]]; then
   # commit --thread=<id> [--message=<m> --file=<f>...] --cwd <dir> --json, pr [--check] --cwd <dir>
   # --json: each call's arguments go to $FAKE_THREADS/../ship-calls.

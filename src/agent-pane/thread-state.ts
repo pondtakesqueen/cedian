@@ -1,7 +1,7 @@
 // What a window holds of the open thread, built only from the daemon's notices: its blocks (the
 // fold's), the thread's row from the list, its status and review. A viewer: the daemon sends
 // it all again on open or reconnect, so nothing here is ever the only copy.
-import type { Notice, Review, Status, ThreadInfo } from "../protocol/wire.js";
+import type { Notes, Notice, Review, Status, ThreadInfo } from "../protocol/wire.js";
 import type { Block } from "./block.js";
 import { applyBlocks, applyText, emptyView, type BlocksNotice, type TextNotice, type ThreadView } from "./view.js";
 
@@ -13,6 +13,8 @@ export interface ThreadState {
   info?: ThreadInfo;
   status?: Status;
   review?: Review;
+  /** Line comments not sent yet, and the latest `/code-review`. */
+  notes?: Notes;
   /** The history is all here; what follows is live. */
   caught: boolean;
   /** The latest error the daemon sent, shown inline until the next send. */
@@ -46,6 +48,8 @@ export function reduce(state: ThreadState, notice: Notice): ThreadState {
       return notice.thread === state.thread ? { ...state, status: notice.status } : state;
     case "review":
       return notice.thread === state.thread ? { ...state, review: notice.review } : state;
+    case "notes":
+      return notice.thread === state.thread ? { ...state, notes: notice.notes } : state;
     case "threads": {
       if (notice.cwd !== state.cwd || state.thread === undefined) return state;
       const info = notice.threads.find((t) => t.id === state.thread);

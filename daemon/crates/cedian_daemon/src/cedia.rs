@@ -9,8 +9,9 @@ use anyhow::Context as _;
 
 use crate::desktop_settings::{read_desktop, settings_path};
 use cedian_protocol::{
-    Capability, CommandList, CommitDraft, Committed, McpCheck, McpList, ModelList, PermissionList,
-    PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport, VersionInfo,
+    Capability, CodeReview, CommandList, CommitDraft, Committed, McpCheck, McpList, ModelList,
+    PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport,
+    VersionInfo,
 };
 
 /// A run's flags beyond its text: cedia's `--profile`, `--model`, `--permission`, `--effort`,
@@ -226,6 +227,12 @@ impl Cedia {
         let mut args = vec![format!("--thread={thread}"), format!("--message={message}")];
         args.extend(files.iter().map(|file| format!("--file={file}")));
         self.answer(cwd, "commit", &args)
+    }
+
+    /// `cedia review --thread <id> --cwd <cwd> --json`: a read-only review of what the thread
+    /// changed, its findings by file and line. Writes nothing.
+    pub fn code_review(&self, cwd: &Path, thread: &str) -> Result<CodeReview, String> {
+        self.answer(cwd, "review", &[format!("--thread={thread}")])
     }
 
     /// `cedia pr --check --cwd <cwd> --json`: the branch, the base, or why not. Pushes nothing.

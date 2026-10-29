@@ -110,7 +110,7 @@ export class AgentPaneView extends ViewPane {
 				await this.fileService.writeFile(file, VSBuffer.wrap(bytes));
 				return file.fsPath;
 			},
-			openReview: (thread, cwd, review, file) => { this.reviews.open(thread, cwd, review, file); },
+			openReview: (thread, cwd, review, file, line) => { this.reviews.open(thread, cwd, review, file, line); },
 			openUrl: url => { this.openerService.open(URI.parse(url)); },
 		});
 		this.pane = pane;

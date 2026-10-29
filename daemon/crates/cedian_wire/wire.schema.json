@@ -323,7 +323,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -363,6 +363,7 @@
         "threads.send-images",
         "video",
         "media-route",
+        "code-review",
         "inline-edit"
       ],
       "type": "string"
@@ -409,6 +410,112 @@
           "type": "string"
         }
       ]
+    },
+    "CodeFinding": {
+      "description": "`CodeFinding`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"id\", \"text\" ], \"properties\": { \"id\": { \"type\": \"string\" }, \"line\": { \"type\": \"number\" }, \"path\": { \"type\": \"string\" }, \"text\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "line": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "CodeReview": {
+      "anyOf": [
+        {
+          "properties": {
+            "costUsd": {
+              "format": "double",
+              "type": "number"
+            },
+            "dropped": {
+              "items": {
+                "$ref": "#/definitions/CodeReviewVariant0DroppedItem"
+              },
+              "type": "array"
+            },
+            "files": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "findings": {
+              "items": {
+                "$ref": "#/definitions/CodeFinding"
+              },
+              "type": "array"
+            },
+            "model": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "verdict": {
+              "$ref": "#/definitions/Verdict"
+            }
+          },
+          "required": [
+            "costUsd",
+            "dropped",
+            "files",
+            "findings",
+            "model",
+            "summary",
+            "verdict"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "`CodeReview`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"costUsd\", \"dropped\", \"files\", \"findings\", \"model\", \"summary\", \"verdict\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"dropped\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"reason\", \"ref\" ], \"properties\": { \"reason\": { \"type\": \"string\" }, \"ref\": { \"type\": \"string\" } } } }, \"files\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"findings\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/CodeFinding\" } }, \"model\": { \"type\": \"string\" }, \"summary\": { \"type\": \"string\" }, \"verdict\": { \"$ref\": \"#/definitions/Verdict\" } } }, { \"type\": \"object\", \"required\": [ \"error\" ], \"properties\": { \"error\": { \"type\": \"string\" } } } ] } ``` </details>"
+    },
+    "CodeReviewVariant0DroppedItem": {
+      "description": "`CodeReviewVariant0DroppedItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"reason\", \"ref\" ], \"properties\": { \"reason\": { \"type\": \"string\" }, \"ref\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "ref"
+      ],
+      "type": "object"
     },
     "CommandEntry": {
       "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } } } ``` </details>",
@@ -910,6 +1017,42 @@
       ],
       "type": "object"
     },
+    "LineComment": {
+      "description": "A comment the person left on one line of a thread's diff, waiting to be sent with the rest (spec §3.7, diff comments).",
+      "properties": {
+        "id": {
+          "description": "The window's own id for it, so one comment can be edited or removed.",
+          "type": "string"
+        },
+        "line": {
+          "description": "The line in the file as the thread left it, from 1.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "path": {
+          "description": "The file, relative to the thread's working tree.",
+          "type": "string"
+        },
+        "quote": {
+          "description": "The line's text when the comment was left, quoted to the agent with it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "line",
+        "path",
+        "text"
+      ],
+      "type": "object"
+    },
     "McpAdd": {
       "additionalProperties": false,
       "description": "A server the person adds in Settings, as `cedia mcp add` takes it. The values of `env` and `headers` go to cedia once and are never sent back.",
@@ -1327,6 +1470,43 @@
       ],
       "type": "object"
     },
+    "Notes": {
+      "description": "What the person has left on a thread's diff: line comments not yet sent, and the latest `/code-review` with the findings they dismissed. The daemon keeps it per thread.",
+      "properties": {
+        "comments": {
+          "items": {
+            "$ref": "#/definitions/LineComment"
+          },
+          "type": "array"
+        },
+        "dismissed": {
+          "description": "Findings of `review` the person dismissed, by id.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CodeReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The latest `cedia review` of the thread, or why there is none."
+        },
+        "reviewing": {
+          "description": "A review is being written now.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "comments"
+      ],
+      "type": "object"
+    },
     "Notice": {
       "description": "From the daemon to the window.",
       "oneOf": [
@@ -1594,6 +1774,30 @@
           "required": [
             "kind",
             "review",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The thread's line comments and code review, on open and whenever they change.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "notes"
+              ],
+              "type": "string"
+            },
+            "notes": {
+              "$ref": "#/definitions/Notes"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "notes",
             "thread"
           ],
           "type": "object"
@@ -3060,6 +3264,140 @@
         },
         {
           "additionalProperties": false,
+          "description": "Replaces the line comments the person has left on the thread's diff and not sent yet. Every window with the thread open gets `Notice::Notes`.",
+          "properties": {
+            "comments": {
+              "items": {
+                "$ref": "#/definitions/LineComment"
+              },
+              "type": "array"
+            },
+            "op": {
+              "enum": [
+                "comments"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "comments",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Sends the thread's line comments as its next message (queued when it runs, else a run) and clears them.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "send_comments"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Reviews what the thread changed (`cedia review --thread --json`), when this cedia offers `code-review`. The review lands in the thread's `Notice::Notes`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "code_review"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Dismisses one finding of the thread's review, or takes the dismissal back.",
+          "properties": {
+            "dismissed": {
+              "type": "boolean"
+            },
+            "finding": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "dismiss"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dismissed",
+            "finding",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Asks the thread to fix these findings of its review (all of the open ones when empty), as its next message.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "findings": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "op": {
+              "enum": [
+                "fix_findings"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "What the Background tasks block lists beside the threads: the project's scheduled runs and the MCP servers cedia's settings name. Answered with `Notice::Background`, and again whenever the schedules change.",
           "properties": {
             "cwd": {
@@ -4301,6 +4639,15 @@
         "output"
       ],
       "type": "object"
+    },
+    "Verdict": {
+      "description": "`Verdict`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"approve\", \"changes\", \"unclear\" ] } ``` </details>",
+      "enum": [
+        "approve",
+        "changes",
+        "unclear"
+      ],
+      "type": "string"
     },
     "VersionInfo": {
       "description": "`VersionInfo`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"capabilities\", \"name\", \"protocol\", \"version\" ], \"properties\": { \"capabilities\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Capability\" } }, \"name\": { \"type\": \"string\", \"const\": \"cedia\" }, \"protocol\": { \"type\": \"string\" }, \"version\": { \"type\": \"string\" } } } ``` </details>",

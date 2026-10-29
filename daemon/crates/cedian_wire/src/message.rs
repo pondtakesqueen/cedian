@@ -12,7 +12,7 @@ use cedian_protocol::{
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{BrowserPage, Build, McpAdd, McpServer, Status, ThreadInfo};
+use crate::{BrowserPage, Build, LineComment, McpAdd, McpServer, Notes, Status, ThreadInfo};
 
 /// From the window to the daemon.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -188,6 +188,32 @@ pub enum Request {
         thread: String,
         hunk: String,
         decision: Decision,
+    },
+    /// Replaces the line comments the person has left on the thread's diff and not sent yet.
+    /// Every window with the thread open gets `Notice::Notes`.
+    Comments {
+        thread: String,
+        comments: Vec<LineComment>,
+    },
+    /// Sends the thread's line comments as its next message (queued when it runs, else a run)
+    /// and clears them.
+    SendComments { cwd: PathBuf, thread: String },
+    /// Reviews what the thread changed (`cedia review --thread --json`), when this cedia offers
+    /// `code-review`. The review lands in the thread's `Notice::Notes`.
+    CodeReview { cwd: PathBuf, thread: String },
+    /// Dismisses one finding of the thread's review, or takes the dismissal back.
+    Dismiss {
+        thread: String,
+        finding: String,
+        dismissed: bool,
+    },
+    /// Asks the thread to fix these findings of its review (all of the open ones when empty),
+    /// as its next message.
+    FixFindings {
+        cwd: PathBuf,
+        thread: String,
+        #[serde(default)]
+        findings: Vec<String>,
     },
     /// What the Background tasks block lists beside the threads: the project's scheduled runs
     /// and the MCP servers cedia's settings name. Answered with `Notice::Background`, and again
@@ -370,6 +396,11 @@ pub enum Notice {
     Review {
         thread: String,
         review: Review,
+    },
+    /// The thread's line comments and code review, on open and whenever they change.
+    Notes {
+        thread: String,
+        notes: Notes,
     },
     /// The project's memory notes, oldest first.
     Memory {

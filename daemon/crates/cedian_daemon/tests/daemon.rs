@@ -179,8 +179,12 @@ impl Window {
     }
 }
 
-/// A text notice applied as the window applies it: the block's text grows.
+/// A text notice applied as the window applies it: the block's text grows. A block from before
+/// this `until` began is not in its view.
 fn grow(view: &mut [serde_json::Value], index: usize, append: &str) {
+    if index >= view.len() {
+        return;
+    }
     let text = view[index]["text"]
         .as_str()
         .expect("a text block")
@@ -480,6 +484,121 @@ fn a_commit_is_drafted_then_made_and_a_pr_is_checked_then_opened_through_cedia()
             format!("pr --cwd {at} --json"),
         ]
     );
+}
+
+#[test]
+fn line_comments_and_a_code_review_are_kept_for_the_thread_and_sent_as_its_next_run() {
+    let harness = start_with("edit-and-check", "\"code-review\"");
+    let mut window = Window::connect(&harness);
+    let cwd = harness.cwd.clone();
+    window.ask(Request::Prompt {
+        cwd: cwd.clone(),
+        text: "make f.txt say good".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+    });
+    window.until(status_is(Status::Done));
+    let thread = || "t-00000001".to_owned();
+    let notes = |want: fn(&cedian_wire::Notes) -> bool| move |n: &Notice| matches!(n, Notice::Notes { notes, .. } if want(notes));
+    let last_notes = |seen: Vec<Notice>| match seen.last() {
+        Some(Notice::Notes { notes, .. }) => notes.clone(),
+        other => panic!("{other:?}"),
+    };
+
+    window.ask(Request::CodeReview {
+        cwd: cwd.clone(),
+        thread: thread(),
+    });
+    window.until(notes(|n| n.reviewing));
+    let (_, seen) = window.until(notes(|n| !n.reviewing && n.review.is_some()));
+    match last_notes(seen).review {
+        Some(cedian_protocol::CodeReview::Variant0 { findings, .. }) => {
+            assert_eq!(findings.len(), 2)
+        }
+        other => panic!("{other:?}"),
+    }
+    window.ask(Request::Dismiss {
+        thread: thread(),
+        finding: "f2".into(),
+        dismissed: true,
+    });
+    let (_, seen) = window.until(notes(|n| !n.dismissed.is_empty()));
+    assert_eq!(last_notes(seen).dismissed, ["f2"]);
+
+    // Another window that opens the thread is shown the same notes.
+    let mut other = Window::connect(&harness);
+    other.ask(Request::Open {
+        cwd: cwd.clone(),
+        thread: thread(),
+    });
+    let (_, seen) = other.until(notes(|n| n.review.is_some()));
+    assert_eq!(last_notes(seen).dismissed, ["f2"]);
+
+    let args_file = harness.threads.join("../args");
+    let args_with = |text: &str| {
+        for _ in 0..100 {
+            if std::fs::read_to_string(&args_file).is_ok_and(|a| a.contains(text)) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        std::fs::read_to_string(&args_file).expect("args")
+    };
+    window.ask(Request::FixFindings {
+        cwd: cwd.clone(),
+        thread: thread(),
+        findings: Vec::new(),
+    });
+    let args = args_with("A code review (faux/review)");
+    assert!(args.contains("- f.txt:1 says good, not great"), "{args}");
+    assert!(!args.contains("no newline"), "{args}");
+    // The thread goes on under the permission its last run had.
+    assert!(args.contains("--thread\nt-00000001\n"), "{args}");
+    assert!(args.contains("--permission\nworkspace\n"), "{args}");
+    window.until(status_is(Status::Done));
+
+    window.ask(Request::Comments {
+        thread: thread(),
+        comments: vec![cedian_wire::LineComment {
+            id: "c1".into(),
+            path: "f.txt".into(),
+            line: 1,
+            quote: Some("good".into()),
+            text: "say great".into(),
+        }],
+    });
+    window.until(notes(|n| n.comments.len() == 1));
+    window.ask(Request::SendComments {
+        cwd: cwd.clone(),
+        thread: thread(),
+    });
+    window.until(notes(|n| n.comments.is_empty()));
+    let args = args_with("I left comments");
+    assert!(args.contains("- `f.txt:1` (`good`): say great"), "{args}");
+    // Nothing left to send says so.
+    window.ask(Request::SendComments {
+        cwd: cwd.clone(),
+        thread: thread(),
+    });
+    window
+        .until(|n| matches!(n, Notice::Error { message } if message == "no line comments to send"));
+}
+
+#[test]
+fn a_cedia_without_code_review_says_so() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::CodeReview {
+        cwd: harness.cwd.clone(),
+        thread: "t-1".into(),
+    });
+    assert!(matches!(window.next(), Notice::Error { .. }));
 }
 
 #[test]
