@@ -149,6 +149,35 @@ describe("agent pane", () => {
     expect(pane.root.textContent).toContain("Open a thread that changed files first");
   });
 
+  it("/archive archives the open thread, and a worktree with uncommitted changes asks first", async () => {
+    const asked: string[][] = [];
+    let answer = false;
+    const { pane, emit, last } = setup({ confirmArchive: async (files) => (asked.push(files), answer) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    type(pane, "/archive");
+    enter(pane);
+    enter(pane);
+    expect(last()).toEqual({ op: "archive", cwd: "/r/.cedian/worktrees/a", thread: "t-1", archived: true });
+    emit({ kind: "archive_guard", cwd: "/r/.cedian/worktrees/a", thread: "t-1", files: ["login.js"] });
+    await tick();
+    expect(asked).toEqual([["login.js"]]);
+    // Cancel keeps them: nothing more is sent.
+    expect(last()).toEqual({ op: "archive", cwd: "/r/.cedian/worktrees/a", thread: "t-1", archived: true });
+    answer = true;
+    emit({ kind: "archive_guard", cwd: "/r/.cedian/worktrees/a", thread: "t-1", files: ["login.js"] });
+    await tick();
+    expect(last()).toEqual({ op: "archive", cwd: "/r/.cedian/worktrees/a", thread: "t-1", archived: true, force: true });
+  });
+
+  it("without a dialog, the archive guard says so in the pane", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "archive_guard", cwd: "/r", thread: "t-1", files: ["a", "b", "c", "d"] });
+    expect(pane.root.textContent).toContain("Not archived: this worktree has uncommitted changes (a, b, c and 1 more)");
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

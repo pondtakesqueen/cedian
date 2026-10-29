@@ -169,11 +169,15 @@ pub enum Request {
         rating: Rating,
     },
     /// Hides the thread from the list, or brings it back, through `cedia threads
-    /// archive|unarchive`.
+    /// archive|unarchive`. Archiving a thread whose worktree has uncommitted changes answers
+    /// `Notice::ArchiveGuard` and archives nothing, unless `force` (the person said Archive
+    /// anyway).
     Archive {
         cwd: PathBuf,
         thread: String,
         archived: bool,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        force: bool,
     },
     /// Stops following the thread's pull request, or follows it again (Stop watching, Watch PR).
     /// Kept across restarts.
@@ -526,6 +530,13 @@ pub enum Notice {
     Browser {
         cwd: PathBuf,
         page: Result<BrowserPage, String>,
+    },
+    /// The thread was not archived: its worktree has uncommitted changes in `files`, which go
+    /// when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?
+    ArchiveGuard {
+        cwd: PathBuf,
+        thread: String,
+        files: Vec<String>,
     },
     /// An ask that failed, and why. `thread`: the thread it was about, so the agent pane shows
     /// it only there; `settings`: the settings window asked, so it shows there and not in the

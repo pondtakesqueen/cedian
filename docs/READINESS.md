@@ -234,7 +234,9 @@
     speaks another protocol; errors inline in their own thread or the
     settings window; notifications for a review that can't open); no
     unhandled rejections in the window, no unwrap on client input in the
-    daemon. Not built yet: the archive guard, "a thread is using this root",
+    daemon. The archive guard: `/archive` on a thread whose worktree has
+    uncommitted changes asks "Archive anyway?" (cancel keeps them), and
+    auto-archive leaves such a thread alone. Not built yet: "a thread is using this root",
     "Claude tools are off for this site", stale hunks shown inline, and the
     browser's transient errors as notifications
   - [ ] License: `python3 script/license-scan.py --app <Cedian.app>` passes

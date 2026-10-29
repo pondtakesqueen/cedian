@@ -2369,6 +2369,37 @@
         },
         {
           "additionalProperties": false,
+          "description": "The thread was not archived: its worktree has uncommitted changes in `files`, which go when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "files": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "archive_guard"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "files",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "An ask that failed, and why. `thread`: the thread it was about, so the agent pane shows it only there; `settings`: the settings window asked, so it shows there and not in the pane (spec §8.4: inline where it happened).",
           "properties": {
             "kind": {
@@ -3196,13 +3227,16 @@
         },
         {
           "additionalProperties": false,
-          "description": "Hides the thread from the list, or brings it back, through `cedia threads archive|unarchive`.",
+          "description": "Hides the thread from the list, or brings it back, through `cedia threads archive|unarchive`. Archiving a thread whose worktree has uncommitted changes answers `Notice::ArchiveGuard` and archives nothing, unless `force` (the person said Archive anyway).",
           "properties": {
             "archived": {
               "type": "boolean"
             },
             "cwd": {
               "type": "string"
+            },
+            "force": {
+              "type": "boolean"
             },
             "op": {
               "enum": [

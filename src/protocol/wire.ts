@@ -192,6 +192,12 @@ export type Notice =
       page: ResultOf_BrowserPageOr_String;
     }
   | {
+      cwd: string;
+      files: string[];
+      kind: "archive_guard";
+      thread: string;
+    }
+  | {
       kind: "error";
       message: string;
       settings?: boolean;
@@ -807,6 +813,7 @@ export type Request =
   | {
       archived: boolean;
       cwd: string;
+      force?: boolean;
       op: "archive";
       thread: string;
     }
