@@ -122,9 +122,22 @@ export function addRoot(desktop: Desktop, primary: string, path: string, isGitRe
   return { roots: { ...(desktop.roots ?? {}), [projectSlug(primary)]: [...roots, root] } };
 }
 
-/** `desktop.roots` without one root; the primary stays (it keys the project). */
-export function removeRoot(desktop: Desktop, primary: string, path: string): { roots: Record<string, string[]> } | { error: string } {
+/** What `removeRoot` needs of a thread: whether it works in the root. */
+export interface RootUser {
+  title: string;
+  archived: boolean;
+  root?: string | null;
+  cwd?: string | null;
+}
+
+/**
+ * `desktop.roots` without one root, or why not: the primary stays (it keys the project), and a
+ * root a thread still works in stays until that thread is archived (spec §8.4: root in use).
+ */
+export function removeRoot(desktop: Desktop, primary: string, path: string, threads: RootUser[] = []): { roots: Record<string, string[]> } | { error: string } {
   if (path === primary) return { error: "The project's primary root cannot be removed" };
+  const user = threads.find((t) => !t.archived && (t.root === path || t.cwd === path || t.cwd?.startsWith(`${path}/`)));
+  if (user) return { error: `A thread is using this root: ${user.title}. Archive it first` };
   const rest = rootsOf(desktop, primary).slice(1).filter((r) => r !== path);
   const roots = { ...(desktop.roots ?? {}) };
   if (rest.length) roots[projectSlug(primary)] = [primary, ...rest];

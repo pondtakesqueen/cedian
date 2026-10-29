@@ -20,6 +20,7 @@
 .cedian-agent-pane .tlist { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0 16px; }
 .cedian-agent-pane .ti { display: flex; gap: 8px; }
 .cedian-agent-pane .ti.bad, .cedian-agent-pane .bad { color: var(--cedian-failed); }
+.cedian-agent-pane .warn { color: var(--cedian-warn); }
 .cedian-agent-pane .ok { color: var(--cedian-diff-add); }
 .cedian-agent-pane .fail-out { white-space: pre-wrap; color: var(--cedian-failed); }
 .cedian-agent-pane .thinkbody { white-space: pre-wrap; color: var(--cedian-text-muted); border-left: 1px dashed var(--cedian-line-strong); padding-left: 8px; }

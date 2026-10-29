@@ -111,6 +111,50 @@ pub fn create(cwd: &Path, text: &str) -> anyhow::Result<(PathBuf, String)> {
     Ok((dir, branch))
 }
 
+/// The files one of Cedian's worktrees holds uncommitted (changed, staged or untracked), as
+/// `git status` names them; none for a folder that is not such a worktree (spec §3.7 archive
+/// guard: the worktree is removed some days after archiving, and these would go with it).
+pub fn uncommitted(dir: &Path) -> anyhow::Result<Vec<String>> {
+    let ours = dir.to_string_lossy().contains(&format!(
+        "{0}.cedian{0}worktrees{0}",
+        std::path::MAIN_SEPARATOR
+    ));
+    if !ours || !dir.exists() {
+        return Ok(Vec::new());
+    }
+    // Not through `git`, which trims: a status line starts with its two columns, often a space.
+    let output = Command::new("git")
+        .args([
+            "-c",
+            "core.hooksPath=/dev/null",
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+        ])
+        .current_dir(dir)
+        .output()
+        .context("running git status")?;
+    anyhow::ensure!(
+        output.status.success(),
+        "git status: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    let status = String::from_utf8_lossy(&output.stdout);
+    let mut files = Vec::new();
+    let mut entries = status.split('\0').filter(|e| !e.is_empty());
+    while let Some(entry) = entries.next() {
+        if let Some(path) = entry.get(3..) {
+            files.push(path.to_owned());
+        }
+        // A rename names its old path next.
+        if entry.starts_with('R') || entry.starts_with('C') {
+            entries.next();
+        }
+    }
+    Ok(files)
+}
+
 /// Adds `/.cedian/` to the repository's `info/exclude` once.
 fn exclude(common: &Path) -> anyhow::Result<()> {
     let path = common.join("info/exclude");
@@ -144,5 +188,47 @@ mod tests {
         assert_eq!(name_from("ทดสอบ", 7), "thread-7");
         let long = name_from(&"word ".repeat(30), 7);
         assert!(long.len() <= NAME_LENGTH, "{long}");
+    }
+
+    #[test]
+    fn a_worktree_names_its_uncommitted_files_and_another_folder_none() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().join("repo");
+        std::fs::create_dir_all(&root).expect("repo");
+        let run = |args: &[&str]| {
+            assert!(
+                Command::new("git")
+                    .args(args)
+                    .current_dir(&root)
+                    .output()
+                    .expect("git")
+                    .status
+                    .success(),
+                "{args:?}"
+            );
+        };
+        run(&["init", "-q", "-b", "main"]);
+        std::fs::write(root.join("a.txt"), "a\n").expect("write");
+        run(&["add", "."]);
+        run(&[
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ]);
+        let (tree, _) = create(&root, "fix the thing").expect("worktree");
+        assert_eq!(uncommitted(&tree).expect("status"), Vec::<String>::new());
+        std::fs::write(tree.join("a.txt"), "changed\n").expect("write");
+        std::fs::write(tree.join("new.txt"), "new\n").expect("write");
+        let mut files = uncommitted(&tree).expect("status");
+        files.sort();
+        assert_eq!(files, ["a.txt", "new.txt"]);
+        // The project itself is not a worktree of Cedian's: archiving it never asks.
+        std::fs::write(root.join("a.txt"), "dirty\n").expect("write");
+        assert!(uncommitted(&root).expect("status").is_empty());
     }
 }

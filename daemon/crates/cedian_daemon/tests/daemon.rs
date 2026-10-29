@@ -1172,9 +1172,78 @@ fn a_thread_archives_and_comes_back() {
             cwd: harness.cwd.clone(),
             thread: "t-0000000c".into(),
             archived: want,
+            force: false,
         });
         window.until(archived(want));
     }
+}
+
+#[test]
+fn archiving_a_worktree_with_uncommitted_changes_asks_first() {
+    let harness = start("edit-and-check");
+    git(&harness.cwd, &["init", "-q"]);
+    git(
+        &harness.cwd,
+        &["commit", "-q", "--allow-empty", "-m", "start"],
+    );
+    let tree = harness.cwd.join(".cedian/worktrees/fix-it");
+    git(
+        &harness.cwd,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "fix-it",
+            tree.to_str().expect("path"),
+        ],
+    );
+    std::fs::write(tree.join("login.js"), "left over\n").expect("write");
+    let session = harness.home.join("s-fix-it.jsonl");
+    std::fs::write(
+        &session,
+        format!(
+            "{{\"kind\":\"session\",\"cwd\":{:?}}}\n",
+            tree.to_str().expect("path")
+        ),
+    )
+    .expect("session");
+    std::fs::create_dir_all(&harness.threads).expect("threads dir");
+    std::fs::write(
+        harness.threads.join("t-0000000w.jsonl"),
+        format!(
+            "{{\"at\":\"2026-10-22T03:00:00.000Z\",\"kind\":\"open\",\"title\":\"x\",\"task\":\"x\"}}\n\
+             {{\"at\":\"2026-10-22T03:00:00.500Z\",\"run\":\"r-1\",\"kind\":\"session\",\"sessionId\":\"s-fix-it\",\"model\":\"faux/scripted\",\"role\":\"code\",\"why\":\"start\",\"path\":{:?}}}\n\
+             {{\"at\":\"2026-10-22T03:00:01.000Z\",\"kind\":\"state\",\"state\":\"done\"}}\n",
+            session.to_str().expect("path")
+        ),
+    )
+    .expect("thread");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Threads {
+        cwd: harness.cwd.clone(),
+    });
+    let archive = |force: bool| Request::Archive {
+        cwd: harness.cwd.clone(),
+        thread: "t-0000000w".into(),
+        archived: true,
+        force,
+    };
+    window.ask(archive(false));
+    let (_, seen) = window.until(|n| matches!(n, Notice::ArchiveGuard { .. }));
+    match seen.last() {
+        Some(Notice::ArchiveGuard { thread, files, .. }) => {
+            assert_eq!(thread, "t-0000000w");
+            assert_eq!(files, &["login.js"]);
+        }
+        other => panic!("{other:?}"),
+    }
+    // Archive anyway.
+    window.ask(archive(true));
+    window.until(|n| {
+        matches!(n, Notice::Threads { threads, .. }
+            if threads.first().is_some_and(|t| t.thread.archived))
+    });
 }
 
 #[test]

@@ -149,6 +149,52 @@ describe("agent pane", () => {
     expect(pane.root.textContent).toContain("Open a thread that changed files first");
   });
 
+  it("/archive archives the open thread, and a worktree with uncommitted changes asks first", async () => {
+    const asked: string[][] = [];
+    let answer = false;
+    const { pane, emit, last } = setup({ confirmArchive: async (files) => (asked.push(files), answer) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    type(pane, "/archive");
+    enter(pane);
+    enter(pane);
+    expect(last()).toEqual({ op: "archive", cwd: "/r/.cedian/worktrees/a", thread: "t-1", archived: true });
+    emit({ kind: "archive_guard", cwd: "/r/.cedian/worktrees/a", thread: "t-1", files: ["login.js"] });
+    await tick();
+    expect(asked).toEqual([["login.js"]]);
+    // Cancel keeps them: nothing more is sent.
+    expect(last()).toEqual({ op: "archive", cwd: "/r/.cedian/worktrees/a", thread: "t-1", archived: true });
+    answer = true;
+    emit({ kind: "archive_guard", cwd: "/r/.cedian/worktrees/a", thread: "t-1", files: ["login.js"] });
+    await tick();
+    expect(last()).toEqual({ op: "archive", cwd: "/r/.cedian/worktrees/a", thread: "t-1", archived: true, force: true });
+  });
+
+  it("without a dialog, the archive guard says so in the pane", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "archive_guard", cwd: "/r", thread: "t-1", files: ["a", "b", "c", "d"] });
+    expect(pane.root.textContent).toContain("Not archived: this worktree has uncommitted changes (a, b, c and 1 more)");
+  });
+
+  it("says inline which hunks were changed since the agent wrote them", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    const hunk = (id: string, state: "pending" | "stale") => ({ id, header: "@@ -1 +1 @@", lines: ["-a", "+b"], new_start: 1, path: "a", state });
+    emit({ kind: "review", thread: "t-1", review: { files: [
+      { path: "a", added: 1, removed: 1, binary: false, hunks: [hunk("h1", "stale")] },
+      { path: "b", added: 1, removed: 1, binary: false, hunks: [hunk("h2", "pending")] },
+    ] } });
+    const card = pane.root.querySelector(".review")!;
+    expect(card.querySelector(".row")?.textContent).toContain("1 changed since");
+    const rows = [...card.querySelectorAll(".file")];
+    expect(rows[0]?.textContent).toContain("Changed since");
+    expect(rows[0]?.querySelector("button.danger")).toBeNull();
+    expect(rows[1]?.textContent).toContain("Accept");
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

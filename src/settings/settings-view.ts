@@ -2,7 +2,7 @@
 // is one `set_desktop` (the daemon writes the key atomically and answers with the whole
 // `desktop`), or a `cedia mcp` request; nothing is kept here that the daemon does not send back.
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { McpEntry, ModelList, Notice, PermissionList, Request } from "../protocol/wire.js";
+import type { McpEntry, ModelList, Notice, PermissionList, Request, ThreadInfo } from "../protocol/wire.js";
 import { VIEW_MODES } from "../agent-pane/view-modes.js";
 import { KEYBINDINGS } from "../keybindings/keybindings.js";
 import { addRoot, desktopOf, removeRoot, rootsOf, type Desktop } from "./desktop.js";
@@ -81,6 +81,8 @@ export class SettingsView {
   private mcpNote?: string;
   private checks = new Map<string, string>();
   private rootError?: string;
+  /** The project's threads, so a root one works in is not removed. */
+  private threads: ThreadInfo[] = [];
   private readonly body: HTMLElement;
   private readonly nav: HTMLElement;
   private readonly off: () => void;
@@ -94,6 +96,7 @@ export class SettingsView {
     this.off = wire.onAny((n) => this.notice(n));
     wire.request({ op: "settings" });
     wire.request({ op: "mcp_list" });
+    if (host.primary) wire.request({ op: "threads", cwd: host.primary });
     this.render();
   }
 
@@ -119,6 +122,10 @@ export class SettingsView {
       case "choices":
         if (n.models) this.models = n.models;
         if (n.permissions) this.permissions = n.permissions;
+        break;
+      case "threads":
+        if (n.cwd !== this.host.primary) return;
+        this.threads = n.threads;
         break;
       case "mcp":
         this.mcp = n.list.servers;
@@ -298,8 +305,10 @@ export class SettingsView {
       li.append(el(d, "span", "m ell", root));
       if (i === 0) li.append(el(d, "span", "tag", "Primary"));
       else li.append(button(d, "Remove", () => {
-        const r = removeRoot(this.desktop, primary, root);
+        const r = removeRoot(this.desktop, primary, root, this.threads);
+        this.rootError = "error" in r ? r.error : undefined;
         if ("roots" in r) this.set("roots", r.roots);
+        else this.render();
       }, "btn danger"));
       list.append(li);
     });

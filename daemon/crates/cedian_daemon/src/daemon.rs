@@ -869,11 +869,25 @@ impl Daemon {
                 cwd,
                 thread,
                 archived,
+                force,
             } => {
-                let (cedia, quiet) = {
+                let (cedia, quiet, files) = {
                     let daemon = lock(shared);
-                    (daemon.cedia.clone(), !daemon.needs_you(&cwd, &thread))
+                    let files = if archived && !force {
+                        daemon.uncommitted(&cwd, &thread)
+                    } else {
+                        Vec::new()
+                    };
+                    (
+                        daemon.cedia.clone(),
+                        !daemon.needs_you(&cwd, &thread),
+                        files,
+                    )
                 };
+                if !files.is_empty() {
+                    lock(shared).send(client, Notice::ArchiveGuard { cwd, thread, files });
+                    return;
+                }
                 match cedia.archive(&cwd, &thread, archived) {
                     // Archiving is the person's own change: a thread that did not need them
                     // still does not.
@@ -1248,6 +1262,12 @@ impl Daemon {
             if !daemon.nothing_owed(cwd, thread) {
                 return;
             }
+            // Its worktree goes some time after archive, and uncommitted work with it.
+            let files = daemon.uncommitted(cwd, thread);
+            if !files.is_empty() {
+                log::info!("not archiving {thread}: {} uncommitted files", files.len());
+                return;
+            }
             daemon.cedia.clone()
         };
         match cedia.archive(cwd, thread, true) {
@@ -1257,6 +1277,21 @@ impl Daemon {
             }
             Err(error) => log::warn!("archiving {thread}: {error:#}"),
         }
+    }
+
+    /// The uncommitted files in the worktree the thread's latest session ran in; none when it
+    /// ran in the project itself, or has no session yet.
+    fn uncommitted(&self, cwd: &Path, thread: &str) -> Vec<String> {
+        let slug = project_key(cwd);
+        let work_tree = read_thread(&threads_dir(&self.home, &slug), thread)
+            .and_then(|summary| Changes::of(&self.home, &slug, &summary));
+        let Ok(changes) = work_tree else {
+            return Vec::new();
+        };
+        crate::worktree::uncommitted(&changes.work_tree).unwrap_or_else(|error| {
+            log::warn!("{thread}: {error:#}");
+            Vec::new()
+        })
     }
 
     /// Whether the thread needs the person now, as the list would say.

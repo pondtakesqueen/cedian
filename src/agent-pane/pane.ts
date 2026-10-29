@@ -35,6 +35,11 @@ export interface PaneHost {
   /** The diff editor for the thread's review, at one file when named, at one of its lines when given. */
   openReview(thread: string, cwd: string, review: Review, file?: string, line?: number): void;
   openUrl(url: string): void;
+  /**
+   * Whether to archive a thread whose worktree has uncommitted changes in `files`, which go when
+   * the worktree is removed after archive. Without it the pane says so inline and archives nothing.
+   */
+  confirmArchive?(files: string[]): Promise<boolean>;
 }
 
 /** What cedia shows a model (`ImageMime`). */
@@ -50,6 +55,9 @@ export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
 /** What the composer takes as the review card's command. */
 const CODE_REVIEW = "/code-review";
 const CODE_REVIEW_ENTRY: CommandEntry = { name: "code-review", description: "Review what this thread changed, finding by file", kind: "command", source: "user" };
+/** What the composer takes as archiving the open thread. */
+const ARCHIVE = "/archive";
+const ARCHIVE_ENTRY: CommandEntry = { name: "archive", description: "Archive this thread: it leaves the list", kind: "command", source: "user" };
 
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
@@ -328,6 +336,9 @@ export class AgentPane {
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
         break;
+      case "archive_guard":
+        void this.archiveGuard(n.cwd, n.thread, n.files);
+        break;
       case "started":
         if (before.thread === undefined && this.state.thread) this.wire.request({ op: "threads", cwd: this.host.cwd });
         break;
@@ -384,6 +395,7 @@ export class AgentPane {
 
   private send(): void {
     if (this.input.value.trim() === CODE_REVIEW) return this.codeReview();
+    if (this.input.value.trim() === ARCHIVE) return this.archive();
     if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
@@ -404,6 +416,26 @@ export class AgentPane {
       return this.render();
     }
     this.sent([{ op: "code_review", cwd: this.cwd, thread }]);
+  }
+
+  /** `/archive`: hides the open thread from the list; a worktree with uncommitted changes asks first. */
+  private archive(): void {
+    const thread = this.state.thread;
+    if (!thread) {
+      this.state = { ...this.state, error: "Open a thread first, then run /archive" };
+      return this.render();
+    }
+    this.sent([{ op: "archive", cwd: this.cwd, thread, archived: true }]);
+  }
+
+  /** The daemon did not archive: the thread's worktree has uncommitted changes. */
+  private async archiveGuard(cwd: string, thread: string, files: string[]): Promise<void> {
+    if (!this.host.confirmArchive) {
+      const shown = files.slice(0, 3).join(", ") + (files.length > 3 ? ` and ${files.length - 3} more` : "");
+      this.state = { ...this.state, error: `Not archived: this worktree has uncommitted changes (${shown}). Commit them first.` };
+      return this.render();
+    }
+    if (await this.host.confirmArchive(files)) this.wire.request({ op: "archive", cwd, thread, archived: true, force: true });
   }
 
   private can(cap: Capability): boolean {
@@ -441,7 +473,8 @@ export class AgentPane {
     this.token = token;
     if (!token) return this.closePopup();
     if (token.trigger === "/") {
-      this.showCompletions(complete(token, [], this.can("code-review") && this.state.thread ? [CODE_REVIEW_ENTRY, ...this.commands] : this.commands));
+      const own = this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : [];
+      this.showCompletions(complete(token, [], [...own, ...this.commands]));
       return;
     }
     const asked = token;
@@ -677,6 +710,9 @@ export class AgentPane {
     const head = el(d, "div", "row");
     head.append(el(d, "span", "", `${sum.files} ${sum.files === 1 ? "file" : "files"}`), el(d, "span", "ok m", `+${sum.added}`), el(d, "span", "bad m", `−${sum.removed}`));
     if (sum.pending) head.append(el(d, "span", "small", `${sum.pending} to review`));
+    // Spec §8.4: a stale hunk is said inline. Its lines were edited after the agent wrote them,
+    // so accepting or rejecting it no longer applies.
+    if (sum.stale) head.append(el(d, "span", "small warn", `${sum.stale} changed since`));
     head.append(button(d, "Open diff", () => this.host.openReview(thread, this.cwd, review)));
     const pending = review.files.flatMap((f) => f.hunks).filter((h) => h.state === "pending");
     if (pending.length) {
@@ -696,6 +732,10 @@ export class AgentPane {
           button(d, "Accept", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "accept" } })), "btn small"),
           button(d, "Reject", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "reject", reason: "" } })), "btn small danger"),
         );
+      } else if (states.length && states.every((s) => s === "stale")) {
+        const tag = el(d, "span", "small warn", "Changed since");
+        tag.title = "These lines were edited after the agent wrote them; there is nothing left to accept or reject";
+        row.append(tag);
       } else if (states.length) {
         row.append(el(d, "span", "small", states.every((s) => s === "accepted") ? "Accepted" : states.every((s) => s === "rejected") ? "Rejected" : "Reviewed"));
       }

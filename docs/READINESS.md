@@ -234,9 +234,14 @@
     speaks another protocol; errors inline in their own thread or the
     settings window; notifications for a review that can't open); no
     unhandled rejections in the window, no unwrap on client input in the
-    daemon. Not built yet: the archive guard, "a thread is using this root",
-    "Claude tools are off for this site", stale hunks shown inline, and the
-    browser's transient errors as notifications
+    daemon. The archive guard: `/archive` on a thread whose worktree has
+    uncommitted changes asks "Archive anyway?" (cancel keeps them), and
+    auto-archive leaves such a thread alone. Settings keeps a root a thread
+    still works in ("A thread is using this root: <title>. Archive it
+    first"). The review card says which hunks were changed since the agent
+    wrote them ("1 changed since", "Changed since" on the file). Not built
+    yet: "Claude tools are off for this site", and the browser's transient
+    errors as notifications
   - [ ] License: `python3 script/license-scan.py --app <Cedian.app>` passes
     (309 packages, no copyleft beyond the allowed jschardet); NOTICE ships
     in the app as `licenses/Cedian-NOTICE.txt` beside VS Code's LICENSE.txt

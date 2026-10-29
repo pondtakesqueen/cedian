@@ -13,7 +13,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -71,6 +71,7 @@ export class AgentPaneView extends ViewPane {
 		@IFileService private readonly fileService: IFileService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 		@INotificationService private readonly notifications: INotificationService,
+		@IDialogService private readonly dialogs: IDialogService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -115,6 +116,17 @@ export class AgentPaneView extends ViewPane {
 			// A review that can't open says so in a notification (spec §8.4: transient).
 			openReview: (thread, cwd, review, file, line) => { this.reviews.open(thread, cwd, review, file, line).catch(e => this.notifications.warn(`Couldn't open the review: ${e instanceof Error ? e.message : e}`)); },
 			openUrl: url => { this.openerService.open(URI.parse(url)); },
+			// Spec §8.4: "Archive anyway? This worktree has uncommitted changes"; cancel keeps them.
+			confirmArchive: async files => {
+				const shown = files.slice(0, 5).join('\n') + (files.length > 5 ? `\nand ${files.length - 5} more` : '');
+				const { confirmed } = await this.dialogs.confirm({
+					type: 'warning',
+					message: 'Archive anyway? This worktree has uncommitted changes',
+					detail: `They go when the worktree is removed after archive:\n${shown}`,
+					primaryButton: 'Archive Anyway',
+				});
+				return confirmed;
+			},
 		});
 		this.pane = pane;
 		CedianPanes.current = pane;

@@ -55,4 +55,11 @@ describe("roots", () => {
     expect(removeRoot(desktop, primary, "/x")).toEqual({ roots: { other: ["/y"] } });
     expect(removeRoot({ roots: { "Users-pond-My-Projects-a-b": [primary, "/x", "/z"] } }, primary, "/x")).toEqual({ roots: { "Users-pond-My-Projects-a-b": [primary, "/z"] } });
   });
+  it("keeps a root a thread still works in", () => {
+    const desktop = { roots: { "Users-pond-My-Projects-a-b": [primary, "/x"] } };
+    expect(removeRoot(desktop, primary, "/x", [{ title: "Tidy", archived: false, root: "/x" }])).toEqual({ error: "A thread is using this root: Tidy. Archive it first" });
+    expect(removeRoot(desktop, primary, "/x", [{ title: "Tidy", archived: false, cwd: "/x/.cedian/worktrees/tidy" }])).toHaveProperty("error");
+    // Archived, or in a folder that only starts the same: the root goes.
+    expect(removeRoot(desktop, primary, "/x", [{ title: "Tidy", archived: true, root: "/x" }, { title: "Other", archived: false, cwd: "/xy" }])).toEqual({ roots: {} });
+  });
 });
