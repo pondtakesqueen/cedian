@@ -601,8 +601,9 @@ fn line_comments_and_a_code_review_are_kept_for_the_thread_and_sent_as_its_next_
         cwd: cwd.clone(),
         thread: thread(),
     });
-    window
-        .until(|n| matches!(n, Notice::Error { message } if message == "no line comments to send"));
+    window.until(
+        |n| matches!(n, Notice::Error { message, .. } if message == "no line comments to send"),
+    );
 }
 
 #[test]
@@ -613,7 +614,26 @@ fn a_cedia_without_code_review_says_so() {
         cwd: harness.cwd.clone(),
         thread: "t-1".into(),
     });
-    assert!(matches!(window.next(), Notice::Error { .. }));
+    // About that thread, so the pane shows it only there.
+    assert!(
+        matches!(window.next(), Notice::Error { thread: Some(t), settings: false, .. } if t == "t-1")
+    );
+}
+
+#[test]
+fn opening_a_thread_the_project_has_no_record_of_says_so() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Open {
+        cwd: harness.cwd.clone(),
+        thread: "t-nope".into(),
+    });
+    let (_, seen) = window.until(|n| matches!(n, Notice::Error { .. }));
+    let notice = seen.last().expect("an error");
+    assert!(
+        matches!(notice, Notice::Error { message, thread: Some(t), .. } if message == "no thread t-nope in this project" && t == "t-nope"),
+        "{notice:?}"
+    );
 }
 
 #[test]
@@ -632,7 +652,15 @@ fn a_cedia_without_mcp_manage_says_so() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);
     window.ask(Request::McpList);
-    assert!(matches!(window.next(), Notice::Error { .. }));
+    // The settings window asked, so it shows there and not in the agent pane.
+    assert!(matches!(
+        window.next(),
+        Notice::Error {
+            settings: true,
+            thread: None,
+            ..
+        }
+    ));
 }
 
 #[test]

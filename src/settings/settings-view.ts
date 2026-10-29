@@ -124,6 +124,11 @@ export class SettingsView {
         this.mcp = n.list.servers;
         this.mcpNote = n.refused ?? undefined;
         break;
+      // An ask of this window's that failed (an MCP change, a setting it could not write).
+      case "error":
+        if (!n.settings) return;
+        this.mcpNote = n.message;
+        break;
       case "mcp_checked": {
         const c = n.check;
         this.checks.set(c.name, "error" in c ? c.error : `Connected · ${c.tools.length} tools`);

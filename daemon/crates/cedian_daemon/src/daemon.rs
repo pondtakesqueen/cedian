@@ -331,7 +331,40 @@ impl Daemon {
 
     fn error(&mut self, id: ClientId, message: String) {
         log::warn!("client {id}: {message}");
-        self.send(id, Notice::Error { message });
+        self.send(
+            id,
+            Notice::Error {
+                message,
+                thread: None,
+                settings: false,
+            },
+        );
+    }
+
+    /// An error about one thread, shown in the pane only while that thread is open.
+    fn thread_error(&mut self, id: ClientId, thread: &str, message: String) {
+        log::warn!("client {id}, {thread}: {message}");
+        self.send(
+            id,
+            Notice::Error {
+                message,
+                thread: Some(thread.to_owned()),
+                settings: false,
+            },
+        );
+    }
+
+    /// An error for the settings window, shown there.
+    fn settings_error(&mut self, id: ClientId, message: String) {
+        log::warn!("client {id}, settings: {message}");
+        self.send(
+            id,
+            Notice::Error {
+                message,
+                thread: None,
+                settings: true,
+            },
+        );
     }
 
     /// Sends a notice to every client that has the thread open.
@@ -527,8 +560,9 @@ impl Daemon {
                             )
                             .1 =>
                     {
-                        lock(shared).error(
+                        lock(shared).thread_error(
                             client,
+                            thread.as_deref().unwrap_or_default(),
                             "an image goes with a new run: send it once this one ends".into(),
                         )
                     }
@@ -614,7 +648,11 @@ impl Daemon {
                     (daemon.cedia.clone(), can)
                 };
                 if !can {
-                    return lock(shared).error(client, "this cedia cannot fork a thread".into());
+                    return lock(shared).thread_error(
+                        client,
+                        &thread,
+                        "this cedia cannot fork a thread".into(),
+                    );
                 }
                 match cedia.fork(&cwd, &thread, &run) {
                     Ok((forked, kept)) => {
@@ -648,7 +686,7 @@ impl Daemon {
                         // fork copied, and then reads the run as any open thread's.
                         Self::prompt(shared, None, cwd.clone(), cwd, &text, Some(forked), with);
                     }
-                    Err(error) => lock(shared).error(client, format!("{error:#}")),
+                    Err(error) => lock(shared).thread_error(client, &thread, format!("{error:#}")),
                 }
             }
             Request::Restore {
@@ -660,7 +698,11 @@ impl Daemon {
                 let (cedia, can) =
                     Self::can(shared, cedian_protocol::Capability::ThreadsRestoreJson);
                 if !can {
-                    return lock(shared).error(client, "this cedia cannot undo a turn here".into());
+                    return lock(shared).thread_error(
+                        client,
+                        &thread,
+                        "this cedia cannot undo a turn here".into(),
+                    );
                 }
                 match cedia.restore(&cwd, &thread, redo, force) {
                     Ok(result) => lock(shared).send(
@@ -671,7 +713,7 @@ impl Daemon {
                             result,
                         },
                     ),
-                    Err(error) => lock(shared).error(client, format!("{error:#}")),
+                    Err(error) => lock(shared).thread_error(client, &thread, format!("{error:#}")),
                 }
             }
             Request::Rewind {
@@ -683,7 +725,11 @@ impl Daemon {
                 let (cedia, can) =
                     Self::can(shared, cedian_protocol::Capability::ThreadsRestoreJson);
                 if !can {
-                    return lock(shared).error(client, "this cedia cannot rewind here".into());
+                    return lock(shared).thread_error(
+                        client,
+                        &thread,
+                        "this cedia cannot rewind here".into(),
+                    );
                 }
                 match cedia.rewind(&cwd, &thread, n, force) {
                     Ok(result) => lock(shared).send(
@@ -695,7 +741,7 @@ impl Daemon {
                             result,
                         },
                     ),
-                    Err(error) => lock(shared).error(client, format!("{error:#}")),
+                    Err(error) => lock(shared).thread_error(client, &thread, format!("{error:#}")),
                 }
             }
             Request::Send {
@@ -707,8 +753,9 @@ impl Daemon {
                 if !images.is_empty()
                     && !Self::can(shared, cedian_protocol::Capability::ThreadsSendImages).1
                 {
-                    return lock(shared).error(
+                    return lock(shared).thread_error(
                         client,
+                        &thread,
                         "this cedia sends text only to a running thread".into(),
                     );
                 }
@@ -803,7 +850,7 @@ impl Daemon {
             Request::Unsend { cwd, thread, ids } => {
                 let cedia = lock(shared).cedia.clone();
                 if let Err(error) = cedia.unsend(&cwd, &thread, &ids) {
-                    lock(shared).error(client, format!("{error:#}"));
+                    lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
             Request::Rate {
@@ -813,7 +860,7 @@ impl Daemon {
             } => {
                 let cedia = lock(shared).cedia.clone();
                 if let Err(error) = cedia.rate(&cwd, &thread, rating) {
-                    lock(shared).error(client, format!("{error:#}"));
+                    lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
             Request::PrWatch { cwd, thread, watch } => Self::watch_pr(shared, &cwd, &thread, watch),
@@ -831,19 +878,19 @@ impl Daemon {
                     // still does not.
                     Ok(()) if quiet => lock(shared).mark_seen(&cwd, &thread),
                     Ok(()) => {}
-                    Err(error) => lock(shared).error(client, format!("{error:#}")),
+                    Err(error) => lock(shared).thread_error(client, &thread, format!("{error:#}")),
                 }
             }
             Request::Rename { cwd, thread, title } => {
                 let cedia = lock(shared).cedia.clone();
                 if let Err(error) = cedia.rename(&cwd, &thread, &title) {
-                    lock(shared).error(client, format!("{error:#}"));
+                    lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
             Request::Delete { cwd, thread } => {
                 let cedia = lock(shared).cedia.clone();
                 if let Err(error) = cedia.delete(&cwd, &thread) {
-                    lock(shared).error(client, format!("{error:#}"));
+                    lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
             Request::Browser { cwd } => {
@@ -926,14 +973,17 @@ impl Daemon {
                     (daemon.cedia.clone(), can)
                 };
                 if !can {
-                    lock(shared).error(client, "this cedia does not manage MCP servers yet".into());
+                    lock(shared).settings_error(
+                        client,
+                        "this cedia does not manage MCP servers yet".into(),
+                    );
                     return;
                 }
                 let refused = match request {
                     Request::McpCheck { name } => {
                         match cedia.mcp_check(&name) {
                             Ok(check) => lock(shared).send(client, Notice::McpChecked { check }),
-                            Err(error) => lock(shared).error(client, error),
+                            Err(error) => lock(shared).settings_error(client, error),
                         }
                         return;
                     }
@@ -943,7 +993,7 @@ impl Daemon {
                 };
                 match cedia.mcp_list() {
                     Ok(list) => lock(shared).send(client, Notice::Mcp { list, refused }),
-                    Err(error) => lock(shared).error(client, error),
+                    Err(error) => lock(shared).settings_error(client, error),
                 }
             }
             Request::Settings => lock(shared).settings(client),
@@ -1015,13 +1065,19 @@ impl Daemon {
                 });
                 match text {
                     Some(text) => Self::deliver(shared, client, cwd, &thread, &text),
-                    None => lock(shared).error(client, "no open finding to fix".into()),
+                    None => {
+                        lock(shared).thread_error(client, &thread, "no open finding to fix".into())
+                    }
                 }
             }
             Request::CodeReview { cwd, thread } => {
                 let (cedia, can) = Self::can(shared, cedian_protocol::Capability::CodeReview);
                 if !can {
-                    lock(shared).error(client, "this cedia does not review a thread yet".into());
+                    lock(shared).thread_error(
+                        client,
+                        &thread,
+                        "this cedia does not review a thread yet".into(),
+                    );
                     return;
                 }
                 let mut busy = false;
@@ -1075,10 +1131,10 @@ impl Daemon {
     ) {
         let mut notes = self.notes.load(thread);
         if let Err(error) = change(&mut notes) {
-            return self.error(client, error);
+            return self.thread_error(client, thread, error);
         }
         if let Err(error) = self.notes.save(thread, &notes) {
-            return self.error(client, format!("{error:#}"));
+            return self.thread_error(client, thread, format!("{error:#}"));
         }
         self.tell_readers(
             thread,
@@ -1095,7 +1151,7 @@ impl Daemon {
         let path = settings_path(&self.home);
         match read_desktop(&path) {
             Ok(desktop) => self.send(client, Notice::Settings { path, desktop }),
-            Err(error) => self.error(client, format!("{error:#}")),
+            Err(error) => self.settings_error(client, format!("{error:#}")),
         }
         self.send(client, self.choices.clone());
     }
@@ -1113,7 +1169,7 @@ impl Daemon {
                     self.send(id, notice);
                 }
             }
-            Err(error) => self.error(client, format!("{error:#}")),
+            Err(error) => self.settings_error(client, format!("{error:#}")),
         }
     }
 
@@ -1153,7 +1209,7 @@ impl Daemon {
                 told
             }
             Err(error) => {
-                self.error(client, format!("{error:#}"));
+                self.thread_error(client, thread, format!("{error:#}"));
                 None
             }
         }
@@ -1226,7 +1282,16 @@ impl Daemon {
         let slug = project_key(cwd);
         let summary = match read_thread(&threads_dir(&self.home, &slug), thread) {
             Ok(summary) => summary,
-            Err(error) => return self.error(client, format!("{error:#}")),
+            // A thread this project has no record of says so (spec §8.3); other reads say why.
+            Err(error) if !threads_dir(&self.home, &slug).join(thread).exists() => {
+                log::warn!("client {client}: {error:#}");
+                return self.thread_error(
+                    client,
+                    thread,
+                    format!("no thread {thread} in this project"),
+                );
+            }
+            Err(error) => return self.thread_error(client, thread, format!("{error:#}")),
         };
         if self.seen.mark(&slug, thread, &summary.updated_at) {
             self.refresh(&slug);
@@ -1669,13 +1734,13 @@ impl Daemon {
     ) {
         let cedia = lock(shared).cedia.clone();
         if let Err(error) = cedia.send(cwd, thread, text, images) {
-            lock(shared).error(client, format!("{error:#}"));
+            lock(shared).thread_error(client, thread, format!("{error:#}"));
         }
     }
 
     fn stop(&mut self, client: ClientId, thread: &str) {
         let Some(run) = self.by_thread.get(thread).and_then(|id| self.runs.get(id)) else {
-            return self.error(client, format!("{thread} has no run"));
+            return self.thread_error(client, thread, format!("{thread} has no run"));
         };
         if !run.alive {
             return;
@@ -1686,7 +1751,7 @@ impl Daemon {
         // SAFETY: kill only sends a signal; the run is alive, so the pid is still its child.
         if unsafe { libc::kill(pid, libc::SIGTERM) } != 0 {
             let error = std::io::Error::last_os_error();
-            self.error(client, format!("stopping {thread}: {error}"));
+            self.thread_error(client, thread, format!("stopping {thread}: {error}"));
         }
     }
 

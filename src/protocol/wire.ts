@@ -190,6 +190,8 @@ export type Notice =
   | {
       kind: "error";
       message: string;
+      settings?: boolean;
+      thread?: string | null;
     };
 /**
  * `Capability`

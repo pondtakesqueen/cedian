@@ -523,8 +523,15 @@ pub enum Notice {
         cwd: PathBuf,
         page: Result<BrowserPage, String>,
     },
+    /// An ask that failed, and why. `thread`: the thread it was about, so the agent pane shows
+    /// it only there; `settings`: the settings window asked, so it shows there and not in the
+    /// pane (spec §8.4: inline where it happened).
     Error {
         message: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thread: Option<String>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        settings: bool,
     },
 }
 
