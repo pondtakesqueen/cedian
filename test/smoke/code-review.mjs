@@ -251,6 +251,8 @@ try {
   const sent = runs.texts.find((t) => t.startsWith("I left comments on lines of your diff"));
   summary.sent = sent;
   step("c.send", Boolean(sent) && (await comments.count()) === 0, { status: thread.status, message: sent });
+  // The run the comments started goes on with the thread's model (cedia#176), not cedia's default.
+  step("c.model", runs.models.length === 1, { models: runs.models });
   summary.after = execFileSync("git", ["-C", work, "diff"], { encoding: "utf8" });
 } catch (error) {
   fail(error.stack ?? String(error));
