@@ -170,12 +170,12 @@ try {
   await shot(window, "b1-reviewing");
   await window.waitForFunction(() => {
     const c = document.querySelector(".cedian-agent-pane.live .card.code-review");
-    return c && !c.textContent.includes("กำลังรีวิว");
+    return c && !c.textContent.includes("Reviewing what this thread changed");
   }, null, { timeout: 5 * 60_000 });
   await shot(window, "b2-reviewed");
   const cardText = (await card.textContent()) ?? "";
   const findings = await card.locator(".finding").count();
-  const none = cardText.includes("ไม่พบปัญหา");
+  const none = cardText.includes("No findings");
   // The daemon keeps the review it showed (cedian_daemon notes.rs), with what it cost.
   const kept = (() => {
     try {
@@ -185,12 +185,12 @@ try {
     }
   })();
   summary.review = { text: cardText, findings, model: kept?.model, costUsd: kept?.costUsd, kept: kept?.findings };
-  step("b.review", (findings > 0 || none) && !cardText.includes("รีวิวไม่สำเร็จ"), { findings, none, text: cardText.slice(0, 400) });
+  step("b.review", (findings > 0 || none) && !cardText.includes("Review failed"), { findings, none, text: cardText.slice(0, 400) });
   if (findings > 0) {
-    const walk = card.getByRole("button", { name: "ไล่ดูใน diff" });
+    const walk = card.getByRole("button", { name: "Walk through" });
     if (await walk.count()) {
       await walk.click();
-      const tab = window.locator(".tab.active", { hasText: "(รีวิว)" });
+      const tab = window.locator(".tab.active", { hasText: "(review)" });
       await tab.waitFor({ timeout: 15_000 });
       await window.locator(".monaco-diff-editor").first().waitFor({ timeout: 15_000 });
       const label = (await tab.textContent()) ?? "";
@@ -203,8 +203,8 @@ try {
     } else {
       summary.steps["b.walk"] = { ok: true, skipped: "no finding names a line" };
     }
-    await card.getByRole("button", { name: "ข้าม" }).first().click();
-    const restore = card.getByRole("button", { name: "เอากลับ" });
+    await card.getByRole("button", { name: "Dismiss" }).first().click();
+    const restore = card.getByRole("button", { name: "Restore" });
     await restore.first().waitFor({ timeout: 15_000 });
     await shot(window, "b4-dismissed");
     step("b.dismiss", (await restore.count()) === 1, { restore: await restore.count() });
