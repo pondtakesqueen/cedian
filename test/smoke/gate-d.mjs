@@ -165,7 +165,9 @@ try {
     textarea.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   }, bytes);
   await pane.locator(".attachments .tag").waitFor({ timeout: 15_000 });
-  log(`attached: ${await pane.locator(".attachments .tag .ell").textContent()}`);
+  // A pasted video is saved under a name of the window's own, which its frames are named after.
+  const attached = (await pane.locator(".attachments .tag .ell").textContent()) ?? "";
+  log(`attached: ${attached}`);
   await pane.locator(".composer textarea").fill("The attached screen recording shows a bug in this page. Find it and fix it.");
   await shot(window, "1-composer");
   await pane.locator(".composer textarea").press("Enter");
@@ -194,7 +196,7 @@ try {
   for (const project of readdirSync(sessions)) {
     for (const file of readdirSync(join(sessions, project))) {
       for (const line of readFileSync(join(sessions, project, file), "utf8").split("\n")) {
-        if (!line.includes("basket-bug.mp4 @")) continue;
+        if (!attached || !line.includes(`${attached} @`)) continue;
         const event = JSON.parse(line);
         if (event.kind === "user") shown.push({ file, frames: event.images?.length ?? 0, names: (event.images ?? []).map((i) => i.name) });
       }
@@ -204,7 +206,7 @@ try {
   log(`the writer was shown ${shown[0]?.frames ?? 0} frames: ${shown[0]?.names.join(", ") ?? "none"}`);
   if (!shown.length || shown[0].frames < 2) fail("the writer was not shown the recording's frames");
   const session = shown[0] && readFileSync(join(sessions, readdirSync(sessions).find((p) => readdirSync(join(sessions, p)).includes(shown[0].file)), shown[0].file), "utf8");
-  summary.model = session ? JSON.parse(session.split("\n")[0]).model : null;
+  summary.model = session ? (session.split("\n").filter(Boolean).map((l) => JSON.parse(l)).find((e) => e.kind === "session")?.model ?? null) : null;
   log(`on ${summary.model}`);
 
   // 4. Use the page again: the counter must match the list.
