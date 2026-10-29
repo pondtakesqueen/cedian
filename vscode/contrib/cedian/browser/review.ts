@@ -3,7 +3,8 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -13,8 +14,10 @@ import { ITextModelContentProvider, ITextModelService } from '../../../../editor
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { TextEditorSelectionRevealType } from '../../../../platform/editor/common/editor.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import type { FileReview, Review } from './protocol/wire.js';
+import { ICedianDaemonService } from './daemonService.js';
+import type { FileReview, Notes, Review } from './protocol/wire.js';
 import { hunkLine, originalText } from './review/original.js';
 
 export const ICedianReviewService = createDecorator<ICedianReviewService>('cedianReviewService');
@@ -22,7 +25,12 @@ export const ICedianReviewService = createDecorator<ICedianReviewService>('cedia
 /** Opens a thread's review in VS Code's diff editor (spec §11 Phase B: review via the diff editor + cedian_review). */
 export interface ICedianReviewService {
 	readonly _serviceBrand: undefined;
-	open(thread: string, cwd: string, review: Review, file?: string): Promise<void>;
+	open(thread: string, cwd: string, review: Review, file?: string, line?: number): Promise<void>;
+	/** The thread, its working tree and the file's path in it, when `resource` is a file of a review opened here. */
+	reviewedAt(resource: URI): { thread: string; cwd: string; path: string } | undefined;
+	/** The thread's line comments and code review, as the daemon last sent them. */
+	notes(thread: string): Notes | undefined;
+	readonly onDidChangeNotes: Event<string>;
 }
 
 /** The left side of a reviewed file: the file with the thread's hunks undone. */
@@ -33,6 +41,9 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 
 	/** The latest review per thread; the left sides are rebuilt from it. */
 	private readonly reviews = new Map<string, { cwd: string; review: Review }>();
+	private readonly notesByThread = new Map<string, Notes>();
+	private readonly _onDidChangeNotes = this._register(new Emitter<string>());
+	readonly onDidChangeNotes = this._onDidChangeNotes.event;
 
 	constructor(
 		@ITextModelService textModelService: ITextModelService,
@@ -40,12 +51,34 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 		@ILanguageService private readonly languageService: ILanguageService,
 		@IFileService private readonly fileService: IFileService,
 		@IEditorService private readonly editorService: IEditorService,
+		@ICedianDaemonService daemon: ICedianDaemonService,
 	) {
 		super();
 		this._register(textModelService.registerTextModelContentProvider(ORIGINAL_SCHEME, this));
+		this._register(toDisposable(daemon.client.on('notes', notice => {
+			this.notesByThread.set(notice.thread, notice.notes);
+			this._onDidChangeNotes.fire(notice.thread);
+		})));
 	}
 
-	async open(thread: string, cwd: string, review: Review, file?: string): Promise<void> {
+	reviewedAt(resource: URI): { thread: string; cwd: string; path: string } | undefined {
+		if (resource.scheme !== 'file') {
+			return undefined;
+		}
+		for (const [thread, { cwd, review }] of this.reviews) {
+			const file = review.files.find(f => joinPath(URI.file(cwd), f.path).fsPath === resource.fsPath);
+			if (file) {
+				return { thread, cwd, path: file.path };
+			}
+		}
+		return undefined;
+	}
+
+	notes(thread: string): Notes | undefined {
+		return this.notesByThread.get(thread);
+	}
+
+	async open(thread: string, cwd: string, review: Review, file?: string, line?: number): Promise<void> {
 		this.reviews.set(thread, { cwd, review });
 		// A left side already open follows the review as it is now.
 		for (const model of this.modelService.getModels()) {
@@ -67,10 +100,11 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 		if (file) {
 			const f = files[0];
 			const first = f.hunks[0];
+			const at = line ?? (first ? hunkLine(first) : undefined);
 			await this.editorService.openEditor({
 				...sides(f),
 				label: `${f.path} (รีวิว)`,
-				options: first ? { selection: { startLineNumber: hunkLine(first), startColumn: 1 }, pinned: true } : { pinned: true },
+				options: at !== undefined ? { selection: { startLineNumber: at, startColumn: 1 }, selectionRevealType: TextEditorSelectionRevealType.CenterIfOutsideViewport, pinned: true } : { pinned: true },
 			});
 			return;
 		}

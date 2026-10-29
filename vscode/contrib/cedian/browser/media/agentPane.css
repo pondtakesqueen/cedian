@@ -50,6 +50,10 @@
 .cedian-agent-pane .step.doing .mark { color: var(--cedian-working); }
 .cedian-agent-pane .file { display: flex; gap: 8px; align-items: center; }
 .cedian-agent-pane .file .link { flex: 1 1 auto; text-align: left; }
+.cedian-agent-pane .finding > .link, .cedian-agent-pane .finding > .ell { flex: 1 1 auto; text-align: left; }
+.cedian-agent-pane .finding.dismissed > * { opacity: .55; }
+.cedian-agent-pane .finding.dismissed > .btn { opacity: 1; }
+.cedian-agent-pane .finding.current { box-shadow: inset 2px 0 0 var(--cedian-accent, currentColor); padding-left: 6px; }
 .cedian-agent-pane .error { max-width: 680px; margin: 8px auto 0; padding: 0 16px; white-space: pre-wrap; }
 .cedian-agent-pane .queue { padding: 0 12px; display: flex; flex-direction: column; gap: 4px; }
 .cedian-agent-pane .queue:empty { display: none; }

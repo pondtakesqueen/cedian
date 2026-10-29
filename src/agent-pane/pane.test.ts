@@ -84,6 +84,71 @@ describe("agent pane", () => {
     expect(opened).toEqual(["t-1:src/a.ts"]);
   });
 
+  it("/code-review asks the daemon, then the card groups findings by file: walk, fix one, dismiss, fix all", () => {
+    const opened: string[] = [];
+    const { pane, emit, last } = setup({ openReview: (thread, _cwd, _review, file, line) => opened.push(`${thread}:${file}:${line}`) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    const review: Review = { files: [{ path: "src/a.ts", added: 1, removed: 0, binary: false, hunks: [] }] };
+    emit({ kind: "review", thread: "t-1", review });
+    type(pane, "/code-review");
+    // The first Enter takes the completion, the second sends.
+    enter(pane);
+    enter(pane);
+    expect(last()).toEqual({ op: "code_review", cwd: "/r", thread: "t-1" });
+    expect(pane.composer.value).toBe("");
+    emit({ kind: "notes", thread: "t-1", notes: { comments: [], reviewing: true } });
+    expect(pane.root.querySelector(".code-review")?.textContent).toContain("กำลังรีวิว");
+    const findings = [
+      { id: "f1", path: "src/a.ts", line: 4, text: "src/a.ts:4 drops the last item" },
+      { id: "f2", path: "src/b.ts", line: 2, text: "src/b.ts:2 never closes" },
+      { id: "f3", text: "the tests are gone" },
+    ];
+    emit({ kind: "notes", thread: "t-1", notes: { comments: [], review: { model: "faux/review", verdict: "changes", summary: "Read both.", files: ["src/a.ts", "src/b.ts"], dropped: [], costUsd: 0, findings } } });
+    const card = pane.root.querySelector(".code-review")!;
+    expect(card.textContent).toContain("3 ข้อ");
+    expect([...card.querySelectorAll(".m.small")].map((e) => e.textContent)).toEqual(["src/a.ts", "src/b.ts", "ไม่ระบุไฟล์"]);
+    buttons(pane.root, "ไล่ดูใน diff")[0]!.click();
+    buttons(pane.root, "ข้อถัดไป (1/2)")[0]!.click();
+    expect(opened).toEqual(["t-1:src/a.ts:4", "t-1:src/b.ts:2"]);
+    buttons(pane.root, "แก้ข้อนี้")[1]!.click();
+    expect(last()).toEqual({ op: "fix_findings", cwd: "/r", thread: "t-1", findings: ["f2"] });
+    buttons(pane.root, "ข้าม")[0]!.click();
+    expect(last()).toEqual({ op: "dismiss", thread: "t-1", finding: "f1", dismissed: true });
+    emit({ kind: "notes", thread: "t-1", notes: { comments: [], dismissed: ["f1"], review: { model: "faux/review", verdict: "changes", summary: "", files: [], dropped: [], costUsd: 0, findings } } });
+    expect(pane.root.querySelector(".code-review")?.textContent).toContain("ข้ามแล้ว 1");
+    expect(buttons(pane.root, "เอากลับ")).toHaveLength(1);
+    buttons(pane.root, "แก้ทั้งหมด")[0]!.click();
+    expect(last()).toEqual({ op: "fix_findings", cwd: "/r", thread: "t-1", findings: [] });
+    emit({ kind: "notes", thread: "t-1", notes: { comments: [], review: { error: "no snapshots" } } });
+    expect(pane.root.querySelector(".code-review")?.textContent).toContain("รีวิวไม่สำเร็จ: no snapshots");
+  });
+
+  it("line comments wait in a card until Send all; one can be removed", () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    const comments = [
+      { id: "c1", path: "src/a.ts", line: 3, text: "return y" },
+      { id: "c2", path: "src/b.ts", line: 9, text: "why?" },
+    ];
+    emit({ kind: "notes", thread: "t-1", notes: { comments } });
+    expect(pane.root.querySelector(".comments")?.textContent).toContain("คอมเมนต์ใน diff 2 รายการ");
+    buttons(pane.root, "ลบ")[0]!.click();
+    expect(last()).toEqual({ op: "comments", thread: "t-1", comments: [comments[1]] });
+    buttons(pane.root, "ส่งทั้งหมด")[0]!.click();
+    expect(last()).toEqual({ op: "send_comments", cwd: "/r", thread: "t-1" });
+  });
+
+  it("/code-review with no thread open says so and sends nothing", () => {
+    const { pane, sent } = setup();
+    const before = sent.length;
+    type(pane, "/code-review");
+    enter(pane);
+    expect(sent).toHaveLength(before);
+    expect(pane.root.textContent).toContain("เปิดเธรดที่มีการแก้ไฟล์ก่อน");
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

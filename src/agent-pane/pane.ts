@@ -7,6 +7,7 @@ import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunC
 import { button, el, select, type Wire } from "../dom/el.js";
 import type { Capability, CommandEntry, ModelList, Notice, PermissionList, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
+import { byFile, findingCount, openFindings, reviewed, sendComments, setComments, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { items } from "./items.js";
@@ -31,8 +32,8 @@ export interface PaneHost {
    * only until the run starts: cedia keeps its own copy by hash.
    */
   saveImage?(bytes: Uint8Array, mime: string): Promise<string>;
-  /** The diff editor for the thread's review, at one file when named. */
-  openReview(thread: string, cwd: string, review: Review, file?: string): void;
+  /** The diff editor for the thread's review, at one file when named, at one of its lines when given. */
+  openReview(thread: string, cwd: string, review: Review, file?: string, line?: number): void;
   openUrl(url: string): void;
 }
 
@@ -45,6 +46,10 @@ const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matr
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
   return threads.filter((t) => !t.archived).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
+
+/** What the composer takes as the review card's command. */
+const CODE_REVIEW = "/code-review";
+const CODE_REVIEW_ENTRY: CommandEntry = { name: "code-review", description: "รีวิวสิ่งที่เธรดนี้แก้ แล้วแสดงผลเป็นรายไฟล์", kind: "command", source: "user" };
 
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
@@ -89,6 +94,8 @@ export class AgentPane {
   private threads: ThreadInfo[] = [];
   private state: ThreadState;
   private ship: Ship = idleShip();
+  /** Where Walk through is in the open findings, by finding id. */
+  private walking?: string;
   private models?: ModelList;
   private permissions?: PermissionList;
   private commands: CommandEntry[] = [];
@@ -370,6 +377,7 @@ export class AgentPane {
   }
 
   private send(): void {
+    if (this.input.value.trim() === CODE_REVIEW) return this.codeReview();
     if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
@@ -380,6 +388,20 @@ export class AgentPane {
     // The chat's first message starts the coordinator's thread in the project itself.
     if (this.chat && !this.state.thread) requests = requests.map((r) => (r.op === "prompt" ? { ...r, profile: COORDINATOR, worktree: false } : r));
     this.sent(requests);
+  }
+
+  /** `/code-review`: cedia reviews what the open thread changed; the card shows the findings. */
+  private codeReview(): void {
+    const thread = this.state.thread;
+    if (!thread || !this.can("code-review")) {
+      this.state = { ...this.state, error: thread ? "cedia รุ่นนี้ยังรีวิวโค้ดไม่ได้" : "เปิดเธรดที่มีการแก้ไฟล์ก่อน แล้วค่อยสั่ง /code-review" };
+      return this.render();
+    }
+    this.sent([{ op: "code_review", cwd: this.cwd, thread }]);
+  }
+
+  private can(cap: Capability): boolean {
+    return this.capabilities.length === 0 || this.capabilities.includes(cap);
   }
 
   /**
@@ -413,7 +435,7 @@ export class AgentPane {
     this.token = token;
     if (!token) return this.closePopup();
     if (token.trigger === "/") {
-      this.showCompletions(complete(token, [], this.commands));
+      this.showCompletions(complete(token, [], this.can("code-review") && this.state.thread ? [CODE_REVIEW_ENTRY, ...this.commands] : this.commands));
       return;
     }
     const asked = token;
@@ -553,6 +575,8 @@ export class AgentPane {
     const ask = askCard(this.state.info);
     if (ask) parts.push(this.askCard(ask));
     if (this.state.review && this.state.review.files.length > 0 && !isRunning(this.state)) parts.push(this.reviewCard(this.state.review));
+    if (this.state.notes?.comments.length) parts.push(this.commentsCard(this.state.notes.comments));
+    if (this.state.notes?.reviewing || this.state.notes?.review) parts.push(this.codeReviewCard());
     if (this.state.thread && !isRunning(this.state) && this.state.review && this.state.review.files.length > 0) parts.push(this.shipCard());
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
@@ -670,6 +694,87 @@ export class AgentPane {
         row.append(el(d, "span", "small", states.every((s) => s === "accepted") ? "รับแล้ว" : states.every((s) => s === "rejected") ? "ไม่เอาแล้ว" : "รีวิวแล้ว"));
       }
       card.append(row);
+    }
+    return card;
+  }
+
+  /** The line comments waiting to go: each one, Remove, and Send all (Cmd+Enter in the diff). */
+  private commentsCard(comments: NonNullable<ThreadState["notes"]>["comments"]): HTMLElement {
+    const d = this.doc;
+    const thread = this.state.thread!;
+    const card = el(d, "div", "card comments");
+    const head = el(d, "div", "row");
+    head.append(el(d, "span", "", `คอมเมนต์ใน diff ${comments.length} รายการ`), button(d, "ส่งทั้งหมด", () => this.wire.request(sendComments(this.cwd, thread)), "btn primary"));
+    card.append(head);
+    for (const c of comments) {
+      const row = el(d, "div", "file");
+      const at = button(d, `${c.path}:${c.line}`, () => this.state.review && this.host.openReview(thread, this.cwd, this.state.review, c.path, c.line), "link m ell");
+      row.append(at, el(d, "span", "small ell", c.text), button(d, "ลบ", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));
+      card.append(row);
+    }
+    return card;
+  }
+
+  /**
+   * The `/code-review` card: the findings by file, each with Fix this one and Dismiss; Walk
+   * through steps the open ones in the diff, and Apply fixes asks the thread to fix them all.
+   */
+  private codeReviewCard(): HTMLElement {
+    const d = this.doc;
+    const thread = this.state.thread!;
+    const notes = this.state.notes!;
+    const card = el(d, "div", "card code-review");
+    const head = el(d, "div", "row");
+    head.append(el(d, "span", "", "รีวิวโค้ด"));
+    if (notes.reviewing) {
+      card.append(head, el(d, "div", "small", "กำลังรีวิวสิ่งที่เธรดนี้แก้…"));
+      return card;
+    }
+    const review = reviewed(notes);
+    if (!review) {
+      const why = notes.review && "error" in notes.review ? notes.review.error : "";
+      head.append(button(d, "รีวิวอีกครั้ง", () => this.wire.request({ op: "code_review", cwd: this.cwd, thread }), "btn small"));
+      card.append(head, el(d, "div", "small bad", `รีวิวไม่สำเร็จ: ${why}`));
+      return card;
+    }
+    head.append(el(d, "span", "small", `${findingCount(notes)} · ${review.model}`));
+    const open = openFindings(notes);
+    const steps = walkSteps(notes);
+    const fix = (findings: string[]) => this.wire.request({ op: "fix_findings", cwd: this.cwd, thread, findings });
+    const busy = isRunning(this.state);
+    if (steps.length && this.state.review) {
+      const at = Math.max(0, steps.findIndex((f) => f.id === this.walking));
+      const walk = () => {
+        const step = steps[(this.walking === undefined ? 0 : at + 1) % steps.length]!;
+        this.walking = step.id;
+        this.host.openReview(thread, this.cwd, this.state.review!, step.path, step.line);
+        this.render();
+      };
+      head.append(button(d, this.walking === undefined ? "ไล่ดูใน diff" : `ข้อถัดไป (${at + 1}/${steps.length})`, walk, "btn small"));
+    }
+    if (open.length && !busy) head.append(button(d, "แก้ทั้งหมด", () => fix([]), "btn primary"));
+    head.append(button(d, "รีวิวใหม่", () => this.wire.request({ op: "code_review", cwd: this.cwd, thread }), "btn small"));
+    card.append(head);
+    if (review.summary) card.append(el(d, "div", "small", review.summary));
+    for (const group of byFile(notes)) {
+      card.append(el(d, "div", "m small", group.path ?? "ไม่ระบุไฟล์"));
+      for (const { finding, dismissed } of group.rows) {
+        const row = el(d, "div", dismissed ? "file finding dismissed" : this.walking === finding.id ? "file finding current" : "file finding");
+        const text = typeof finding.line === "number" && finding.path && this.state.review
+          ? button(d, finding.text, () => {
+              this.walking = finding.id;
+              this.host.openReview(thread, this.cwd, this.state.review!, finding.path!, finding.line!);
+              this.render();
+            }, "link ell")
+          : el(d, "span", "ell", finding.text);
+        row.append(text);
+        if (dismissed) row.append(button(d, "เอากลับ", () => this.wire.request({ op: "dismiss", thread, finding: finding.id, dismissed: false }), "btn small"));
+        else {
+          if (!busy) row.append(button(d, "แก้ข้อนี้", () => fix([finding.id]), "btn small"));
+          row.append(button(d, "ข้าม", () => this.wire.request({ op: "dismiss", thread, finding: finding.id, dismissed: true }), "btn small"));
+        }
+        card.append(row);
+      }
     }
     return card;
   }

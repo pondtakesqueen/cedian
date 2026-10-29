@@ -31,6 +31,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { runInlineEdit } from './inlineEdit.js';
+import './lineComments.js';
 import { KEYBINDINGS, parseKey, withKeymap } from './keybindings/keybindings.js';
 import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';

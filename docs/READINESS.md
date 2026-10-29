@@ -182,7 +182,18 @@
   notices into the pane at their times in Chromium and times the frames; on
   a synthetic 3k-block thread streaming 250 deltas at 50 a second: median
   frame 16.7 ms, 2 frames over 25 ms (the first draw)
-- [ ] Line comments on diffs; `/code-review` card
+- [ ] Line comments on diffs; `/code-review` card (built 2026-10-29, not yet
+  tried in the app): a `+` beside the line under the pointer in a review diff
+  opens a comment box (Enter adds, Cmd+Enter adds and sends all); the
+  comments wait in the daemon (`Request::Comments`, kept per thread under its
+  state dir) and show under their lines and on the pane's card, and go to the
+  thread as one message (`SendComments`: queued while it runs, else a run
+  under its last permission). `/code-review` runs `cedia review --thread
+  --json` (capability `code-review`); the card groups the findings by file,
+  Walk through opens each open one at its line, and each has Fix this one and
+  Dismiss, in the card and under its line in the diff; Fix all sends the
+  open ones. Tested in vitest and against the fake cedia; anchoring comments
+  by hunk context (§11 Annotate AI Diff) is still to come
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget
 - [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
