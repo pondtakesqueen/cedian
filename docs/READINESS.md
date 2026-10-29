@@ -196,7 +196,13 @@
   Dismiss, in the card and under its line in the diff; Fix all sends the
   open ones. Tested in vitest and against the fake cedia; anchoring comments
   by hunk context (§11 Annotate AI Diff) is still to come
-- [ ] Git pane; pop-out panes; Help → Check for updates
+- [ ] Git pane (built 2026-10-29, not yet tried in the app): VS Code's own
+  Source Control follows the agent pane's open thread: `git.openRepository`
+  on its worktree (else the project), then focused and pinned in the SCM
+  view (`vscode/contrib/cedian/browser/sourceControl.ts`), so Changes,
+  Commit, Pull, Push and the graph are the thread's; `git.detectWorktrees`
+  lists every thread's worktree beside the project
+- [ ] Pop-out panes; Help → Check for updates
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing

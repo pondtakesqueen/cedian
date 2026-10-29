@@ -73,6 +73,9 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "editor.wordSegmenterLocales": "th",
     "[markdown]": { "editor.wrappingStrategy": "advanced" },
     "[plaintext]": { "editor.wrappingStrategy": "advanced" },
+    // The git pane lists each thread's worktree beside the project (they live under
+    // .cedian/worktrees, which the folder scan never reaches).
+    "git.detectWorktrees": true,
   };
 }
 

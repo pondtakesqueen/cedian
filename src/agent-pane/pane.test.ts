@@ -195,6 +195,19 @@ describe("agent pane", () => {
     expect(rows[1]?.textContent).toContain("Accept");
   });
 
+  it("points Source Control at the open thread's worktree, once per folder", () => {
+    const shown: string[] = [];
+    const { pane, emit } = setup({ showRepository: (path) => shown.push(path) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" }), info({ id: "t-2", cwd: "/r/.cedian/worktrees/b" })] });
+    expect(shown).toEqual(["/r"]);
+    pane.openThread("t-1");
+    expect(shown).toEqual(["/r", "/r/.cedian/worktrees/a"]);
+    // The same list again changes nothing.
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" }), info({ id: "t-2", cwd: "/r/.cedian/worktrees/b" })] });
+    pane.openThread("t-2");
+    expect(shown).toEqual(["/r", "/r/.cedian/worktrees/a", "/r/.cedian/worktrees/b"]);
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

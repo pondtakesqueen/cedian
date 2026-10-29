@@ -40,6 +40,8 @@ export interface PaneHost {
    * the worktree is removed after archive. Without it the pane says so inline and archives nothing.
    */
   confirmArchive?(files: string[]): Promise<boolean>;
+  /** Source Control (the git pane) on this folder: the open thread's worktree, else the project. */
+  showRepository?(path: string): void;
 }
 
 /** What cedia shows a model (`ImageMime`). */
@@ -189,6 +191,17 @@ export class AgentPane {
     return this.state.info?.cwd ?? this.host.cwd;
   }
 
+  /** The folder Source Control was last pointed at. */
+  private repository?: string;
+
+  /** Points Source Control at the open thread's folder once it is known, and again when it changes. */
+  private followRepository(): void {
+    const path = this.state.thread && !this.state.info ? undefined : this.cwd;
+    if (!path || path === this.repository || !this.host.showRepository) return;
+    this.repository = path;
+    this.host.showRepository(path);
+  }
+
   // ---- actions (the keybinding layer calls these) ----
 
   newThread(): void {
@@ -216,6 +229,7 @@ export class AgentPane {
     this.wire.request({ op: "open", cwd: this.host.cwd, thread: id });
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
+    this.followRepository();
   }
 
   /** The project chat (⌘0): the coordinator's thread, or a new one started from the composer. */
@@ -354,6 +368,7 @@ export class AgentPane {
         break;
     }
     this.render();
+    if (n.kind === "threads") this.followRepository();
     if (n.kind === "blocks" || n.kind === "text") this.drawn(n.thread);
   }
 

@@ -10,6 +10,7 @@ import { CancellationTokenSource } from '../../../../base/common/cancellation.js
 import { joinPath, relativePath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -26,12 +27,14 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { ISearchService } from '../../../services/search/common/search.js';
+import { ISCMService, ISCMViewService } from '../../scm/common/scm.js';
 import { QueryBuilder } from '../../../services/search/common/queryBuilder.js';
 import { AgentPane } from './agent-pane/pane.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { COMPOSER_FOCUS, PANE_FOCUS } from './keybindings/keybindings.js';
 import { CedianPanes } from './panes.js';
 import { ICedianReviewService } from './review.js';
+import { showRepository } from './sourceControl.js';
 
 /** Videos cedia takes on `--image` and shows as frames. */
 const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi'];
@@ -72,6 +75,9 @@ export class AgentPaneView extends ViewPane {
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 		@INotificationService private readonly notifications: INotificationService,
 		@IDialogService private readonly dialogs: IDialogService,
+		@ICommandService private readonly commands: ICommandService,
+		@ISCMService private readonly scm: ISCMService,
+		@ISCMViewService private readonly scmView: ISCMViewService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -116,6 +122,8 @@ export class AgentPaneView extends ViewPane {
 			// A review that can't open says so in a notification (spec §8.4: transient).
 			openReview: (thread, cwd, review, file, line) => { this.reviews.open(thread, cwd, review, file, line).catch(e => this.notifications.warn(`Couldn't open the review: ${e instanceof Error ? e.message : e}`)); },
 			openUrl: url => { this.openerService.open(URI.parse(url)); },
+			// The git pane follows the open thread; a folder git can't open just leaves it where it was.
+			showRepository: path => { showRepository(this.commands, this.scm, this.scmView, path).catch(() => { }); },
 			// Spec §8.4: "Archive anyway? This worktree has uncommitted changes"; cancel keeps them.
 			confirmArchive: async files => {
 				const shown = files.slice(0, 5).join('\n') + (files.length > 5 ? `\nand ${files.length - 5} more` : '');
