@@ -266,6 +266,14 @@ describe("agent pane", () => {
     expect(buttons(pane.root, "Approve")[0]!.disabled).toBe(false);
   });
 
+  it("a pushed branch's PR shows its block without the PR watch", () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "b", base: "origin/main", ahead: 1, behind: 0, upstream: "origin/b", unpushed: 0, changed: 0 } } });
+    expect(last()).toEqual({ op: "pr_view", cwd: "/r", thread: "t-1" });
+  });
+
   it("/prs opens the Pull requests card, and Review in a thread starts one", () => {
     const { pane, emit, last } = setup();
     type(pane, "/prs");

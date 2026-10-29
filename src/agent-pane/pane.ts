@@ -428,6 +428,12 @@ export class AgentPane {
         if (n.thread !== this.state.thread) break;
         this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
         if (n.fetched) this.gitFetching = false;
+        // A pushed branch may have a PR the watch does not follow: read it, so the block shows
+        // without arming the watch's fixes.
+        if ("Ok" in n.state && n.state.Ok.upstream && this.pr === undefined) {
+          this.pr = null;
+          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
+        }
         // A read that lands mid-push leaves the push's button busy until its own answer.
         if (n.after && n.after === this.gitBusy) this.gitBusy = undefined;
         break;
@@ -444,7 +450,7 @@ export class AgentPane {
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
           this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
-          if (this.state.info?.pr) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
+          if (this.state.info?.pr || (this.pr && typeof this.pr === "object")) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
             this.wire.request(this.then);
