@@ -20,7 +20,7 @@ const ADDED_WITHIN_MS = 5000;
  * pins it, so Changes, Commit, Pull, Push and the graph are the thread's.
  */
 export async function showRepository(commands: ICommandService, scm: ISCMService, scmView: ISCMViewService, path: string): Promise<void> {
-	const at = (r: ISCMRepository) => r.provider.contextValue.get() === 'git' && !!r.provider.rootUri && unlinked(r.provider.rootUri.fsPath) === unlinked(path);
+	const at = (r: ISCMRepository) => r.provider.providerId === 'git' && !!r.provider.rootUri && unlinked(r.provider.rootUri.fsPath) === unlinked(path);
 	await commands.executeCommand('git.openRepository', path);
 	const repository = [...scm.repositories].find(at) ?? await Promise.race([
 		Event.toPromise(Event.filter(scm.onDidAddRepository, at)),
