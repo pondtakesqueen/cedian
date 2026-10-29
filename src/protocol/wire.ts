@@ -83,6 +83,11 @@ export type Notice =
       thread: string;
     }
   | {
+      kind: "notes";
+      notes: Notes;
+      thread: string;
+    }
+  | {
       cwd: string;
       kind: "memory";
       notes: MemoryNote[];
@@ -186,7 +191,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -230,6 +235,7 @@ export type Capability =
   | "threads.send-images"
   | "video"
   | "media-route"
+  | "code-review"
   | "inline-edit";
 /**
  * The checks on the PR's head commit, taken together.
@@ -400,6 +406,40 @@ export type ResultSubtype =
  * via the `definition` "HunkState".
  */
 export type HunkState = "accepted" | "pending" | "rejected" | "stale";
+/**
+ * `CodeReview`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "anyOf": [ { "type": "object", "required": [ "costUsd", "dropped", "files", "findings", "model", "summary", "verdict" ], "properties": { "costUsd": { "type": "number" }, "dropped": { "type": "array", "items": { "type": "object", "required": [ "reason", "ref" ], "properties": { "reason": { "type": "string" }, "ref": { "type": "string" } } } }, "files": { "type": "array", "items": { "type": "string" } }, "findings": { "type": "array", "items": { "$ref": "#/definitions/CodeFinding" } }, "model": { "type": "string" }, "summary": { "type": "string" }, "verdict": { "$ref": "#/definitions/Verdict" } } }, { "type": "object", "required": [ "error" ], "properties": { "error": { "type": "string" } } } ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CodeReview".
+ */
+export type CodeReview =
+  | {
+      costUsd: number;
+      dropped: CodeReviewVariant0DroppedItem[];
+      files: string[];
+      findings: CodeFinding[];
+      model: string;
+      summary: string;
+      verdict: Verdict;
+    }
+  | {
+      error: string;
+    };
+/**
+ * `Verdict`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "approve", "changes", "unclear" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Verdict".
+ */
+export type Verdict = "approve" | "changes" | "unclear";
 /**
  * `Effort`
  *
@@ -759,6 +799,33 @@ export type Request =
       decision: Decision;
       hunk: string;
       op: "decide";
+      thread: string;
+    }
+  | {
+      comments: LineComment[];
+      op: "comments";
+      thread: string;
+    }
+  | {
+      cwd: string;
+      op: "send_comments";
+      thread: string;
+    }
+  | {
+      cwd: string;
+      op: "code_review";
+      thread: string;
+    }
+  | {
+      dismissed: boolean;
+      finding: string;
+      op: "dismiss";
+      thread: string;
+    }
+  | {
+      cwd: string;
+      findings?: string[];
+      op: "fix_findings";
       thread: string;
     }
   | {
@@ -1179,6 +1246,82 @@ export interface Hunk {
   new_start: number;
   path: string;
   state: HunkState;
+}
+/**
+ * What the person has left on a thread's diff: line comments not yet sent, and the latest `/code-review` with the findings they dismissed. The daemon keeps it per thread.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Notes".
+ */
+export interface Notes {
+  comments: LineComment[];
+  /**
+   * Findings of `review` the person dismissed, by id.
+   */
+  dismissed?: string[];
+  /**
+   * The latest `cedia review` of the thread, or why there is none.
+   */
+  review?: CodeReview | null;
+  /**
+   * A review is being written now.
+   */
+  reviewing?: boolean;
+}
+/**
+ * A comment the person left on one line of a thread's diff, waiting to be sent with the rest (spec §3.7, diff comments).
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "LineComment".
+ */
+export interface LineComment {
+  /**
+   * The window's own id for it, so one comment can be edited or removed.
+   */
+  id: string;
+  /**
+   * The line in the file as the thread left it, from 1.
+   */
+  line: number;
+  /**
+   * The file, relative to the thread's working tree.
+   */
+  path: string;
+  /**
+   * The line's text when the comment was left, quoted to the agent with it.
+   */
+  quote?: string | null;
+  text: string;
+}
+/**
+ * `CodeReviewVariant0DroppedItem`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "reason", "ref" ], "properties": { "reason": { "type": "string" }, "ref": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CodeReviewVariant0DroppedItem".
+ */
+export interface CodeReviewVariant0DroppedItem {
+  reason: string;
+  ref: string;
+}
+/**
+ * `CodeFinding`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "id", "text" ], "properties": { "id": { "type": "string" }, "line": { "type": "number" }, "path": { "type": "string" }, "text": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CodeFinding".
+ */
+export interface CodeFinding {
+  id: string;
+  line?: number | null;
+  path?: string | null;
+  text: string;
 }
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
