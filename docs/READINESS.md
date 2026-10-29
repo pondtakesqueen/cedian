@@ -153,9 +153,9 @@
 ## Phase D (Media, depth, started 2026-10-29)
 - [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
   only schema change is `plugin` as a command source
-- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model):
-  `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, built
-  2026-10-29, pinned at b612454), on `roles.complete`, default the code model
+- [x] cedia: completion command (fill-in-the-middle on a fast cheap model):
+  `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, merged
+  2026-10-29, pinned at main b140712), on `roles.complete`, default the code model
 - [x] cedia: prompt images route to a model that reads images; video frames
   (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
   where the screen changes; a run with images on a text-only model runs on
@@ -197,7 +197,7 @@
   open ones. Tested in vitest and against the fake cedia; anchoring comments
   by hunk context (§11 Annotate AI Diff) is still to come
 - [ ] Git pane; pop-out panes; Help → Check for updates
-- [ ] Tab completion (ghost text) with a measured latency budget (built
+- [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing
   stops, not mid-word; a newer ask stops the cedia answering the one before;
