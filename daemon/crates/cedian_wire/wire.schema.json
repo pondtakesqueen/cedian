@@ -409,7 +409,7 @@
       ]
     },
     "CommandEntry": {
-      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } } } ``` </details>",
+      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } } } ``` </details>",
       "properties": {
         "argumentHint": {
           "type": [
@@ -439,10 +439,11 @@
       "type": "object"
     },
     "CommandEntrySource": {
-      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } ``` </details>",
+      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } ``` </details>",
       "enum": [
         "user",
-        "repository"
+        "repository",
+        "plugin"
       ],
       "type": "string"
     },

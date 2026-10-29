@@ -150,6 +150,18 @@
   are drawn, 31 ms in that Chromium, measured by `test/smoke/scroll.mjs`
   (`updateMs`). An opened tool list stays open across notices
 
+## Phase D (Media, depth, started 2026-10-29)
+- [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
+  only schema change is `plugin` as a command source
+- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model)
+- [ ] cedia: prompt images route to a model that reads images; video frames
+- [ ] Images and video in threads
+- [ ] Line comments on diffs; `/code-review` card
+- [ ] Git pane; pop-out panes; Help → Check for updates
+- [ ] Tab completion (ghost text) with a measured latency budget
+- [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
+- [ ] Exit gate: the agent fixes a bug shown in a screen recording
+
 ## Known gaps
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep

@@ -415,12 +415,12 @@ export type PermissionSetting = "read-only" | "workspace" | "auto" | "plan";
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "user", "repository" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "user", "repository", "plugin" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "CommandEntrySource".
  */
-export type CommandEntrySource = "user" | "repository";
+export type CommandEntrySource = "user" | "repository" | "plugin";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTransport".
@@ -1289,7 +1289,7 @@ export interface PermissionEntry {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "description", "kind", "name", "source" ], "properties": { "argumentHint": { "type": "string" }, "description": { "type": "string" }, "kind": { "type": "string", "const": "skill" }, "name": { "type": "string" }, "source": { "type": "string", "enum": [ "user", "repository" ] } } } ``` </details>
+ * ```json { "type": "object", "required": [ "description", "kind", "name", "source" ], "properties": { "argumentHint": { "type": "string" }, "description": { "type": "string" }, "kind": { "type": "string", "const": "skill" }, "name": { "type": "string" }, "source": { "type": "string", "enum": [ "user", "repository", "plugin" ] } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "CommandEntry".
