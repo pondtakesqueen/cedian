@@ -987,12 +987,12 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 Consolidated checklist; details in referenced sections.
 
 - [ ] **Performance** (§9): no worse than stock VS Code 1.143.1 on cold start, keystroke and idle memory (measured in Phase A); scroll 10k blocks @60fps. Measured with HID events + pixel polling on Mac.
-- [ ] **Accessibility** (§9, §4): VS Code baseline + VoiceOver labels for blocks, Thai line-height ≥1.6, focus ring 2px accent, Reduce Motion stops animation. (better-a11y review.)
-- [ ] **Thai text** (§9): Chromium native line breaking + CSS font fallback; no mid-word wrap; verified with Thai fixtures.
+- [x] **Accessibility** (§9, §4): VS Code baseline + VoiceOver labels for blocks, Thai line-height ≥1.6, focus ring 2px accent, Reduce Motion stops animation. (better-a11y review.)
+- [x] **Thai text** (§9): Chromium native line breaking + CSS font fallback; no mid-word wrap; verified with Thai fixtures.
 - [ ] **Error behaviors** (§8): 3 levels (modal/notification/inline) mapped; English messages; no unhandled errors.
 - [ ] **Notifications** (§9): badges (project tab, sidebar, Dock) + optional sound; no banners (deferred).
 - [ ] **Testing/CI** (§9, §11): Rust cargo test (replay fixtures, layout fit), TS vitest (block logic, settings), Playwright E2E smoke. No model calls in CI. All green.
-- [ ] **Telemetry** (§9): all disabled; crash logs local only (~/Library/Logs/Cedian).
+- [x] **Telemetry** (§9): all disabled; crash logs local only (~/Library/Logs/Cedian).
 - [ ] **License** (§9): VS Code MIT notice in LICENSE/NOTICE; legal review before ship; permissive-only dependency scan; Apache-2.0 NOTICEs kept; THIRD_PARTY_NOTICES updated.
 - [ ] **Settings** (§5, §9): single source ~/.cedia/settings.json; VS Code settings UI disabled; Cedian settings window writes desktop key atomically.
 - [ ] **Blocks** (§9, §11): full Tern parity (split/drag/zoom/park/PiP/tear-off/named layouts/overview/fold) working at 720–1440px, both themes, no leak.
