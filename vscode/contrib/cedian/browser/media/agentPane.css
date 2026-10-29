@@ -27,7 +27,10 @@
 .cedian-agent-pane .receipt { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--cedian-accent); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
 .cedian-agent-pane .row { display: flex; gap: 8px; align-items: center; min-width: 0; }
-.cedian-agent-pane .receipt .verdict { flex: 1 1 auto; }
+/* One line of verdict between badge and stats; the stats wrap below once the pane is too narrow. */
+.cedian-agent-pane .receipt .head { flex-wrap: wrap; }
+.cedian-agent-pane .receipt .verdict { flex: 1 1 120px; }
+.cedian-agent-pane .receipt .num, .cedian-agent-pane .receipt .vbadge, .cedian-agent-pane .receipt .ubadge { flex: none; white-space: nowrap; }
 .cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--cedian-accent); color: var(--cedian-accent-text); }
 .cedian-agent-pane .ubadge { border-style: dashed; border-color: var(--cedian-line-strong); color: var(--cedian-text-muted); }
 .cedian-agent-pane .card { max-width: 680px; margin: 8px auto 0; width: calc(100% - 32px); box-sizing: border-box; border-radius: 12px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }

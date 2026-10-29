@@ -239,9 +239,10 @@
     auto-archive leaves such a thread alone. Settings keeps a root a thread
     still works in ("A thread is using this root: <title>. Archive it
     first"). The review card says which hunks were changed since the agent
-    wrote them ("1 changed since", "Changed since" on the file). Not built
-    yet: "Claude tools are off for this site", and the browser's transient
-    errors as notifications
+    wrote them ("1 changed since", "Changed since" on the file). Waiting on
+    the browser pane, which the window does not have yet (the daemon only
+    starts Chromium for cedia's runs): "Claude tools are off for this site",
+    and the browser's transient errors as notifications
   - [ ] License: `python3 script/license-scan.py --app <Cedian.app>` passes
     (309 packages, no copyleft beyond the allowed jschardet); NOTICE ships
     in the app as `licenses/Cedian-NOTICE.txt` beside VS Code's LICENSE.txt
