@@ -144,11 +144,13 @@
   16.7 ms, p95 16.8 ms, worst 18.6 ms, none over 25 ms; drawn in 209 ms.
   The gate found and 77c4037 fixed a thread opened in another root never
   starting
+- [x] The agent pane keeps what it drew (`ItemsView`, 2026-10-29): a notice
+  on a 10k-block thread drew all of it again (209 ms on the owner's Mac,
+  1.0 s in headless Chromium on Linux); now only the items that changed
+  are drawn, 31 ms in that Chromium, measured by `test/smoke/scroll.mjs`
+  (`updateMs`). An opened tool list stays open across notices
 
 ## Known gaps
-- The agent pane draws its whole log again on each notice: 209 ms for 10k
-  blocks on the owner's Mac (1.0 s in headless Chromium on Linux), so a long
-  thread that streams will stutter. Scrolling is fine (Phase C gate)
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep
   their attribution in THIRD_PARTY_NOTICES.md
