@@ -434,6 +434,51 @@ stay deferred (§12 G13).
   dashboard refresh publishes a new version per refresh; daemon keeps the newest
   20, prunes older.
 
+### 3.8 From Orca (stablyai/orca; proposed 2026-10-29, owner to decide)
+
+Source: `https://github.com/stablyai/orca` (MIT, © 2026 Lovecast Inc.),
+its public docs under `docs/site/content/docs/`. Ideas only: no Orca code or
+prompts are copied. MIT would allow reuse with the notice kept in
+`THIRD_PARTY_NOTICES.md`, but the clean-room rule for this spec stays: behavior
+from public docs, implemented fresh. Orca runs third-party agent CLIs in
+terminals; cedian keeps cedia as the only agent, so every row below either
+renders something cedia already logs, or is daemon/window work, or is marked
+**(cedia)** as a change in the cedia repo.
+
+| Orca feature | Cedian proposal | Phase |
+|---|---|---|
+| Worktree setup script + `wait-for-setup` start policy; archive script that runs before removal | `.cedia/launch.json` gains `worktree.setup` and `worktree.archive`; daemon runs setup in a Setup terminal after create, the thread starts after setup succeeds (or at once, per policy); a failed archive script blocks removal unless the owner accepts | B |
+| Background worktree create with a progress row, cancel and Retry | Worktree creation never blocks the composer: sidebar row shows fetch/add/setup progress; failure is an inline error with Retry (§8.4 inline) | B |
+| `.worktreeinclude` copies with APFS clone-copy; `sharedDirectories` links big gitignored trees (`node_modules`) | macOS 26 only, so always APFS: `.worktreeinclude` entries copy with `clonefile(2)` (free until written). Literal paths only, gitignored and existing only, budget 2 GiB / 50k entries with a warning past it | B |
+| Start-from picker (base ref, another branch, a commit, a remote branch) | Delegate dialog picks the worktree's start point; stacking on a PR branch sets the PR base to that branch | B |
+| Diff against a chosen base (start-from ref, any commit or branch) | Review defaults to the thread's start point; the toolbar can switch base | B |
+| Commit hook failed → **Fix with AI**; conflicts → **Resolve with AI**; force push only as a separate, labeled `--force-with-lease` action | Receipt card: a failed `cedia commit` shows the hook output and a "Fix in this thread" button that sends it as the next prompt (no bypass of hooks); conflicts get "Resolve in this thread"; Push never falls back to force | B |
+| Cmd-Q keeps agents running; **Quit Completely** stops them | Matches §8.5. Add an explicit `Quit and stop threads` menu item (confirm first) that stops live runs before the daemon exits | B |
+| Keep awake: On / while an agent works / Off | `desktop.keepAwake`: `always` / `working` (default) / `off`; status-bar coffee toggle | B |
+| Annotate AI Diff: comments follow their line across edits, stay pinned after the agent revises, Resolve collapses, unresolved ones join the next batch | Extends the Phase D line comments: anchor by hunk context not line number; after the next run each comment shows resolved/still-open; one batch per send | D |
+| AI line attribution in the diff gutter, local only, human edits flip it back | Daemon derives AI-written ranges from cedia's edit/write tool events (already logged); gutter marker in the diff; never committed | D |
+| Agent dashboard (Needs You / Working / Done / Idle) with last-message preview; Agents feed of completions and questions; Mark unread | Sidebar groups stay; add a last-message preview line per thread, a chronological activity feed in project chat (thread done / asking / failed), and Mark unread on any thread | C |
+| Worktree card status line that the agent updates (`worktree set --comment`) | No new tool: the card shows the in-progress step of cedia's `todo` list, else the last assistant line | C |
+| Parent/child workspaces: "N children" chip, Sleep/Delete with descendants | Sub-threads nest under their parent thread in the sidebar with a count chip; Archive with descendants | C |
+| Fan one prompt to several agents, compare, merge the winner | "Run on N models": daemon starts N cedia threads (`--spawn worktree`, one `-m` each) from one prompt; review shows their diffs side by side; Keep one archives the rest | C |
+| Jump palette (Cmd-J): recent threads ranked needs-you first, digit shortcuts frozen at open, Create row when nothing matches | ⌘K palette gains a Recent section (asking → done → working), ⌘1–⌘6 on those rows, and "New thread: <text>" as the last row | C |
+| Resource Manager: worktrees with size, last activity, git state; bulk clean; Review N kept branches | Archive lifecycle gets a Clean up view; branches git refuses to drop are listed for an explicit force-delete | C |
+| Automations: `--precheck <cmd>` skips a run on non-zero exit, missed-run grace, Run now bypasses precheck, run history shows `skipped_precheck` | Daemon fires schedules (cedia only says what is due), so precheck and grace live in the daemon; run history in the schedules pane | C |
+| Design Mode: element HTML + computed styles + cropped screenshot + source file/line from the dev source map | Element select adds computed styles and a source-map lookup (`file:line`) to the attachment | C |
+| Browser tabs scoped per worktree; viewport emulation; downloads shelf | Browser tabs belong to a thread and restore with it; viewport size per tab via CDP `Emulation.setDeviceMetricsOverride`; downloads land in the thread's worktree, listed in a shelf | C |
+| Usage chip with reset windows and a warning at 80% | Status-bar chip with today's spend (from `cedia usage --json`) and quota state when a run reports one (cedia's `--fallback` / `--on-quota`) | C |
+| Image diffs (side-by-side, swipe, onion skin); HTML preview beside the diff | Review of image and HTML changes opens in the artifact/browser preview | D |
+| Lines-changed chip split into Source / Tests / Generated (path heuristics) | Receipt card shows the split | D |
+| On-device voice dictation | Later (Thai accuracy unmeasured) | Later |
+
+Not taken (by design): mobile companion and Remote Orca Server (§12 G13),
+SSH worktrees (Later), Linear/Jira (single owner, GitHub only), public
+artifact links (§3.6.3), multi-account switching and usage fetched with
+another client's OAuth token (API keys only, cedia rule), resuming other
+agents' transcripts (cedia is the only agent), agent hibernation (a cedia run
+ends with its turn, so idle threads hold no process), `orca.yaml` as a new
+file (cedian keeps `.cedia/launch.json`).
+
 ## 4. State machines
 
 ### 4.1 Thread states (from cedia, unchanged)
@@ -768,6 +813,7 @@ Thai follows with the settings-window pass)
 - `https://tern.build/changelog` → REA findings
 - PandaCode docs (browser.md) → REA findings
 - Synara README → REA findings
+- `https://github.com/stablyai/orca` (MIT) public docs → §3.8 (ideas only, no code)
 
 ---
 
@@ -882,6 +928,7 @@ Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLO
 - Tab completion internals (Cursor proprietary) — cannot replicate; model-based completion deferred (G4).
 - Buddy window — low value; ⌘K palette covers.
 - Heavy-work worker as separate process — Electron workers suffice if needed.
+- Orca's mobile companion, Linear/Jira, multi-account OAuth usage, other agents' transcripts, agent hibernation — see §3.8 "Not taken".
 
 ### Already covered (no gap)
 - Artifacts viewers (images, PDF, CSV, notebooks) and markdown preview now fold
