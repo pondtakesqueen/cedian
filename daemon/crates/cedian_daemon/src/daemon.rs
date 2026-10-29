@@ -948,6 +948,57 @@ impl Daemon {
                     );
                 });
             }
+            Request::PrView { cwd, thread } => {
+                let (gh, dir) = {
+                    let daemon = lock(shared);
+                    (daemon.gh.clone(), daemon.folder(&cwd, &thread))
+                };
+                // gh asks GitHub: it holds none of the window's other asks.
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let view = crate::pr_view::read(&gh, &dir).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::PrView {
+                        thread,
+                        view,
+                        acted: false,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::PrAct {
+                cwd,
+                thread,
+                action,
+            } => {
+                let (gh, dir) = {
+                    let daemon = lock(shared);
+                    (daemon.gh.clone(), daemon.folder(&cwd, &thread))
+                };
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    if let Err(error) = crate::pr_view::act(&gh, &dir, &action) {
+                        lock(&shared).thread_error(client, &thread, format!("{error:#}"));
+                    }
+                    let view = crate::pr_view::read(&gh, &dir).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::PrView {
+                        thread,
+                        view,
+                        acted: true,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::PrLog { cwd, thread, run } => {
+                let (gh, dir) = {
+                    let daemon = lock(shared);
+                    (daemon.gh.clone(), daemon.folder(&cwd, &thread))
+                };
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let log = gh.failed_log(&dir, &run);
+                    lock(&shared).send(client, Notice::PrLog { thread, run, log });
+                });
+            }
             Request::Browser { cwd } => {
                 let browser = lock(shared).browser.clone();
                 let page = browser

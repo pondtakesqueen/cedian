@@ -1,0 +1,16 @@
+{"data":{"viewer":{"login":"cedian-owner"},"repository":{"pullRequest":{
+  "number":7,"url":"https://github.com/o/r/pull/7","title":"Reset submitting after a failed login","body":"The button stayed disabled.","state":"OPEN","isDraft":false,
+  "author":{"login":"cedian-owner"},"headRefName":"fix-login","baseRefName":"main","additions":18,"deletions":3,"changedFiles":2,"commits":{"totalCount":2},
+  "mergeable":"MERGEABLE","mergeStateStatus":"BEHIND","reviewDecision":"CHANGES_REQUESTED","autoMergeRequest":{"mergeMethod":"SQUASH"},
+  "labels":{"nodes":[{"name":"bug"}]},"closingIssuesReferences":{"nodes":[{"number":14}]},
+  "reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ton-s"}}]},
+  "latestReviews":{"nodes":[{"author":{"login":"mai-k"},"state":"CHANGES_REQUESTED"}]},
+  "comments":{"nodes":[{"author":{"login":"mai-k"},"body":"Thanks!","createdAt":"2026-10-29T10:00:00Z"}]},
+  "reviewThreads":{"nodes":[{"id":"PRRT_1","isResolved":false,"path":"src/login/form.ts","line":42,"comments":{"nodes":[
+    {"author":{"login":"mai-k"},"body":"Reset it in a finally.","createdAt":"2026-10-29T10:01:00Z","diffHunk":"@@ -40,3 +40,4 @@\n   } catch (e) {\n+    submitting = false;"}]}}]},
+  "statusCheckRollup":{"nodes":[{"commit":{"statusCheckRollup":{"contexts":{"nodes":[
+    {"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://github.com/o/r/actions/runs/78/job/1"},
+    {"__typename":"CheckRun","name":"e2e (macos)","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":"https://github.com/o/r/actions/runs/79/job/2"},
+    {"__typename":"StatusContext","context":"deploy/preview","state":"PENDING","targetUrl":"https://example.com"}
+  ]}}}}]}
+}}}}

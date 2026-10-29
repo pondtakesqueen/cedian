@@ -14,8 +14,8 @@ use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    BrowserPage, Build, GitAction, GitState, LineComment, McpAdd, McpServer, Notes, Status,
-    ThreadInfo,
+    BrowserPage, Build, GitAction, GitState, LineComment, McpAdd, McpServer, Notes, PrAction,
+    PrView, Status, ThreadInfo,
 };
 
 /// From the window to the daemon.
@@ -265,6 +265,21 @@ pub enum Request {
         cwd: PathBuf,
         thread: String,
         action: GitAction,
+    },
+    /// The thread's pull request for the PR block, answered with `Notice::PrView`.
+    PrView { cwd: PathBuf, thread: String },
+    /// Does `action` on the thread's pull request through `gh`, then answers `Notice::PrView`
+    /// with `acted`; a refusal answers `Notice::Error` for the thread first.
+    PrAct {
+        cwd: PathBuf,
+        thread: String,
+        action: PrAction,
+    },
+    /// The end of a failed Actions run's log, answered with `Notice::PrLog`.
+    PrLog {
+        cwd: PathBuf,
+        thread: String,
+        run: String,
     },
     /// The project's page in the shared Chromium, which the daemon starts when none runs.
     /// Answered with `Notice::Browser`; from then on the project's runs get the page.
@@ -559,6 +574,21 @@ pub enum Notice {
         /// The action this answers, once it has finished; none for a plain read.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         after: Option<GitAction>,
+    },
+    /// The answer to `Request::PrView` and `Request::PrAct`: the thread's PR, none when its branch
+    /// has none, or why it could not be read (`gh` missing or signed out).
+    PrView {
+        thread: String,
+        view: Result<Option<PrView>, String>,
+        /// It answers a `Request::PrAct`, which has finished.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        acted: bool,
+    },
+    /// The answer to `Request::PrLog`.
+    PrLog {
+        thread: String,
+        run: String,
+        log: String,
     },
     /// The thread was not archived: its worktree has uncommitted changes in `files`, which go
     /// when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?

@@ -356,7 +356,7 @@ impl Gh {
         }
     }
 
-    fn run(&self, cwd: &Path, args: &[&str]) -> anyhow::Result<String> {
+    pub(crate) fn run(&self, cwd: &Path, args: &[&str]) -> anyhow::Result<String> {
         let output = Command::new(&self.bin)
             .args(args)
             .env_clear()

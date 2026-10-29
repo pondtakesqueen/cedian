@@ -9,6 +9,7 @@ mod mcp;
 mod message;
 mod notes;
 mod pr;
+mod pr_view;
 mod schema;
 mod socket;
 mod status;
@@ -24,6 +25,10 @@ pub use message::{
 };
 pub use notes::{LineComment, Notes};
 pub use pr::{CiState, PrChip, PrState};
+pub use pr_view::{
+    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrReviewer, PrThread, PrView,
+    PrViewState, ReviewEvent,
+};
 pub use schema::wire_schema;
 pub use socket::{socket_path, state_dir};
 pub use status::{Status, ThreadInfo};

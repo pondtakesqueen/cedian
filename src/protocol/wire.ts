@@ -201,6 +201,21 @@ export type Notice =
       thread: string;
     }
   | {
+      /**
+       * It answers a `Request::PrAct`, which has finished.
+       */
+      acted?: boolean;
+      kind: "pr_view";
+      thread: string;
+      view: ResultOf_Nullable_PrViewOr_String;
+    }
+  | {
+      kind: "pr_log";
+      log: string;
+      run: string;
+      thread: string;
+    }
+  | {
       cwd: string;
       files: string[];
       kind: "archive_guard";
@@ -697,6 +712,32 @@ export type ResultOf_GitStateOr_String =
       Err: string;
     };
 /**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Result_of_Nullable_PrView_or_String".
+ */
+export type ResultOf_Nullable_PrViewOr_String =
+  | {
+      Ok: PrView | null;
+    }
+  | {
+      Err: string;
+    };
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "MergeMethod".
+ */
+export type MergeMethod = "squash" | "merge" | "rebase";
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CheckState".
+ */
+export type CheckState = "pending" | "passed" | "failed" | "skipped";
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrViewState".
+ */
+export type PrViewState = "open" | "merged" | "closed";
+/**
  * From the window to the daemon.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -935,6 +976,23 @@ export type Request =
     }
   | {
       cwd: string;
+      op: "pr_view";
+      thread: string;
+    }
+  | {
+      action: PrAction;
+      cwd: string;
+      op: "pr_act";
+      thread: string;
+    }
+  | {
+      cwd: string;
+      op: "pr_log";
+      run: string;
+      thread: string;
+    }
+  | {
+      cwd: string;
       op: "browser";
     }
   | {
@@ -1000,6 +1058,59 @@ export type Decision =
       decision: "reject";
       reason: string;
     };
+/**
+ * What the PR block asks of the thread's PR, each through `gh`.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrAction".
+ */
+export type PrAction =
+  | {
+      body: string;
+      do: "comment";
+    }
+  | {
+      body: string;
+      do: "reply";
+      thread: string;
+    }
+  | {
+      do: "resolve";
+      thread: string;
+    }
+  | {
+      do: "unresolve";
+      thread: string;
+    }
+  | {
+      body: string;
+      do: "review";
+      event: ReviewEvent;
+    }
+  | {
+      delete_branch: boolean;
+      do: "merge";
+      method: MergeMethod;
+    }
+  | {
+      do: "auto_merge";
+      method?: MergeMethod | null;
+    }
+  | {
+      do: "update_branch";
+    }
+  | {
+      do: "ready";
+    }
+  | {
+      do: "request_reviewers";
+      logins: string[];
+    };
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "ReviewEvent".
+ */
+export type ReviewEvent = "comment" | "approve" | "request_changes";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTarget".
@@ -1923,6 +2034,122 @@ export interface GitState {
    * The branch's upstream (`origin/<branch>`) once it has been pushed.
    */
   upstream?: string | null;
+}
+/**
+ * A thread's pull request as the PR block draws it (spec §11 Phase D: review, merge and issues in Cedian), read through the person's own `gh` (`Request::PrView`).
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrView".
+ */
+export interface PrView {
+  additions: number;
+  author: string;
+  /**
+   * The merge method GitHub will use once checks and reviews allow, when merge when ready is on.
+   */
+  auto_merge?: MergeMethod | null;
+  base: string;
+  /**
+   * The base has commits the head does not (`mergeStateStatus` BEHIND).
+   */
+  behind: boolean;
+  /**
+   * The description, as Markdown.
+   */
+  body: string;
+  changed_files: number;
+  checks: PrCheck[];
+  /**
+   * The issues it closes when merged.
+   */
+  closes: number[];
+  /**
+   * The conversation's own comments, oldest first.
+   */
+  comments: PrComment[];
+  commits: number;
+  /**
+   * GitHub cannot merge it without a conflict.
+   */
+  conflict: boolean;
+  deletions: number;
+  draft: boolean;
+  head: string;
+  labels: string[];
+  /**
+   * The person (`gh`'s login) opened it, so Approve and Request changes are not theirs.
+   */
+  mine: boolean;
+  number: number;
+  /**
+   * `approved`, `changes_requested`, `review_required`; none when no review is asked.
+   */
+  review_decision?: string | null;
+  /**
+   * Each reviewer's latest say, and the ones asked who have not said yet.
+   */
+  reviewers: PrReviewer[];
+  state: PrViewState;
+  /**
+   * Line comments, grouped as GitHub threads them.
+   */
+  threads: PrThread[];
+  title: string;
+  url: string;
+}
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrCheck".
+ */
+export interface PrCheck {
+  name: string;
+  /**
+   * The Actions run it belongs to, whose failed log `Request::PrAct` `log` reads.
+   */
+  run?: string | null;
+  state: CheckState;
+  /**
+   * Where it ran, to open.
+   */
+  url: string;
+}
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrComment".
+ */
+export interface PrComment {
+  at: string;
+  author: string;
+  body: string;
+}
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrReviewer".
+ */
+export interface PrReviewer {
+  login: string;
+  /**
+   * `approved`, `changes_requested`, `commented`; none while asked and not yet reviewed.
+   */
+  state?: string | null;
+}
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrThread".
+ */
+export interface PrThread {
+  comments: PrComment[];
+  /**
+   * The diff lines the first comment was made on, ending at its line.
+   */
+  hunk: string;
+  /**
+   * GitHub's node id, which a reply or Resolve names.
+   */
+  id: string;
+  line?: number | null;
+  path: string;
+  resolved: boolean;
 }
 /**
  * The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).
