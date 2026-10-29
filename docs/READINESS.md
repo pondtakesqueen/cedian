@@ -162,6 +162,14 @@
 - [ ] Images and video in threads: the composer takes a video (picker,
   paste, drop) once cedia says `video`; the agent pane counts its frames
   as images. Unchecked on the Mac
+- [x] §3.9 `Notice::Text` (2026-10-29): a streaming block that only grew goes
+  out as its new characters. `node test/smoke/scroll.mjs` streams 250 deltas
+  onto a 10k-block thread in headless Chromium on Linux: 21 KB on the wire
+  instead of 734 KB. Drawn per delta, median 5 ms, p95 14 ms either way:
+  appending a text node to the drawn answer instead of drawing it again was
+  tried and measured no faster (p95 9 ms to 14 ms over two runs each), so the
+  pane draws the grown block as before
+- [ ] §3.9 credit flow control; `CEDIAN_WIRE_RECORD` and replay
 - [ ] Line comments on diffs; `/code-review` card
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget

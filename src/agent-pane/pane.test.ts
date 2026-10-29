@@ -302,6 +302,23 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".ubub")).not.toBe(user);
   });
 
+  it("streamed text arrives as appends: the answer grows, the rest stays drawn, then it settles", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "user", text: "fix", images: [] }, { kind: "thinking", text: "hm", streaming: true, ms: null }, { kind: "text", text: "on", streaming: true }], run_cost: 0 } as Notice);
+    const user = pane.root.querySelector(".ubub")!;
+    emit({ kind: "text", thread: "t-1", index: 2, append: " it" });
+    emit({ kind: "text", thread: "t-2", index: 2, append: "!" });
+    expect(pane.root.querySelector(".ubub")).toBe(user);
+    const answer = pane.root.querySelector(".ans")!;
+    expect(answer.textContent).toBe("on it");
+    // The final block replaces it, drawn whole.
+    emit({ kind: "blocks", thread: "t-1", from: 1, blocks: [{ kind: "thinking", text: "hmm", streaming: false, ms: 1000 }, { kind: "text", text: "on it", streaming: false }], run_cost: 0 } as Notice);
+    expect(pane.root.querySelector(".ans")).not.toBe(answer);
+    expect(pane.root.querySelector(".ans")!.className).toBe("ans");
+  });
+
   it("the thread search lists the chat first, then threads newest first, archived last", () => {
     const items = threadSearch([
       info({ id: "c-1", profile: "coordinator", status: "working", state: "working" }),

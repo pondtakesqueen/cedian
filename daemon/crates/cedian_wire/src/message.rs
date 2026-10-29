@@ -345,6 +345,16 @@ pub enum Notice {
         /// What the run in flight has cost so far; 0 once its receipt lands.
         run_cost: f64,
     },
+    /// The streaming text or thinking block `index` grew by `append`, the only change since the
+    /// last notice; the rest of the view stays as it is (spec §3.9).
+    Text {
+        thread: String,
+        /// The sub-thread the block is of; none for the thread's own.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sub: Option<String>,
+        index: usize,
+        append: String,
+    },
     /// The thread's history is all sent; what follows is live.
     Caught {
         thread: String,

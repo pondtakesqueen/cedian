@@ -11,13 +11,16 @@ use cedian_protocol::{AssistantBlock, EventId, HeadlessResult, Line, SessionEven
 use crate::block::{Block, Permission, ToolCall, ToolState};
 
 /// One transcript's blocks from `from` on, which replace a view's from there: how the daemon
-/// tells a window what a line changed.
+/// tells a window what a line changed. When only the streaming block's text grew, `append`
+/// holds the new characters of block `from` and `blocks` is empty, so a long answer costs its
+/// length on the wire and not its length squared (spec §3.9).
 #[derive(Clone, Debug)]
 pub struct Change {
     /// The sub-thread the blocks are of; `None` for the transcript's own thread.
     pub sub: Option<String>,
     pub from: usize,
     pub blocks: Vec<Block>,
+    pub append: Option<String>,
     /// [`Transcript::context`] after the change.
     pub context: Option<u64>,
     /// [`Transcript::run_cost`] after the change.
@@ -40,6 +43,9 @@ pub struct Transcript {
     streaming_for: Option<String>,
     /// The first block changed since the last `take_changed_from`.
     changed_from: Option<usize>,
+    /// When the only change since the last take is text added to one block that was already
+    /// sent: that block and its text's length then.
+    appended: Option<(usize, usize)>,
     /// Tokens the latest turn held: its prompt and its answer.
     context: Option<u64>,
     /// The tools the latest `code` session was given, by name.
@@ -56,11 +62,25 @@ impl Transcript {
 
     /// The first block that changed since the last call, so a view re-lays out from there.
     pub fn take_changed_from(&mut self) -> Option<usize> {
+        self.appended = None;
         self.changed_from.take()
     }
 
     fn changed(&mut self, index: usize) {
+        self.appended = None;
         self.changed_from = Some(self.changed_from.map_or(index, |from| from.min(index)));
+    }
+
+    /// Block `index`'s text grew from `before` bytes: an append while it is the only change.
+    fn grew(&mut self, index: usize, before: usize) {
+        match (self.changed_from, self.appended) {
+            (None, _) => {
+                self.changed_from = Some(index);
+                self.appended = Some((index, before));
+            }
+            (Some(from), Some((at, _))) if from == index && at == index => {}
+            _ => self.changed(index),
+        }
     }
 
     fn push(&mut self, block: Block) {
@@ -77,11 +97,23 @@ impl Transcript {
     }
 
     fn collect_changes(&mut self, sub: Option<&str>, changes: &mut Vec<Change>) {
+        let appended = self.appended;
         if let Some(from) = self.take_changed_from() {
+            let grown = appended.and_then(|(at, before)| match self.blocks.get(at) {
+                Some(Block::Text { text, .. } | Block::Thinking { text, .. }) if at == from => {
+                    text.get(before..).map(str::to_owned)
+                }
+                _ => None,
+            });
             changes.push(Change {
                 sub: sub.map(str::to_owned),
                 from,
-                blocks: self.blocks[from..].to_vec(),
+                blocks: if grown.is_some() {
+                    Vec::new()
+                } else {
+                    self.blocks[from..].to_vec()
+                },
+                append: grown,
                 context: self.context,
                 run_cost: self.run_cost,
             });
@@ -220,8 +252,9 @@ impl Transcript {
                     && let Some(Block::Text { text, .. } | Block::Thinking { text, .. }) =
                         self.blocks.get_mut(position)
                 {
+                    let before = text.len();
                     text.push_str(delta);
-                    self.changed(position);
+                    self.grew(position, before);
                 }
             }
             _ => {}

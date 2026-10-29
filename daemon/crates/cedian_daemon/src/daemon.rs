@@ -1482,12 +1482,20 @@ fn fold_line(fold: &mut Transcript, thread: &str, line: &str) {
 
 /// A fold's changes as the notices a window reads.
 fn blocks(thread: &str, changes: Vec<Change>) -> impl Iterator<Item = Notice> + '_ {
-    changes.into_iter().map(move |change| Notice::Blocks {
-        thread: thread.to_owned(),
-        sub: change.sub,
-        from: change.from,
-        blocks: change.blocks,
-        context: change.context,
-        run_cost: change.run_cost,
+    changes.into_iter().map(move |change| match change.append {
+        Some(append) => Notice::Text {
+            thread: thread.to_owned(),
+            sub: change.sub,
+            index: change.from,
+            append,
+        },
+        None => Notice::Blocks {
+            thread: thread.to_owned(),
+            sub: change.sub,
+            from: change.from,
+            blocks: change.blocks,
+            context: change.context,
+            run_cost: change.run_cost,
+        },
     })
 }

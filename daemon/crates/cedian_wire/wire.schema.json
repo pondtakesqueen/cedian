@@ -1497,6 +1497,43 @@
         },
         {
           "additionalProperties": false,
+          "description": "The streaming text or thinking block `index` grew by `append`, the only change since the last notice; the rest of the view stays as it is (spec §3.9).",
+          "properties": {
+            "append": {
+              "type": "string"
+            },
+            "index": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "text"
+              ],
+              "type": "string"
+            },
+            "sub": {
+              "description": "The sub-thread the block is of; none for the thread's own.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "append",
+            "index",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The thread's history is all sent; what follows is live.",
           "properties": {
             "kind": {

@@ -13,6 +13,15 @@ export interface BlocksNotice {
   run_cost: number;
 }
 
+/** `cedian_wire::Notice::Text`. */
+export interface TextNotice {
+  kind: "text";
+  thread: string;
+  sub?: string;
+  index: number;
+  append: string;
+}
+
 export interface ThreadView {
   thread: string;
   blocks: Block[];
@@ -36,4 +45,22 @@ export function applyBlocks(view: ThreadView, notice: BlocksNotice): ThreadView 
     return { ...view, subthreads };
   }
   return { ...view, blocks: splice(view.blocks), context: notice.context, runCost: notice.run_cost };
+}
+
+/** The streaming block `index` grows by `append`; nothing else changes. */
+export function applyText(view: ThreadView, notice: TextNotice): ThreadView {
+  if (notice.thread !== view.thread) return view;
+  const grow = (old: Block[]) => {
+    const block = old[notice.index];
+    if (!block || (block.kind !== "text" && block.kind !== "thinking")) return old;
+    const next = old.slice();
+    next[notice.index] = { ...block, text: block.text + notice.append };
+    return next;
+  };
+  if (notice.sub !== undefined) {
+    const subthreads = new Map(view.subthreads);
+    subthreads.set(notice.sub, grow(subthreads.get(notice.sub) ?? []));
+    return { ...view, subthreads };
+  }
+  return { ...view, blocks: grow(view.blocks) };
 }

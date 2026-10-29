@@ -59,6 +59,16 @@ export type Notice =
       thread: string;
     }
   | {
+      append: string;
+      index: number;
+      kind: "text";
+      /**
+       * The sub-thread the block is of; none for the thread's own.
+       */
+      sub?: string | null;
+      thread: string;
+    }
+  | {
       kind: "caught";
       thread: string;
     }
