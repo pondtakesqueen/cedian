@@ -233,6 +233,21 @@ fn the_window_gets_cedias_models_and_modes() {
 }
 
 #[test]
+fn the_settings_window_gets_the_models_again() {
+    let harness = start_with("edit-and-check", "\"models\",\"permissions\"");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Settings);
+    assert!(matches!(window.next(), Notice::Settings { .. }));
+    match window.next() {
+        Notice::Choices {
+            models: Some(models),
+            ..
+        } => assert_eq!(models.default, "faux/a"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
 fn the_window_gets_the_projects_commands() {
     let harness = start_with("edit-and-check", "\"commands\"");
     let mut window = Window::connect(&harness);

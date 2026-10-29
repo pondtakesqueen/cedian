@@ -3653,7 +3653,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "The `desktop` key of cedia's settings file, answered with `Notice::Settings`.",
+          "description": "The `desktop` key of cedia's settings file, answered with `Notice::Settings` and then `Notice::Choices` again (the settings window opens after the window connected).",
           "properties": {
             "op": {
               "enum": [
