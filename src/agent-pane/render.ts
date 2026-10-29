@@ -26,7 +26,7 @@ export class ItemsView {
     const next = items.map((item, i) => {
       const key = JSON.stringify(item);
       const old = this.drawn[i];
-      return old && old.key === key ? old : { key, node: renderItem(this.doc, item) };
+      return old && old.key === key ? old : { key, node: labelled(renderItem(this.doc, item), item) };
     });
     setChildren(this.col, next.map((d) => d.node));
     this.drawn = next;
@@ -109,6 +109,38 @@ function renderItem(doc: Document, item: Item): HTMLElement {
       return card;
     }
   }
+}
+
+/**
+ * What a screen reader announces before an item's own text (spec §9 Accessibility: VoiceOver
+ * labels for blocks): who said it, or what it is and how it went. The text itself is read as is.
+ */
+export function itemLabel(item: Item): string {
+  switch (item.k) {
+    case "divider":
+      return `New session: ${item.text}`;
+    case "user":
+      return item.images > 0 ? `You, with ${item.images} ${item.images === 1 ? "image" : "images"}` : "You";
+    case "think":
+      return item.streaming ? "cedia is thinking" : "cedia's thinking";
+    case "answer":
+      return item.streaming ? "cedia is answering" : "cedia";
+    case "tools": {
+      const failed = item.calls.filter((c) => c.failed).length;
+      const state = item.running ? ", running" : failed ? `, ${failed} failed` : "";
+      return `${item.calls.length} tool ${item.calls.length === 1 ? "call" : "calls"}${state}`;
+    }
+    case "receipt":
+      return `Run ended: ${item.verified ? "verified" : badge(item)}`;
+  }
+}
+
+/** Each item is a labelled group, and one still streaming says it is busy. */
+function labelled(node: HTMLElement, item: Item): HTMLElement {
+  node.setAttribute("role", "group");
+  node.setAttribute("aria-label", itemLabel(item));
+  if ("streaming" in item && item.streaming) node.setAttribute("aria-busy", "true");
+  return node;
 }
 
 /** Why a receipt is not verified: how the run ended, or what its evidence left open. */
