@@ -836,14 +836,14 @@
       "description": "What the Git menu asks of a thread's folder. Each runs git with hooks off.",
       "oneOf": [
         {
-          "description": "`git pull --rebase` from the upstream, else a rebase onto the base.",
+          "description": "`git pull --rebase --autostash` from the upstream, else a rebase onto the base; a conflict is aborted, leaving the folder as it was.",
           "enum": [
             "pull"
           ],
           "type": "string"
         },
         {
-          "description": "`git push -u origin <branch>`.",
+          "description": "`git push` to the upstream, else `git push -u origin <branch>`.",
           "enum": [
             "push"
           ],
@@ -887,6 +887,18 @@
           "format": "uint32",
           "minimum": 0.0,
           "type": "integer"
+        },
+        "fetch_error": {
+          "description": "Why fetching from the remote failed, when it was asked for and did; the counts are then against what was last fetched.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rebasing": {
+          "default": false,
+          "description": "A rebase stopped part way (a conflict git left), which the next run would start inside.",
+          "type": "boolean"
         },
         "unpushed": {
           "description": "Commits not pushed to the upstream; all of `ahead` when there is no upstream.",
@@ -2450,6 +2462,17 @@
           "additionalProperties": false,
           "description": "The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why there is none (not a git repository).",
           "properties": {
+            "after": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/GitAction"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The action this answers, once it has finished; none for a plain read."
+            },
             "kind": {
               "enum": [
                 "git"
@@ -3723,6 +3746,10 @@
           "properties": {
             "cwd": {
               "type": "string"
+            },
+            "fetch": {
+              "description": "Fetch from the remote first (the person opened the Git card), so behind counts what the remote has now.",
+              "type": "boolean"
             },
             "op": {
               "enum": [

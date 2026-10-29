@@ -251,7 +251,14 @@ pub enum Request {
     },
     /// Where the thread's folder (its worktree, else the project) stands in git, answered with
     /// `Notice::Git`.
-    Git { cwd: PathBuf, thread: String },
+    Git {
+        cwd: PathBuf,
+        thread: String,
+        /// Fetch from the remote first (the person opened the Git card), so behind counts
+        /// what the remote has now.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        fetch: bool,
+    },
     /// Pull or push the thread's folder, then answers `Notice::Git` with where it stands after;
     /// a git that fails answers `Notice::Error` for the thread.
     GitAction {
@@ -549,6 +556,9 @@ pub enum Notice {
     Git {
         thread: String,
         state: Result<GitState, String>,
+        /// The action this answers, once it has finished; none for a plain read.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        after: Option<GitAction>,
     },
     /// The thread was not archived: its worktree has uncommitted changes in `files`, which go
     /// when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?

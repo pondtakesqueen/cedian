@@ -908,10 +908,22 @@ impl Daemon {
                     lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
-            Request::Git { cwd, thread } => {
+            Request::Git { cwd, thread, fetch } => {
                 let dir = lock(shared).folder(&cwd, &thread);
-                let state = crate::git_state::read(&dir).map_err(|e| format!("{e:#}"));
-                lock(shared).send(client, Notice::Git { thread, state });
+                // A fetch talks to the remote: it holds none of the window's other asks.
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let state = crate::git_state::read(&dir, fetch).map_err(|e| format!("{e:#}"));
+                    let after = None;
+                    lock(&shared).send(
+                        client,
+                        Notice::Git {
+                            thread,
+                            state,
+                            after,
+                        },
+                    );
+                });
             }
             Request::GitAction {
                 cwd,
@@ -919,12 +931,22 @@ impl Daemon {
                 action,
             } => {
                 let dir = lock(shared).folder(&cwd, &thread);
-                // Git can take a while (a push); the daemon is not locked meanwhile.
-                if let Err(error) = crate::git_state::act(&dir, action) {
-                    lock(shared).thread_error(client, &thread, format!("{error:#}"));
-                }
-                let state = crate::git_state::read(&dir).map_err(|e| format!("{e:#}"));
-                lock(shared).send(client, Notice::Git { thread, state });
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    if let Err(error) = crate::git_state::act(&dir, action) {
+                        lock(&shared).thread_error(client, &thread, format!("{error:#}"));
+                    }
+                    let state = crate::git_state::read(&dir, false).map_err(|e| format!("{e:#}"));
+                    let after = Some(action);
+                    lock(&shared).send(
+                        client,
+                        Notice::Git {
+                            thread,
+                            state,
+                            after,
+                        },
+                    );
+                });
             }
             Request::Browser { cwd } => {
                 let browser = lock(shared).browser.clone();

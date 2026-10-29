@@ -364,7 +364,8 @@ export class AgentPane {
       case "git":
         if (n.thread !== this.state.thread) break;
         this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
-        this.gitBusy = undefined;
+        // A read that lands mid-push leaves the push's button busy until its own answer.
+        if (n.after && n.after === this.gitBusy) this.gitBusy = undefined;
         break;
       case "committed":
         if (n.thread === this.state.thread) this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
@@ -879,8 +880,10 @@ export class AgentPane {
     card.append(el(d, "div", "m ell", branchLine(git)));
     const pending = pendingLine(git);
     if (pending) card.append(el(d, "div", "small", pending));
+    if (git.rebasing) card.append(el(d, "div", "small warn", "A rebase stopped part way here. Finish or abort it in Source Control before the next run."));
+    if (git.fetch_error) card.append(el(d, "div", "small warn", `Couldn't fetch, so these counts may be old: ${git.fetch_error}`));
     const row = el(d, "div", "row");
-    for (const action of gitActions(git)) {
+    for (const action of git.rebasing ? [] : gitActions(git)) {
       const b = button(d, this.gitBusy === action ? ACTION_BUSY[action] : ACTION_LABEL[action], () => {
         this.gitBusy = action;
         this.wire.request({ op: "git_action", cwd: this.host.cwd, thread, action });
@@ -1095,6 +1098,8 @@ export class AgentPane {
     if (this.state.thread && this.git && typeof this.git !== "string") {
       const branch = button(d, `⑂ ${this.git.branch ?? "detached"}`, () => {
         this.gitOpen = !this.gitOpen;
+        // Opening it is the person's ask to look at the remote: fetch, so behind is current.
+        if (this.gitOpen) this.wire.request({ op: "git", cwd: this.host.cwd, thread: this.state.thread!, fetch: true });
         this.render();
       }, "chip m git");
       branch.setAttribute("aria-expanded", String(this.gitOpen));

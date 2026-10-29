@@ -192,6 +192,10 @@ export type Notice =
       page: ResultOf_BrowserPageOr_String;
     }
   | {
+      /**
+       * The action this answers, once it has finished; none for a plain read.
+       */
+      after?: GitAction | null;
       kind: "git";
       state: ResultOf_GitStateOr_String;
       thread: string;
@@ -675,6 +679,13 @@ export type ResultOf_BrowserPageOr_String =
       Err: string;
     };
 /**
+ * What the Git menu asks of a thread's folder. Each runs git with hooks off.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "GitAction".
+ */
+export type GitAction = "pull" | "push";
+/**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Result_of_GitState_or_String".
  */
@@ -909,6 +920,10 @@ export type Request =
     }
   | {
       cwd: string;
+      /**
+       * Fetch from the remote first (the person opened the Git card), so behind counts what the remote has now.
+       */
+      fetch?: boolean;
       op: "git";
       thread: string;
     }
@@ -985,13 +1000,6 @@ export type Decision =
       decision: "reject";
       reason: string;
     };
-/**
- * What the Git menu asks of a thread's folder. Each runs git with hooks off.
- *
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "GitAction".
- */
-export type GitAction = "pull" | "push";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTarget".
@@ -1899,6 +1907,14 @@ export interface GitState {
    * Files with uncommitted changes, untracked ones included.
    */
   changed: number;
+  /**
+   * Why fetching from the remote failed, when it was asked for and did; the counts are then against what was last fetched.
+   */
+  fetch_error?: string | null;
+  /**
+   * A rebase stopped part way (a conflict git left), which the next run would start inside.
+   */
+  rebasing?: boolean;
   /**
    * Commits not pushed to the upstream; all of `ahead` when there is no upstream.
    */

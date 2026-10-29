@@ -22,14 +22,22 @@ pub struct GitState {
     pub unpushed: u32,
     /// Files with uncommitted changes, untracked ones included.
     pub changed: u32,
+    /// A rebase stopped part way (a conflict git left), which the next run would start inside.
+    #[serde(default)]
+    pub rebasing: bool,
+    /// Why fetching from the remote failed, when it was asked for and did; the counts are then
+    /// against what was last fetched.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_error: Option<String>,
 }
 
 /// What the Git menu asks of a thread's folder. Each runs git with hooks off.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GitAction {
-    /// `git pull --rebase` from the upstream, else a rebase onto the base.
+    /// `git pull --rebase --autostash` from the upstream, else a rebase onto the base; a
+    /// conflict is aborted, leaving the folder as it was.
     Pull,
-    /// `git push -u origin <branch>`.
+    /// `git push` to the upstream, else `git push -u origin <branch>`.
     Push,
 }

@@ -219,13 +219,17 @@ describe("agent pane", () => {
     const chip = pane.root.querySelector<HTMLButtonElement>(".chip.git")!;
     expect(chip.textContent).toBe("⑂ fix-login");
     chip.click();
+    expect(last()).toEqual({ op: "git", cwd: "/r", thread: "t-1", fetch: true });
     const card = pane.root.querySelector(".card.git")!;
     expect(card.textContent).toContain("fix-login → origin/main · ahead 2 · behind 1");
     expect(card.textContent).toContain("1 uncommitted file · 2 not pushed");
     buttons(pane.root, "Push")[0]!.click();
     expect(last()).toEqual({ op: "git_action", cwd: "/r", thread: "t-1", action: "push" });
     expect(buttons(pane.root, "Pushing…")[0]!.disabled).toBe(true);
-    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: "origin/fix-login", unpushed: 0, changed: 1 } } });
+    // A plain read mid-push keeps the push's button busy.
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
+    expect(buttons(pane.root, "Pushing…")[0]!.disabled).toBe(true);
+    emit({ kind: "git", thread: "t-1", after: "push", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: "origin/fix-login", unpushed: 0, changed: 1 } } });
     expect(buttons(pane.root, "Push")).toHaveLength(0);
     expect(buttons(pane.root, "Pull")).toHaveLength(1);
     buttons(pane.root, "Source Control")[0]!.click();
@@ -234,6 +238,11 @@ describe("agent pane", () => {
     pane.root.querySelector<HTMLButtonElement>(".card.git button.primary")!.click();
     expect(last()).toEqual({ op: "commit_draft", cwd: "/r/.cedian/worktrees/a", thread: "t-1" });
     expect(pane.root.textContent).toContain("Drafting the commit message");
+    // A rebase left part way: no Pull or Push, and the card says why.
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: "origin/fix-login", unpushed: 0, changed: 1, rebasing: true, fetch_error: "git fetch: no answer in 120 s" } } });
+    expect(buttons(pane.root, "Pull")).toHaveLength(0);
+    expect(pane.root.querySelector(".card.git")?.textContent).toContain("A rebase stopped part way");
+    expect(pane.root.querySelector(".card.git")?.textContent).toContain("Couldn't fetch");
     // A folder outside git says so in the card.
     emit({ kind: "git", thread: "t-1", state: { Err: "not a git repository" } });
     expect(pane.root.querySelector(".card.git")?.textContent).toContain("not a git repository");
