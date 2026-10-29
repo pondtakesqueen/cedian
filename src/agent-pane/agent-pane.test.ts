@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { isBlock, type Block } from "./block";
 import { items, shownText } from "./items";
-import { itemLabel, renderItems } from "./render";
+import { itemLabel, renderItems, verdictLine } from "./render";
 import { applyBlocks, applyText, emptyView } from "./view";
 
 // node:path, not URL: happy-dom puts its own URL in the test's globals.
@@ -104,6 +104,15 @@ describe("agent pane", () => {
     expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual(["You, with 1 image", "cedia is answering", "2 tool calls, 1 failed"]);
     expect(groups[1]!.getAttribute("aria-busy")).toBe("true");
     expect(itemLabel({ k: "receipt", subtype: "success", verified: false, unverified: 2, verdict: "", turns: 1, seconds: null, costUsd: 0, checks: [] })).toBe("Run ended: unverified 2");
+  });
+
+  it("the receipt's verdict is one line of the final answer, not all of it", () => {
+    expect(verdictLine("\n## Done\n\n- **Bug fix:** sums every element")).toBe("Done");
+    expect(verdictLine("`average()` now sums every element.\n\n- more")).toBe("`average()` now sums every element.");
+    expect(verdictLine("")).toBe("");
+    const receipt = { k: "receipt" as const, subtype: "success", verified: false, unverified: 1, verdict: "First line.\n\nThe rest of a long answer.", turns: 6, seconds: 34, costUsd: 0.01, checks: [] };
+    const drawn = renderItems(document, [receipt as never]);
+    expect(drawn.querySelector(".verdict")?.textContent).toBe("First line.");
   });
 
   it("puts text in as text", () => {

@@ -86,12 +86,14 @@ function renderItem(doc: Document, item: Item): HTMLElement {
     }
     case "receipt": {
       const card = el(doc, "div", item.verified ? "receipt" : "receipt unv");
-      const head = el(doc, "div", "row");
+      const head = el(doc, "div", "row head");
       head.append(
         item.verified
           ? el(doc, "span", "vbadge", "verified")
           : el(doc, "span", "ubadge", badge(item)),
-        el(doc, "span", "verdict", item.verdict),
+        // One line: the whole answer is drawn above it, and a row made to hold the answer
+        // squeezed the stats to a word a line (seen on the Mac at 419 px).
+        el(doc, "span", "verdict ell", verdictLine(item.verdict)),
         el(doc, "span", "small m num", meta(item)),
       );
       const checks = el(doc, "div", "checks");
@@ -161,4 +163,10 @@ function el(doc: Document, tag: string, cls: string, text?: string): HTMLElement
   if (cls) node.className = cls;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+/** The receipt's verdict: the first line of the run's final text that says something. */
+export function verdictLine(text: string): string {
+  const line = text.split("\n").map((l) => l.trim()).find((l) => l !== "") ?? "";
+  return line.replace(/^#+\s*/, "");
 }
