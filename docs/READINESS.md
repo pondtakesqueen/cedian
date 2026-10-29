@@ -201,7 +201,12 @@
   on its worktree (else the project), then focused and pinned in the SCM
   view (`vscode/contrib/cedian/browser/sourceControl.ts`), so Changes,
   Commit, Pull, Push and the graph are the thread's; `git.detectWorktrees`
-  lists every thread's worktree beside the project
+  lists every thread's worktree beside the project. In the thread, as the
+  prototype draws it: a `⑂ <branch>` chip in the composer opens the Git
+  card (`fix-login → origin/main · ahead 2 · behind 1`, uncommitted and
+  unpushed counts, Pull and Push, Source Control), read and run by the
+  daemon with hooks off (`Request::Git`, `Request::GitAction`,
+  `cedian_daemon::git_state`)
 - [ ] Pop-out panes; Help → Check for updates
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions

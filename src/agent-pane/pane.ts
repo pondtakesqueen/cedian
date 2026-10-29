@@ -5,11 +5,12 @@
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, ModelList, Notice, PermissionList, Request, Review, ThreadInfo } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, findingCount, openFindings, reviewed, sendComments, setComments, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
+import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
@@ -42,6 +43,8 @@ export interface PaneHost {
   confirmArchive?(files: string[]): Promise<boolean>;
   /** Source Control (the git pane) on this folder: the open thread's worktree, else the project. */
   showRepository?(path: string): void;
+  /** Opens the Source Control view on this folder, for what the Git card does not do. */
+  openSourceControl?(path: string): void;
 }
 
 /** What cedia shows a model (`ImageMime`). */
@@ -104,6 +107,10 @@ export class AgentPane {
   private threads: ThreadInfo[] = [];
   private state: ThreadState;
   private ship: Ship = idleShip();
+  /** The open thread's folder in git, or why it has none; the Git card's state. */
+  private git?: GitState | string;
+  private gitOpen = false;
+  private gitBusy?: GitAction;
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
@@ -227,6 +234,10 @@ export class AgentPane {
     if (info) this.state = { ...this.state, info, status: info.status };
     this.ship = idleShip();
     this.wire.request({ op: "open", cwd: this.host.cwd, thread: id });
+    this.git = undefined;
+    this.gitOpen = false;
+    this.gitBusy = undefined;
+    this.wire.request({ op: "git", cwd: this.host.cwd, thread: id });
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
     this.followRepository();
@@ -350,6 +361,14 @@ export class AgentPane {
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
         break;
+      case "git":
+        if (n.thread !== this.state.thread) break;
+        this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
+        this.gitBusy = undefined;
+        break;
+      case "committed":
+        if (n.thread === this.state.thread) this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+        break;
       case "archive_guard":
         void this.archiveGuard(n.cwd, n.thread, n.files);
         break;
@@ -359,6 +378,7 @@ export class AgentPane {
       case "status":
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
+          this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
             this.wire.request(this.then);
@@ -632,6 +652,7 @@ export class AgentPane {
     if (this.state.notes?.comments.length) parts.push(this.commentsCard(this.state.notes.comments));
     if (this.state.notes?.reviewing || this.state.notes?.review) parts.push(this.codeReviewCard());
     if (this.state.thread && !isRunning(this.state) && this.state.review && this.state.review.files.length > 0) parts.push(this.shipCard());
+    if (this.gitOpen && this.state.thread) parts.push(this.gitCard());
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
@@ -840,6 +861,41 @@ export class AgentPane {
     return card;
   }
 
+  /** The Git card, from the branch chip: where the branch stands, and Pull and Push. */
+  private gitCard(): HTMLElement {
+    const d = this.doc;
+    const thread = this.state.thread!;
+    const card = el(d, "div", "card git");
+    const git = this.git;
+    if (git === undefined) {
+      card.append(el(d, "div", "small", "Reading git…"));
+      return card;
+    }
+    if (typeof git === "string") {
+      card.append(el(d, "div", "small bad", git));
+      return card;
+    }
+    card.append(el(d, "div", "m ell", branchLine(git)));
+    const pending = pendingLine(git);
+    if (pending) card.append(el(d, "div", "small", pending));
+    const row = el(d, "div", "row");
+    for (const action of gitActions(git)) {
+      const b = button(d, this.gitBusy === action ? ACTION_BUSY[action] : ACTION_LABEL[action], () => {
+        this.gitBusy = action;
+        this.wire.request({ op: "git_action", cwd: this.host.cwd, thread, action });
+        this.render();
+      }, "btn small");
+      if (this.gitBusy) {
+        b.disabled = true;
+        if (this.gitBusy === action) b.setAttribute("aria-busy", "true");
+      }
+      row.append(b);
+    }
+    if (this.host.openSourceControl) row.append(button(d, "Source Control", () => this.host.openSourceControl!(this.cwd), "btn small"));
+    if (row.childElementCount) card.append(row);
+    return card;
+  }
+
   private shipCard(): HTMLElement {
     const d = this.doc;
     const thread = this.state.thread!;
@@ -1025,6 +1081,15 @@ export class AgentPane {
       s.dataset.chip = "permission";
       s.title = "Permission (Cmd+Shift+M)";
       chips.push(s);
+    }
+    if (this.state.thread && this.git && typeof this.git !== "string") {
+      const branch = button(d, `⑂ ${this.git.branch ?? "detached"}`, () => {
+        this.gitOpen = !this.gitOpen;
+        this.render();
+      }, "chip m git");
+      branch.setAttribute("aria-expanded", String(this.gitOpen));
+      branch.title = branchLine(this.git);
+      chips.push(branch);
     }
     if (!this.state.thread) {
       const label = el(d, "label", "chip check");

@@ -192,6 +192,11 @@ export type Notice =
       page: ResultOf_BrowserPageOr_String;
     }
   | {
+      kind: "git";
+      state: ResultOf_GitStateOr_String;
+      thread: string;
+    }
+  | {
       cwd: string;
       files: string[];
       kind: "archive_guard";
@@ -670,6 +675,17 @@ export type ResultOf_BrowserPageOr_String =
       Err: string;
     };
 /**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Result_of_GitState_or_String".
+ */
+export type ResultOf_GitStateOr_String =
+  | {
+      Ok: GitState;
+    }
+  | {
+      Err: string;
+    };
+/**
  * From the window to the daemon.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -893,6 +909,17 @@ export type Request =
     }
   | {
       cwd: string;
+      op: "git";
+      thread: string;
+    }
+  | {
+      action: GitAction;
+      cwd: string;
+      op: "git_action";
+      thread: string;
+    }
+  | {
+      cwd: string;
       op: "browser";
     }
   | {
@@ -958,6 +985,13 @@ export type Decision =
       decision: "reject";
       reason: string;
     };
+/**
+ * What the Git menu asks of a thread's folder. Each runs git with hooks off.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "GitAction".
+ */
+export type GitAction = "pull" | "push";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTarget".
@@ -1837,6 +1871,42 @@ export interface BrowserPage {
    * The page's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.
    */
   socket: string;
+}
+/**
+ * Where a thread's folder (its worktree, else the project) stands in git, for the branch chip and the Git menu (spec §11 Phase D, the git pane).
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "GitState".
+ */
+export interface GitState {
+  /**
+   * Commits on the branch the base does not have.
+   */
+  ahead: number;
+  /**
+   * The branch it will merge into: the remote's default (`origin/HEAD`), else a local `main` or `master`; none when there is neither, or it is the base itself.
+   */
+  base?: string | null;
+  /**
+   * Commits on the base the branch does not have.
+   */
+  behind: number;
+  /**
+   * The checked-out branch; none on a detached HEAD.
+   */
+  branch?: string | null;
+  /**
+   * Files with uncommitted changes, untracked ones included.
+   */
+  changed: number;
+  /**
+   * Commits not pushed to the upstream; all of `ahead` when there is no upstream.
+   */
+  unpushed: number;
+  /**
+   * The branch's upstream (`origin/<branch>`) once it has been pushed.
+   */
+  upstream?: string | null;
 }
 /**
  * The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).

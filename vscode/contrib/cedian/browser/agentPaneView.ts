@@ -124,6 +124,11 @@ export class AgentPaneView extends ViewPane {
 			openUrl: url => { this.openerService.open(URI.parse(url)); },
 			// The git pane follows the open thread; a folder git can't open just leaves it where it was.
 			showRepository: path => { showRepository(this.commands, this.scm, this.scmView, path).catch(() => { }); },
+			openSourceControl: path => {
+				showRepository(this.commands, this.scm, this.scmView, path)
+					.then(() => this.commands.executeCommand('workbench.view.scm'))
+					.catch(e => this.notifications.warn(`Couldn't open Source Control: ${e instanceof Error ? e.message : e}`));
+			},
 			// Spec §8.4: "Archive anyway? This worktree has uncommitted changes"; cancel keeps them.
 			confirmArchive: async files => {
 				const shown = files.slice(0, 5).join('\n') + (files.length > 5 ? `\nand ${files.length - 5} more` : '');

@@ -3,6 +3,7 @@
 
 mod browser;
 mod build;
+mod git;
 mod launch_agent;
 mod mcp;
 mod message;
@@ -15,6 +16,7 @@ mod status;
 pub use browser::BrowserPage;
 pub use build::Build;
 pub use cedian_review::{FileReview, Hunk, HunkState, Review};
+pub use git::{GitAction, GitState};
 pub use launch_agent::{LAUNCH_AGENT_LABEL, launch_agent_plist};
 pub use mcp::{McpAdd, McpServer, McpTarget, McpTransport};
 pub use message::{

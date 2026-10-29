@@ -13,7 +13,10 @@ use cedian_protocol::{
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{BrowserPage, Build, LineComment, McpAdd, McpServer, Notes, Status, ThreadInfo};
+use crate::{
+    BrowserPage, Build, GitAction, GitState, LineComment, McpAdd, McpServer, Notes, Status,
+    ThreadInfo,
+};
 
 /// From the window to the daemon.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -245,6 +248,16 @@ pub enum Request {
         cwd: PathBuf,
         id: String,
         enabled: bool,
+    },
+    /// Where the thread's folder (its worktree, else the project) stands in git, answered with
+    /// `Notice::Git`.
+    Git { cwd: PathBuf, thread: String },
+    /// Pull or push the thread's folder, then answers `Notice::Git` with where it stands after;
+    /// a git that fails answers `Notice::Error` for the thread.
+    GitAction {
+        cwd: PathBuf,
+        thread: String,
+        action: GitAction,
     },
     /// The project's page in the shared Chromium, which the daemon starts when none runs.
     /// Answered with `Notice::Browser`; from then on the project's runs get the page.
@@ -530,6 +543,12 @@ pub enum Notice {
     Browser {
         cwd: PathBuf,
         page: Result<BrowserPage, String>,
+    },
+    /// The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why
+    /// there is none (not a git repository).
+    Git {
+        thread: String,
+        state: Result<GitState, String>,
     },
     /// The thread was not archived: its worktree has uncommitted changes in `files`, which go
     /// when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?

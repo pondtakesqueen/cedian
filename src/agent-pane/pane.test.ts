@@ -208,6 +208,33 @@ describe("agent pane", () => {
     expect(shown).toEqual(["/r", "/r/.cedian/worktrees/a", "/r/.cedian/worktrees/b"]);
   });
 
+  it("the branch chip opens the Git card: where the branch stands, Pull and Push", () => {
+    const sc: string[] = [];
+    const { pane, emit, last, sent } = setup({ openSourceControl: (path) => sc.push(path) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    expect(sent).toContainEqual({ op: "git", cwd: "/r", thread: "t-1" });
+    expect(pane.root.querySelector(".chip.git")).toBeNull();
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
+    const chip = pane.root.querySelector<HTMLButtonElement>(".chip.git")!;
+    expect(chip.textContent).toBe("⑂ fix-login");
+    chip.click();
+    const card = pane.root.querySelector(".card.git")!;
+    expect(card.textContent).toContain("fix-login → origin/main · ahead 2 · behind 1");
+    expect(card.textContent).toContain("1 uncommitted file · 2 not pushed");
+    buttons(pane.root, "Push")[0]!.click();
+    expect(last()).toEqual({ op: "git_action", cwd: "/r", thread: "t-1", action: "push" });
+    expect(buttons(pane.root, "Pushing…")[0]!.disabled).toBe(true);
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: "origin/fix-login", unpushed: 0, changed: 1 } } });
+    expect(buttons(pane.root, "Push")).toHaveLength(0);
+    expect(buttons(pane.root, "Pull")).toHaveLength(1);
+    buttons(pane.root, "Source Control")[0]!.click();
+    expect(sc).toEqual(["/r/.cedian/worktrees/a"]);
+    // A folder outside git says so in the card.
+    emit({ kind: "git", thread: "t-1", state: { Err: "not a git repository" } });
+    expect(pane.root.querySelector(".card.git")?.textContent).toContain("not a git repository");
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });
@@ -327,7 +354,7 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".thread-card")).toBeNull();
     // ⌘0 goes back to the chat.
     pane.projectChat();
-    expect(sent.at(-2)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
+    expect(sent.at(-3)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
     expect(pane.root.querySelector<HTMLSelectElement>("select.threads")!.value).toBe("@chat");
   });
 

@@ -12,6 +12,7 @@ mod desktop_settings;
 mod environment;
 mod flow;
 mod follow;
+mod git_state;
 mod keep_awake;
 pub mod launch_agent;
 mod ledger;

@@ -908,6 +908,24 @@ impl Daemon {
                     lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
+            Request::Git { cwd, thread } => {
+                let dir = lock(shared).folder(&cwd, &thread);
+                let state = crate::git_state::read(&dir).map_err(|e| format!("{e:#}"));
+                lock(shared).send(client, Notice::Git { thread, state });
+            }
+            Request::GitAction {
+                cwd,
+                thread,
+                action,
+            } => {
+                let dir = lock(shared).folder(&cwd, &thread);
+                // Git can take a while (a push); the daemon is not locked meanwhile.
+                if let Err(error) = crate::git_state::act(&dir, action) {
+                    lock(shared).thread_error(client, &thread, format!("{error:#}"));
+                }
+                let state = crate::git_state::read(&dir).map_err(|e| format!("{e:#}"));
+                lock(shared).send(client, Notice::Git { thread, state });
+            }
             Request::Browser { cwd } => {
                 let browser = lock(shared).browser.clone();
                 let page = browser
@@ -1277,6 +1295,14 @@ impl Daemon {
             }
             Err(error) => log::warn!("archiving {thread}: {error:#}"),
         }
+    }
+
+    /// The folder the thread's latest session ran in (its worktree), else the project's.
+    fn folder(&self, cwd: &Path, thread: &str) -> PathBuf {
+        let slug = project_key(cwd);
+        read_thread(&threads_dir(&self.home, &slug), thread)
+            .and_then(|summary| Changes::of(&self.home, &slug, &summary))
+            .map_or_else(|_| cwd.to_owned(), |changes| changes.work_tree)
     }
 
     /// The uncommitted files in the worktree the thread's latest session ran in; none when it

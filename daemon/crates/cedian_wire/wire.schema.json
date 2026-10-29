@@ -832,6 +832,85 @@
       ],
       "type": "object"
     },
+    "GitAction": {
+      "description": "What the Git menu asks of a thread's folder. Each runs git with hooks off.",
+      "oneOf": [
+        {
+          "description": "`git pull --rebase` from the upstream, else a rebase onto the base.",
+          "enum": [
+            "pull"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "`git push -u origin <branch>`.",
+          "enum": [
+            "push"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "GitState": {
+      "description": "Where a thread's folder (its worktree, else the project) stands in git, for the branch chip and the Git menu (spec §11 Phase D, the git pane).",
+      "properties": {
+        "ahead": {
+          "description": "Commits on the branch the base does not have.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "base": {
+          "default": null,
+          "description": "The branch it will merge into: the remote's default (`origin/HEAD`), else a local `main` or `master`; none when there is neither, or it is the base itself.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "behind": {
+          "description": "Commits on the base the branch does not have.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "branch": {
+          "default": null,
+          "description": "The checked-out branch; none on a detached HEAD.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changed": {
+          "description": "Files with uncommitted changes, untracked ones included.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "unpushed": {
+          "description": "Commits not pushed to the upstream; all of `ahead` when there is no upstream.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "upstream": {
+          "default": null,
+          "description": "The branch's upstream (`origin/<branch>`) once it has been pushed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "ahead",
+        "behind",
+        "changed",
+        "unpushed"
+      ],
+      "type": "object"
+    },
     "Helpers": {
       "additionalProperties": false,
       "description": "The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).",
@@ -2369,6 +2448,30 @@
         },
         {
           "additionalProperties": false,
+          "description": "The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why there is none (not a git repository).",
+          "properties": {
+            "kind": {
+              "enum": [
+                "git"
+              ],
+              "type": "string"
+            },
+            "state": {
+              "$ref": "#/definitions/Result_of_GitState_or_String"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "state",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The thread was not archived: its worktree has uncommitted changes in `files`, which go when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?",
           "properties": {
             "cwd": {
@@ -3616,6 +3719,58 @@
         },
         {
           "additionalProperties": false,
+          "description": "Where the thread's folder (its worktree, else the project) stands in git, answered with `Notice::Git`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "git"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Pull or push the thread's folder, then answers `Notice::Git` with where it stands after; a git that fails answers `Notice::Error` for the thread.",
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/GitAction"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "git_action"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The project's page in the shared Chromium, which the daemon starts when none runs. Answered with `Notice::Browser`; from then on the project's runs get the page.",
           "properties": {
             "cwd": {
@@ -3916,6 +4071,32 @@
           "properties": {
             "Ok": {
               "$ref": "#/definitions/BrowserPage"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_GitState_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/GitState"
             }
           },
           "required": [
