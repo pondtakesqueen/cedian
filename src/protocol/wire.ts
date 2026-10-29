@@ -196,6 +196,10 @@ export type Notice =
        * The action this answers, once it has finished; none for a plain read.
        */
       after?: GitAction | null;
+      /**
+       * It fetched first (`Request::Git` `fetch`), so behind is current.
+       */
+      fetched?: boolean;
       kind: "git";
       state: ResultOf_GitStateOr_String;
       thread: string;
@@ -208,6 +212,11 @@ export type Notice =
       kind: "pr_view";
       thread: string;
       view: ResultOf_Nullable_PrViewOr_String;
+    }
+  | {
+      cwd: string;
+      kind: "prs";
+      list: ResultOf_PrListOr_String;
     }
   | {
       kind: "pr_log";
@@ -738,6 +747,17 @@ export type CheckState = "pending" | "passed" | "failed" | "skipped";
  */
 export type PrViewState = "open" | "merged" | "closed";
 /**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Result_of_PrList_or_String".
+ */
+export type ResultOf_PrListOr_String =
+  | {
+      Ok: PrList;
+    }
+  | {
+      Err: string;
+    };
+/**
  * From the window to the daemon.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -984,6 +1004,15 @@ export type Request =
       cwd: string;
       op: "pr_act";
       thread: string;
+    }
+  | {
+      cwd: string;
+      op: "prs";
+    }
+  | {
+      cwd: string;
+      number: number;
+      op: "review_pr";
     }
   | {
       cwd: string;
@@ -2150,6 +2179,39 @@ export interface PrThread {
   line?: number | null;
   path: string;
   resolved: boolean;
+}
+/**
+ * The repository's open pull requests, as the list's tabs split them.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrList".
+ */
+export interface PrList {
+  mine: PrSummary[];
+  open: PrSummary[];
+  to_review: PrSummary[];
+}
+/**
+ * One open pull request of the project's repository, for the Pull requests list.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrSummary".
+ */
+export interface PrSummary {
+  additions: number;
+  author: string;
+  base: string;
+  ci: CiState;
+  deletions: number;
+  draft: boolean;
+  head: string;
+  number: number;
+  /**
+   * The person's review is asked for.
+   */
+  review_requested: boolean;
+  title: string;
+  url: string;
 }
 /**
  * The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).

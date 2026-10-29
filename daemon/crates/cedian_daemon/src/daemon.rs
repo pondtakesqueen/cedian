@@ -921,6 +921,7 @@ impl Daemon {
                             thread,
                             state,
                             after,
+                            fetched: fetch,
                         },
                     );
                 });
@@ -944,6 +945,7 @@ impl Daemon {
                             thread,
                             state,
                             after,
+                            fetched: false,
                         },
                     );
                 });
@@ -987,6 +989,19 @@ impl Daemon {
                     };
                     lock(&shared).send(client, notice);
                 });
+            }
+            Request::Prs { cwd } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let list = crate::pr_view::list(&gh, &cwd).map_err(|e| format!("{e:#}"));
+                    lock(&shared).send(client, Notice::Prs { cwd, list });
+                });
+            }
+            Request::ReviewPr { cwd, number } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || Self::review_pr(&shared, client, cwd, &gh, number));
             }
             Request::PrLog { cwd, thread, run } => {
                 let (gh, dir) = {
@@ -1657,6 +1672,44 @@ impl Daemon {
                 }
                 Err(error) => log::warn!("starting {thread}: {error:#}"),
             }
+        }
+    }
+
+    /// A thread that reviews someone's PR: a worktree with the PR checked out, and a first run
+    /// that reads it. Its task says not to push or post: the review is the person's to send,
+    /// from the PR block.
+    fn review_pr(
+        shared: &Shared,
+        client: ClientId,
+        asked_in: PathBuf,
+        gh: &crate::pr_watch::Gh,
+        number: u64,
+    ) {
+        let text = format!(
+            "Review pull request #{number}, which is checked out here. Read its diff against its \
+             base (gh pr diff {number}), then say what it changes, what looks risky or wrong, \
+             and what to ask its author, with file and line. Change nothing, and do not push, \
+             comment or review on GitHub: the person sends the review."
+        );
+        lock(shared).send(
+            client,
+            Notice::Preparing {
+                cwd: asked_in.clone(),
+                step: format!("checking out PR #{number}"),
+            },
+        );
+        let made = crate::worktree::create(&asked_in, &format!("review pr {number}"))
+            .and_then(|(dir, _)| crate::pr_view::checkout(gh, &dir, number).map(|()| dir));
+        match made {
+            Ok(dir) => {
+                let with = Flags {
+                    permission: Some("read-only"),
+                    cache_ttl: Some(PERSON_CACHE_TTL),
+                    ..Flags::default()
+                };
+                Self::prompt(shared, Some(client), asked_in, dir, &text, None, with);
+            }
+            Err(error) => lock(shared).error(client, format!("{error:#}")),
         }
     }
 

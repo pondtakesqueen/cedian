@@ -7,12 +7,12 @@ use std::path::Path;
 
 use anyhow::Context as _;
 use cedian_wire::{
-    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrReviewer, PrThread, PrView,
-    PrViewState, ReviewEvent,
+    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrList, PrReviewer, PrSummary, PrThread,
+    PrView, PrViewState, ReviewEvent,
 };
 use serde_json::Value;
 
-use crate::pr_watch::Gh;
+use crate::pr_watch::{Check, Gh, Pr};
 
 const QUERY: &str = r#"query($owner: String!, $repo: String!, $number: Int!) {
   viewer { login }
@@ -322,6 +322,79 @@ pub fn act(gh: &Gh, dir: &Path, action: &PrAction) -> anyhow::Result<()> {
     gh.run(dir, &args).map(drop)
 }
 
+/// `gh pr list --json` with the fields the list draws.
+#[derive(serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct Listed {
+    number: u64,
+    url: String,
+    title: String,
+    author: crate::pr_watch::Author,
+    head_ref_name: String,
+    base_ref_name: String,
+    is_draft: bool,
+    additions: u32,
+    deletions: u32,
+    status_check_rollup: Vec<Check>,
+    review_requests: Vec<Value>,
+}
+
+/// The repository's open pull requests, split as the list's tabs show them.
+pub fn list(gh: &Gh, dir: &Path) -> anyhow::Result<PrList> {
+    let fields = "number,url,title,author,headRefName,baseRefName,isDraft,additions,deletions,statusCheckRollup,reviewRequests";
+    let text = gh.run(
+        dir,
+        &[
+            "pr", "list", "--state", "open", "--limit", "100", "--json", fields,
+        ],
+    )?;
+    let me = gh.me(dir).unwrap_or_default();
+    parse_list(&text, &me)
+}
+
+pub fn parse_list(text: &str, me: &str) -> anyhow::Result<PrList> {
+    let listed: Vec<Listed> = serde_json::from_str(text).context("reading gh pr list")?;
+    let mut out = PrList::default();
+    for pr in listed {
+        let asked = pr
+            .review_requests
+            .iter()
+            .any(|r| r.get("login").and_then(Value::as_str) == Some(me));
+        let ci = Pr {
+            status_check_rollup: pr.status_check_rollup,
+            ..Pr::default()
+        }
+        .ci();
+        let summary = PrSummary {
+            number: pr.number,
+            url: pr.url,
+            title: pr.title,
+            author: pr.author.login,
+            head: pr.head_ref_name,
+            base: pr.base_ref_name,
+            draft: pr.is_draft,
+            additions: pr.additions,
+            deletions: pr.deletions,
+            ci,
+            review_requested: asked && !me.is_empty(),
+        };
+        if summary.review_requested {
+            out.to_review.push(summary.clone());
+        }
+        if !me.is_empty() && summary.author == me {
+            out.mine.push(summary.clone());
+        }
+        out.open.push(summary);
+    }
+    Ok(out)
+}
+
+/// Checks PR `number` out in `dir` (a new worktree of its own), on the PR's own branch.
+pub fn checkout(gh: &Gh, dir: &Path, number: u64) -> anyhow::Result<()> {
+    gh.run(dir, &["pr", "checkout", &number.to_string()])
+        .map(drop)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,6 +443,24 @@ mod tests {
         );
         assert!(thread.hunk.ends_with("+    submitting = false;"));
         assert_eq!(view.auto_merge, Some(MergeMethod::Squash));
+    }
+
+    #[test]
+    fn the_list_splits_what_to_review_and_what_is_mine() {
+        let text = r#"[
+          {"number":11,"title":"Cache the CSV","author":{"login":"ton-s"},"headRefName":"csv","baseRefName":"main","isDraft":false,"additions":84,"deletions":12,
+           "statusCheckRollup":[{"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"}],"reviewRequests":[{"login":"me"}]},
+          {"number":7,"title":"Fix login","author":{"login":"me"},"headRefName":"fix","baseRefName":"main","isDraft":true,"statusCheckRollup":[],"reviewRequests":[]}
+        ]"#;
+        let list = parse_list(text, "me").expect("list");
+        assert_eq!(
+            list.to_review.iter().map(|p| p.number).collect::<Vec<_>>(),
+            [11]
+        );
+        assert_eq!(list.mine.iter().map(|p| p.number).collect::<Vec<_>>(), [7]);
+        assert_eq!(list.open.len(), 2);
+        assert_eq!(list.to_review[0].ci, cedian_wire::CiState::Passing);
+        assert!(list.mine[0].draft);
     }
 
     #[test]

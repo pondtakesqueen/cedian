@@ -154,3 +154,28 @@ pub enum PrAction {
         logins: Vec<String>,
     },
 }
+
+/// One open pull request of the project's repository, for the Pull requests list.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct PrSummary {
+    pub number: u64,
+    pub url: String,
+    pub title: String,
+    pub author: String,
+    pub head: String,
+    pub base: String,
+    pub draft: bool,
+    pub additions: u32,
+    pub deletions: u32,
+    pub ci: crate::CiState,
+    /// The person's review is asked for.
+    pub review_requested: bool,
+}
+
+/// The repository's open pull requests, as the list's tabs split them.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct PrList {
+    pub to_review: Vec<PrSummary>,
+    pub mine: Vec<PrSummary>,
+    pub open: Vec<PrSummary>,
+}

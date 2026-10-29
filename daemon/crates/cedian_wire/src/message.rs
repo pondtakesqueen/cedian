@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     BrowserPage, Build, GitAction, GitState, LineComment, McpAdd, McpServer, Notes, PrAction,
-    PrView, Status, ThreadInfo,
+    PrList, PrView, Status, ThreadInfo,
 };
 
 /// From the window to the daemon.
@@ -275,6 +275,12 @@ pub enum Request {
         thread: String,
         action: PrAction,
     },
+    /// The repository's open pull requests, answered with `Notice::Prs`.
+    Prs { cwd: PathBuf },
+    /// Starts a thread that reviews PR `number`: a new worktree with the PR checked out
+    /// (`gh pr checkout`), and a first run that reads it and says what it changes. The PR watch
+    /// never acts on someone else's PR, so the thread does not push to it.
+    ReviewPr { cwd: PathBuf, number: u64 },
     /// The end of a failed Actions run's log, answered with `Notice::PrLog`.
     PrLog {
         cwd: PathBuf,
@@ -574,6 +580,9 @@ pub enum Notice {
         /// The action this answers, once it has finished; none for a plain read.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         after: Option<GitAction>,
+        /// It fetched first (`Request::Git` `fetch`), so behind is current.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        fetched: bool,
     },
     /// The answer to `Request::PrView` and `Request::PrAct`: the thread's PR, none when its branch
     /// has none, or why it could not be read (`gh` missing or signed out).
@@ -583,6 +592,12 @@ pub enum Notice {
         /// It answers a `Request::PrAct`, which has finished.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         acted: bool,
+    },
+    /// The answer to `Request::Prs`, or why there is none (`gh` missing or signed out, or no
+    /// GitHub remote).
+    Prs {
+        cwd: PathBuf,
+        list: Result<PrList, String>,
     },
     /// The answer to `Request::PrLog`.
     PrLog {

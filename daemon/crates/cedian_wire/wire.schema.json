@@ -2490,6 +2490,10 @@
               ],
               "description": "The action this answers, once it has finished; none for a plain read."
             },
+            "fetched": {
+              "description": "It fetched first (`Request::Git` `fetch`), so behind is current.",
+              "type": "boolean"
+            },
             "kind": {
               "enum": [
                 "git"
@@ -2535,6 +2539,30 @@
             "kind",
             "thread",
             "view"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Prs`, or why there is none (`gh` missing or signed out, or no GitHub remote).",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "prs"
+              ],
+              "type": "string"
+            },
+            "list": {
+              "$ref": "#/definitions/Result_of_PrList_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "list"
           ],
           "type": "object"
         },
@@ -3050,6 +3078,35 @@
       ],
       "type": "object"
     },
+    "PrList": {
+      "description": "The repository's open pull requests, as the list's tabs split them.",
+      "properties": {
+        "mine": {
+          "items": {
+            "$ref": "#/definitions/PrSummary"
+          },
+          "type": "array"
+        },
+        "open": {
+          "items": {
+            "$ref": "#/definitions/PrSummary"
+          },
+          "type": "array"
+        },
+        "to_review": {
+          "items": {
+            "$ref": "#/definitions/PrSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "mine",
+        "open",
+        "to_review"
+      ],
+      "type": "object"
+    },
     "PrOpened": {
       "anyOf": [
         {
@@ -3142,6 +3199,65 @@
         "closed"
       ],
       "type": "string"
+    },
+    "PrSummary": {
+      "description": "One open pull request of the project's repository, for the Pull requests list.",
+      "properties": {
+        "additions": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "author": {
+          "type": "string"
+        },
+        "base": {
+          "type": "string"
+        },
+        "ci": {
+          "$ref": "#/definitions/CiState"
+        },
+        "deletions": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "draft": {
+          "type": "boolean"
+        },
+        "head": {
+          "type": "string"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "review_requested": {
+          "description": "The person's review is asked for.",
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "additions",
+        "author",
+        "base",
+        "ci",
+        "deletions",
+        "draft",
+        "head",
+        "number",
+        "review_requested",
+        "title",
+        "url"
+      ],
+      "type": "object"
     },
     "PrThread": {
       "properties": {
@@ -4392,6 +4508,52 @@
         },
         {
           "additionalProperties": false,
+          "description": "The repository's open pull requests, answered with `Notice::Prs`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "prs"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Starts a thread that reviews PR `number`: a new worktree with the PR checked out (`gh pr checkout`), and a first run that reads it and says what it changes. The PR watch never acts on someone else's PR, so the thread does not push to it.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "review_pr"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "number",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The end of a failed Actions run's log, answered with `Notice::PrLog`.",
           "properties": {
             "cwd": {
@@ -4779,6 +4941,32 @@
                   "type": "null"
                 }
               ]
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_PrList_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/PrList"
             }
           },
           "required": [

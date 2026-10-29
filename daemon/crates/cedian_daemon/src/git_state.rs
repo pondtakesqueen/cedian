@@ -173,8 +173,21 @@ pub fn act(dir: &Path, action: GitAction) -> anyhow::Result<()> {
             };
             if let Err(error) = pulled {
                 if read(dir, false).is_ok_and(|s| s.rebasing) {
+                    // git's own text says to continue or skip, which no longer applies once
+                    // aborted, so the person gets the files and the log keeps the rest.
+                    let files = git(dir, &["diff", "--name-only", "--diff-filter=U"])
+                        .unwrap_or_default()
+                        .lines()
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     git(dir, &["rebase", "--abort"]).context("aborting the rebase")?;
-                    anyhow::bail!("Pull stopped on a conflict, so nothing changed: {error:#}");
+                    log::warn!("pull in {} stopped on a conflict: {error:#}", dir.display());
+                    let place = if files.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" in {files}")
+                    };
+                    anyhow::bail!("Pull stopped on a conflict{place}, so nothing changed");
                 }
                 return Err(error);
             }
@@ -317,7 +330,11 @@ mod tests {
         commit(&repo, &["-am", "theirs"]);
         run(&repo, &["checkout", "-q", "fix"]);
         let error = act(&repo, GitAction::Pull).expect_err("conflict");
-        assert!(format!("{error:#}").contains("conflict"), "{error:#}");
+        assert!(
+            format!("{error:#}").starts_with("Pull stopped on a conflict in "),
+            "{error:#}"
+        );
+        assert!(!format!("{error:#}").contains("--continue"), "{error:#}");
         assert!(!read(&repo, false).expect("state").rebasing);
         assert_eq!(
             std::fs::read_to_string(repo.join("a.txt")).expect("read"),

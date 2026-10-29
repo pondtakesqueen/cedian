@@ -223,6 +223,9 @@ describe("agent pane", () => {
     const card = pane.root.querySelector(".card.git")!;
     expect(card.textContent).toContain("fix-login → origin/main · ahead 2 · behind 1");
     expect(card.textContent).toContain("1 uncommitted file · 2 not pushed");
+    expect(card.textContent).toContain("Fetching from origin…");
+    emit({ kind: "git", thread: "t-1", fetched: true, state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
+    expect(pane.root.querySelector(".card.git")!.textContent).not.toContain("Fetching");
     buttons(pane.root, "Push")[0]!.click();
     expect(last()).toEqual({ op: "git_action", cwd: "/r", thread: "t-1", action: "push" });
     expect(buttons(pane.root, "Pushing…")[0]!.disabled).toBe(true);
@@ -261,6 +264,19 @@ describe("agent pane", () => {
     expect(buttons(pane.root, "Approve…")[0]!.disabled).toBe(true);
     emit({ kind: "pr_view", thread: "t-1", view: { Ok: { ...view, review_decision: "approved" } }, acted: true });
     expect(buttons(pane.root, "Approve")[0]!.disabled).toBe(false);
+  });
+
+  it("/prs opens the Pull requests card, and Review in a thread starts one", () => {
+    const { pane, emit, last } = setup();
+    type(pane, "/prs");
+    enter(pane);
+    enter(pane);
+    expect(last()).toEqual({ op: "prs", cwd: "/r" });
+    expect(pane.root.querySelector(".pr-list")?.textContent).toContain("Asking GitHub");
+    emit({ kind: "prs", cwd: "/r", list: { Ok: { to_review: [{ number: 11, url: "u", title: "Cache", author: "t", head: "c", base: "main", draft: false, additions: 1, deletions: 0, ci: "none", review_requested: true }], mine: [], open: [] } } });
+    buttons(pane.root, "Review in a thread")[0]!.click();
+    expect(last()).toEqual({ op: "review_pr", cwd: "/r", number: 11 });
+    expect(pane.root.querySelector(".pr-list")).toBeNull();
   });
 
   it("commits and opens a PR from the receipt", () => {

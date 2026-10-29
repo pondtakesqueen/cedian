@@ -5,13 +5,14 @@
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, findingCount, openFindings, reviewed, sendComments, setComments, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
 import { newPrUi, prBlock, type PrUi } from "./pr-block.js";
+import { firstTab, prListCard, type PrListTab } from "./pr-list.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
@@ -64,6 +65,9 @@ const CODE_REVIEW_ENTRY: CommandEntry = { name: "code-review", description: "Rev
 /** What the composer takes as archiving the open thread. */
 const ARCHIVE = "/archive";
 const ARCHIVE_ENTRY: CommandEntry = { name: "archive", description: "Archive this thread: it leaves the list", kind: "command", source: "user" };
+/** What the composer takes as opening the Pull requests card. */
+const PRS = "/prs";
+const PRS_ENTRY: CommandEntry = { name: "prs", description: "The repository's pull requests: review one in a thread", kind: "command", source: "user" };
 
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
@@ -112,9 +116,15 @@ export class AgentPane {
   private git?: GitState | string;
   private gitOpen = false;
   private gitBusy?: GitAction;
+  /** A fetch the card asked for has not answered yet. */
+  private gitFetching = false;
   /** The open thread's pull request for the PR block: none yet, none at all, or why not. */
   private pr?: PrView | null | string;
   private prUi: PrUi = newPrUi();
+  /** The Pull requests card: shown, its list (or why none), and its tab once the person picked one. */
+  private prsOpen = false;
+  private prs?: PrList | string;
+  private prsTab?: PrListTab;
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
@@ -241,6 +251,7 @@ export class AgentPane {
     this.git = undefined;
     this.gitOpen = false;
     this.gitBusy = undefined;
+    this.gitFetching = false;
     this.pr = undefined;
     this.prUi = newPrUi();
     if (info?.pr) {
@@ -381,12 +392,16 @@ export class AgentPane {
         this.pr = "Ok" in n.view ? n.view.Ok : n.view.Err;
         if (n.acted) this.prUi.busy = undefined;
         break;
+      case "prs":
+        if (n.cwd === this.host.cwd) this.prs = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        break;
       case "pr_log":
         if (n.thread === this.state.thread && this.prUi.log?.run === n.run) this.prUi.log = { run: n.run, text: n.log };
         break;
       case "git":
         if (n.thread !== this.state.thread) break;
         this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
+        if (n.fetched) this.gitFetching = false;
         // A read that lands mid-push leaves the push's button busy until its own answer.
         if (n.after && n.after === this.gitBusy) this.gitBusy = undefined;
         break;
@@ -456,6 +471,7 @@ export class AgentPane {
   private send(): void {
     if (this.input.value.trim() === CODE_REVIEW) return this.codeReview();
     if (this.input.value.trim() === ARCHIVE) return this.archive();
+    if (this.input.value.trim() === PRS) return this.openPrs();
     if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
@@ -476,6 +492,33 @@ export class AgentPane {
       return this.render();
     }
     this.sent([{ op: "code_review", cwd: this.cwd, thread }]);
+  }
+
+  /** `/prs`: the Pull requests card, asked of GitHub again each time it opens. */
+  private openPrs(): void {
+    this.prsOpen = true;
+    this.prs = undefined;
+    this.prsTab = undefined;
+    this.wire.request({ op: "prs", cwd: this.host.cwd });
+    this.input.value = "";
+    this.closePopup();
+    this.render();
+  }
+
+  private prsCard(): HTMLElement {
+    const list = this.prs;
+    const tab = this.prsTab ?? (list && typeof list === "object" ? firstTab(list) : "open");
+    return prListCard(this.doc, list, tab, {
+      tab: (t) => ((this.prsTab = t), this.render()),
+      // A new thread: the daemon checks the PR out in a worktree, and its `started` opens it here.
+      review: (number) => {
+        this.prsOpen = false;
+        this.newThread();
+        this.wire.request({ op: "review_pr", cwd: this.host.cwd, number });
+      },
+      openUrl: (url) => this.host.openUrl(url),
+      close: () => ((this.prsOpen = false), this.render()),
+    });
   }
 
   /** `/archive`: hides the open thread from the list; a worktree with uncommitted changes asks first. */
@@ -533,7 +576,7 @@ export class AgentPane {
     this.token = token;
     if (!token) return this.closePopup();
     if (token.trigger === "/") {
-      const own = this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : [];
+      const own = [...(this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : []), PRS_ENTRY];
       this.showCompletions(complete(token, [], [...own, ...this.commands]));
       return;
     }
@@ -679,6 +722,7 @@ export class AgentPane {
     // A commit started from the Git card shows here too, with or without a review.
     if (this.state.thread && !isRunning(this.state) && ((this.state.review && this.state.review.files.length > 0) || this.ship.commit.step !== "idle")) parts.push(this.shipCard());
     if (this.gitOpen && this.state.thread) parts.push(this.gitCard());
+    if (this.prsOpen) parts.push(this.prsCard());
     if (this.state.thread && this.pr && typeof this.pr === "object") parts.push(this.prCard(this.pr));
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
@@ -932,7 +976,8 @@ export class AgentPane {
     const pending = pendingLine(git);
     if (pending) card.append(el(d, "div", "small", pending));
     if (git.rebasing) card.append(el(d, "div", "small warn", "A rebase stopped part way here. Finish or abort it in Source Control before the next run."));
-    if (git.fetch_error) card.append(el(d, "div", "small warn", `Couldn't fetch, so these counts may be old: ${git.fetch_error}`));
+    if (this.gitFetching) card.append(el(d, "div", "small m", "Fetching from origin…"));
+    else if (git.fetch_error) card.append(el(d, "div", "small warn", `Couldn't fetch, so these counts may be old: ${git.fetch_error}`));
     const row = el(d, "div", "row");
     for (const action of git.rebasing ? [] : gitActions(git)) {
       const b = button(d, this.gitBusy === action ? ACTION_BUSY[action] : ACTION_LABEL[action], () => {
@@ -1150,7 +1195,10 @@ export class AgentPane {
       const branch = button(d, `⑂ ${this.git.branch ?? "detached"}`, () => {
         this.gitOpen = !this.gitOpen;
         // Opening it is the person's ask to look at the remote: fetch, so behind is current.
-        if (this.gitOpen) this.wire.request({ op: "git", cwd: this.host.cwd, thread: this.state.thread!, fetch: true });
+        if (this.gitOpen) {
+          this.gitFetching = true;
+          this.wire.request({ op: "git", cwd: this.host.cwd, thread: this.state.thread!, fetch: true });
+        }
         this.render();
       }, "chip m git");
       branch.setAttribute("aria-expanded", String(this.gitOpen));

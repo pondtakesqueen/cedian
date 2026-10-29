@@ -26,8 +26,8 @@ pub use message::{
 pub use notes::{LineComment, Notes};
 pub use pr::{CiState, PrChip, PrState};
 pub use pr_view::{
-    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrReviewer, PrThread, PrView,
-    PrViewState, ReviewEvent,
+    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrList, PrReviewer, PrSummary, PrThread,
+    PrView, PrViewState, ReviewEvent,
 };
 pub use schema::wire_schema;
 pub use socket::{socket_path, state_dir};
