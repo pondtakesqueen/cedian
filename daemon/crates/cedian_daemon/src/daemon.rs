@@ -1026,12 +1026,15 @@ impl Daemon {
         );
     }
 
+    /// The settings window's first ask: the `desktop` key, then the models and modes, which the
+    /// window was sent on connecting, before the settings view was there to hear them.
     fn settings(&mut self, client: ClientId) {
         let path = settings_path(&self.home);
         match read_desktop(&path) {
             Ok(desktop) => self.send(client, Notice::Settings { path, desktop }),
             Err(error) => self.error(client, format!("{error:#}")),
         }
+        self.send(client, self.choices.clone());
     }
 
     fn set_desktop(&mut self, client: ClientId, key: &str, value: serde_json::Value) {
