@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import type { PrAction, PrView } from "../protocol/wire";
-import { checkSummary, fixText, mergeBlockers, newPrUi, prBlock } from "./pr-block";
+import { checkSummary, fixText, mergeBlockers, newPrUi, prBlock, suggestion } from "./pr-block";
 
 const view = (over: Partial<PrView> = {}): PrView => ({
   number: 7, url: "https://github.com/o/r/pull/7", title: "Reset submitting", body: "Why.", state: "open", draft: false, author: "me", mine: false,
@@ -9,7 +9,7 @@ const view = (over: Partial<PrView> = {}): PrView => ({
   reviewers: [{ login: "mai-k", state: "changes_requested" }, { login: "ton-s", state: null }], labels: ["bug"], closes: [14],
   checks: [{ name: "lint", state: "passed", url: "u1", run: "78" }, { name: "e2e", state: "failed", url: "u2", run: "79" }],
   comments: [], threads: [{ id: "PRRT_1", path: "src/a.ts", line: 42, resolved: false, hunk: "@@ -1 +1 @@\n+  x = 1;", comments: [{ author: "mai-k", body: "Use a finally.", at: "" }] }, { id: "PRRT_2", path: "src/b.ts", line: 3, resolved: true, hunk: "", comments: [] }],
-  auto_merge: null, ...over,
+  history: [{ oid: "a1b2c3d", headline: "Reset submitting", author: "me" }], auto_merge: null, ...over,
 });
 
 function draw(v: PrView) {
@@ -86,5 +86,18 @@ describe("PR block", () => {
     const r = root();
     expect(buttons(r, "Approve…")[0]!.disabled).toBe(true);
     expect(buttons(r, "Request changes")[0]!.disabled).toBe(true);
+  });
+  it("lists commits, asks a reviewer, and applies a suggestion in the thread", () => {
+    const body = "Try:\n```suggestion\n  try { x = 1; } finally {}\n```";
+    const { acts, asks, ui, root } = draw(view({ threads: [{ id: "PRRT_1", path: "src/a.ts", line: 42, resolved: false, hunk: "", comments: [{ author: "mai-k", body, at: "" }] }] }));
+    expect(suggestion(body)).toBe("  try { x = 1; } finally {}");
+    buttons(root(), "Apply suggestion in thread")[0]!.click();
+    expect(asks[0]).toBe("Apply mai-k's suggested change on src/a.ts:42, replacing the commented line(s) with:\n  try { x = 1; } finally {}");
+    const ask = root().querySelector<HTMLInputElement>("input.reviewer")!;
+    ask.value = "@lek, nok";
+    ask.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(acts).toEqual([[{ do: "request_reviewers", logins: ["lek", "nok"] }, "Reviewers"]]);
+    ui.tab = "commits";
+    expect(root().textContent).toContain("a1b2c3dReset submittingme");
   });
 });

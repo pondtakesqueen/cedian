@@ -7,8 +7,8 @@ use std::path::Path;
 
 use anyhow::Context as _;
 use cedian_wire::{
-    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrList, PrReviewer, PrSummary, PrThread,
-    PrView, PrViewState, ReviewEvent,
+    CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrCommit, PrList, PrReviewer, PrSummary,
+    PrThread, PrView, PrViewState, ReviewEvent,
 };
 use serde_json::Value;
 
@@ -19,7 +19,8 @@ const QUERY: &str = r#"query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       number url title body state isDraft author { login } headRefName baseRefName
-      additions deletions changedFiles commits { totalCount }
+      additions deletions changedFiles
+      commits(last: 50) { totalCount nodes { commit { abbreviatedOid messageHeadline author { name user { login } } } } }
       mergeable mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
       labels(first: 20) { nodes { name } }
       closingIssuesReferences(first: 10) { nodes { number } }
@@ -238,6 +239,25 @@ pub fn parse(value: &Value) -> anyhow::Result<PrView> {
         checks,
         comments: nodes(pr, "comments").map(comment).collect(),
         threads,
+        history: nodes(pr, "commits")
+            .filter_map(|c| c.get("commit"))
+            .map(|c| {
+                let author = c.get("author");
+                let user = author
+                    .and_then(|a| a.get("user"))
+                    .map(|u| s(u, "login"))
+                    .unwrap_or_default();
+                PrCommit {
+                    oid: s(c, "abbreviatedOid"),
+                    headline: s(c, "messageHeadline"),
+                    author: if user.is_empty() {
+                        author.map(|a| s(a, "name")).unwrap_or_default()
+                    } else {
+                        user
+                    },
+                }
+            })
+            .collect(),
         auto_merge: pr
             .pointer("/autoMergeRequest/mergeMethod")
             .and_then(Value::as_str)
@@ -409,6 +429,13 @@ mod tests {
             (7, "Reset submitting after a failed login")
         );
         assert!(view.mine && !view.draft && view.behind && !view.conflict);
+        assert_eq!(
+            view.history
+                .iter()
+                .map(|c| (c.oid.as_str(), c.author.as_str()))
+                .collect::<Vec<_>>(),
+            [("a1b2c3d", "cedian-owner"), ("e4f5a6b", "Bot")]
+        );
         assert_eq!(view.review_decision.as_deref(), Some("changes_requested"));
         assert_eq!(
             view.reviewers,

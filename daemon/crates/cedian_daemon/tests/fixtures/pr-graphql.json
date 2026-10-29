@@ -1,6 +1,6 @@
 {"data":{"viewer":{"login":"cedian-owner"},"repository":{"pullRequest":{
   "number":7,"url":"https://github.com/o/r/pull/7","title":"Reset submitting after a failed login","body":"The button stayed disabled.","state":"OPEN","isDraft":false,
-  "author":{"login":"cedian-owner"},"headRefName":"fix-login","baseRefName":"main","additions":18,"deletions":3,"changedFiles":2,"commits":{"totalCount":2},
+  "author":{"login":"cedian-owner"},"headRefName":"fix-login","baseRefName":"main","additions":18,"deletions":3,"changedFiles":2,"commits":{"totalCount":2,"nodes":[{"commit":{"abbreviatedOid":"a1b2c3d","messageHeadline":"Reset submitting after a failed login","author":{"name":"Cedian Owner","user":{"login":"cedian-owner"}}}},{"commit":{"abbreviatedOid":"e4f5a6b","messageHeadline":"Test the retry","author":{"name":"Bot","user":null}}}]},
   "mergeable":"MERGEABLE","mergeStateStatus":"BEHIND","reviewDecision":"CHANGES_REQUESTED","autoMergeRequest":{"mergeMethod":"SQUASH"},
   "labels":{"nodes":[{"name":"bug"}]},"closingIssuesReferences":{"nodes":[{"number":14}]},
   "reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ton-s"}}]},

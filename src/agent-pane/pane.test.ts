@@ -256,7 +256,7 @@ describe("agent pane", () => {
     emit({ kind: "threads", cwd: "/r", threads: [info({ pr: { number: 7, url: "u", state: "open", ci: "failing", conflict: false, review: null, fixing: false } })] });
     pane.openThread("t-1");
     expect(sent).toContainEqual({ op: "pr_view", cwd: "/r", thread: "t-1" });
-    const view = { number: 7, url: "u", title: "Fix it", body: "", state: "open" as const, draft: false, author: "x", mine: false, head: "h", base: "main", additions: 1, deletions: 0, commits: 1, changed_files: 1, conflict: false, behind: false, review_decision: null, reviewers: [], labels: [], closes: [], checks: [], comments: [], threads: [], auto_merge: null };
+    const view = { number: 7, url: "u", title: "Fix it", body: "", state: "open" as const, draft: false, author: "x", mine: false, head: "h", base: "main", additions: 1, deletions: 0, commits: 1, changed_files: 1, conflict: false, behind: false, review_decision: null, reviewers: [], labels: [], closes: [], checks: [], comments: [], threads: [], history: [], auto_merge: null };
     emit({ kind: "pr_view", thread: "t-1", view: { Ok: view } });
     expect(pane.root.querySelector(".pr-block")?.textContent).toContain("#7 Fix it");
     buttons(pane.root, "Approve")[0]!.click();

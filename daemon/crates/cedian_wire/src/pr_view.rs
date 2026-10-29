@@ -36,6 +36,8 @@ pub struct PrView {
     pub comments: Vec<PrComment>,
     /// Line comments, grouped as GitHub threads them.
     pub threads: Vec<PrThread>,
+    /// Its newest commits, oldest first (up to 50).
+    pub history: Vec<PrCommit>,
     /// The merge method GitHub will use once checks and reviews allow, when merge when ready
     /// is on.
     pub auto_merge: Option<MergeMethod>,
@@ -95,6 +97,14 @@ pub struct PrThread {
     /// The diff lines the first comment was made on, ending at its line.
     pub hunk: String,
     pub comments: Vec<PrComment>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct PrCommit {
+    /// The short hash.
+    pub oid: String,
+    pub headline: String,
+    pub author: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]

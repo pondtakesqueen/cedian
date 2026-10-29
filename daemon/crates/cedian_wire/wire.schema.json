@@ -3494,6 +3494,26 @@
       ],
       "type": "object"
     },
+    "PrCommit": {
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "oid": {
+          "description": "The short hash.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "author",
+        "headline",
+        "oid"
+      ],
+      "type": "object"
+    },
     "PrList": {
       "description": "The repository's open pull requests, as the list's tabs split them.",
       "properties": {
@@ -3795,6 +3815,13 @@
         "head": {
           "type": "string"
         },
+        "history": {
+          "description": "Its newest commits, oldest first (up to 50).",
+          "items": {
+            "$ref": "#/definitions/PrCommit"
+          },
+          "type": "array"
+        },
         "labels": {
           "items": {
             "type": "string"
@@ -3856,6 +3883,7 @@
         "deletions",
         "draft",
         "head",
+        "history",
         "labels",
         "mine",
         "number",

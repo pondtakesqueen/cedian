@@ -5,7 +5,7 @@
 import { button, el } from "../dom/el.js";
 import type { MergeMethod, PrAction, PrThread, PrView, ReviewEvent } from "../protocol/wire.js";
 
-export type PrTab = "conversation" | "checks";
+export type PrTab = "conversation" | "checks" | "commits";
 
 /** What the block keeps between draws: the tab, what is being sent, a log being read. */
 export interface PrUi {
@@ -50,6 +50,11 @@ export function checkSummary(v: PrView): string {
   return parts.filter(Boolean).join(" · ") || "No checks";
 }
 
+/** The code of a comment's ```suggestion block, when it has one. */
+export function suggestion(body: string): string | undefined {
+  return /```suggestion[^\n]*\n([\s\S]*?)```/.exec(body)?.[1]?.replace(/\n$/, "");
+}
+
 /** The message Fix in thread sends for a line comment's thread. */
 export function fixText(t: PrThread): string {
   const asks = t.comments.map((c) => `${c.author}: ${c.body}`).join("\n");
@@ -78,6 +83,19 @@ export function prBlock(d: Document, v: PrView, ui: PrUi, h: PrHandlers): HTMLEl
   for (const r of v.reviewers) people.append(el(d, "span", "tag", `${r.login} · ${r.state ? r.state.replace("_", " ") : "waiting"}`));
   for (const l of v.labels) people.append(el(d, "span", "tag", l));
   if (v.closes.length) people.append(el(d, "span", "", `Fixes ${v.closes.map((n) => `#${n}`).join(", ")}`));
+  if (v.state === "open") {
+    const ask = el(d, "input", "input small reviewer");
+    ask.placeholder = "+ Reviewer";
+    ask.setAttribute("aria-label", "Ask someone to review");
+    ask.disabled = !!ui.busy;
+    ask.addEventListener("keydown", (e) => {
+      const logins = ask.value.split(/[\s,]+/).map((l) => l.replace(/^@/, "")).filter(Boolean);
+      if (e.key !== "Enter" || !logins.length) return;
+      e.preventDefault();
+      h.act({ do: "request_reviewers", logins }, "Reviewers");
+    });
+    people.append(ask);
+  }
   if (people.childElementCount) card.append(people);
 
   // Tabs.
@@ -91,10 +109,17 @@ export function prBlock(d: Document, v: PrView, ui: PrUi, h: PrHandlers): HTMLEl
     b.setAttribute("aria-selected", String(ui.tab === id));
     return b;
   };
-  tabs.append(tab("conversation", `Conversation ${v.comments.length + v.threads.length}`), tab("checks", failed ? `Checks · ${failed} failed` : `Checks · ${checkSummary(v)}`), button(d, `Files ${v.changed_files}`, () => h.openDiff(), "tab"));
+  tabs.append(tab("conversation", `Conversation ${v.comments.length + v.threads.length}`), tab("checks", failed ? `Checks · ${failed} failed` : `Checks · ${checkSummary(v)}`), tab("commits", `Commits ${v.commits}`), button(d, `Files ${v.changed_files}`, () => h.openDiff(), "tab"));
   card.append(tabs);
 
-  if (ui.tab === "checks") {
+  if (ui.tab === "commits") {
+    for (const c of v.history) {
+      const row = el(d, "div", "row small");
+      row.append(el(d, "span", "m", c.oid), el(d, "span", "ell grow", c.headline), el(d, "span", "", c.author));
+      card.append(row);
+    }
+    if (v.commits > v.history.length) card.append(el(d, "div", "small", `and ${v.commits - v.history.length} older on GitHub`));
+  } else if (ui.tab === "checks") {
     for (const c of v.checks) {
       const row = el(d, "div", "row");
       row.append(el(d, "span", c.state === "passed" ? "ok" : c.state === "failed" ? "bad" : "small", c.state === "passed" ? "✓" : c.state === "failed" ? "✕" : c.state === "pending" ? "●" : "–"), button(d, c.name, () => h.openUrl(c.url), "link m ell grow"));
@@ -172,7 +197,14 @@ function threadView(d: Document, t: PrThread, ui: PrUi, h: PrHandlers): HTMLElem
   box.append(el(d, "div", "small m", `${t.path}${t.line ? `:${t.line}` : ""}${t.resolved ? " · resolved" : ""}`));
   const last = t.hunk.split("\n").filter((l) => !l.startsWith("@@")).slice(-3);
   if (last.length) box.append(el(d, "pre", "hunk m small", last.join("\n")));
-  for (const c of t.comments) box.append(el(d, "div", "small", c.author), el(d, "div", "ans", c.body));
+  for (const c of t.comments) {
+    box.append(el(d, "div", "small", c.author), el(d, "div", "ans", c.body));
+    const code = suggestion(c.body);
+    if (code !== undefined && !t.resolved) {
+      const where = `${t.path}${t.line ? `:${t.line}` : ""}`;
+      box.append(button(d, "Apply suggestion in thread", () => h.fix(`Apply ${c.author}'s suggested change on ${where}, replacing the commented line(s) with:\n${code}`), "btn small"));
+    }
+  }
   const row = el(d, "div", "row wrap");
   const reply = el(d, "input", "input grow");
   reply.placeholder = "Reply…";

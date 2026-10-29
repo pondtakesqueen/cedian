@@ -2206,6 +2206,10 @@ export interface PrView {
   deletions: number;
   draft: boolean;
   head: string;
+  /**
+   * Its newest commits, oldest first (up to 50).
+   */
+  history: PrCommit[];
   labels: string[];
   /**
    * The person (`gh`'s login) opened it, so Approve and Request changes are not theirs.
@@ -2252,6 +2256,18 @@ export interface PrComment {
   at: string;
   author: string;
   body: string;
+}
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrCommit".
+ */
+export interface PrCommit {
+  author: string;
+  headline: string;
+  /**
+   * The short hash.
+   */
+  oid: string;
 }
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
