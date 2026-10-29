@@ -4,10 +4,14 @@
 // `--cedian-*` CSS custom properties that Cedian's blocks draw with.
 import { TOKENS, type Appearance, type Token } from "./tokens.js";
 
-/** The VS Code theme each appearance lays its colors over. */
+/**
+ * The VS Code theme each appearance lays its colors over, by its id in VS Code's theme-defaults
+ * (1.143 names them "Dark Modern" and "Light Modern"): `workbench.colorCustomizations` keys must
+ * match it exactly, or none of the colors apply.
+ */
 export const BASE_THEME: Record<Appearance, string> = {
-  dark: "Default Dark Modern",
-  light: "Default Light Modern",
+  dark: "Dark Modern",
+  light: "Light Modern",
 };
 
 const alpha = (color: string, percent: number) => `${color.slice(0, 7)}${Math.round((255 * percent) / 100).toString(16).padStart(2, "0").toUpperCase()}`;
