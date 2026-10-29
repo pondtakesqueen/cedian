@@ -43,7 +43,9 @@ export function inlineItem(lineText: string, column: number, completion: Complet
  * item has placeholders, not text, so there is nothing to ask after it.
  */
 export function withSuggestion(lineText: string, column: number, pick: { startColumn: number; endColumn: number; text: string; isSnippetText: boolean }): { lineText: string; column: number; endColumn: number } | undefined {
-  if (pick.isSnippetText || pick.text.includes("\n") || pick.startColumn > column) return undefined;
+  // Before any of the word is typed the list's pick is only its first item (`at`, `Math`), and
+  // going on from it gives nonsense or nothing (the Mac's test), so there is no ask then.
+  if (pick.isSnippetText || pick.text.includes("\n") || pick.startColumn >= column) return undefined;
   const endColumn = Math.max(column, pick.endColumn);
   return { lineText: lineText.slice(0, pick.startColumn - 1) + pick.text + lineText.slice(endColumn - 1), column: pick.startColumn + pick.text.length, endColumn };
 }

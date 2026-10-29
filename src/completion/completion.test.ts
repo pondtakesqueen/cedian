@@ -40,8 +40,8 @@ describe("tab completion", () => {
     expect(at).toEqual({ lineText: "  n = xs.length", column: 16, endColumn: 12 });
     // The item replaces the original line up to the pick's end, so it carries the pick and goes on.
     expect(inlineItem(at!.lineText, at!.column, ok(";"))).toMatchObject({ insertText: "  n = xs.length;" });
-    // Right after `.`, the pick's range is empty at the cursor.
-    expect(withSuggestion("xs.", 4, { startColumn: 4, endColumn: 4, text: "map", isSnippetText: false })).toEqual({ lineText: "xs.map", column: 7, endColumn: 4 });
-    expect(withSuggestion("xs.", 4, { startColumn: 4, endColumn: 4, text: "map(${1})", isSnippetText: true })).toBeUndefined();
+    // Right after `.`, nothing of the word is typed and the pick is only the list's first item.
+    expect(withSuggestion("xs.", 4, { startColumn: 4, endColumn: 4, text: "at", isSnippetText: false })).toBeUndefined();
+    expect(withSuggestion("xs.m", 5, { startColumn: 4, endColumn: 5, text: "map(${1})", isSnippetText: true })).toBeUndefined();
   });
 });
