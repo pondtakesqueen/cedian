@@ -18,6 +18,8 @@ describe("VS Code settings from desktop", () => {
     expect(s["files.autoSave"]).toBe("off");
     expect(s["editor.formatOnSave"]).toBe(true);
     expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.enabled"]).toBe(false);
+    expect(vscodeSettings({}, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(true);
+    expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(false);
     expect(vscodeSettings({ theme: "system" }, false)["window.autoDetectColorScheme"]).toBe(true);
     expect(vscodeSettings({ code_font_size: 400 }, true)["editor.fontSize"]).toBe(13);
   });
