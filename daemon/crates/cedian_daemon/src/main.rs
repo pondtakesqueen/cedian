@@ -49,6 +49,7 @@ fn main() {
         socket: cedian_wire::socket_path(),
         cedia: Cedia::find(env),
         home,
+        record: std::env::var_os("CEDIAN_WIRE_RECORD").map(PathBuf::from),
     };
     if let Err(error) = serve(config) {
         log::error!("{error:#}");

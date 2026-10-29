@@ -175,7 +175,13 @@
   merges the rest per view (appends to one block join, anything else resends
   from the first block touched), sent as one notice on the next ack. Tested
   against the fake cedia with a held run; not yet timed in the app
-- [ ] §3.9 `CEDIAN_WIRE_RECORD` and replay
+- [x] §3.9 `CEDIAN_WIRE_RECORD=<file>` on the daemon (2026-10-29): every
+  request and notice of every window, one JSON line each with the client and
+  its time, 0600. The daemon sees both directions, so the window records
+  nothing itself. `node test/smoke/replay.mjs <file>` plays one window's
+  notices into the pane at their times in Chromium and times the frames; on
+  a synthetic 3k-block thread streaming 250 deltas at 50 a second: median
+  frame 16.7 ms, 2 frames over 25 ms (the first draw)
 - [ ] Line comments on diffs; `/code-review` card
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget
