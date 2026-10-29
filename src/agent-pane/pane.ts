@@ -24,8 +24,8 @@ export interface PaneHost {
   cwd: string;
   /** Project files whose path matches, for `@`. */
   files(query: string): Promise<string[]>;
-  /** Image files the person picks. */
-  pickImages(): Promise<string[]>;
+  /** Image files the person picks, and videos too when `video` (cedia takes them). */
+  pickImages(video?: boolean): Promise<string[]>;
   /**
    * Writes a pasted image that has no file of its own and returns the file's path. It needs to last
    * only until the run starts: cedia keeps its own copy by hash.
@@ -38,6 +38,8 @@ export interface PaneHost {
 
 /** What cedia shows a model (`ImageMime`). */
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+/** Videos cedia shows a model as frames, once it says `video`. */
+const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska", "video/x-msvideo"];
 
 /** Threads newest first; archived ones and side chats stay out of the list. */
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
@@ -143,7 +145,7 @@ export class AgentPane {
     this.input.addEventListener("input", () => this.typed());
     this.input.addEventListener("keydown", (e) => this.key(e));
     this.input.addEventListener("paste", (e) => {
-      const files = [...(e.clipboardData?.files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type));
+      const files = [...(e.clipboardData?.files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type) || (this.takesVideo() && VIDEO_TYPES.includes(f.type)));
       if (files.length === 0) return;
       e.preventDefault();
       void this.paste(files);
@@ -271,7 +273,12 @@ export class AgentPane {
     this.renderComposer();
   }
 
-  /** Attaches pasted images: a copied file by its path, a screenshot or picture through `saveImage`. */
+  /** cedia takes a video on `--image` and shows it as frames. */
+  takesVideo(): boolean {
+    return this.capabilities.includes("video");
+  }
+
+  /** Attaches pasted images and videos: a copied file by its path, a screenshot or picture through `saveImage`. */
   async paste(files: File[]): Promise<void> {
     const paths: string[] = [];
     for (const file of files) {
@@ -854,7 +861,8 @@ export class AgentPane {
       chips.push(label);
     }
     if (this.capabilities.length === 0 || this.capabilities.includes("images")) {
-      chips.push(button(d, "+ รูป", () => this.host.pickImages().then((paths) => this.attach(paths), () => {}), "chip"));
+      const video = this.takesVideo();
+      chips.push(button(d, video ? "+ รูป/วิดีโอ" : "+ รูป", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "chip"));
     }
     this.chips.replaceChildren(...chips);
   }

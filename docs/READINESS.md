@@ -154,8 +154,14 @@
 - [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
   only schema change is `plugin` as a command source
 - [ ] cedia: completion command (fill-in-the-middle on a fast cheap model)
-- [ ] cedia: prompt images route to a model that reads images; video frames
-- [ ] Images and video in threads
+- [x] cedia: prompt images route to a model that reads images; video frames
+  (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
+  where the screen changes; a run with images on a text-only model runs on
+  `--media`, default Haiku 5.5). Pin moved to that branch's head da414c0
+  (protocol 094b076845b55b39), to move to cedia main once #171 merges
+- [ ] Images and video in threads: the composer takes a video (picker,
+  paste, drop) once cedia says `video`; the agent pane counts its frames
+  as images. Unchecked on the Mac
 - [ ] Line comments on diffs; `/code-review` card
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget

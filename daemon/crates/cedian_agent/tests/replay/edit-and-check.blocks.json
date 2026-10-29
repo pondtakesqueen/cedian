@@ -19,7 +19,7 @@
       },
       "is_error": false,
       "kind": "tool",
-      "ms": 55,
+      "ms": 13,
       "name": "write",
       "output": "created f.txt (1 lines)",
       "permission": {
@@ -27,7 +27,7 @@
         "reason": null,
         "rule": "mode:workspace"
       },
-      "started_at": "2026-10-27T07:42:35.786Z",
+      "started_at": "2026-10-29T06:00:10.265Z",
       "state": "done",
       "status": "completed"
     },
@@ -45,7 +45,7 @@
       },
       "is_error": false,
       "kind": "tool",
-      "ms": 33,
+      "ms": 8,
       "name": "edit",
       "output": "edited f.txt\nedit 1: lines 1-1",
       "permission": {
@@ -53,7 +53,7 @@
         "reason": null,
         "rule": "mode:workspace"
       },
-      "started_at": "2026-10-27T07:42:35.853Z",
+      "started_at": "2026-10-29T06:00:10.283Z",
       "state": "done",
       "status": "completed"
     },
@@ -73,7 +73,7 @@
         "reason": null,
         "rule": "effect:read"
       },
-      "started_at": "2026-10-27T07:42:35.889Z",
+      "started_at": "2026-10-29T06:00:10.295Z",
       "state": "done",
       "status": "completed"
     },
@@ -83,7 +83,7 @@
       "text": "f.txt now says good, and grep -q good f.txt passes."
     },
     {
-      "cost_usd": 0.0037016,
+      "cost_usd": 0.0040462,
       "evidence": {
         "changed": [
           "f.txt"
@@ -101,7 +101,7 @@
       "subtype": "success",
       "text": "f.txt now says good, and grep -q good f.txt passes.",
       "turns": 4,
-      "wall_ms": 147.0
+      "wall_ms": 51.0
     }
   ]
 }

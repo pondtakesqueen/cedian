@@ -148,6 +148,29 @@ describe("agent pane", () => {
     expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["paste-1.png", "a.jpg"]);
   });
 
+  it("takes a video once cedia says it can: the chip, the picker and a paste", async () => {
+    const asked: (boolean | undefined)[] = [];
+    const { pane, emit } = setup({ pickImages: async (video) => (asked.push(video), ["/tmp/bug.mov"]) });
+    const welcome = (capabilities: string[]) => emit({ kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities } } } as Notice);
+    const paste = (file: File) => {
+      const e = new Event("paste", { cancelable: true }) as Event & { clipboardData: { files: File[] } };
+      e.clipboardData = { files: [file] };
+      pane.composer.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    const clip = Object.assign(new File([new Uint8Array([0])], "bug.mp4", { type: "video/mp4" }), { path: "/Users/p/bug.mp4" });
+    welcome(["images"]);
+    expect(buttons(pane.root, "+ รูป")).toHaveLength(1);
+    expect(paste(clip)).toBe(false);
+    welcome(["images", "video"]);
+    buttons(pane.root, "+ รูป/วิดีโอ")[0]!.click();
+    await tick();
+    expect(asked).toEqual([true]);
+    expect(paste(clip)).toBe(true);
+    await tick();
+    expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["bug.mov", "bug.mp4"]);
+  });
+
   it("⌘0 starts the project chat as the coordinator, then shows a card per thread it opened", () => {
     const { pane, emit, sent, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [] });

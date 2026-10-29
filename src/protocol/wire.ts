@@ -176,7 +176,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -218,6 +218,8 @@ export type Capability =
   | "daemon"
   | "daemon.desktop-lock"
   | "threads.send-images"
+  | "video"
+  | "media-route"
   | "inline-edit";
 /**
  * The checks on the PR's head commit, taken together.

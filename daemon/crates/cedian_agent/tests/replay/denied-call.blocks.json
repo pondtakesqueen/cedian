@@ -36,13 +36,13 @@
       "text": "Publishing is on the deny list, so I left it for you."
     },
     {
-      "cost_usd": 0.0029723,
+      "cost_usd": 0.0032649000000000003,
       "evidence": null,
       "kind": "result",
       "subtype": "success",
       "text": "Publishing is on the deny list, so I left it for you.",
       "turns": 2,
-      "wall_ms": 3.0
+      "wall_ms": 10.0
     }
   ]
 }

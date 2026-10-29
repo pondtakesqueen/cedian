@@ -323,7 +323,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -361,6 +361,8 @@
         "daemon",
         "daemon.desktop-lock",
         "threads.send-images",
+        "video",
+        "media-route",
         "inline-edit"
       ],
       "type": "string"
