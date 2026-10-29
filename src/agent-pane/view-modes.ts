@@ -6,9 +6,9 @@ import type { Block } from "./block.js";
 export type ViewMode = "answers" | "thinking" | "all";
 
 export const VIEW_MODES: { mode: ViewMode; label: string }[] = [
-  { mode: "answers", label: "คำตอบ" },
-  { mode: "thinking", label: "+ ความคิด" },
-  { mode: "all", label: "ทุก tool" },
+  { mode: "answers", label: "Answers" },
+  { mode: "thinking", label: "+ Thinking" },
+  { mode: "all", label: "All tools" },
 ];
 
 export function nextViewMode(mode: ViewMode): ViewMode {

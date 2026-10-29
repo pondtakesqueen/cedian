@@ -49,15 +49,15 @@ function renderItem(doc: Document, item: Item): HTMLElement {
       return el(doc, "div", "sdiv", item.text);
     case "user": {
       const bubble = el(doc, "div", "ubub", item.text);
-      if (item.images > 0) bubble.append(el(doc, "span", "small", ` · ${item.images} รูป`));
+      if (item.images > 0) bubble.append(el(doc, "span", "small", ` · ${item.images} ${item.images === 1 ? "image" : "images"}`));
       return bubble;
     }
     case "think": {
       const label = item.streaming
-        ? "กำลังคิด…"
+        ? "Thinking…"
         : item.seconds === null
-          ? "คิด"
-          : `คิดอยู่ ${item.seconds} วินาที`;
+          ? "Thought"
+          : `Thought for ${item.seconds}s`;
       const think = el(doc, "details", "think");
       think.append(el(doc, "summary", "", label), el(doc, "div", "thinkbody", item.text));
       return think;

@@ -78,7 +78,7 @@ export class AgentPaneView extends ViewPane {
 		const folder = this.workspace.getWorkspace().folders[0];
 		if (!folder || folder.uri.scheme !== 'file') {
 			const empty = append(parent, $('.cedian-agent-pane'));
-			append(empty, $('.empty')).textContent = 'เปิดโฟลเดอร์ของ project ก่อน แล้วสั่งงาน agent ได้ที่นี่';
+			append(empty, $('.empty')).textContent = 'Open the project\'s folder first, then give the agent work here';
 			return;
 		}
 		const queryBuilder = this.instantiationService.createInstance(QueryBuilder);
@@ -98,7 +98,7 @@ export class AgentPaneView extends ViewPane {
 				const picked = await this.fileDialogService.showOpenDialog({
 					canSelectFiles: true,
 					canSelectMany: true,
-					title: video ? 'แนบรูปหรือวิดีโอ' : 'แนบรูป',
+					title: video ? 'Attach images or videos' : 'Attach images',
 					filters: video ? [{ name: 'Images and videos', extensions: [...images, ...VIDEO_EXTENSIONS] }] : [{ name: 'Images', extensions: images }],
 				});
 				return (picked ?? []).map(uri => uri.fsPath);
@@ -142,7 +142,7 @@ export class AgentPaneView extends ViewPane {
 		bar.setAttribute('role', 'status');
 		root.prepend(bar);
 		const show = (state: string) => {
-			bar.textContent = state === 'connected' ? '' : state === 'connecting' ? 'กำลังต่อ cedian daemon…' : 'ต่อ cedian daemon ไม่ได้ กำลังลองใหม่';
+			bar.textContent = state === 'connected' ? '' : state === 'connecting' ? 'Connecting to the cedian daemon…' : 'Can\'t reach the cedian daemon; retrying';
 			bar.hidden = state === 'connected';
 		};
 		show(this.daemon.client.connection);

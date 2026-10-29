@@ -50,7 +50,7 @@ export function confirmCommit(ship: Ship, cwd: string, thread: string): { ship: 
   };
 }
 
-/** "เปิด PR": where it would go, or why it cannot. Nothing is pushed yet. */
+/** "Open PR": where it would go, or why it cannot. Nothing is pushed yet. */
 export function startPr(ship: Ship, cwd: string, thread: string): { ship: Ship; request: Request } {
   return { ship: { ...ship, pr: { step: "checking" } }, request: { op: "pr_check", cwd, thread } };
 }
@@ -83,7 +83,7 @@ export function shipNotice(ship: Ship, thread: string, notice: Notice): Ship {
       if (notice.thread !== thread || ship.pr.step !== "checking") return ship;
       const p = notice.plan;
       if (p.blocked) return { ...ship, pr: { step: "blocked", reason: p.blocked } };
-      if (!p.branch) return { ...ship, pr: { step: "blocked", reason: "ไม่รู้ว่าอยู่บน branch ไหน" } };
+      if (!p.branch) return { ...ship, pr: { step: "blocked", reason: "Not on a known branch" } };
       return { ...ship, pr: { step: "plan", branch: p.branch, ...(p.base ? { base: p.base } : {}) } };
     }
     case "pr_opened": {

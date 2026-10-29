@@ -159,7 +159,7 @@ pub enum Request {
         thread: String,
         archived: bool,
     },
-    /// Stops following the thread's pull request, or follows it again (หยุดเฝ้า, เฝ้า PR).
+    /// Stops following the thread's pull request, or follows it again (Stop watching, Watch PR).
     /// Kept across restarts.
     PrWatch {
         cwd: PathBuf,
@@ -258,7 +258,8 @@ pub enum Request {
     McpAdd { name: String, server: McpAdd },
     /// Removes a server (`cedia mcp remove`), answered with `Notice::Mcp`.
     McpRemove { name: String },
-    /// The `desktop` key of cedia's settings file, answered with `Notice::Settings`.
+    /// The `desktop` key of cedia's settings file, answered with `Notice::Settings` and then
+    /// `Notice::Choices` again (the settings window opens after the window connected).
     Settings,
     /// Sets one key of `desktop`; `null` removes it. Every window gets `Notice::Settings`.
     SetDesktop {

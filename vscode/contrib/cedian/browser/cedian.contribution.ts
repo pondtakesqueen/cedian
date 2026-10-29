@@ -86,7 +86,7 @@ async function searchThreads(accessor: ServicesAccessor): Promise<void> {
 	const quick = accessor.get(IQuickInputService);
 	await withPane(accessor, async pane => {
 		const picked = await quick.pick(pane.searchItems(), {
-			placeHolder: localize('cedian.searchThreads', "ค้นหาเธรด"),
+			placeHolder: localize('cedian.searchThreads', "Search threads"),
 			matchOnDescription: true,
 			matchOnDetail: true,
 		});

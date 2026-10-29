@@ -30,12 +30,12 @@ describe("submit", () => {
 
 describe("the queue", () => {
   const target = { cwd: "/r", thread: "t-1" };
-  it("ส่งเลย takes the message back, stops the run, then runs it", () => {
+  it("Send now takes the message back, stops the run, then runs it", () => {
     const r = sendNow({ id: "m-1", text: "do this first" }, target, choices);
     expect(r.now).toEqual([{ op: "unsend", cwd: "/r", thread: "t-1", ids: ["m-1"] }, { op: "stop", thread: "t-1" }]);
     expect(r.then).toMatchObject({ op: "prompt", thread: "t-1", text: "do this first", worktree: false });
   });
-  it("แก้ puts it back in the draft; × drops it", () => {
+  it("Edit puts it back in the draft; × drops it", () => {
     expect(editQueued({ id: "m-1", text: "x" }, target)).toEqual({ request: { op: "unsend", cwd: "/r", thread: "t-1", ids: ["m-1"] }, draft: { text: "x", images: [] } });
     expect(dropQueued({ id: "m-2", text: "y" }, target)).toEqual({ op: "unsend", cwd: "/r", thread: "t-1", ids: ["m-2"] });
   });

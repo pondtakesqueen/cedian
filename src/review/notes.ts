@@ -41,12 +41,12 @@ export function walkSteps(notes: Notes | undefined): (CodeFinding & { path: stri
   return openFindings(notes).filter((f): f is CodeFinding & { path: string; line: number } => typeof f.path === "string" && typeof f.line === "number");
 }
 
-/** The count line on the card: `2 ข้อ · ข้ามแล้ว 1`. */
+/** The count line on the card: `2 findings · 1 skipped`. */
 export function findingCount(notes: Notes | undefined): string {
   const review = reviewed(notes);
   if (!review) return "";
   const skipped = review.findings.length - openFindings(notes).length;
-  return review.findings.length === 0 ? "ไม่พบปัญหา" : `${review.findings.length} ข้อ${skipped ? ` · ข้ามแล้ว ${skipped}` : ""}`;
+  return review.findings.length === 0 ? "No findings" : `${review.findings.length} ${review.findings.length === 1 ? "finding" : "findings"}${skipped ? ` · ${skipped} skipped` : ""}`;
 }
 
 let next = 0;

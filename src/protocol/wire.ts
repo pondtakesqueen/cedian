@@ -1012,7 +1012,7 @@ export interface ThreadInfo {
    */
   pr?: PrChip | null;
   /**
-   * The person stopped the daemon following this thread's pull request (หยุดเฝ้า).
+   * The person stopped the daemon following this thread's pull request (Stop watching).
    */
   pr_unwatched?: boolean;
   /**

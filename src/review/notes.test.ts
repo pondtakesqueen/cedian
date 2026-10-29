@@ -34,10 +34,10 @@ describe("review notes", () => {
   it("walks the open findings that name a line, and counts what was skipped", () => {
     expect(walkSteps(notes(["f1"])).map((f) => f.id)).toEqual(["f3", "f4"]);
     expect(openFindings(notes(["f1"])).map((f) => f.id)).toEqual(["f2", "f3", "f4"]);
-    expect(findingCount(notes(["f1"]))).toBe("4 ข้อ · ข้ามแล้ว 1");
+    expect(findingCount(notes(["f1"]))).toBe("4 findings · 1 skipped");
     const clean = notes();
     if (clean.review && "findings" in clean.review) clean.review.findings = [];
-    expect(findingCount(clean)).toBe("ไม่พบปัญหา");
+    expect(findingCount(clean)).toBe("No findings");
   });
 
   it("adds a comment with text and removes it by id", () => {

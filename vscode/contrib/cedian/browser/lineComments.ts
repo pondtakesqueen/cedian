@@ -33,7 +33,7 @@ class CommentBox extends ZoneWidget {
 		container.classList.add('cedian-comment-box');
 		const input = this.input = $<HTMLTextAreaElement>('textarea');
 		input.rows = 2;
-		input.placeholder = isMacintosh ? 'คอมเมนต์บรรทัดนี้ · Enter เพิ่ม · ⌘Enter ส่งทั้งหมด' : 'คอมเมนต์บรรทัดนี้ · Enter เพิ่ม · Ctrl+Enter ส่งทั้งหมด';
+		input.placeholder = isMacintosh ? 'Comment on this line · Enter adds · ⌘Enter sends all' : 'Comment on this line · Enter adds · Ctrl+Enter sends all';
 		input.addEventListener('keydown', e => {
 			// The editor would take these keys as its own.
 			e.stopPropagation();
@@ -136,7 +136,7 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 				const node = $('div');
 				node.className = `cedian-line-note ${note.kind}`;
 				const text = $('span');
-				text.textContent = note.kind === 'comment' ? `คอมเมนต์: ${note.text}` : `รีวิว: ${note.text}`;
+				text.textContent = note.kind === 'comment' ? `Comment: ${note.text}` : `Review: ${note.text}`;
 				node.append(text);
 				const action = (label: string, run: () => void) => {
 					const b = $('button');
@@ -145,13 +145,13 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 					node.append(b);
 				};
 				if (note.kind === 'comment') {
-					action('ลบ', () => {
+					action('Delete', () => {
 						const comments = this.reviews.notes(at!.thread)?.comments ?? [];
 						this.daemon.client.request(setComments(at!.thread, comments.filter(c => c.id !== note.id)));
 					});
 				} else {
-					action('แก้ข้อนี้', () => this.daemon.client.request({ op: 'fix_findings', cwd: at!.cwd, thread: at!.thread, findings: [note.id] }));
-					action('ข้าม', () => this.daemon.client.request({ op: 'dismiss', thread: at!.thread, finding: note.id, dismissed: true }));
+					action('Fix this one', () => this.daemon.client.request({ op: 'fix_findings', cwd: at!.cwd, thread: at!.thread, findings: [note.id] }));
+					action('Dismiss', () => this.daemon.client.request({ op: 'dismiss', thread: at!.thread, finding: note.id, dismissed: true }));
 				}
 				const zone: IViewZone = { afterLineNumber: note.line, heightInLines: 1 + Math.floor(note.text.length / 100), domNode: node };
 				this.zones.push(accessor.addZone(zone));
