@@ -236,7 +236,9 @@
     unhandled rejections in the window, no unwrap on client input in the
     daemon. The archive guard: `/archive` on a thread whose worktree has
     uncommitted changes asks "Archive anyway?" (cancel keeps them), and
-    auto-archive leaves such a thread alone. Not built yet: "a thread is using this root",
+    auto-archive leaves such a thread alone. Settings keeps a root a thread
+    still works in ("A thread is using this root: <title>. Archive it
+    first"). Not built yet:
     "Claude tools are off for this site", stale hunks shown inline, and the
     browser's transient errors as notifications
   - [ ] License: `python3 script/license-scan.py --app <Cedian.app>` passes

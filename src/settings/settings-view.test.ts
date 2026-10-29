@@ -42,6 +42,13 @@ describe("settings window", () => {
     expect(items[0]).toContain("Primary");
     expect(items[0]).not.toContain("Remove");
     expect(items[1]).toContain("Remove");
+    // A thread working in /r/lib keeps it listed, and says why.
+    expect(f.sent).toContainEqual({ op: "threads", cwd: "/r/main" });
+    f.emit({ kind: "threads", cwd: "/r/main", threads: [{ id: "t-1", title: "Tidy the lib", archived: false, root: "/r/lib" } as never] });
+    const before = f.sent.length;
+    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Remove")!.click();
+    expect(f.sent).toHaveLength(before);
+    expect(view.root.textContent).toContain("A thread is using this root: Tidy the lib. Archive it first");
   });
 
   it("lists MCP servers with checks", () => {
