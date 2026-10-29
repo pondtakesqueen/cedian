@@ -44,6 +44,8 @@ pub struct Pr {
     pub status_check_rollup: Vec<Check>,
     pub comments: Vec<Comment>,
     pub reviews: Vec<Comment>,
+    /// Who opened it: the watch acts only on the person's own PRs.
+    pub author: Author,
 }
 
 /// A check run (GitHub Actions and other apps) or a commit status, as `statusCheckRollup` has
@@ -228,9 +230,13 @@ impl Seen {
 /// The next thing to ask of the thread about its open PR, if any, and records it as asked. A
 /// conflict first (CI on a conflicted head says little), then a finished red CI, then new
 /// comments. Comments by `me`, the `gh` login, are left out: the thread answers on the PR as
-/// that login, and its own answers must not start it again.
+/// that login, and its own answers must not start it again. Someone else's PR (a thread that
+/// checked it out to review it) is never acted on: the thread would push to their branch.
 pub fn next(pr: &Pr, line_comments: &[Comment], me: &str, seen: &mut Seen) -> Option<Action> {
     if pr.state() != PrState::Open {
+        return None;
+    }
+    if !me.is_empty() && !pr.author.login.is_empty() && pr.author.login != me {
         return None;
     }
     let head = pr.head_ref_oid.clone();
@@ -378,7 +384,7 @@ impl Gh {
 
     /// The PR of `branch`, or none when it has none.
     pub fn view(&self, cwd: &Path, branch: &str) -> anyhow::Result<Option<Pr>> {
-        let fields = "number,url,state,headRefOid,mergeable,reviewDecision,statusCheckRollup,comments,reviews";
+        let fields = "number,url,state,headRefOid,mergeable,reviewDecision,statusCheckRollup,comments,reviews,author";
         match self.run(cwd, &["pr", "view", branch, "--json", fields]) {
             Ok(text) => Ok(Some(
                 serde_json::from_str(&text).context("reading gh pr view")?,
@@ -706,6 +712,23 @@ mod tests {
             next(&again, &[], "me", &mut seen),
             Some(Action::FixCi { .. })
         ));
+    }
+
+    #[test]
+    fn someone_else_s_pr_is_never_acted_on() {
+        let mut seen = Seen::starting_at("2026-10-28T00:00:00Z".into());
+        let theirs = Pr {
+            author: Author {
+                login: "mai-k".into(),
+            },
+            ..pr(OPEN)
+        };
+        assert_eq!(next(&theirs, &[], "me", &mut seen), None);
+        let mine = Pr {
+            author: Author { login: "me".into() },
+            ..theirs
+        };
+        assert!(next(&mine, &[], "me", &mut seen).is_some());
     }
 
     #[test]
