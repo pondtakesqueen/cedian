@@ -1109,7 +1109,7 @@ impl Daemon {
     /// window shows are looked at, and each thread once per daemon. It runs on the model of the
     /// thread that opened it, so the model picked in the project chat reaches the work.
     pub fn start_queued(shared: &Shared) {
-        let queued: Vec<(PathBuf, String, String, String, Option<String>)> = {
+        let queued: Vec<(PathBuf, PathBuf, String, String, String, Option<String>)> = {
             let mut daemon = lock(shared);
             if !daemon.version.as_ref().is_ok_and(|v| {
                 v.capabilities
@@ -1153,8 +1153,17 @@ impl Daemon {
                         } else {
                             &thread.title
                         };
+                        // A thread opened in another root of the workspace gets its worktree
+                        // there; the run's environment names the whole workspace either way.
+                        let root = thread
+                            .root
+                            .as_deref()
+                            .map(PathBuf::from)
+                            .filter(|root| root.is_dir())
+                            .unwrap_or_else(|| cwd.clone());
                         found.push((
                             cwd.clone(),
+                            root,
                             thread.id.clone(),
                             thread.task.clone(),
                             name.clone(),
@@ -1165,9 +1174,9 @@ impl Daemon {
             }
             found
         };
-        for (cwd, thread, task, name, model) in queued {
+        for (cwd, root, thread, task, name, model) in queued {
             log::info!("starting queued {thread}");
-            match crate::worktree::create(&cwd, &name) {
+            match crate::worktree::create(&root, &name) {
                 Ok((dir, branch)) => {
                     log::info!("worktree {} on {branch}", dir.display());
                     Self::prompt(
@@ -1230,7 +1239,9 @@ impl Daemon {
         with: Flags,
     ) {
         let mut daemon = lock(shared);
-        let slug = project_key(&cwd);
+        // The window's project: a run in another root of a multi-repo workspace still files
+        // its thread under the primary root (cedia's `CEDIA_ROOTS`).
+        let slug = project_key(&asked_in);
         let (before, cwd) = match &thread {
             Some(thread) => match read_thread(&threads_dir(&daemon.home, &slug), thread) {
                 Ok(summary) => {

@@ -1311,6 +1311,46 @@ fn a_thread_the_coordinator_opened_starts_in_its_own_worktree() {
 }
 
 #[test]
+fn a_thread_opened_in_another_root_gets_its_worktree_there() {
+    let harness = start_with("edit-and-check", "\"todo\",\"open_thread\",\"cache-ttl\"");
+    git(&harness.cwd, &["init", "-q"]);
+    git(
+        &harness.cwd,
+        &["commit", "-q", "--allow-empty", "-m", "start"],
+    );
+    let other = harness.threads.join("../lib");
+    std::fs::create_dir_all(&other).expect("lib");
+    git(&other, &["init", "-q"]);
+    git(&other, &["commit", "-q", "--allow-empty", "-m", "start"]);
+    let other = other.canonicalize().expect("lib");
+    std::fs::create_dir_all(&harness.threads).expect("threads dir");
+    std::fs::write(
+        harness.threads.join("t-0000000r.jsonl"),
+        format!(
+            "{{\"at\":\"2026-10-22T03:00:00.000Z\",\"kind\":\"open\",\"title\":\"Tidy the lib\",\"task\":\"Tidy the lib\",\"by\":\"t-0000000c\",\"root\":{:?}}}\n",
+            other.to_str().expect("path")
+        ),
+    )
+    .expect("thread");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Threads {
+        cwd: harness.cwd.clone(),
+    });
+    let ran_in = harness.threads.join("../cwd");
+    for _ in 0..100 {
+        if ran_in.exists() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let ran_in = std::fs::read_to_string(ran_in).expect("cwd");
+    assert_eq!(
+        Path::new(ran_in.trim()),
+        other.join(".cedian/worktrees/tidy-the-lib")
+    );
+}
+
+#[test]
 fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
     let harness = start("edit-and-check");
     git(&harness.cwd, &["init", "-q"]);

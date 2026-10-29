@@ -1,6 +1,7 @@
 // Launches a built VS Code-based app (Cedian.app or stock VS Code) through Playwright's
 // Electron driver, in a fresh user-data dir with a throwaway folder open, so every launch is
 // a first launch.
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,4 +59,23 @@ export async function launch(app, settings = {}, opts = {}) {
   });
   const window = await electronApp.firstWindow({ timeout: 60_000 });
   return { electronApp, window, startedAt, folder, user };
+}
+
+/** RSS in MB of `pid` and every process under it. */
+export function treeRssMb(pid) {
+  const rows = execFileSync("ps", ["-axo", "pid=,ppid=,rss="], { encoding: "utf8" })
+    .trim()
+    .split("\n")
+    .map((l) => l.trim().split(/\s+/).map(Number));
+  const kids = new Map();
+  for (const [p, pp] of rows) kids.set(pp, [...(kids.get(pp) ?? []), p]);
+  const rss = new Map(rows.map(([p, , r]) => [p, r]));
+  let total = 0;
+  const stack = [pid];
+  while (stack.length) {
+    const p = stack.pop();
+    total += rss.get(p) ?? 0;
+    stack.push(...(kids.get(p) ?? []));
+  }
+  return Math.round(total / 1024);
 }
