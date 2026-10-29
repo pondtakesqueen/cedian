@@ -7,8 +7,8 @@
 // Prints what it saw and a JSON summary (also to --out); exits 1 on any outside connection.
 // Usage: node test/smoke/offline.mjs <Cedian.app> [--seconds 60] [--out file.json]
 import { execFileSync } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { launch } from "./app.mjs";
 
@@ -64,6 +64,9 @@ function outside(pids) {
   return seen;
 }
 
+// A state dir of its own, so the app starts its own daemon inside the watched process tree
+// (a daemon already running would be outside it, with its cedia children).
+process.env.CEDIAN_STATE_DIR = mkdtempSync(join(tmpdir(), "cedian-offline-state-"));
 const { electronApp, window } = await launch(app, { "telemetry.telemetryLevel": undefined, "update.mode": undefined, "extensions.autoCheckUpdates": undefined });
 const pid = electronApp.process().pid;
 const endpoints = new Map();
@@ -79,10 +82,13 @@ const sampling = (async () => {
     await new Promise((r) => setTimeout(r, 500));
   }
 })();
-await window.keyboard.press("Meta+P");
-await window.keyboard.type("README.md");
-await window.keyboard.press("Enter");
-await window.waitForTimeout(1500);
+// Opened from the Explorer and typed into only once the editor has focus: Cmd+P is a menu
+// accelerator a synthetic key never reaches, and the agent pane's composer, which has focus at
+// launch, would send the text as a prompt (a real model call, and outside connections).
+await window.locator(".explorer-folders-view .monaco-list-row", { hasText: "README.md" }).click({ timeout: 30_000 });
+const editor = window.locator(".editor-instance .monaco-editor").first();
+await editor.locator(".view-lines").click({ timeout: 15_000 });
+if (!(await editor.evaluate((e) => e.contains(document.activeElement)))) throw new Error("the editor does not have focus; not typing");
 await window.keyboard.type("hello from the offline gate\n");
 await sampling;
 // Closing can wait on the daemon the app started; the summary does not depend on it.

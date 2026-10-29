@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { isBlock, type Block } from "./block";
-import { items } from "./items";
+import { items, shownText } from "./items";
 import { itemLabel, renderItems } from "./render";
 import { applyBlocks, applyText, emptyView } from "./view";
 
@@ -87,6 +87,11 @@ describe("agent pane", () => {
     expect(checked.find((i) => i.k === "receipt")).toMatchObject({ verified: true, checks: [{ exitCode: 0 }] });
     const denied = items(load("denied-call")[""]).find((i) => i.k === "tools");
     expect(denied).toMatchObject({ failure: expect.stringContaining("denied by deny-list:deploy") });
+  });
+
+  it("shows the person's message without the plan note cedia adds for the model", () => {
+    expect(shownText('fix the bug\n\n<plan-pending by="claude-code:opus@medium">\nA plan is being written now.\n</plan-pending>')).toBe("fix the bug");
+    expect(shownText("a <b> stays")).toBe("a <b> stays");
   });
 
   it("labels each item for a screen reader: who said it, or what it is and how it went", () => {

@@ -72,7 +72,7 @@ function renderItem(doc: Document, item: Item): HTMLElement {
       // A failed run of tools opens by itself, as the prototype's does.
       if (item.failure) box.setAttribute("open", "");
       const line = el(doc, "summary", "tline");
-      line.append(el(doc, "span", "ell", `${item.calls.length} tools · ${summary}`));
+      line.append(el(doc, "span", "ell", `${item.calls.length} ${item.calls.length === 1 ? "tool" : "tools"} · ${summary}`));
       if (item.running) line.append(el(doc, "span", "dot st-working"));
       const list = el(doc, "div", "tlist");
       for (const call of item.calls) {
