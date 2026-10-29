@@ -1,0 +1,10 @@
+/* VS Code's own controls with the agent pane's corners (agentPane.css): buttons 8px, fields 6px,
+   Source Control's commit message box drawn as a field. Only corners: VS Code's layout stays. */
+.monaco-workbench .monaco-text-button { border-radius: 8px; }
+.monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-text-button { border-radius: 8px 0 0 8px; }
+.monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-dropdown-button { border-radius: 0 8px 8px 0; }
+.monaco-workbench .monaco-inputbox, .monaco-workbench .monaco-select-box { border-radius: 6px; }
+.monaco-workbench .scm-view .scm-editor,
+.monaco-workbench .scm-view .scm-editor-container .monaco-editor,
+.monaco-workbench .scm-view .scm-editor-container .monaco-editor .overflow-guard { border-radius: 6px; }
+.monaco-workbench .scm-history-view .scm-provider .state-label.monaco-count-badge.long { border-radius: 6px; }
