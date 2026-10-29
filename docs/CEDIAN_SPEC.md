@@ -479,6 +479,42 @@ agents' transcripts (cedia is the only agent), agent hibernation (a cedia run
 ends with its turn, so idle threads hold no process), `orca.yaml` as a new
 file (cedian keeps `.cedia/launch.json`).
 
+### 3.9 From the Tern SDK (stencil-hq/tern-sdk; proposed 2026-10-29, owner to decide)
+
+Source: `https://github.com/stencil-hq/tern-sdk` (MIT, © 2026 Stencil Labs,
+Inc.), read at `e173f04` (2026-10-28): the SDKs for the Tern Surface Protocol
+(TSP), with which a program in a terminal pane sends Tern a tree of nodes in
+framed ops and Tern draws it natively. Ideas only: no SDK code is copied. MIT
+would pass `script/license-scan.py`, but there is nothing to depend on: the SDK
+is for a program that talks to a TSP host, and cedian is neither (the agent
+pane gets `cedian_wire` notices from the daemon). What carries over is how TSP
+keeps a streaming view cheap, which is the daemon → window path today:
+`cedian_agent` answers every text delta with a `Notice::Blocks` that resends
+the streaming block whole, and nothing paces the notices to what the window
+can draw.
+
+| TSP idea | Cedian proposal | Phase |
+|---|---|---|
+| `text` op with `append` (and `splice`) for a text node: a stream sends only the new characters | `Notice::Text { thread, sub, index, append }` for the streaming text or thinking block; `Notice::Blocks` stays for new or changed blocks. A long answer costs its length on the wire, not its length squared; the pane appends to the block's text node | D |
+| Credit flow control: frames numbered per surface, at most 2 unacknowledged; a render while blocked keeps only the newest view and the ack sends one frame with the difference | The window acks each blocks notice per thread; with 2 unacked the daemon holds the fold's changes and sends one merged notice on the next ack (appends joined, later blocks replacing earlier). A slow or busy window gets fewer, larger notices instead of a backlog. Measured by `test/smoke/scroll.mjs` while a fake run streams 50 deltas/s | D |
+| Ops are stale once the view they name is gone (latest sync: a queued `focus` of a node never sent is dropped) | Coalescing drops a pending scroll-to or reveal of a block that a later notice replaced | D |
+| `TERN_TSP_RECORD=<file>`: every message both ways as JSONL; `surface-play` replays it | `CEDIAN_WIRE_RECORD=<file>` in the daemon and window writes each `cedian_wire` request and notice as JSONL; a replay script feeds a recording to the pane, so a stutter the owner sees becomes a fixture and a timed smoke run | D |
+| Blobs by content hash; a `blobs` query asks which ones the host still holds before sending | Images and video frames in threads (Phase D) go to the window once by sha256 (cedia already keeps blobs by hash in `~/.cedia/blobs`); a reopened thread sends only hashes the window's cache lacks | D |
+| `settle` op ends a node's animation; `reduce-motion` is a host feature the program reads | A block that stops streaming settles (spinner and shimmer stop, elapsed freezes); with macOS Reduce Motion on, nothing animates (§13 a11y) | D |
+| `typeahead`: the host keeps keys typed while the program cannot read input and sends them once it can | The composer keeps what is typed while the daemon reconnects or a thread opens, and sends nothing until the thread is ready (no lost keys after a daemon restart, §8.5) | D |
+| `plain(view)`: every view has a readable text form outside Tern | Copy block / Copy thread as Markdown from the same block data the pane draws, with tool calls as one line each | D |
+| `json` kind (latest sync) with `open` levels | Tool inputs and results that parse as JSON show as a fold tree, top level open | D |
+
+Not taken (by design): `@stencil-hq/tern` as a dependency (cedian renders
+`cedian_wire`, not TSP; nothing in it runs in the window or daemon); hosting
+TSP in cedian's terminal so programs draw native UI there (a protocol host is
+a large surface over the stock VS Code terminal; Later, if ever); keyed node
+ids with `add`/`move`/`del` ops on the wire (the window's `ItemsView` already
+keys drawn items, and blocks are append-mostly, so index plus append covers
+it); Luau plugins (cedian has no plugin system beyond VS Code extensions,
+§9). For the cedia repo, not cedian: the TUI could speak TSP when it runs
+inside Tern; that is the owner's call there.
+
 ## 4. State machines
 
 ### 4.1 Thread states (from cedia, unchanged)
