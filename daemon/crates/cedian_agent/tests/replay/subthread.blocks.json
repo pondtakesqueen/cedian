@@ -19,7 +19,7 @@
       },
       "is_error": false,
       "kind": "tool",
-      "ms": 155,
+      "ms": 60,
       "name": "spawn",
       "output": "<subthread thread=\"t-00000002\" kind=\"work\" model=\"faux/scripted\" ended=\"success\" cost=\"$0.0013\">\nWrote good to f.txt; grep -q good f.txt passes.\n</subthread>\nChanged: f.txt\nIts full log stays readable with read_thread t-00000002.",
       "permission": {
@@ -27,7 +27,7 @@
         "reason": null,
         "rule": "mode:workspace"
       },
-      "started_at": "2026-10-27T07:42:36.402Z",
+      "started_at": "2026-10-29T06:00:10.885Z",
       "state": "done",
       "status": "completed"
     },
@@ -39,7 +39,7 @@
       },
       "is_error": false,
       "kind": "tool",
-      "ms": 3,
+      "ms": 4,
       "name": "bash",
       "output": "(no output)\n[exit 0]",
       "permission": {
@@ -47,7 +47,7 @@
         "reason": null,
         "rule": "effect:read"
       },
-      "started_at": "2026-10-27T07:42:36.558Z",
+      "started_at": "2026-10-29T06:00:10.947Z",
       "state": "done",
       "status": "completed"
     },
@@ -57,7 +57,7 @@
       "text": "done, checked"
     },
     {
-      "cost_usd": 0.0046492,
+      "cost_usd": 0.0050196,
       "evidence": {
         "changed": [
           "f.txt"
@@ -80,7 +80,7 @@
       "subtype": "success",
       "text": "done, checked",
       "turns": 6,
-      "wall_ms": 275.0
+      "wall_ms": 117.0
     }
   ],
   "t-00000002": [
@@ -92,7 +92,7 @@
     {
       "images": [],
       "kind": "user",
-      "text": "You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else.\n\n<task>\nWrite good to f.txt, then run grep -q good f.txt.\n</task>\n\nEnd with the report it asked for: findings or changes with paths and line numbers, how you confirmed them, and anything left undone. Keep it short; leave out the steps you took to get there."
+      "text": "You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else. Time matters: an earlier correct report beats a later polished one; do not spend turns beyond what the report needs.\n\n<task>\nWrite good to f.txt, then run grep -q good f.txt.\n</task>\n\nEnd with the report it asked for: findings or changes with paths and line numbers, how you confirmed them, and anything left undone. Keep it short; leave out the steps you took to get there."
     },
     {
       "call_id": "c1",
@@ -102,7 +102,7 @@
       },
       "is_error": false,
       "kind": "tool",
-      "ms": 54,
+      "ms": 15,
       "name": "bash",
       "output": "(no output)\n[exit 0]",
       "permission": {
@@ -110,7 +110,7 @@
         "reason": null,
         "rule": "mode:workspace"
       },
-      "started_at": "2026-10-27T07:42:36.445Z",
+      "started_at": "2026-10-29T06:00:10.905Z",
       "state": "done",
       "status": "completed"
     },
@@ -130,7 +130,7 @@
         "reason": null,
         "rule": "effect:read"
       },
-      "started_at": "2026-10-27T07:42:36.500Z",
+      "started_at": "2026-10-29T06:00:10.925Z",
       "state": "done",
       "status": "completed"
     },

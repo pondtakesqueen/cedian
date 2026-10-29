@@ -3,7 +3,7 @@
 // it all again on open or reconnect, so nothing here is ever the only copy.
 import type { Notice, Review, Status, ThreadInfo } from "../protocol/wire.js";
 import type { Block } from "./block.js";
-import { applyBlocks, emptyView, type BlocksNotice, type ThreadView } from "./view.js";
+import { applyBlocks, applyText, emptyView, type BlocksNotice, type TextNotice, type ThreadView } from "./view.js";
 
 export interface ThreadState {
   cwd: string;
@@ -38,6 +38,8 @@ export function reduce(state: ThreadState, notice: Notice): ThreadState {
     case "blocks":
       if (notice.thread !== state.thread) return state;
       return { ...state, view: applyBlocks(state.view, notice as unknown as BlocksNotice), preparing: undefined };
+    case "text":
+      return notice.thread === state.thread ? { ...state, view: applyText(state.view, notice as TextNotice) } : state;
     case "caught":
       return notice.thread === state.thread ? { ...state, caught: true } : state;
     case "status":

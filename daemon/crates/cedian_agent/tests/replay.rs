@@ -346,6 +346,8 @@ fn full_view(transcript: &Transcript) -> View {
 fn every_fixtures_changes_add_up_to_its_blocks() {
     let record = std::env::var_os("CEDIAN_RECORD").is_some();
     let expected_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/replay");
+    // Streamed text after its block's first delta goes out as an append, not the block again.
+    let mut appends = 0;
     for name in fixture_names() {
         let stream = fs::read_to_string(fixtures_dir().join(&name).join("stream.jsonl"))
             .expect("stream.jsonl");
@@ -355,6 +357,15 @@ fn every_fixtures_changes_add_up_to_its_blocks() {
             transcript.apply(&Line::parse(text).expect("line"));
             for change in transcript.take_changes() {
                 let blocks = view.entry(change.sub.unwrap_or_default()).or_default();
+                if let Some(append) = &change.append {
+                    appends += 1;
+                    let text = blocks[change.from]["text"]
+                        .as_str()
+                        .expect("text")
+                        .to_owned();
+                    blocks[change.from]["text"] = serde_json::json!(text + append);
+                    continue;
+                }
                 blocks.truncate(change.from);
                 blocks.extend(as_json(&change.blocks));
             }
@@ -391,6 +402,10 @@ fn every_fixtures_changes_add_up_to_its_blocks() {
             .expect("blocks JSON");
         assert_eq!(serde_json::json!(view), expected, "{name} blocks changed");
     }
+    assert!(
+        appends > 0,
+        "no fixture streamed a block's text in more than one delta"
+    );
 }
 
 fn sorted(value: serde_json::Value) -> serde_json::Value {

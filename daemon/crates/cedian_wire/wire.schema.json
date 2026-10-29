@@ -323,7 +323,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -361,6 +361,8 @@
         "daemon",
         "daemon.desktop-lock",
         "threads.send-images",
+        "video",
+        "media-route",
         "inline-edit"
       ],
       "type": "string"
@@ -409,7 +411,7 @@
       ]
     },
     "CommandEntry": {
-      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } } } ``` </details>",
+      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } } } ``` </details>",
       "properties": {
         "argumentHint": {
           "type": [
@@ -439,10 +441,11 @@
       "type": "object"
     },
     "CommandEntrySource": {
-      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\" ] } ``` </details>",
+      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } ``` </details>",
       "enum": [
         "user",
-        "repository"
+        "repository",
+        "plugin"
       ],
       "type": "string"
     },
@@ -1494,6 +1497,43 @@
         },
         {
           "additionalProperties": false,
+          "description": "The streaming text or thinking block `index` grew by `append`, the only change since the last notice; the rest of the view stays as it is (spec §3.9).",
+          "properties": {
+            "append": {
+              "type": "string"
+            },
+            "index": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "text"
+              ],
+              "type": "string"
+            },
+            "sub": {
+              "description": "The sub-thread the block is of; none for the thread's own.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "append",
+            "index",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The thread's history is all sent; what follows is live.",
           "properties": {
             "kind": {
@@ -2359,6 +2399,26 @@
           },
           "required": [
             "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The window drew one blocks or text notice of the thread. From a window's first ack of a thread on, the daemon keeps at most two of its notices undrawn there, merging the rest (spec §3.9); notices sent before that first ack are not counted.",
+          "properties": {
+            "op": {
+              "enum": [
+                "ack"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
             "op",
             "thread"
           ],

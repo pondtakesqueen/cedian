@@ -22,6 +22,10 @@ pub enum Request {
     Threads { cwd: PathBuf },
     /// A thread's history so far, then its lines as they arrive.
     Open { cwd: PathBuf, thread: String },
+    /// The window drew one blocks or text notice of the thread. From a window's first ack of a
+    /// thread on, the daemon keeps at most two of its notices undrawn there, merging the rest
+    /// (spec §3.9); notices sent before that first ack are not counted.
+    Ack { thread: String },
     /// No more lines for this thread.
     Close { thread: String },
     /// One cedia run. With no thread it opens a new one, and the client is sent `Started` and
@@ -344,6 +348,16 @@ pub enum Notice {
         context: Option<u64>,
         /// What the run in flight has cost so far; 0 once its receipt lands.
         run_cost: f64,
+    },
+    /// The streaming text or thinking block `index` grew by `append`, the only change since the
+    /// last notice; the rest of the view stays as it is (spec §3.9).
+    Text {
+        thread: String,
+        /// The sub-thread the block is of; none for the thread's own.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sub: Option<String>,
+        index: usize,
+        append: String,
     },
     /// The thread's history is all sent; what follows is live.
     Caught {

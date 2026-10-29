@@ -10,6 +10,7 @@ mod daemon;
 mod desktop_lock;
 mod desktop_settings;
 mod environment;
+mod flow;
 mod follow;
 mod keep_awake;
 pub mod launch_agent;

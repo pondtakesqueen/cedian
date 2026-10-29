@@ -59,6 +59,16 @@ export type Notice =
       thread: string;
     }
   | {
+      append: string;
+      index: number;
+      kind: "text";
+      /**
+       * The sub-thread the block is of; none for the thread's own.
+       */
+      sub?: string | null;
+      thread: string;
+    }
+  | {
       kind: "caught";
       thread: string;
     }
@@ -176,7 +186,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -218,6 +228,8 @@ export type Capability =
   | "daemon"
   | "daemon.desktop-lock"
   | "threads.send-images"
+  | "video"
+  | "media-route"
   | "inline-edit";
 /**
  * The checks on the PR's head commit, taken together.
@@ -415,12 +427,12 @@ export type PermissionSetting = "read-only" | "workspace" | "auto" | "plan";
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "user", "repository" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "user", "repository", "plugin" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "CommandEntrySource".
  */
-export type CommandEntrySource = "user" | "repository";
+export type CommandEntrySource = "user" | "repository" | "plugin";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTransport".
@@ -591,6 +603,10 @@ export type Request =
   | {
       cwd: string;
       op: "open";
+      thread: string;
+    }
+  | {
+      op: "ack";
       thread: string;
     }
   | {
@@ -1289,7 +1305,7 @@ export interface PermissionEntry {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "description", "kind", "name", "source" ], "properties": { "argumentHint": { "type": "string" }, "description": { "type": "string" }, "kind": { "type": "string", "const": "skill" }, "name": { "type": "string" }, "source": { "type": "string", "enum": [ "user", "repository" ] } } } ``` </details>
+ * ```json { "type": "object", "required": [ "description", "kind", "name", "source" ], "properties": { "argumentHint": { "type": "string" }, "description": { "type": "string" }, "kind": { "type": "string", "const": "skill" }, "name": { "type": "string" }, "source": { "type": "string", "enum": [ "user", "repository", "plugin" ] } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "CommandEntry".

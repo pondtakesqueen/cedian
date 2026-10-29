@@ -263,6 +263,8 @@
         "daemon",
         "daemon.desktop-lock",
         "threads.send-images",
+        "video",
+        "media-route",
         "inline-edit"
       ]
     },
@@ -374,7 +376,8 @@
           "type": "string",
           "enum": [
             "user",
-            "repository"
+            "repository",
+            "plugin"
           ]
         },
         "argumentHint": {

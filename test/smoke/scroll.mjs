@@ -4,7 +4,9 @@
 // step per animation frame, and times the frames. In the app (gate-c.mjs) it draws into the live
 // pane, so the workbench's CSS and DOM are the real ones; run alone it draws into a bare page in
 // Playwright's Chromium with agentPane.css, which is quicker to iterate on.
-// Also times a notice on a thread that long (one more streamed answer, drawn and painted).
+// Also times a notice on a thread that long (one more streamed answer, drawn and painted), and a
+// streamed answer of STREAM_DELTAS deltas at 50 a second (spec §3.9: each delta drawn and painted,
+// and its notice's bytes on the wire, as an append and as the whole block again).
 // Passes when the median frame is within a 60 Hz frame, at most 5% of frames take longer than
 // 25 ms (a dropped frame at 60 Hz), and such a notice paints within two frames. Prints JSON.
 // Usage: node test/smoke/scroll.mjs [--blocks 10000] [--frames 600]
@@ -25,11 +27,30 @@ export function blocks(count) {
   return Array.from({ length: count }, (_, i) => all[i % all.length]);
 }
 
+/** The streamed answer: about 24 characters a delta, as a model's tokens come in a few at a time. */
+export const STREAM_DELTAS = 250;
+export const delta = (i) => `word${i} and some more, `;
+
+/** Bytes on the wire for the streamed answer's notices: each an append, or each the block again. */
+export function streamWire(deltas = STREAM_DELTAS) {
+  let text = "";
+  let append = 0;
+  let resend = 0;
+  for (let i = 0; i < deltas; i++) {
+    text += delta(i);
+    append += JSON.stringify({ kind: "text", thread: "t-00000001", index: 9999, append: delta(i) }).length + 1;
+    resend += JSON.stringify({ kind: "blocks", thread: "t-00000001", from: 9999, blocks: [{ kind: "text", text, streaming: true }], context: 120000, run_cost: 0.5 }).length + 1;
+  }
+  return { append, resend };
+}
+
 /** The pane's renderer as one script that defines `globalThis.cedianScroll`. */
 export function bundle() {
   const entry = `
     import { items } from "./src/agent-pane/items";
     import { ItemsView } from "./src/agent-pane/render";
+    const deltas_ = ${STREAM_DELTAS};
+    const delta = ${delta.toString()};
     globalThis.cedianScroll = async (selector, blocks, frames) => {
       const log = document.querySelector(selector);
       if (!log) throw new Error("no " + selector);
@@ -53,6 +74,19 @@ export function bundle() {
         await frame();
         updates.push(performance.now() - t0);
       }
+      // A long answer streamed at 50 deltas a second, each drawn and painted.
+      const streamed = [];
+      let text = "";
+      for (let i = 0; i < deltas_; i++) {
+        text += delta(i);
+        const t0 = performance.now();
+        view.update(items([...blocks, { kind: "text", text, streaming: true }]));
+        await frame();
+        streamed.push(performance.now() - t0);
+        await new Promise((r) => setTimeout(r, Math.max(0, 20 - (performance.now() - t0))));
+      }
+      view.update(items(blocks));
+      await frame();
       const max = log.scrollHeight - log.clientHeight;
       const deltas = [];
       last = await frame();
@@ -62,7 +96,7 @@ export function bundle() {
         deltas.push(t - last);
         last = t;
       }
-      return { idle, deltas, renderMs, updates, height: log.scrollHeight, nodes: log.querySelectorAll("*").length };
+      return { idle, deltas, renderMs, updates, streamed, height: log.scrollHeight, nodes: log.querySelectorAll("*").length };
     };`;
   return execFileSync(join(root, "node_modules/.bin/esbuild"), ["--bundle", "--format=iife", "--loader=ts"], {
     cwd: root,
@@ -95,6 +129,13 @@ export async function measureScroll(page, selector, { count = 10_000, frames = 6
     p95FrameMs: ms(percentile(raw.deltas, 0.95)),
     worstFrameMs: ms(Math.max(...raw.deltas)),
     over25ms: raw.deltas.filter((d) => d > 25).length,
+    stream: {
+      deltas: raw.streamed.length,
+      medianMs: ms(median(raw.streamed)),
+      p95Ms: ms(percentile(raw.streamed, 0.95)),
+      worstMs: ms(Math.max(...raw.streamed)),
+      wireBytes: streamWire(raw.streamed.length),
+    },
   };
   result.ok = result.medianFrameMs <= 1000 / 60 + 1 && result.over25ms <= frames * 0.05 && result.updateMs <= 2000 / 60;
   return result;

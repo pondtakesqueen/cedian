@@ -150,6 +150,38 @@
   are drawn, 31 ms in that Chromium, measured by `test/smoke/scroll.mjs`
   (`updateMs`). An opened tool list stays open across notices
 
+## Phase D (Media, depth, started 2026-10-29)
+- [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
+  only schema change is `plugin` as a command source
+- [ ] cedia: completion command (fill-in-the-middle on a fast cheap model)
+- [x] cedia: prompt images route to a model that reads images; video frames
+  (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
+  where the screen changes; a run with images on a text-only model runs on
+  `--media`, default Haiku 5.5). Pin moved to that branch's head da414c0
+  (protocol 094b076845b55b39), to move to cedia main once #171 merges
+- [ ] Images and video in threads: the composer takes a video (picker,
+  paste, drop) once cedia says `video`; the agent pane counts its frames
+  as images. Unchecked on the Mac
+- [x] §3.9 `Notice::Text` (2026-10-29): a streaming block that only grew goes
+  out as its new characters. `node test/smoke/scroll.mjs` streams 250 deltas
+  onto a 10k-block thread in headless Chromium on Linux: 21 KB on the wire
+  instead of 734 KB. Drawn per delta, median 5 ms, p95 14 ms either way:
+  appending a text node to the drawn answer instead of drawing it again was
+  tried and measured no faster (p95 9 ms to 14 ms over two runs each), so the
+  pane draws the grown block as before
+- [x] §3.9 credit flow control (2026-10-29, `cedian_daemon::flow`): the
+  pane acks each blocks or text notice once its frame is painted; from a
+  window's first ack of a thread, the daemon keeps at most 2 undrawn and
+  merges the rest per view (appends to one block join, anything else resends
+  from the first block touched), sent as one notice on the next ack. Tested
+  against the fake cedia with a held run; not yet timed in the app
+- [ ] §3.9 `CEDIAN_WIRE_RECORD` and replay
+- [ ] Line comments on diffs; `/code-review` card
+- [ ] Git pane; pop-out panes; Help → Check for updates
+- [ ] Tab completion (ghost text) with a measured latency budget
+- [ ] §13 gates: a11y, Thai, 3 error levels, telemetry off, legal review
+- [ ] Exit gate: the agent fixes a bug shown in a screen recording
+
 ## Known gaps
 - 6 permissive-but-non-MIT transitive deps (typify ×4 build-only, foldhash
   ×2) are accepted under the permissive policy (spec §9, 2026-10-28); keep

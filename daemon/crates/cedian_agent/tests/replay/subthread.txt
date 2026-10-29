@@ -8,7 +8,7 @@ result success after 6 turns, verified: done, checked
   check `grep -q good f.txt` exit 0 in t-00000001
 subthread t-00000002:
   session code on faux/scripted
-  user: You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else.
+  user: You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else. Time matters: an earlier correct report beats a later polished one; do not spend turns beyond what the report needs.
 
   <task>
   Write good to f.txt, then run grep -q good f.txt.

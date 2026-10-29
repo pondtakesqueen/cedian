@@ -32,6 +32,10 @@ import { COMPOSER_FOCUS, PANE_FOCUS } from './keybindings/keybindings.js';
 import { CedianPanes } from './panes.js';
 import { ICedianReviewService } from './review.js';
 
+/** Videos cedia takes on `--image` and shows as frames. */
+const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi'];
+const VIDEO_FILE = /\.(mp4|m4v|mov|webm|mkv|avi)$/i;
+
 export const AGENT_PANE_CONTAINER_ID = 'workbench.view.cedian.agent';
 export const AGENT_PANE_VIEW_ID = 'workbench.view.cedian.agent.pane';
 
@@ -89,18 +93,19 @@ export class AgentPaneView extends ViewPane {
 					source.dispose();
 				}
 			},
-			pickImages: async () => {
+			pickImages: async video => {
+				const images = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
 				const picked = await this.fileDialogService.showOpenDialog({
 					canSelectFiles: true,
 					canSelectMany: true,
-					title: 'แนบรูป',
-					filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+					title: video ? 'แนบรูปหรือวิดีโอ' : 'แนบรูป',
+					filters: video ? [{ name: 'Images and videos', extensions: [...images, ...VIDEO_EXTENSIONS] }] : [{ name: 'Images', extensions: images }],
 				});
 				return (picked ?? []).map(uri => uri.fsPath);
 			},
 			// A pasted image without a file goes in the window's cache folder; cedia copies it when the run starts.
 			saveImage: async (bytes, mime) => {
-				const extension = mime === 'image/jpeg' ? 'jpg' : mime.split('/')[1];
+				const extension = mime === 'image/jpeg' ? 'jpg' : mime === 'video/quicktime' ? 'mov' : mime === 'video/x-matroska' ? 'mkv' : mime === 'video/x-msvideo' ? 'avi' : mime.split('/')[1];
 				const file = joinPath(this.environmentService.cacheHome, 'cedian-paste', `${generateUuid()}.${extension}`);
 				await this.fileService.writeFile(file, VSBuffer.wrap(bytes));
 				return file.fsPath;
@@ -119,9 +124,11 @@ export class AgentPaneView extends ViewPane {
 		pane.composer.addEventListener('blur', () => composerFocus.set(false));
 		pane.root.addEventListener('focusin', () => paneFocus.set(true));
 		pane.root.addEventListener('focusout', () => paneFocus.set(false));
-		// An image dropped in the composer is attached by its file path (the pane handles a paste).
+		// An image dropped in the composer is attached by its file path, and a video once cedia takes one
+		// (the pane handles a paste).
 		pane.composer.addEventListener('drop', e => {
-			const files = [...(e.dataTransfer?.files ?? [])].map(f => (f as File & { path?: string }).path).filter((p): p is string => !!p && /\.(png|jpe?g|gif|webp)$/i.test(p));
+			const attachable = (p: string) => /\.(png|jpe?g|gif|webp)$/i.test(p) || (pane.takesVideo() && VIDEO_FILE.test(p));
+			const files = [...(e.dataTransfer?.files ?? [])].map(f => (f as File & { path?: string }).path).filter((p): p is string => !!p && attachable(p));
 			if (files.length) {
 				e.preventDefault();
 				pane.attach(files);

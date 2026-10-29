@@ -148,6 +148,29 @@ describe("agent pane", () => {
     expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["paste-1.png", "a.jpg"]);
   });
 
+  it("takes a video once cedia says it can: the chip, the picker and a paste", async () => {
+    const asked: (boolean | undefined)[] = [];
+    const { pane, emit } = setup({ pickImages: async (video) => (asked.push(video), ["/tmp/bug.mov"]) });
+    const welcome = (capabilities: string[]) => emit({ kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities } } } as Notice);
+    const paste = (file: File) => {
+      const e = new Event("paste", { cancelable: true }) as Event & { clipboardData: { files: File[] } };
+      e.clipboardData = { files: [file] };
+      pane.composer.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    const clip = Object.assign(new File([new Uint8Array([0])], "bug.mp4", { type: "video/mp4" }), { path: "/Users/p/bug.mp4" });
+    welcome(["images"]);
+    expect(buttons(pane.root, "+ รูป")).toHaveLength(1);
+    expect(paste(clip)).toBe(false);
+    welcome(["images", "video"]);
+    buttons(pane.root, "+ รูป/วิดีโอ")[0]!.click();
+    await tick();
+    expect(asked).toEqual([true]);
+    expect(paste(clip)).toBe(true);
+    await tick();
+    expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["bug.mov", "bug.mp4"]);
+  });
+
   it("⌘0 starts the project chat as the coordinator, then shows a card per thread it opened", () => {
     const { pane, emit, sent, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [] });
@@ -277,6 +300,37 @@ describe("agent pane", () => {
     pane.openThread("t-2");
     emit({ kind: "blocks", thread: "t-2", from: 0, blocks: [{ kind: "user", text: "fix", images: [] }], run_cost: 0 });
     expect(pane.root.querySelector(".ubub")).not.toBe(user);
+  });
+
+  it("streamed text arrives as appends: the answer grows, the rest stays drawn, then it settles", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "user", text: "fix", images: [] }, { kind: "thinking", text: "hm", streaming: true, ms: null }, { kind: "text", text: "on", streaming: true }], run_cost: 0 } as Notice);
+    const user = pane.root.querySelector(".ubub")!;
+    emit({ kind: "text", thread: "t-1", index: 2, append: " it" });
+    emit({ kind: "text", thread: "t-2", index: 2, append: "!" });
+    expect(pane.root.querySelector(".ubub")).toBe(user);
+    const answer = pane.root.querySelector(".ans")!;
+    expect(answer.textContent).toBe("on it");
+    // The final block replaces it, drawn whole.
+    emit({ kind: "blocks", thread: "t-1", from: 1, blocks: [{ kind: "thinking", text: "hmm", streaming: false, ms: 1000 }, { kind: "text", text: "on it", streaming: false }], run_cost: 0 } as Notice);
+    expect(pane.root.querySelector(".ans")).not.toBe(answer);
+    expect(pane.root.querySelector(".ans")!.className).toBe("ans");
+  });
+
+  it("acks each blocks or text notice once its frame is painted", async () => {
+    const { pane, emit, sent } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "text", text: "on", streaming: true }], run_cost: 0 } as Notice);
+    emit({ kind: "text", thread: "t-1", index: 0, append: " it" });
+    emit({ kind: "caught", thread: "t-1" });
+    const acks = () => sent.filter((r) => r.op === "ack");
+    expect(acks()).toEqual([]);
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await tick();
+    expect(acks()).toEqual([{ op: "ack", thread: "t-1" }, { op: "ack", thread: "t-1" }]);
   });
 
   it("the thread search lists the chat first, then threads newest first, archived last", () => {

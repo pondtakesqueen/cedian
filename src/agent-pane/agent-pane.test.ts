@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { isBlock, type Block } from "./block";
 import { items } from "./items";
 import { renderItems } from "./render";
-import { applyBlocks, emptyView } from "./view";
+import { applyBlocks, applyText, emptyView } from "./view";
 
 // node:path, not URL: happy-dom puts its own URL in the test's globals.
 const dir = join(dirname(fileURLToPath(import.meta.url)), "../../daemon/crates/cedian_agent/tests/replay");
@@ -70,6 +70,17 @@ describe("agent pane", () => {
       });
     });
   }
+
+  it("an append grows the streaming text or thinking block it names, a sub-thread's too", () => {
+    let view = applyBlocks(emptyView("t-1"), { kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "thinking", text: "hm", streaming: true, ms: null }, { kind: "text", text: "on", streaming: true }], run_cost: 0 });
+    view = applyBlocks(view, { kind: "blocks", thread: "t-1", sub: "t-2", from: 0, blocks: [{ kind: "text", text: "a", streaming: true }], run_cost: 0 });
+    view = applyText(view, { kind: "text", thread: "t-1", index: 0, append: "m" });
+    view = applyText(view, { kind: "text", thread: "t-1", index: 1, append: " it" });
+    view = applyText(view, { kind: "text", thread: "t-1", sub: "t-2", index: 0, append: "b" });
+    view = applyText(view, { kind: "text", thread: "t-9", index: 1, append: "x" });
+    expect(view.blocks.map((b) => (b as { text: string }).text)).toEqual(["hmm", "on it"]);
+    expect(view.subthreads.get("t-2")).toEqual([{ kind: "text", text: "ab", streaming: true }]);
+  });
 
   it("marks a checked success verified and a denial failed", () => {
     const checked = items(load("edit-and-check")[""]);
