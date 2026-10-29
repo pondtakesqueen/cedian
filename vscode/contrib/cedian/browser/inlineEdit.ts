@@ -20,8 +20,8 @@ import type { InlineEdit } from './protocol/wire.js';
 
 /**
  * Cmd+K in a text editor: asks what to change, sends the selection to cedia through the daemon,
- * and shows the answer as a diff of the buffer against the proposal, with รับ (accept, which
- * edits the buffer) and ไม่เอา (discard). Nothing is written to disk here.
+ * and shows the answer as a diff of the buffer against the proposal, with Accept (which
+ * edits the buffer) and Reject (discard). Nothing is written to disk here.
  */
 export async function runInlineEdit(accessor: ServicesAccessor): Promise<void> {
 	const editorService = accessor.get(IEditorService);
@@ -40,12 +40,12 @@ export async function runInlineEdit(accessor: ServicesAccessor): Promise<void> {
 	const selection = editor.getSelection();
 	const folder = workspace.getWorkspaceFolder(model.uri) ?? workspace.getWorkspace().folders[0];
 	if (!folder || model.uri.scheme !== 'file') {
-		notifications.info('Inline edit ใช้ได้กับไฟล์ใน project ที่เปิดอยู่');
+		notifications.info('Inline edit works on files in the open project');
 		return;
 	}
 	const instruction = await quickInput.input({
-		placeHolder: selection.isEmpty() ? 'จะให้เขียนอะไรตรงนี้' : 'จะให้แก้ส่วนที่เลือกอย่างไร',
-		prompt: 'cedia จะเสนอการแก้เป็น diff ให้รับหรือไม่เอา',
+		placeHolder: selection.isEmpty() ? 'What should go here?' : 'How should the selection change?',
+		prompt: 'cedia proposes the change as a diff to accept or reject',
 	});
 	if (!instruction?.trim()) {
 		return;
@@ -67,7 +67,7 @@ export async function runInlineEdit(accessor: ServicesAccessor): Promise<void> {
 		});
 	});
 	daemon.client.request(request);
-	const edit = await progress.withProgress({ location: ProgressLocation.Notification, title: 'cedia กำลังเขียนการแก้…' }, () => answer);
+	const edit = await progress.withProgress({ location: ProgressLocation.Notification, title: 'cedia is writing the edit…' }, () => answer);
 	const result = outcome(edit);
 	if ('error' in result) {
 		notifications.warn(`Inline edit: ${result.error}`);
@@ -91,12 +91,12 @@ export async function runInlineEdit(accessor: ServicesAccessor): Promise<void> {
 		}
 		proposal.dispose();
 	};
-	notifications.prompt(Severity.Info, `inline edit จาก ${result.model} ($${result.costUsd.toFixed(3)})`, [
+	notifications.prompt(Severity.Info, `Inline edit from ${result.model} ($${result.costUsd.toFixed(3)})`, [
 		{
-			label: 'รับ',
+			label: 'Accept',
 			run: async () => {
 				if (model.isDisposed() || model.getAlternativeVersionId() !== version) {
-					notifications.warn('ไฟล์เปลี่ยนไประหว่างรอ: ไม่ได้แก้ ลอง Cmd+K อีกครั้ง');
+					notifications.warn('The file changed while waiting, so nothing was edited. Try Cmd+K again.');
 				} else {
 					model.pushEditOperations([selection], [{ range: Range.lift(selection), text: result.replacement }], () => null);
 					model.pushStackElement();
@@ -105,6 +105,6 @@ export async function runInlineEdit(accessor: ServicesAccessor): Promise<void> {
 				editor.focus();
 			},
 		},
-		{ label: 'ไม่เอา', run: close },
+		{ label: 'Reject', run: close },
 	], { sticky: true, onCancel: () => { void close(); } });
 }

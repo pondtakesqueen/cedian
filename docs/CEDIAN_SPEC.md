@@ -182,7 +182,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | Multi-repo ("one goal across many repos") | roots[] per project slug; the slug is the primary (first) root's, other roots are extra; one thread per root/worktree |
 | Thread lifecycle (queued→working→done/failed/stopped/asking/interrupted) | cedia thread states (§4.1) |
 | Auto-archive (done + verified + no hunks) | daemon (cedia threads archive) + sidebar count |
-| Questions (asking state) | ถามคุณ badge + question card in project chat |
+| Questions (asking state) | "Waiting for you" badge + question card in project chat |
 | Scheduled tasks | daemon scheduled runs (cedia schedules) |
 | Pull requests tracking | PR monitoring (daemon + gh CLI) |
 | Library (knowledge/memory) | Memory block |
@@ -726,7 +726,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 - "this cedia does not manage MCP servers yet"
 - "no thread X in this project"
 - "not a git repository" (roots validation)
-- "มี thread ใช้ root นี้อยู่" (root in use)
+- "a thread is using this root" (root in use)
 - "Archive anyway? This worktree has uncommitted changes" (archive guard; cancel keeps them)
 - "Claude tools are off for this site" (per-site deny / admin block)
 
@@ -734,10 +734,9 @@ draft → open → (edited | fixing | forked) → pinned → closed
 - **Blocking / needs action** (protocol mismatch, not a git repo, root in use, version mismatch) → modal dialog (VS Code window.showErrorMessage, modal)
 - **Transient** (network timeout, browser closed before page opened, lost contact) → VS Code notification (non-modal, auto-dismiss)
 - **Inline** (stale hunk, agent error, unverified, artifact draft/fix/storage errors) → inline in block/agent pane
-- Thai messages (§8.3) retained as-is
+- Messages are English (§8.3); the UI is English throughout (owner, 2026-10-29). Thai text the person or the agent writes still renders and wraps natively (§9)
 
-### 8.6 Artifact errors (recovered, local-mapped; strings English in v1,
-Thai follows with the settings-window pass)
+### 8.6 Artifact errors (recovered, local-mapped; English)
 
 - "Artifacts are off — turn on Artifacts in Settings" (capability off;
   `desktop.artifacts.enabled` false).
@@ -824,7 +823,7 @@ Thai follows with the settings-window pass)
 
 ### Accessibility / errors / roadmap
 - **Accessibility**: VS Code baseline + Cedian-specific (VoiceOver labels for blocks, Thai line-height ≥1.6, focus ring 2px accent, Reduce Motion stops animation).
-- **Error behaviors**: 3 levels — blocking → modal dialog; transient → VS Code notification; inline → block/agent pane. Thai messages retained (§8.3).
+- **Error behaviors**: 3 levels — blocking → modal dialog; transient → VS Code notification; inline → block/agent pane. English messages (§8.3).
 - **Browser safety**: cedia owns site policy + Cedian per-project allowlist; no separate classifier.
 - **Roadmap**: §11 holds the phases (0–D) and their exit gates (decided 2026-10-28); ARCHITECTURE.md is history only.
 - **CI/testing**: 3 layers — Rust cargo test (replay fixtures, layout fit), TS vitest (block logic, settings), Playwright E2E smoke. No model calls in CI.
@@ -990,7 +989,7 @@ Consolidated checklist; details in referenced sections.
 - [ ] **Performance** (§9): no worse than stock VS Code 1.143.1 on cold start, keystroke and idle memory (measured in Phase A); scroll 10k blocks @60fps. Measured with HID events + pixel polling on Mac.
 - [ ] **Accessibility** (§9, §4): VS Code baseline + VoiceOver labels for blocks, Thai line-height ≥1.6, focus ring 2px accent, Reduce Motion stops animation. (better-a11y review.)
 - [ ] **Thai text** (§9): Chromium native line breaking + CSS font fallback; no mid-word wrap; verified with Thai fixtures.
-- [ ] **Error behaviors** (§8): 3 levels (modal/notification/inline) mapped; Thai messages retained; no unhandled errors.
+- [ ] **Error behaviors** (§8): 3 levels (modal/notification/inline) mapped; English messages; no unhandled errors.
 - [ ] **Notifications** (§9): badges (project tab, sidebar, Dock) + optional sound; no banners (deferred).
 - [ ] **Testing/CI** (§9, §11): Rust cargo test (replay fixtures, layout fit), TS vitest (block logic, settings), Playwright E2E smoke. No model calls in CI. All green.
 - [ ] **Telemetry** (§9): all disabled; crash logs local only (~/Library/Logs/Cedian).

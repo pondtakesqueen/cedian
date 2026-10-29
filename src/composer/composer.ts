@@ -1,7 +1,7 @@
 // The composer's rules (prototype `composer()`; spec §3.1, §3.7): what Enter does depends on the
 // thread. No thread yet starts one (in a new worktree when asked); a thread at rest takes the
 // text as its next run; a running thread queues it, and cedia shows it at the run's next turn
-// (`cedia threads send`) until "ส่งเลย" stops the run and sends it as the next one instead.
+// (`cedia threads send`) until "Send now" stops the run and sends it as the next one instead.
 import type { CommandEntry, Request } from "../protocol/wire.js";
 
 export interface Draft {
@@ -65,7 +65,7 @@ export interface Queued {
 }
 
 /**
- * "ส่งเลย" on a queued message: take it back from the queue, stop the run, and send it as the
+ * "Send now" on a queued message: take it back from the queue, stop the run, and send it as the
  * next run once the run has stopped (the caller sends `then` when the thread's status leaves
  * `working`).
  */
@@ -79,7 +79,7 @@ export function sendNow(queued: Queued, target: Required<Pick<Target, "cwd" | "t
   };
 }
 
-/** "แก้" on a queued message: take it back, and put its text in the draft. */
+/** "Edit" on a queued message: take it back, and put its text in the draft. */
 export function editQueued(queued: Queued, target: Required<Pick<Target, "cwd" | "thread">>): { request: Request; draft: Draft } {
   return { request: { op: "unsend", cwd: target.cwd, thread: target.thread, ids: [queued.id] }, draft: { text: queued.text, images: [] } };
 }

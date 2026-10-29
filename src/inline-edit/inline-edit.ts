@@ -21,9 +21,9 @@ export function relativeTo(cwd: string, file: string): string | undefined {
 /** The request for one selection; the buffer's text goes with it, unsaved changes included. */
 export function inlineEditRequest(opts: { id: string; cwd: string; file: string; selection: EditorSelection; instruction: string; text: string; model?: string }): Request | { error: string } {
   const file = relativeTo(opts.cwd, opts.file);
-  if (!file) return { error: `${opts.file} อยู่นอก project (${opts.cwd})` };
+  if (!file) return { error: `${opts.file} is outside the project (${opts.cwd})` };
   const instruction = opts.instruction.trim();
-  if (!instruction) return { error: "บอกก่อนว่าจะให้แก้อะไร" };
+  if (!instruction) return { error: "Say what to change first" };
   const s = opts.selection;
   return {
     op: "inline_edit",
@@ -53,6 +53,6 @@ export function proposedText(text: string, selection: EditorSelection, replaceme
 /** What the editor shows for cedia's answer. */
 export function outcome(edit: InlineEdit): { replacement: string; costUsd: number; model: string } | { error: string } {
   if ("error" in edit) return { error: edit.error };
-  if (edit.patch === "") return { error: "ไม่มีอะไรต้องเปลี่ยน" };
+  if (edit.patch === "") return { error: "Nothing to change" };
   return { replacement: edit.replacement, costUsd: edit.costUsd, model: edit.model };
 }

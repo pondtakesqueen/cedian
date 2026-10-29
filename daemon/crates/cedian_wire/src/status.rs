@@ -50,7 +50,7 @@ pub struct ThreadInfo {
     /// Its branch's pull request, while the daemon follows it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pr: Option<crate::PrChip>,
-    /// The person stopped the daemon following this thread's pull request (หยุดเฝ้า).
+    /// The person stopped the daemon following this thread's pull request (Stop watching).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub pr_unwatched: bool,
 }

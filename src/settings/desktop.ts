@@ -103,16 +103,16 @@ const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") 
  */
 export function addRoot(desktop: Desktop, primary: string, path: string, isGitRepo: boolean): { roots: Record<string, string[]> } | { error: string } {
   const root = trimSlash(path.trim());
-  if (!root.startsWith("/")) return { error: "ต้องเป็น path เต็ม เช่น /Users/you/repo" };
-  if (!isGitRepo) return { error: `${root} ไม่ใช่ git repository` };
+  if (!root.startsWith("/")) return { error: "Must be a full path, such as /Users/you/repo" };
+  if (!isGitRepo) return { error: `${root} is not a git repository` };
   const roots = rootsOf(desktop, primary);
-  if (roots.includes(root)) return { error: `${root} อยู่ในรายการแล้ว` };
+  if (roots.includes(root)) return { error: `${root} is already listed` };
   return { roots: { ...(desktop.roots ?? {}), [projectSlug(primary)]: [...roots, root] } };
 }
 
 /** `desktop.roots` without one root; the primary stays (it keys the project). */
 export function removeRoot(desktop: Desktop, primary: string, path: string): { roots: Record<string, string[]> } | { error: string } {
-  if (path === primary) return { error: "root หลักของ project เอาออกไม่ได้" };
+  if (path === primary) return { error: "The project's primary root cannot be removed" };
   const rest = rootsOf(desktop, primary).slice(1).filter((r) => r !== path);
   const roots = { ...(desktop.roots ?? {}) };
   if (rest.length) roots[projectSlug(primary)] = [primary, ...rest];

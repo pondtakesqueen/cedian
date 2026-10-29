@@ -159,7 +159,7 @@ pub enum Request {
         thread: String,
         archived: bool,
     },
-    /// Stops following the thread's pull request, or follows it again (หยุดเฝ้า, เฝ้า PR).
+    /// Stops following the thread's pull request, or follows it again (Stop watching, Watch PR).
     /// Kept across restarts.
     PrWatch {
         cwd: PathBuf,

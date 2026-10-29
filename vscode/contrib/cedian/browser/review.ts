@@ -103,7 +103,7 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 			const at = line ?? (first ? hunkLine(first) : undefined);
 			await this.editorService.openEditor({
 				...sides(f),
-				label: `${f.path} (รีวิว)`,
+				label: `${f.path} (review)`,
 				options: at !== undefined ? { selection: { startLineNumber: at, startColumn: 1 }, selectionRevealType: TextEditorSelectionRevealType.CenterIfOutsideViewport, pinned: true } : { pinned: true },
 			});
 			return;
@@ -111,7 +111,7 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 		await this.editorService.openEditor({
 			multiDiffSource: URI.from({ scheme: 'cedian-review', path: `/${thread}` }),
 			resources: files.map(sides),
-			label: `รีวิว ${files.length} ไฟล์`,
+			label: `Review: ${files.length} ${files.length === 1 ? 'file' : 'files'}`,
 			isTransient: true,
 		});
 	}

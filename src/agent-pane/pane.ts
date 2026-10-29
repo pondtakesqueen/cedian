@@ -49,19 +49,19 @@ export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
 
 /** What the composer takes as the review card's command. */
 const CODE_REVIEW = "/code-review";
-const CODE_REVIEW_ENTRY: CommandEntry = { name: "code-review", description: "รีวิวสิ่งที่เธรดนี้แก้ แล้วแสดงผลเป็นรายไฟล์", kind: "command", source: "user" };
+const CODE_REVIEW_ENTRY: CommandEntry = { name: "code-review", description: "Review what this thread changed, finding by file", kind: "command", source: "user" };
 
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
 
 const STATUS_LABEL: Record<string, string> = {
-  queued: "รอคิว",
-  working: "กำลังทำ",
-  done: "เสร็จ",
-  failed: "ไม่สำเร็จ",
-  stopped: "หยุดแล้ว",
-  interrupted: "ถูกขัด",
-  asking: "รอคำตอบ",
+  queued: "Queued",
+  working: "Working",
+  done: "Done",
+  failed: "Failed",
+  stopped: "Stopped",
+  interrupted: "Interrupted",
+  asking: "Waiting for you",
 };
 
 export interface ThreadSearchItem {
@@ -82,11 +82,11 @@ export function threadSearch(threads: ThreadInfo[]): ThreadSearchItem[] {
   const item = (t: ThreadInfo): ThreadSearchItem => {
     const title = t.title || t.task;
     const progress = todoCard(t)?.progress;
-    const state = t.archived ? "เก็บแล้ว" : t.needs_you ? `${STATUS_LABEL[t.status] ?? t.status} · ต้องดู` : STATUS_LABEL[t.status] ?? t.status;
+    const state = t.archived ? "Archived" : t.needs_you ? `${STATUS_LABEL[t.status] ?? t.status} · needs you` : STATUS_LABEL[t.status] ?? t.status;
     return { id: t.id, label: title, description: [state, progress, t.pr ? prText(t.pr) : undefined].filter(Boolean).join(" · "), ...(t.task && t.task !== title ? { detail: t.task } : {}) };
   };
   const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || b.updated_at.localeCompare(a.updated_at));
-  return [{ id: CHAT, label: "แชทโปรเจกต์", description: coordinator ? STATUS_LABEL[coordinator.status] ?? coordinator.status : "" }, ...rest.map(item)];
+  return [{ id: CHAT, label: "Project chat", description: coordinator ? STATUS_LABEL[coordinator.status] ?? coordinator.status : "" }, ...rest.map(item)];
 }
 
 export class AgentPane {
@@ -142,9 +142,9 @@ export class AgentPane {
     this.attachments = el(doc, "div", "attachments");
     this.input = el(doc, "textarea", "input");
     this.input.rows = 3;
-    this.input.setAttribute("aria-label", "ข้อความถึง agent");
+    this.input.setAttribute("aria-label", "Message to the agent");
     this.chips = el(doc, "div", "chips");
-    this.sendButton = button(doc, "ส่ง", () => this.primary(), "btn send");
+    this.sendButton = button(doc, "Send", () => this.primary(), "btn send");
     const row = el(doc, "div", "row");
     row.append(this.chips, this.sendButton);
     composer.append(this.popup, this.attachments, this.input, row);
@@ -327,7 +327,7 @@ export class AgentPane {
         break;
       case "status":
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
-          // The run ended: what it changed is ready to review, and a "ส่งเลย" waits for this.
+          // The run ended: what it changed is ready to review, and a "Send now" waits for this.
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
             this.wire.request(this.then);
@@ -394,7 +394,7 @@ export class AgentPane {
   private codeReview(): void {
     const thread = this.state.thread;
     if (!thread || !this.can("code-review")) {
-      this.state = { ...this.state, error: thread ? "cedia รุ่นนี้ยังรีวิวโค้ดไม่ได้" : "เปิดเธรดที่มีการแก้ไฟล์ก่อน แล้วค่อยสั่ง /code-review" };
+      this.state = { ...this.state, error: thread ? "This cedia cannot review code yet" : "Open a thread that changed files first, then run /code-review" };
       return this.render();
     }
     this.sent([{ op: "code_review", cwd: this.cwd, thread }]);
@@ -509,17 +509,17 @@ export class AgentPane {
     const list = threadList(this.threads);
     const coordinator = coordinatorThread(this.threads);
     const options = [
-      { value: CHAT, label: "แชทโปรเจกต์" },
-      { value: "", label: "เธรดใหม่" },
+      { value: CHAT, label: "Project chat" },
+      { value: "", label: "New thread" },
       ...list.filter((t) => t.id !== coordinator?.id).map((t) => ({ value: t.id, label: `${t.title || t.task}${t.needs_you ? " •" : ""}` })),
     ];
     const picker = select(d, options, this.chat ? CHAT : (this.state.thread ?? ""), (id) => (id === CHAT ? this.projectChat() : id ? this.openThread(id) : this.newThread()), "sel threads");
-    picker.setAttribute("aria-label", "เธรด");
+    picker.setAttribute("aria-label", "Thread");
     const status = this.state.status;
     const dot = el(d, "span", `dot st-${status ?? "none"}`);
     if (status) dot.title = STATUS_LABEL[status] ?? status;
     const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
-    mode.title = "สลับมุมมอง (Ctrl+O)";
+    mode.title = "Switch view (Ctrl+O)";
     this.header.replaceChildren(picker, dot, mode);
     const open = this.state.thread ? this.threads.find((t) => t.id === this.state.thread) : undefined;
     if (open?.pr) {
@@ -558,13 +558,13 @@ export class AgentPane {
     const nearBottom = this.log.scrollHeight - this.log.scrollTop - this.log.clientHeight < 40;
     const parts: HTMLElement[] = [];
     if (!this.state.thread) {
-      const hint = this.chat ? "แชทโปรเจกต์: บอกสิ่งที่อยากให้ทำ แล้ว coordinator จะแบ่งงานและเปิดเธรดให้แต่ละงาน" : "เริ่มเธรดใหม่: พิมพ์สิ่งที่อยากให้ทำด้านล่าง";
+      const hint = this.chat ? "Project chat: say what you want done, and the coordinator splits it up and opens a thread for each part" : "New thread: type what you want done below";
       parts.push(el(d, "div", "empty", this.state.preparing ?? hint));
     } else {
       // A new thread starts from no drawn items; the same thread reuses what is drawn.
       if (this.drawnThread !== this.state.thread) (this.itemsView = new ItemsView(d)), (this.drawnThread = this.state.thread);
       parts.push(this.itemsView.update(items(visibleBlocks(withoutTriage(this.state.view.blocks as Block[]), this.viewMode))));
-      if (!this.state.caught) parts.push(el(d, "div", "small loading", "กำลังโหลดเธรด…"));
+      if (!this.state.caught) parts.push(el(d, "div", "small loading", "Loading thread…"));
     }
     if (this.chat && this.state.thread) {
       const cards = chatCards(this.threads, this.state.thread);
@@ -590,10 +590,10 @@ export class AgentPane {
     return chip;
   }
 
-  /** หยุดเฝ้า beside an open PR's chip, or เฝ้า PR once the person stopped it. */
+  /** Stop watching (×) beside an open PR's chip, or Watch PR once the person stopped it. */
   private watchButton(thread: string, watch: boolean): HTMLElement {
-    const b = button(this.doc, watch ? "เฝ้า PR" : "×", () => this.wire.request({ op: "pr_watch", cwd: this.host.cwd, thread, watch }), "chip pr-watch");
-    b.title = watch ? "เฝ้า PR ของเธรดนี้อีกครั้ง" : "หยุดเฝ้า PR ของเธรดนี้";
+    const b = button(this.doc, watch ? "Watch PR" : "×", () => this.wire.request({ op: "pr_watch", cwd: this.host.cwd, thread, watch }), "chip pr-watch");
+    b.title = watch ? "Watch this thread's PR again" : "Stop watching this thread's PR";
     return b;
   }
 
@@ -605,10 +605,10 @@ export class AgentPane {
       const row = el(d, "div", `thread-card st-${c.status}${c.archived ? " archived" : ""}`);
       row.dataset.thread = c.id;
       const head = el(d, "div", "row");
-      const state = c.archived ? "เก็บแล้ว" : STATUS_LABEL[c.status] ?? c.status;
+      const state = c.archived ? "Archived" : STATUS_LABEL[c.status] ?? c.status;
       head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")));
       if (c.pr) head.append(this.prChip(c.pr));
-      head.append(button(d, "เปิด", () => this.openThread(c.id), "btn small"));
+      head.append(button(d, "Open", () => this.openThread(c.id), "btn small"));
       row.append(head);
       if (c.step && !c.archived) row.append(el(d, "div", "small step", c.step));
       if (c.question) {
@@ -621,19 +621,19 @@ export class AgentPane {
             if (r) this.wire.request(r);
           }, i === 0 ? "btn primary" : "btn")),
         );
-        if (q.options.length === 0) choices.append(button(d, "ตอบในเธรด", () => this.openThread(c.id), "btn"));
+        if (q.options.length === 0) choices.append(button(d, "Answer in the thread", () => this.openThread(c.id), "btn"));
         row.append(choices);
       }
       box.append(row);
     }
-    box.append(el(d, "div", "small hint", "พิมพ์ @ ตามด้วยเธรดเพื่อส่งข้อความถึงเธรดนั้นโดยตรง"));
+    box.append(el(d, "div", "small hint", "Type @ and a thread to message that thread directly"));
     return box;
   }
 
   private todoCard(todo: NonNullable<ReturnType<typeof todoCard>>): HTMLElement {
     const d = this.doc;
     const card = el(d, "div", "card todo");
-    card.append(el(d, "div", "small", `ขั้นตอน ${todo.progress}`));
+    card.append(el(d, "div", "small", `Steps ${todo.progress}`));
     const list = el(d, "ul", "steps");
     for (const step of todo.steps) {
       const li = el(d, "li", `step ${step.state}`);
@@ -654,7 +654,7 @@ export class AgentPane {
     };
     const row = el(d, "div", "row");
     ask.options.forEach((option, i) => row.append(button(d, option, () => reply(option), i === 0 ? "btn primary" : "btn")));
-    card.append(row, el(d, "div", "small", ask.options.length ? "หรือพิมพ์คำตอบเองในช่องด้านล่าง" : "พิมพ์คำตอบในช่องด้านล่าง"));
+    card.append(row, el(d, "div", "small", ask.options.length ? "Or type your own answer below" : "Type your answer below"));
     return card;
   }
 
@@ -669,12 +669,12 @@ export class AgentPane {
     const sum = summarize(review.files);
     const card = el(d, "div", "card review");
     const head = el(d, "div", "row");
-    head.append(el(d, "span", "", `${sum.files} ไฟล์`), el(d, "span", "ok m", `+${sum.added}`), el(d, "span", "bad m", `−${sum.removed}`));
-    if (sum.pending) head.append(el(d, "span", "small", `รอรีวิว ${sum.pending}`));
-    head.append(button(d, "เปิดใน diff", () => this.host.openReview(thread, this.cwd, review)));
+    head.append(el(d, "span", "", `${sum.files} ${sum.files === 1 ? "file" : "files"}`), el(d, "span", "ok m", `+${sum.added}`), el(d, "span", "bad m", `−${sum.removed}`));
+    if (sum.pending) head.append(el(d, "span", "small", `${sum.pending} to review`));
+    head.append(button(d, "Open diff", () => this.host.openReview(thread, this.cwd, review)));
     const pending = review.files.flatMap((f) => f.hunks).filter((h) => h.state === "pending");
     if (pending.length) {
-      head.append(button(d, "รับทั้งหมด", () => {
+      head.append(button(d, "Accept all", () => {
         for (const h of pending) this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "accept" } });
       }, "btn primary"));
     }
@@ -687,11 +687,11 @@ export class AgentPane {
       const filePending = file.hunks.filter((h) => h.state === "pending");
       if (filePending.length) {
         row.append(
-          button(d, "รับ", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "accept" } })), "btn small"),
-          button(d, "ไม่เอา", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "reject", reason: "" } })), "btn small danger"),
+          button(d, "Accept", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "accept" } })), "btn small"),
+          button(d, "Reject", () => filePending.forEach((h) => this.wire.request({ op: "decide", cwd: this.cwd, thread, hunk: h.id, decision: { decision: "reject", reason: "" } })), "btn small danger"),
         );
       } else if (states.length) {
-        row.append(el(d, "span", "small", states.every((s) => s === "accepted") ? "รับแล้ว" : states.every((s) => s === "rejected") ? "ไม่เอาแล้ว" : "รีวิวแล้ว"));
+        row.append(el(d, "span", "small", states.every((s) => s === "accepted") ? "Accepted" : states.every((s) => s === "rejected") ? "Rejected" : "Reviewed"));
       }
       card.append(row);
     }
@@ -704,12 +704,12 @@ export class AgentPane {
     const thread = this.state.thread!;
     const card = el(d, "div", "card comments");
     const head = el(d, "div", "row");
-    head.append(el(d, "span", "", `คอมเมนต์ใน diff ${comments.length} รายการ`), button(d, "ส่งทั้งหมด", () => this.wire.request(sendComments(this.cwd, thread)), "btn primary"));
+    head.append(el(d, "span", "", `${comments.length} diff ${comments.length === 1 ? "comment" : "comments"}`), button(d, "Send all", () => this.wire.request(sendComments(this.cwd, thread)), "btn primary"));
     card.append(head);
     for (const c of comments) {
       const row = el(d, "div", "file");
       const at = button(d, `${c.path}:${c.line}`, () => this.state.review && this.host.openReview(thread, this.cwd, this.state.review, c.path, c.line), "link m ell");
-      row.append(at, el(d, "span", "small ell", c.text), button(d, "ลบ", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));
+      row.append(at, el(d, "span", "small ell", c.text), button(d, "Delete", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));
       card.append(row);
     }
     return card;
@@ -725,16 +725,16 @@ export class AgentPane {
     const notes = this.state.notes!;
     const card = el(d, "div", "card code-review");
     const head = el(d, "div", "row");
-    head.append(el(d, "span", "", "รีวิวโค้ด"));
+    head.append(el(d, "span", "", "Code review"));
     if (notes.reviewing) {
-      card.append(head, el(d, "div", "small", "กำลังรีวิวสิ่งที่เธรดนี้แก้…"));
+      card.append(head, el(d, "div", "small", "Reviewing what this thread changed…"));
       return card;
     }
     const review = reviewed(notes);
     if (!review) {
       const why = notes.review && "error" in notes.review ? notes.review.error : "";
-      head.append(button(d, "รีวิวอีกครั้ง", () => this.wire.request({ op: "code_review", cwd: this.cwd, thread }), "btn small"));
-      card.append(head, el(d, "div", "small bad", `รีวิวไม่สำเร็จ: ${why}`));
+      head.append(button(d, "Try again", () => this.wire.request({ op: "code_review", cwd: this.cwd, thread }), "btn small"));
+      card.append(head, el(d, "div", "small bad", `Review failed: ${why}`));
       return card;
     }
     head.append(el(d, "span", "small", `${findingCount(notes)} · ${review.model}`));
@@ -750,14 +750,14 @@ export class AgentPane {
         this.host.openReview(thread, this.cwd, this.state.review!, step.path, step.line);
         this.render();
       };
-      head.append(button(d, this.walking === undefined ? "ไล่ดูใน diff" : `ข้อถัดไป (${at + 1}/${steps.length})`, walk, "btn small"));
+      head.append(button(d, this.walking === undefined ? "Walk through" : `Next (${at + 1}/${steps.length})`, walk, "btn small"));
     }
-    if (open.length && !busy) head.append(button(d, "แก้ทั้งหมด", () => fix([]), "btn primary"));
-    head.append(button(d, "รีวิวใหม่", () => this.wire.request({ op: "code_review", cwd: this.cwd, thread }), "btn small"));
+    if (open.length && !busy) head.append(button(d, "Fix all", () => fix([]), "btn primary"));
+    head.append(button(d, "Review again", () => this.wire.request({ op: "code_review", cwd: this.cwd, thread }), "btn small"));
     card.append(head);
     if (review.summary) card.append(el(d, "div", "small", review.summary));
     for (const group of byFile(notes)) {
-      card.append(el(d, "div", "m small", group.path ?? "ไม่ระบุไฟล์"));
+      card.append(el(d, "div", "m small", group.path ?? "No file"));
       for (const { finding, dismissed } of group.rows) {
         const row = el(d, "div", dismissed ? "file finding dismissed" : this.walking === finding.id ? "file finding current" : "file finding");
         const text = typeof finding.line === "number" && finding.path && this.state.review
@@ -768,10 +768,10 @@ export class AgentPane {
             }, "link ell")
           : el(d, "span", "ell", finding.text);
         row.append(text);
-        if (dismissed) row.append(button(d, "เอากลับ", () => this.wire.request({ op: "dismiss", thread, finding: finding.id, dismissed: false }), "btn small"));
+        if (dismissed) row.append(button(d, "Restore", () => this.wire.request({ op: "dismiss", thread, finding: finding.id, dismissed: false }), "btn small"));
         else {
-          if (!busy) row.append(button(d, "แก้ข้อนี้", () => fix([finding.id]), "btn small"));
-          row.append(button(d, "ข้าม", () => this.wire.request({ op: "dismiss", thread, finding: finding.id, dismissed: true }), "btn small"));
+          if (!busy) row.append(button(d, "Fix this one", () => fix([finding.id]), "btn small"));
+          row.append(button(d, "Dismiss", () => this.wire.request({ op: "dismiss", thread, finding: finding.id, dismissed: true }), "btn small"));
         }
         card.append(row);
       }
@@ -796,7 +796,7 @@ export class AgentPane {
         if (can("commit")) card.append(button(d, "Commit", () => go(startCommit(this.ship, this.cwd, thread)), "btn primary"));
         break;
       case "drafting":
-        card.append(el(d, "div", "small", "กำลังร่างข้อความ commit…"));
+        card.append(el(d, "div", "small", "Drafting the commit message…"));
         break;
       case "draft": {
         const message = el(d, "textarea", "input msg");
@@ -822,48 +822,48 @@ export class AgentPane {
             this.ship = editDraft(this.ship, { message: message.value });
             go(confirmCommit(this.ship, this.cwd, thread));
           }, "btn primary"),
-          button(d, "ยกเลิก", () => go({ ship: cancel(this.ship, "commit") })),
+          button(d, "Cancel", () => go({ ship: cancel(this.ship, "commit") })),
         );
         if (c.branch) row.append(el(d, "span", "small m", c.branch));
         card.append(row);
         break;
       }
       case "committing":
-        card.append(el(d, "div", "small", "กำลัง commit…"));
+        card.append(el(d, "div", "small", "Committing…"));
         break;
       case "committed":
         card.append(el(d, "div", "ok", `✓ ${c.commit.slice(0, 7)} ${c.subject}`));
         break;
       case "failed":
-        card.append(el(d, "div", "bad", c.error), button(d, "ลองอีกครั้ง", () => go(startCommit(cancel(this.ship, "commit"), this.cwd, thread))));
+        card.append(el(d, "div", "bad", c.error), button(d, "Try again", () => go(startCommit(cancel(this.ship, "commit"), this.cwd, thread))));
         break;
     }
     if (can("pr") && (c.step === "committed" || c.step === "idle")) {
       switch (p.step) {
         case "idle":
-          card.append(button(d, "เปิด PR", () => go(startPr(this.ship, this.cwd, thread))));
+          card.append(button(d, "Open PR", () => go(startPr(this.ship, this.cwd, thread))));
           break;
         case "checking":
-          card.append(el(d, "div", "small", "กำลังดูว่าจะเปิด PR ไปที่ไหน…"));
+          card.append(el(d, "div", "small", "Checking where the PR would go…"));
           break;
         case "plan": {
           const row = el(d, "div", "row");
           row.append(
-            el(d, "span", "small", `push ${p.branch}${p.base ? ` แล้วเปิด PR เข้า ${p.base}` : " แล้วเปิด PR"}`),
-            button(d, "เปิดเลย", () => go(confirmPr(this.ship, this.cwd, thread)), "btn primary"),
-            button(d, "ยกเลิก", () => go({ ship: cancel(this.ship, "pr") })),
+            el(d, "span", "small", `Push ${p.branch}${p.base ? ` and open a PR into ${p.base}` : " and open a PR"}`),
+            button(d, "Open it", () => go(confirmPr(this.ship, this.cwd, thread)), "btn primary"),
+            button(d, "Cancel", () => go({ ship: cancel(this.ship, "pr") })),
           );
           card.append(row);
           break;
         }
         case "blocked":
-          card.append(el(d, "div", "small bad", `เปิด PR ไม่ได้: ${p.reason}`));
+          card.append(el(d, "div", "small bad", `Can't open a PR: ${p.reason}`));
           break;
         case "opening":
-          card.append(el(d, "div", "small", "กำลัง push และเปิด PR…"));
+          card.append(el(d, "div", "small", "Pushing and opening the PR…"));
           break;
         case "opened":
-          card.append(p.url ? button(d, `PR: ${p.url}`, () => this.host.openUrl(p.url!), "link") : el(d, "div", "ok", `✓ เปิด PR จาก ${p.branch} แล้ว`));
+          card.append(p.url ? button(d, `PR: ${p.url}`, () => this.host.openUrl(p.url!), "link") : el(d, "div", "ok", `✓ Opened a PR from ${p.branch}`));
           break;
         case "failed":
           card.append(el(d, "div", "bad", p.error));
@@ -880,18 +880,18 @@ export class AgentPane {
     this.queue.replaceChildren();
     if (!thread || waiting.length === 0) return;
     const target = { cwd: this.cwd, thread };
-    this.queue.append(el(d, "div", "small", `รอส่ง ${waiting.length}`));
+    this.queue.append(el(d, "div", "small", `${waiting.length} queued`));
     for (const q of waiting) {
       const row = el(d, "div", "queued row");
       row.append(
         el(d, "span", "ell", q.text),
-        button(d, "แก้", () => {
+        button(d, "Edit", () => {
           const r = editQueued(q, target);
           this.wire.request(r.request);
           this.input.value = r.draft.text;
           this.input.focus();
         }, "btn small"),
-        button(d, "ส่งเลย", () => {
+        button(d, "Send now", () => {
           const r = sendNow(q, target, this.choices);
           for (const req of r.now) this.wire.request(req);
           this.then = r.then;
@@ -923,8 +923,8 @@ export class AgentPane {
   private renderComposer(): void {
     const d = this.doc;
     const running = isRunning(this.state);
-    this.input.placeholder = running ? "ข้อความจะรอส่งในรอบถัดไปของ agent" : this.state.thread ? "สั่งต่อในเธรดนี้" : "ให้ agent ทำอะไร (@ ไฟล์, / คำสั่ง)";
-    this.sendButton.textContent = running && isEmpty(this.draft) ? "หยุด" : running ? "รอส่ง" : "ส่ง";
+    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.state.thread ? "Continue this thread" : "What should the agent do? (@ files, / commands)";
+    this.sendButton.textContent = running && isEmpty(this.draft) ? "Stop" : running ? "Queue" : "Send";
     this.sendButton.className = running && isEmpty(this.draft) ? "btn send stop" : "btn send";
     this.attachments.replaceChildren(
       ...this.images.map((path) => {
@@ -945,14 +945,14 @@ export class AgentPane {
     if (this.models) {
       const threadModel = this.state.thread && !this.chosen.has("model") ? currentModel(this.state.view.blocks as Block[], this.state.info) : undefined;
       const shown = threadModel ?? this.choices.model ?? "";
-      const s = select(d, [{ value: "", label: `โมเดล: ${this.models.default}` }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
+      const s = select(d, [{ value: "", label: `Model: ${this.models.default}` }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
       s.dataset.chip = "model";
-      s.title = "โมเดล (Cmd+Shift+I)";
+      s.title = "Model (Cmd+Shift+I)";
       chips.push(s);
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : ["low", "medium", "high", "xhigh", "max"];
-        const e = select(d, [{ value: "", label: `effort: ${entry.defaultEffort ?? "เริ่มต้น"}` }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
+        const e = select(d, [{ value: "", label: `effort: ${entry.defaultEffort ?? "default"}` }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = "Effort (Cmd+Shift+E)";
         chips.push(e);
@@ -962,7 +962,7 @@ export class AgentPane {
       const threadMode = this.state.thread && !this.chosen.has("permission") ? threadPermission(this.state.info) : undefined;
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
-      s.title = "สิทธิ์ (Cmd+Shift+M)";
+      s.title = "Permission (Cmd+Shift+M)";
       chips.push(s);
     }
     if (!this.state.thread) {
@@ -971,12 +971,12 @@ export class AgentPane {
       box.type = "checkbox";
       box.checked = this.choices.worktree;
       box.addEventListener("change", () => (this.choices.worktree = box.checked));
-      label.append(box, el(d, "span", "", "worktree ใหม่"));
+      label.append(box, el(d, "span", "", "New worktree"));
       chips.push(label);
     }
     if (this.capabilities.length === 0 || this.capabilities.includes("images")) {
       const video = this.takesVideo();
-      chips.push(button(d, video ? "+ รูป/วิดีโอ" : "+ รูป", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "chip"));
+      chips.push(button(d, video ? "+ Image/video" : "+ Image", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "chip"));
     }
     this.chips.replaceChildren(...chips);
   }
