@@ -16,6 +16,7 @@ mod keep_awake;
 pub mod launch_agent;
 mod ledger;
 mod pr_watch;
+mod record;
 mod review;
 mod run;
 mod seen;

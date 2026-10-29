@@ -14,6 +14,7 @@ use cedian_wire::{Notice, Request, read_message, write_message};
 use crate::{
     Cedia,
     daemon::{Daemon, Shared, lock},
+    record::Recorder,
     thread_watch::watch_threads,
 };
 
@@ -22,6 +23,8 @@ pub struct Config {
     pub cedia: Cedia,
     /// cedia's home, where its threads and sessions are read from.
     pub home: PathBuf,
+    /// `CEDIAN_WIRE_RECORD`: where every request and notice is written as JSON lines.
+    pub record: Option<PathBuf>,
 }
 
 /// Serves until the process ends. Returns at once when another daemon already answers on the
@@ -48,12 +51,26 @@ pub fn serve(config: Config) -> anyhow::Result<()> {
     )));
     Daemon::adopt(&shared);
     watch_threads(shared.clone());
+    let recorder = match &config.record {
+        Some(path) => match Recorder::open(path) {
+            Ok(recorder) => {
+                log::info!("recording the wire to {}", path.display());
+                Some(Arc::new(recorder))
+            }
+            Err(error) => {
+                log::warn!("wire record: {error:#}");
+                None
+            }
+        },
+        None => None,
+    };
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 let shared = shared.clone();
+                let recorder = recorder.clone();
                 std::thread::spawn(move || {
-                    if let Err(error) = client(&shared, stream) {
+                    if let Err(error) = client(&shared, stream, recorder) {
                         log::warn!("client: {error:#}");
                     }
                 });
@@ -97,22 +114,35 @@ fn bind(path: &Path) -> anyhow::Result<Option<UnixListener>> {
     Ok(Some(listener))
 }
 
-fn client(shared: &Shared, stream: UnixStream) -> anyhow::Result<()> {
+fn client(
+    shared: &Shared,
+    stream: UnixStream,
+    recorder: Option<Arc<Recorder>>,
+) -> anyhow::Result<()> {
     let mut writer = stream.try_clone()?;
     let (tx, rx) = mpsc::channel::<Notice>();
+    let id = lock(shared).connect(tx);
+    let out = recorder.clone();
     std::thread::spawn(move || {
         for notice in rx {
+            if let Some(recorder) = &out {
+                recorder.notice(id, &notice);
+            }
             if let Err(error) = write_message(&mut writer, &notice) {
                 log::debug!("client gone: {error:#}");
                 break;
             }
         }
     });
-    let id = lock(shared).connect(tx);
     let mut reader = BufReader::new(stream);
     let result = loop {
         match read_message::<Request>(&mut reader) {
-            Ok(Some(request)) => Daemon::handle(shared, id, request),
+            Ok(Some(request)) => {
+                if let Some(recorder) = &recorder {
+                    recorder.request(id, &request);
+                }
+                Daemon::handle(shared, id, request)
+            }
             Ok(None) => break Ok(()),
             Err(error) => {
                 lock(shared).disconnect(id);

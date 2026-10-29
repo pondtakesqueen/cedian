@@ -157,8 +157,8 @@
 - [x] cedia: prompt images route to a model that reads images; video frames
   (cedia-code #171: a video on `--image` or `read` comes as up to 8 frames
   where the screen changes; a run with images on a text-only model runs on
-  `--media`, default Haiku 5.5). Pin moved to that branch's head da414c0
-  (protocol 094b076845b55b39), to move to cedia main once #171 merges
+  `--media`, default Haiku 5.5). Pin at cedia main d609d53 (protocol
+  094b076845b55b39), where #171 merged
 - [ ] Images and video in threads: the composer takes a video (picker,
   paste, drop) once cedia says `video`; the agent pane counts its frames
   as images. Unchecked on the Mac
@@ -175,7 +175,13 @@
   merges the rest per view (appends to one block join, anything else resends
   from the first block touched), sent as one notice on the next ack. Tested
   against the fake cedia with a held run; not yet timed in the app
-- [ ] §3.9 `CEDIAN_WIRE_RECORD` and replay
+- [x] §3.9 `CEDIAN_WIRE_RECORD=<file>` on the daemon (2026-10-29): every
+  request and notice of every window, one JSON line each with the client and
+  its time, 0600. The daemon sees both directions, so the window records
+  nothing itself. `node test/smoke/replay.mjs <file>` plays one window's
+  notices into the pane at their times in Chromium and times the frames; on
+  a synthetic 3k-block thread streaming 250 deltas at 50 a second: median
+  frame 16.7 ms, 2 frames over 25 ms (the first draw)
 - [ ] Line comments on diffs; `/code-review` card
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget

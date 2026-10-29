@@ -21,6 +21,8 @@ struct Harness {
     threads: PathBuf,
     /// The fixture's stream folded into the agent pane's blocks, as JSON.
     blocks: Vec<serde_json::Value>,
+    /// The daemon's wire recording (`CEDIAN_WIRE_RECORD`).
+    record: PathBuf,
 }
 
 fn start(fixture: &str) -> Harness {
@@ -58,6 +60,7 @@ fn start_with(fixture: &str, caps: &str) -> Harness {
         ),
     ]);
     let socket = dir.path().join("state/daemon.sock");
+    let record = dir.path().join("wire.jsonl");
     let config = Config {
         socket: socket.clone(),
         cedia: Cedia {
@@ -65,6 +68,7 @@ fn start_with(fixture: &str, caps: &str) -> Harness {
             env,
         },
         home: home.clone(),
+        record: Some(record.clone()),
     };
     std::thread::spawn(move || serve(config).expect("serve"));
     for _ in 0..100 {
@@ -80,6 +84,7 @@ fn start_with(fixture: &str, caps: &str) -> Harness {
         cwd,
         threads,
         blocks: fold(&stream),
+        record,
     }
 }
 
@@ -721,6 +726,41 @@ fn a_prompt_runs_and_a_second_window_rebuilds_it() {
         if threads.len() == 1 && threads[0].status == Status::Working))
     );
 
+    // The recording has the window's prompt and every notice it was sent, in order, by client.
+    use std::os::unix::fs::PermissionsExt as _;
+    let mode = std::fs::metadata(&harness.record)
+        .expect("recorded")
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o600);
+    let recorded: Vec<serde_json::Value> = std::fs::read_to_string(&harness.record)
+        .expect("record")
+        .lines()
+        .map(|l| serde_json::from_str(l).expect("a JSON line"))
+        .collect();
+    let prompt = recorded
+        .iter()
+        .position(|e| e["request"]["op"] == "prompt")
+        .expect("the prompt");
+    let client = recorded[prompt]["client"].clone();
+    let notices: Vec<&serde_json::Value> = recorded
+        .iter()
+        .filter(|e| e["client"] == client && e.get("notice").is_some())
+        .collect();
+    assert_eq!(notices[0]["notice"]["kind"], "welcome");
+    let blocks =
+        |e: &&&serde_json::Value| e["notice"]["kind"] == "blocks" || e["notice"]["kind"] == "text";
+    let sent = seen
+        .iter()
+        .filter(|n| matches!(n, Notice::Blocks { .. } | Notice::Text { .. }))
+        .count();
+    assert_eq!(notices.iter().filter(blocks).count(), sent);
+    assert!(
+        notices
+            .windows(2)
+            .all(|w| w[0]["ms"].as_u64() <= w[1]["ms"].as_u64())
+    );
+
     // The run's lines are kept; a window that opens the thread now gets all their blocks.
     let mut other = Window::connect(&harness);
     other.ask(Request::Open {
@@ -1066,6 +1106,7 @@ fn a_socket_path_too_long_fails_with_the_reason() {
             env: HashMap::new(),
         },
         home: PathBuf::from("/nonexistent"),
+        record: None,
     };
     let error = serve(config).expect_err("too long");
     assert!(
