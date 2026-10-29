@@ -330,6 +330,15 @@ export class AgentPane {
         break;
     }
     this.render();
+    if (n.kind === "blocks" || n.kind === "text") this.drawn(n.thread);
+  }
+
+  /** Acks a thread's notice once the frame that shows it is painted (spec §3.9 credit). */
+  private drawn(thread: string): void {
+    const ack = () => this.wire.request({ op: "ack", thread });
+    const frame = this.doc.defaultView?.requestAnimationFrame;
+    if (frame) frame.call(this.doc.defaultView, ack);
+    else setTimeout(ack, 0);
   }
 
   /** The chips start from `desktop` (Settings), else cedia's own defaults. */

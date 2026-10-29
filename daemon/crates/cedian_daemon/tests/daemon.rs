@@ -156,6 +156,15 @@ impl Window {
                         .map(|b| serde_json::to_value(b).expect("block")),
                 );
             }
+            if let Notice::Text {
+                sub: None,
+                index,
+                append,
+                ..
+            } = &notice
+            {
+                grow(&mut view, *index, append);
+            }
             let stop = done(&notice);
             seen.push(notice);
             if stop {
@@ -163,6 +172,16 @@ impl Window {
             }
         }
     }
+}
+
+/// A text notice applied as the window applies it: the block's text grows.
+fn grow(view: &mut [serde_json::Value], index: usize, append: &str) {
+    let text = view[index]["text"]
+        .as_str()
+        .expect("a text block")
+        .to_owned()
+        + append;
+    view[index]["text"] = serde_json::json!(text);
 }
 
 fn status_is(want: Status) -> impl Fn(&Notice) -> bool {
@@ -717,6 +736,77 @@ fn a_prompt_runs_and_a_second_window_rebuilds_it() {
             ..
         }
     ));
+}
+
+#[test]
+fn a_window_that_acks_has_at_most_two_notices_undrawn_and_the_rest_merged() {
+    let harness = start("edit-and-check");
+    let gate = harness.threads.join("../gate");
+    std::fs::create_dir_all(&harness.threads).expect("threads");
+    std::fs::write(&gate, "").expect("gate");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Prompt {
+        cwd: harness.cwd.clone(),
+        text: "make f.txt say good".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+    });
+    let paced = |n: &Notice| matches!(n, Notice::Blocks { .. } | Notice::Text { .. });
+    let (mut view, _) = window.until(paced);
+    // The first ack starts the credit; from here on the window draws nothing more.
+    window.ask(Request::Ack {
+        thread: "t-00000001".into(),
+    });
+    // The ack reaches the daemon before the rest of the run does.
+    std::thread::sleep(Duration::from_millis(200));
+    std::fs::remove_file(&gate).expect("open the gate");
+    let (_, seen) = window.until(status_is(Status::Done));
+    let undrawn: Vec<&Notice> = seen.iter().filter(|n| paced(n)).collect();
+    assert_eq!(undrawn.len(), 2, "{seen:?}");
+    for notice in undrawn {
+        apply(&mut view, notice);
+    }
+    assert_ne!(view, harness.blocks, "something was held");
+    // One ack sends what was held, merged into one notice for the thread's view.
+    window.ask(Request::Ack {
+        thread: "t-00000001".into(),
+    });
+    let merged = window.next();
+    assert!(paced(&merged), "{merged:?}");
+    apply(&mut view, &merged);
+    assert_eq!(view, harness.blocks);
+}
+
+/// A blocks or text notice applied to the thread's own view.
+fn apply(view: &mut Vec<serde_json::Value>, notice: &Notice) {
+    match notice {
+        Notice::Blocks {
+            sub: None,
+            from,
+            blocks,
+            ..
+        } => {
+            view.truncate(*from);
+            view.extend(
+                blocks
+                    .iter()
+                    .map(|b| serde_json::to_value(b).expect("block")),
+            );
+        }
+        Notice::Text {
+            sub: None,
+            index,
+            append,
+            ..
+        } => grow(view, *index, append),
+        _ => {}
+    }
 }
 
 #[test]

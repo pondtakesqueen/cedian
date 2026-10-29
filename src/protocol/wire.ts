@@ -606,6 +606,10 @@ export type Request =
       thread: string;
     }
   | {
+      op: "ack";
+      thread: string;
+    }
+  | {
       op: "close";
       thread: string;
     }

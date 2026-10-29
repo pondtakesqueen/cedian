@@ -2,7 +2,8 @@
 # A stand-in for cedia in the daemon's tests. It plays a recorded fixture: writes the
 # fixture's thread and session files where cedia would, then prints its stream.
 # FAKE_FIXTURE: the fixture directory. FAKE_THREADS, FAKE_SESSIONS: where cedia would write.
-# With $FAKE_THREADS/../hold present, a run waits after its first line until SIGTERM.
+# With $FAKE_THREADS/../hold present, a run waits after its first line until SIGTERM; with
+# $FAKE_THREADS/../gate present, until the gate is removed.
 set -euo pipefail
 
 if [[ "${1:-}" == "--version" ]]; then
@@ -203,6 +204,7 @@ while IFS= read -r line; do
     trap 'kill $sleeper; finish stopped; exit 143' TERM
     wait $sleeper || true
   fi
+  while [[ $first == 1 && -e "$FAKE_THREADS/../gate" ]]; do sleep 0.02; done
   first=0
 done <"$FAKE_FIXTURE/stream.jsonl"
 finish done

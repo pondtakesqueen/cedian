@@ -319,6 +319,20 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".ans")!.className).toBe("ans");
   });
 
+  it("acks each blocks or text notice once its frame is painted", async () => {
+    const { pane, emit, sent } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "text", text: "on", streaming: true }], run_cost: 0 } as Notice);
+    emit({ kind: "text", thread: "t-1", index: 0, append: " it" });
+    emit({ kind: "caught", thread: "t-1" });
+    const acks = () => sent.filter((r) => r.op === "ack");
+    expect(acks()).toEqual([]);
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await tick();
+    expect(acks()).toEqual([{ op: "ack", thread: "t-1" }, { op: "ack", thread: "t-1" }]);
+  });
+
   it("the thread search lists the chat first, then threads newest first, archived last", () => {
     const items = threadSearch([
       info({ id: "c-1", profile: "coordinator", status: "working", state: "working" }),

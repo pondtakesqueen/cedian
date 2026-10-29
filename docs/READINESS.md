@@ -169,7 +169,13 @@
   appending a text node to the drawn answer instead of drawing it again was
   tried and measured no faster (p95 9 ms to 14 ms over two runs each), so the
   pane draws the grown block as before
-- [ ] §3.9 credit flow control; `CEDIAN_WIRE_RECORD` and replay
+- [x] §3.9 credit flow control (2026-10-29, `cedian_daemon::flow`): the
+  pane acks each blocks or text notice once its frame is painted; from a
+  window's first ack of a thread, the daemon keeps at most 2 undrawn and
+  merges the rest per view (appends to one block join, anything else resends
+  from the first block touched), sent as one notice on the next ack. Tested
+  against the fake cedia with a held run; not yet timed in the app
+- [ ] §3.9 `CEDIAN_WIRE_RECORD` and replay
 - [ ] Line comments on diffs; `/code-review` card
 - [ ] Git pane; pop-out panes; Help → Check for updates
 - [ ] Tab completion (ghost text) with a measured latency budget

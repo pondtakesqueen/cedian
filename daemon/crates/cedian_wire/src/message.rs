@@ -22,6 +22,10 @@ pub enum Request {
     Threads { cwd: PathBuf },
     /// A thread's history so far, then its lines as they arrive.
     Open { cwd: PathBuf, thread: String },
+    /// The window drew one blocks or text notice of the thread. From a window's first ack of a
+    /// thread on, the daemon keeps at most two of its notices undrawn there, merging the rest
+    /// (spec §3.9); notices sent before that first ack are not counted.
+    Ack { thread: String },
     /// No more lines for this thread.
     Close { thread: String },
     /// One cedia run. With no thread it opens a new one, and the client is sent `Started` and

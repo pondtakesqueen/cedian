@@ -23,6 +23,7 @@ use crate::{
     browser::Browser,
     cedia::Flags,
     desktop_settings::{read_desktop, set_desktop_key, settings_path},
+    flow::{Flow, Held},
     follow::{Offsets, follow},
     keep_awake::KeepAwake,
     ledger::{Ledger, RunRecord, still_running},
@@ -50,6 +51,8 @@ struct Client {
     watching: HashMap<PathBuf, String>,
     /// Projects whose Background tasks block this client shows: cwd to project key.
     background: HashMap<PathBuf, String>,
+    /// The open threads this client acks, and its credit for each (`flow`).
+    flows: HashMap<String, Flow>,
 }
 
 pub struct Daemon {
@@ -274,6 +277,7 @@ impl Daemon {
                 open: HashSet::new(),
                 watching: HashMap::new(),
                 background: HashMap::new(),
+                flows: HashMap::new(),
             },
         );
         self.send(
@@ -467,10 +471,12 @@ impl Daemon {
                 }
             }
             Request::Open { cwd, thread } => lock(shared).open(client, &cwd, &thread),
+            Request::Ack { thread } => lock(shared).ack(client, &thread),
             Request::Close { thread } => {
                 let mut daemon = lock(shared);
                 if let Some(c) = daemon.clients.get_mut(&client) {
                     c.open.remove(&thread);
+                    c.flows.remove(&thread);
                 }
                 if !daemon.clients.values().any(|c| c.open.contains(&thread)) {
                     daemon.folds.remove(&thread);
@@ -1079,9 +1085,12 @@ impl Daemon {
         for line in &lines {
             fold_line(&mut fold, thread, line);
         }
+        let mut history = 0;
         for notice in blocks(thread, fold.take_changes()) {
             self.send(client, notice);
+            history += 1;
         }
+        // A window that acks this thread acks its history too.
         self.folds.insert(thread.to_owned(), fold);
         let status = Status::of(summary.state, self.running(thread));
         self.send(
@@ -1099,6 +1108,80 @@ impl Daemon {
         );
         if let Some(c) = self.clients.get_mut(&client) {
             c.open.insert(thread.to_owned());
+            if let Some(flow) = c.flows.get_mut(thread) {
+                flow.sent(history);
+            }
+        }
+    }
+
+    /// The client drew one of the thread's notices: what was held for it goes now, rebuilt
+    /// from the fold, one notice for each view.
+    fn ack(&mut self, client: ClientId, thread: &str) {
+        let Some(held) = self
+            .clients
+            .get_mut(&client)
+            .filter(|c| c.open.contains(thread))
+            .map(|c| c.flows.entry(thread.to_owned()).or_default().ack())
+        else {
+            return;
+        };
+        let Some(fold) = self.folds.get(thread) else {
+            return;
+        };
+        let notices: Vec<Notice> = held
+            .into_iter()
+            .filter_map(|(sub, held)| {
+                let view = match &sub {
+                    None => fold,
+                    Some(sub) => fold.subthreads().get(sub)?,
+                };
+                Some(match held {
+                    Held::Append { index, text } => Notice::Text {
+                        thread: thread.to_owned(),
+                        sub,
+                        index,
+                        append: text,
+                    },
+                    Held::From(from) => {
+                        let from = from.min(view.blocks().len());
+                        Notice::Blocks {
+                            thread: thread.to_owned(),
+                            sub,
+                            from,
+                            blocks: view.blocks()[from..].to_vec(),
+                            context: view.context(),
+                            run_cost: view.run_cost(),
+                        }
+                    }
+                })
+            })
+            .collect();
+        for notice in notices {
+            self.send(client, notice);
+        }
+    }
+
+    /// A thread's live notice to each client that has it open, through the credit of those
+    /// that ack.
+    fn tell_paced(&mut self, thread: &str, notice: &Notice) {
+        let readers: Vec<ClientId> = self
+            .clients
+            .iter()
+            .filter(|(_, client)| client.open.contains(thread))
+            .map(|(id, _)| *id)
+            .collect();
+        for id in readers {
+            let now = match self
+                .clients
+                .get_mut(&id)
+                .and_then(|c| c.flows.get_mut(thread))
+            {
+                Some(flow) => flow.offer(notice.clone()),
+                None => Some(notice.clone()),
+            };
+            if let Some(notice) = now {
+                self.send(id, notice);
+            }
         }
     }
 
@@ -1421,7 +1504,7 @@ impl Daemon {
         let fold = self.folds.entry(thread.clone()).or_default();
         fold_line(fold, &thread, &line);
         for notice in blocks(&thread, fold.take_changes()) {
-            self.tell_readers(&thread, &notice);
+            self.tell_paced(&thread, &notice);
         }
     }
 

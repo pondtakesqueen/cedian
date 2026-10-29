@@ -359,7 +359,10 @@ fn every_fixtures_changes_add_up_to_its_blocks() {
                 let blocks = view.entry(change.sub.unwrap_or_default()).or_default();
                 if let Some(append) = &change.append {
                     appends += 1;
-                    let text = blocks[change.from]["text"].as_str().expect("text").to_owned();
+                    let text = blocks[change.from]["text"]
+                        .as_str()
+                        .expect("text")
+                        .to_owned();
                     blocks[change.from]["text"] = serde_json::json!(text + append);
                     continue;
                 }
@@ -399,7 +402,10 @@ fn every_fixtures_changes_add_up_to_its_blocks() {
             .expect("blocks JSON");
         assert_eq!(serde_json::json!(view), expected, "{name} blocks changed");
     }
-    assert!(appends > 0, "no fixture streamed a block's text in more than one delta");
+    assert!(
+        appends > 0,
+        "no fixture streamed a block's text in more than one delta"
+    );
 }
 
 fn sorted(value: serde_json::Value) -> serde_json::Value {
