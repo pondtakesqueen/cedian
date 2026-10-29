@@ -361,6 +361,10 @@ pub enum Notice {
         /// The daemon's own build; none from a daemon older than this field.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         build: Option<Build>,
+        /// The cedia protocol the daemon was built on (the pin's schema hash), to hold against
+        /// `cedia`'s; none from a daemon older than this field.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        protocol: Option<String>,
     },
     Threads {
         cwd: PathBuf,

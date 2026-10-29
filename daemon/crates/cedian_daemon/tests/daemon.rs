@@ -117,8 +117,15 @@ impl Window {
         let mut reader = BufReader::new(stream.try_clone().expect("clone"));
         let mut next = || read_message(&mut reader).expect("read").expect("a notice");
         match next() {
-            Notice::Welcome { cedia, .. } => {
-                assert_eq!(cedia.expect("fake version").version, "0.0.0-fake")
+            Notice::Welcome {
+                cedia, protocol, ..
+            } => {
+                assert_eq!(cedia.expect("fake version").version, "0.0.0-fake");
+                // The pin's hash, for the window to hold against cedia's.
+                assert_eq!(
+                    protocol.as_deref(),
+                    Some(cedian_protocol::PROTOCOL_HASH.trim())
+                );
             }
             other => panic!("expected welcome, got {other:?}"),
         }

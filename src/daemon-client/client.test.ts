@@ -79,6 +79,14 @@ describe("DaemonClient", () => {
     expect(client.unreadable).toEqual(["not json", "[1]"]);
   });
 
+  it("keeps the latest welcome for a listener that starts after it", () => {
+    const t = new FakeTransport();
+    const client = new DaemonClient(t);
+    expect(client.welcome).toBeUndefined();
+    t.emit('{"kind":"welcome","daemon":"0.1","cedia":{"Err":"none"},"protocol":"a294"}');
+    expect(client.welcome?.protocol).toBe("a294");
+  });
+
   it("reports the connection", () => {
     const t = new FakeTransport();
     const client = new DaemonClient(t);

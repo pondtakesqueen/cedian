@@ -293,6 +293,7 @@ impl Daemon {
                 daemon: env!("CARGO_PKG_VERSION").to_owned(),
                 cedia: self.version.clone(),
                 build: self.build.clone(),
+                protocol: Some(cedian_protocol::PROTOCOL_HASH.trim().to_owned()),
             },
         );
         self.send(id, self.choices.clone());
