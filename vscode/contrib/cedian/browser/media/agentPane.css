@@ -135,3 +135,9 @@
 .cedian-agent-pane .pr-list .tab { font: inherit; font-size: 12.5px; color: var(--cedian-text-muted); background: none; border: none; padding: 6px 8px; cursor: pointer; }
 .cedian-agent-pane .pr-list .tab.on { color: var(--cedian-text); box-shadow: inset 0 -2px 0 var(--cedian-accent); }
 .cedian-agent-pane .pr-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .issues .tabs { gap: 2px; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .issues .tab { font: inherit; font-size: 12.5px; color: var(--cedian-text-muted); background: none; border: none; padding: 6px 8px; cursor: pointer; }
+.cedian-agent-pane .issues .tab.on { color: var(--cedian-text); box-shadow: inset 0 -2px 0 var(--cedian-accent); }
+.cedian-agent-pane .issue-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .issue, .cedian-agent-pane .issue-new { display: flex; flex-direction: column; gap: 8px; }
+.cedian-agent-pane .tag.issue-open { color: var(--cedian-accent); }

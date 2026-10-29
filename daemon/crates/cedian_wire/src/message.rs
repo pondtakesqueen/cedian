@@ -14,8 +14,8 @@ use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    BrowserPage, Build, GitAction, GitState, LineComment, McpAdd, McpServer, Notes, PrAction,
-    PrList, PrView, Status, ThreadInfo,
+    BrowserPage, Build, GitAction, GitState, IssueAction, IssueFilter, IssueSummary, IssueView,
+    LineComment, McpAdd, McpServer, NewIssue, Notes, PrAction, PrList, PrView, Status, ThreadInfo,
 };
 
 /// From the window to the daemon.
@@ -281,6 +281,18 @@ pub enum Request {
     /// (`gh pr checkout`), and a first run that reads it and says what it changes. The PR watch
     /// never acts on someone else's PR, so the thread does not push to it.
     ReviewPr { cwd: PathBuf, number: u64 },
+    /// The repository's issues that `filter` picks, answered with `Notice::Issues`.
+    Issues { cwd: PathBuf, filter: IssueFilter },
+    /// One issue, answered with `Notice::Issue`.
+    Issue { cwd: PathBuf, number: u64 },
+    /// Does `action` on issue `number` through `gh`, then answers `Notice::Issue` with it after.
+    IssueAct {
+        cwd: PathBuf,
+        number: u64,
+        action: IssueAction,
+    },
+    /// Opens a new issue (`gh issue create`), answered with `Notice::Issue` for it.
+    NewIssue { cwd: PathBuf, issue: NewIssue },
     /// The end of a failed Actions run's log, answered with `Notice::PrLog`.
     PrLog {
         cwd: PathBuf,
@@ -598,6 +610,26 @@ pub enum Notice {
     Prs {
         cwd: PathBuf,
         list: Result<PrList, String>,
+    },
+    /// The answer to `Request::Issues`, or why there is none (`gh` missing or signed out, or no
+    /// GitHub remote).
+    Issues {
+        cwd: PathBuf,
+        filter: IssueFilter,
+        list: Result<Vec<IssueSummary>, String>,
+    },
+    /// The answer to `Request::Issue`, `Request::IssueAct` and `Request::NewIssue`: the issue as
+    /// it stands, read again after an action. `number` is none when a new issue was not opened.
+    Issue {
+        cwd: PathBuf,
+        number: Option<u64>,
+        view: Result<IssueView, String>,
+        /// It answers an action (or a new issue) that `gh` did.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        acted: bool,
+        /// Why the action failed; the view is still the issue as it stands.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        failed: Option<String>,
     },
     /// The answer to `Request::PrLog`.
     PrLog {

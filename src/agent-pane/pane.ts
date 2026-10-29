@@ -13,6 +13,7 @@ import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
 import { newPrUi, prBlock, type PrUi } from "./pr-block.js";
 import { firstTab, prListCard, type PrListTab } from "./pr-list.js";
+import { filterOf, issuesCard, issueTask, newIssuesUi, type IssuesUi } from "./issues.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
@@ -68,6 +69,8 @@ const ARCHIVE_ENTRY: CommandEntry = { name: "archive", description: "Archive thi
 /** What the composer takes as opening the Pull requests card. */
 const PRS = "/prs";
 const PRS_ENTRY: CommandEntry = { name: "prs", description: "The repository's pull requests: review one in a thread", kind: "command", source: "user" };
+const ISSUES = "/issues";
+const ISSUES_ENTRY: CommandEntry = { name: "issues", description: "The repository's issues: read, comment, close, or start a thread on one", kind: "command", source: "user" };
 
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
@@ -125,6 +128,8 @@ export class AgentPane {
   private prsOpen = false;
   private prs?: PrList | string;
   private prsTab?: PrListTab;
+  /** The Issues card, while open. */
+  private issues?: IssuesUi;
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
@@ -395,6 +400,27 @@ export class AgentPane {
       case "prs":
         if (n.cwd === this.host.cwd) this.prs = "Ok" in n.list ? n.list.Ok : n.list.Err;
         break;
+      case "issues":
+        if (n.cwd === this.host.cwd && this.issues && JSON.stringify(n.filter) === JSON.stringify(filterOf(this.issues))) this.issues.list = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        break;
+      case "issue": {
+        const ui = this.issues;
+        if (n.cwd !== this.host.cwd || !ui) break;
+        if (n.acted) {
+          // A comment that went with it is on GitHub now; a failed send keeps the text to try again.
+          if (!n.failed && (ui.busy === "Comment" || ui.busy === "Close")) ui.draft = "";
+          ui.busy = undefined;
+        }
+        ui.failed = n.failed ?? undefined;
+        // A new issue opens once GitHub has it; any other answer is for the issue open now.
+        if (ui.writing && n.acted && n.number != null && !n.failed) {
+          ui.writing = false;
+          ui.newTitle = ui.newBody = "";
+          ui.open = n.number;
+        }
+        if (n.number != null && n.number === ui.open) ui.view = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        break;
+      }
       case "pr_log":
         if (n.thread === this.state.thread && this.prUi.log?.run === n.run) this.prUi.log = { run: n.run, text: n.log };
         break;
@@ -472,6 +498,7 @@ export class AgentPane {
     if (this.input.value.trim() === CODE_REVIEW) return this.codeReview();
     if (this.input.value.trim() === ARCHIVE) return this.archive();
     if (this.input.value.trim() === PRS) return this.openPrs();
+    if (this.input.value.trim() === ISSUES) return this.openIssues();
     if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
@@ -503,6 +530,60 @@ export class AgentPane {
     this.input.value = "";
     this.closePopup();
     this.render();
+  }
+
+  /** `/issues`: the Issues card, asked of GitHub again each time it opens. */
+  private openIssues(): void {
+    this.issues = newIssuesUi();
+    this.wire.request({ op: "issues", cwd: this.host.cwd, filter: filterOf(this.issues) });
+    this.input.value = "";
+    this.closePopup();
+    this.render();
+  }
+
+  private issuesCard(ui: IssuesUi): HTMLElement {
+    const cwd = this.host.cwd;
+    return issuesCard(this.doc, ui, {
+      list: () => {
+        ui.list = undefined;
+        this.wire.request({ op: "issues", cwd, filter: filterOf(ui) });
+        this.render();
+      },
+      open: (number) => {
+        ui.open = number;
+        ui.view = undefined;
+        ui.closeMenu = false;
+        this.wire.request({ op: "issue", cwd, number });
+        this.render();
+      },
+      act: (number, action, label) => {
+        ui.busy = label;
+        ui.failed = undefined;
+        this.wire.request({ op: "issue_act", cwd, number, action });
+        this.render();
+      },
+      create: (issue) => {
+        ui.busy = "New issue";
+        ui.failed = undefined;
+        this.wire.request({ op: "new_issue", cwd, issue });
+        this.render();
+      },
+      // As Fix in thread: the person reads the task and sends it, in a new thread's worktree.
+      start: (view) => {
+        this.issues = undefined;
+        this.newThread();
+        this.input.value = issueTask(view);
+        this.input.focus();
+        this.render();
+      },
+      threadOf: (pr) => {
+        const t = this.threads.find((t) => !t.archived && t.pr?.number === pr);
+        return t && { label: `thread ${t.state}`, open: () => ((this.issues = undefined), this.openThread(t.id)) };
+      },
+      openUrl: (url) => this.host.openUrl(url),
+      redraw: () => this.render(),
+      close: () => ((this.issues = undefined), this.render()),
+    });
   }
 
   private prsCard(): HTMLElement {
@@ -576,7 +657,7 @@ export class AgentPane {
     this.token = token;
     if (!token) return this.closePopup();
     if (token.trigger === "/") {
-      const own = [...(this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : []), PRS_ENTRY];
+      const own = [...(this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : []), PRS_ENTRY, ISSUES_ENTRY];
       this.showCompletions(complete(token, [], [...own, ...this.commands]));
       return;
     }
@@ -723,6 +804,7 @@ export class AgentPane {
     if (this.state.thread && !isRunning(this.state) && ((this.state.review && this.state.review.files.length > 0) || this.ship.commit.step !== "idle")) parts.push(this.shipCard());
     if (this.gitOpen && this.state.thread) parts.push(this.gitCard());
     if (this.prsOpen) parts.push(this.prsCard());
+    if (this.issues) parts.push(this.issuesCard(this.issues));
     if (this.state.thread && this.pr && typeof this.pr === "object") parts.push(this.prCard(this.pr));
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);

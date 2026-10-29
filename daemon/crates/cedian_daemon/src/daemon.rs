@@ -1003,6 +1003,76 @@ impl Daemon {
                 let shared = shared.clone();
                 std::thread::spawn(move || Self::review_pr(&shared, client, cwd, &gh, number));
             }
+            Request::Issues { cwd, filter } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let list =
+                        crate::issues::list(&gh, &cwd, &filter).map_err(|e| format!("{e:#}"));
+                    lock(&shared).send(client, Notice::Issues { cwd, filter, list });
+                });
+            }
+            Request::Issue { cwd, number } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let view = crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::Issue {
+                        cwd,
+                        number: Some(number),
+                        view,
+                        acted: false,
+                        failed: None,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::IssueAct {
+                cwd,
+                number,
+                action,
+            } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let failed = crate::issues::act(&gh, &cwd, number, &action)
+                        .err()
+                        .map(|e| format!("{e:#}"));
+                    let view = crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::Issue {
+                        cwd,
+                        number: Some(number),
+                        view,
+                        acted: true,
+                        failed,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::NewIssue { cwd, issue } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let notice = match crate::issues::create(&gh, &cwd, &issue) {
+                        Ok(number) => Notice::Issue {
+                            view: crate::issues::read(&gh, &cwd, number)
+                                .map_err(|e| format!("{e:#}")),
+                            cwd,
+                            number: Some(number),
+                            acted: true,
+                            failed: None,
+                        },
+                        Err(error) => Notice::Issue {
+                            cwd,
+                            number: None,
+                            view: Err(format!("{error:#}")),
+                            acted: true,
+                            failed: Some(format!("{error:#}")),
+                        },
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
             Request::PrLog { cwd, thread, run } => {
                 let (gh, dir) = {
                     let daemon = lock(shared);

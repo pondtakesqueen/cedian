@@ -421,6 +421,13 @@
         }
       ]
     },
+    "CloseReason": {
+      "enum": [
+        "completed",
+        "not_planned"
+      ],
+      "type": "string"
+    },
     "CodeFinding": {
       "description": "`CodeFinding`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"id\", \"text\" ], \"properties\": { \"id\": { \"type\": \"string\" }, \"line\": { \"type\": \"number\" }, \"path\": { \"type\": \"string\" }, \"text\": { \"type\": \"string\" } } } ``` </details>",
       "properties": {
@@ -1167,6 +1174,295 @@
       ],
       "type": "object"
     },
+    "IssueAction": {
+      "description": "What the Issues block asks of one issue, each as the `gh` command a person would type.",
+      "oneOf": [
+        {
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "comment"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "body",
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Closes it, with a comment first when `body` is not empty.",
+          "properties": {
+            "body": {
+              "default": "",
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "close"
+              ],
+              "type": "string"
+            },
+            "reason": {
+              "$ref": "#/definitions/CloseReason"
+            }
+          },
+          "required": [
+            "do",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "do": {
+              "enum": [
+                "reopen"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "add": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "do": {
+              "enum": [
+                "labels"
+              ],
+              "type": "string"
+            },
+            "remove": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "add": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "do": {
+              "enum": [
+                "assignees"
+              ],
+              "type": "string"
+            },
+            "remove": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "IssueFilter": {
+      "description": "Which issues the list asks for: its tabs, and the search box's text.",
+      "properties": {
+        "assigned": {
+          "default": false,
+          "description": "Only the ones assigned to the person.",
+          "type": "boolean"
+        },
+        "search": {
+          "default": "",
+          "description": "GitHub search text (`gh issue list --search`); empty for none.",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/IssueState"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
+    "IssueState": {
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "type": "string"
+    },
+    "IssueSummary": {
+      "description": "One issue of the project's repository, for the Issues list (spec §11 Phase D: review, merge and issues in Cedian), read through the person's own `gh`.",
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "comments": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "created": {
+          "description": "When it was opened, as GitHub says it (RFC 3339).",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mine": {
+          "description": "The person (`gh`'s login) opened it.",
+          "type": "boolean"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/definitions/IssueState"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "author",
+        "comments",
+        "created",
+        "labels",
+        "mine",
+        "number",
+        "state",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
+    "IssueView": {
+      "description": "An issue as the Issues block draws it.",
+      "properties": {
+        "assignees": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "author": {
+          "type": "string"
+        },
+        "body": {
+          "description": "The description, as Markdown.",
+          "type": "string"
+        },
+        "comments": {
+          "description": "Oldest first.",
+          "items": {
+            "$ref": "#/definitions/PrComment"
+          },
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "linked": {
+          "description": "The pull requests that close it when merged.",
+          "items": {
+            "$ref": "#/definitions/LinkedPr"
+          },
+          "type": "array"
+        },
+        "me": {
+          "description": "The person's own login, for Assign me.",
+          "type": "string"
+        },
+        "milestone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "repo_labels": {
+          "description": "The repository's labels, for + Label.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/definitions/IssueState"
+        },
+        "state_reason": {
+          "description": "`completed`, `not_planned`, `duplicate` once closed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "assignees",
+        "author",
+        "body",
+        "comments",
+        "labels",
+        "linked",
+        "me",
+        "number",
+        "repo_labels",
+        "state",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
     "LineComment": {
       "description": "A comment the person left on one line of a thread's diff, waiting to be sent with the rest (spec §3.7, diff comments).",
       "properties": {
@@ -1200,6 +1496,32 @@
         "line",
         "path",
         "text"
+      ],
+      "type": "object"
+    },
+    "LinkedPr": {
+      "properties": {
+        "head": {
+          "description": "The PR's head branch, which a thread of this project may be on.",
+          "type": "string"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "head",
+        "number",
+        "title",
+        "url"
       ],
       "type": "object"
     },
@@ -1625,6 +1947,29 @@
       "required": [
         "label",
         "name"
+      ],
+      "type": "object"
+    },
+    "NewIssue": {
+      "description": "A new issue, from New issue.",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "labels": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "body",
+        "title"
       ],
       "type": "object"
     },
@@ -2563,6 +2908,77 @@
             "cwd",
             "kind",
             "list"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Issues`, or why there is none (`gh` missing or signed out, or no GitHub remote).",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "filter": {
+              "$ref": "#/definitions/IssueFilter"
+            },
+            "kind": {
+              "enum": [
+                "issues"
+              ],
+              "type": "string"
+            },
+            "list": {
+              "$ref": "#/definitions/Result_of_Array_of_IssueSummary_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "filter",
+            "kind",
+            "list"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Issue`, `Request::IssueAct` and `Request::NewIssue`: the issue as it stands, read again after an action. `number` is none when a new issue was not opened.",
+          "properties": {
+            "acted": {
+              "description": "It answers an action (or a new issue) that `gh` did.",
+              "type": "boolean"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "failed": {
+              "description": "Why the action failed; the view is still the issue as it stands.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "issue"
+              ],
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "view": {
+              "$ref": "#/definitions/Result_of_IssueView_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "view"
           ],
           "type": "object"
         },
@@ -4554,6 +4970,110 @@
         },
         {
           "additionalProperties": false,
+          "description": "The repository's issues that `filter` picks, answered with `Notice::Issues`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "filter": {
+              "$ref": "#/definitions/IssueFilter"
+            },
+            "op": {
+              "enum": [
+                "issues"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "filter",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One issue, answered with `Notice::Issue`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "issue"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "number",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Does `action` on issue `number` through `gh`, then answers `Notice::Issue` with it after.",
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/IssueAction"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "issue_act"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "cwd",
+            "number",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Opens a new issue (`gh issue create`), answered with `Notice::Issue` for it.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "issue": {
+              "$ref": "#/definitions/NewIssue"
+            },
+            "op": {
+              "enum": [
+                "new_issue"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "issue",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The end of a failed Actions run's log, answered with `Notice::PrLog`.",
           "properties": {
             "cwd": {
@@ -4876,6 +5396,35 @@
       ],
       "type": "string"
     },
+    "Result_of_Array_of_IssueSummary_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "items": {
+                "$ref": "#/definitions/IssueSummary"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Result_of_BrowserPage_or_String": {
       "oneOf": [
         {
@@ -4908,6 +5457,32 @@
           "properties": {
             "Ok": {
               "$ref": "#/definitions/GitState"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_IssueView_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/IssueView"
             }
           },
           "required": [

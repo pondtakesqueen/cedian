@@ -219,6 +219,26 @@ export type Notice =
       list: ResultOf_PrListOr_String;
     }
   | {
+      cwd: string;
+      filter: IssueFilter;
+      kind: "issues";
+      list: ResultOf_ArrayOf_IssueSummaryOr_String;
+    }
+  | {
+      /**
+       * It answers an action (or a new issue) that `gh` did.
+       */
+      acted?: boolean;
+      cwd: string;
+      /**
+       * Why the action failed; the view is still the issue as it stands.
+       */
+      failed?: string | null;
+      kind: "issue";
+      number?: number | null;
+      view: ResultOf_IssueViewOr_String;
+    }
+  | {
       kind: "pr_log";
       log: string;
       run: string;
@@ -758,6 +778,33 @@ export type ResultOf_PrListOr_String =
       Err: string;
     };
 /**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "IssueState".
+ */
+export type IssueState = "open" | "closed";
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Result_of_Array_of_IssueSummary_or_String".
+ */
+export type ResultOf_ArrayOf_IssueSummaryOr_String =
+  | {
+      Ok: IssueSummary[];
+    }
+  | {
+      Err: string;
+    };
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Result_of_IssueView_or_String".
+ */
+export type ResultOf_IssueViewOr_String =
+  | {
+      Ok: IssueView;
+    }
+  | {
+      Err: string;
+    };
+/**
  * From the window to the daemon.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -1016,6 +1063,27 @@ export type Request =
     }
   | {
       cwd: string;
+      filter: IssueFilter;
+      op: "issues";
+    }
+  | {
+      cwd: string;
+      number: number;
+      op: "issue";
+    }
+  | {
+      action: IssueAction;
+      cwd: string;
+      number: number;
+      op: "issue_act";
+    }
+  | {
+      cwd: string;
+      issue: NewIssue;
+      op: "new_issue";
+    }
+  | {
+      cwd: string;
       op: "pr_log";
       run: string;
       thread: string;
@@ -1140,6 +1208,40 @@ export type PrAction =
  * via the `definition` "ReviewEvent".
  */
 export type ReviewEvent = "comment" | "approve" | "request_changes";
+/**
+ * What the Issues block asks of one issue, each as the `gh` command a person would type.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "IssueAction".
+ */
+export type IssueAction =
+  | {
+      body: string;
+      do: "comment";
+    }
+  | {
+      body?: string;
+      do: "close";
+      reason: CloseReason;
+    }
+  | {
+      do: "reopen";
+    }
+  | {
+      add?: string[];
+      do: "labels";
+      remove?: string[];
+    }
+  | {
+      add?: string[];
+      do: "assignees";
+      remove?: string[];
+    };
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CloseReason".
+ */
+export type CloseReason = "completed" | "not_planned";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTarget".
@@ -2214,6 +2316,99 @@ export interface PrSummary {
   url: string;
 }
 /**
+ * Which issues the list asks for: its tabs, and the search box's text.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "IssueFilter".
+ */
+export interface IssueFilter {
+  /**
+   * Only the ones assigned to the person.
+   */
+  assigned?: boolean;
+  /**
+   * GitHub search text (`gh issue list --search`); empty for none.
+   */
+  search?: string;
+  state: IssueState;
+}
+/**
+ * One issue of the project's repository, for the Issues list (spec §11 Phase D: review, merge and issues in Cedian), read through the person's own `gh`.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "IssueSummary".
+ */
+export interface IssueSummary {
+  author: string;
+  comments: number;
+  /**
+   * When it was opened, as GitHub says it (RFC 3339).
+   */
+  created: string;
+  labels: string[];
+  /**
+   * The person (`gh`'s login) opened it.
+   */
+  mine: boolean;
+  number: number;
+  state: IssueState;
+  title: string;
+  url: string;
+}
+/**
+ * An issue as the Issues block draws it.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "IssueView".
+ */
+export interface IssueView {
+  assignees: string[];
+  author: string;
+  /**
+   * The description, as Markdown.
+   */
+  body: string;
+  /**
+   * Oldest first.
+   */
+  comments: PrComment[];
+  labels: string[];
+  /**
+   * The pull requests that close it when merged.
+   */
+  linked: LinkedPr[];
+  /**
+   * The person's own login, for Assign me.
+   */
+  me: string;
+  milestone?: string | null;
+  number: number;
+  /**
+   * The repository's labels, for + Label.
+   */
+  repo_labels: string[];
+  state: IssueState;
+  /**
+   * `completed`, `not_planned`, `duplicate` once closed.
+   */
+  state_reason?: string | null;
+  title: string;
+  url: string;
+}
+/**
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "LinkedPr".
+ */
+export interface LinkedPr {
+  /**
+   * The PR's head branch, which a thread of this project may be on.
+   */
+  head: string;
+  number: number;
+  title: string;
+  url: string;
+}
+/**
  * The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -2254,6 +2449,17 @@ export interface Position {
 export interface Selection {
   end: Position;
   start: Position;
+}
+/**
+ * A new issue, from New issue.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "NewIssue".
+ */
+export interface NewIssue {
+  body: string;
+  labels?: string[];
+  title: string;
 }
 /**
  * A server the person adds in Settings, as `cedia mcp add` takes it. The values of `env` and `headers` go to cedia once and are never sent back.
