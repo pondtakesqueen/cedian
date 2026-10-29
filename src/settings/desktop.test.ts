@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import { addRoot, desktopOf, paneTypography, projectSlug, removeRoot, rootsOf, vscodeSettings } from "./desktop";
 
 describe("VS Code settings from desktop", () => {
-  it("defaults: Warm & Lime over Default Dark Modern, Lilex, Thai line height", () => {
+  it("defaults: Warm & Lime over Dark Modern, Lilex, Thai line height", () => {
     const s = vscodeSettings({}, true);
-    expect(s["workbench.colorTheme"]).toBe("Default Dark Modern");
+    expect(s["workbench.colorTheme"]).toBe("Dark Modern");
     expect(s["editor.fontFamily"]).toMatch(/^'Lilex'/);
     expect(s["editor.lineHeight"]).toBeGreaterThanOrEqual(1.6);
     expect(s["files.autoSave"]).toBe("afterDelay");
-    expect(Object.keys(s["workbench.colorCustomizations"] as object)).toEqual(["[Default Dark Modern]", "[Default Light Modern]"]);
+    expect(Object.keys(s["workbench.colorCustomizations"] as object)).toEqual(["[Dark Modern]", "[Light Modern]"]);
   });
   it("follows the keys the person set", () => {
     const s = vscodeSettings({ theme: "light", font: { code: "JetBrains Mono" }, code_font_size: 15, editor: { auto_save: false, format_on_save: true } }, true);
-    expect(s["workbench.colorTheme"]).toBe("Default Light Modern");
+    expect(s["workbench.colorTheme"]).toBe("Light Modern");
     expect(s["editor.fontSize"]).toBe(15);
     expect(s["files.autoSave"]).toBe("off");
     expect(s["editor.formatOnSave"]).toBe(true);

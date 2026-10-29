@@ -3,6 +3,7 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
+import './media/workbench.css';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCodeUtils, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';

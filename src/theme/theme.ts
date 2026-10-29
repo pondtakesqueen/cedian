@@ -4,10 +4,14 @@
 // `--cedian-*` CSS custom properties that Cedian's blocks draw with.
 import { TOKENS, type Appearance, type Token } from "./tokens.js";
 
-/** The VS Code theme each appearance lays its colors over. */
+/**
+ * The VS Code theme each appearance lays its colors over, by its id in VS Code's theme-defaults
+ * (1.143 names them "Dark Modern" and "Light Modern"): `workbench.colorCustomizations` keys must
+ * match it exactly, or none of the colors apply.
+ */
 export const BASE_THEME: Record<Appearance, string> = {
-  dark: "Default Dark Modern",
-  light: "Default Light Modern",
+  dark: "Dark Modern",
+  light: "Light Modern",
 };
 
 const alpha = (color: string, percent: number) => `${color.slice(0, 7)}${Math.round((255 * percent) / 100).toString(16).padStart(2, "0").toUpperCase()}`;
@@ -58,6 +62,8 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "statusBar.border": t.line,
     "statusBar.noFolderBackground": t.app,
     "statusBar.debuggingBackground": t.warn,
+    "statusBar.focusBorder": t.accent,
+    "statusBarItem.focusBorder": t.accent,
     "statusBarItem.remoteBackground": t.app,
     "statusBarItem.remoteForeground": t["accent.text"],
     "editorGroupHeader.tabsBackground": t.frame,
@@ -69,6 +75,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "tab.inactiveForeground": t["text.muted"],
     "tab.border": t.line,
     "tab.activeBorderTop": t.accent,
+    "tab.selectedBorderTop": t.accent,
     "tab.hoverBackground": t.hover,
     "editor.background": t.sheet,
     "editor.foreground": t.text,
@@ -77,6 +84,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "editor.lineHighlightBackground": t.hover,
     "editor.lineHighlightBorder": clear,
     "editor.selectionBackground": alpha(t.working, 28),
+    "editor.selectionHighlightBackground": alpha(t.working, 14),
     "editor.inactiveSelectionBackground": alpha(t.working, 16),
     "editor.findMatchBackground": alpha(t.warn, 40),
     "editor.findMatchHighlightBackground": alpha(t.working, 30),
@@ -99,6 +107,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "input.border": t.line,
     "input.placeholderForeground": t["text.faint"],
     "inputOption.activeBorder": t.accent,
+    "inputOption.activeBackground": alpha(t.accent, 25),
     "dropdown.background": t.field,
     "dropdown.border": t.line,
     "dropdown.foreground": t.text,
@@ -115,6 +124,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "list.activeSelectionForeground": t.text,
     "list.inactiveSelectionBackground": t.sel,
     "list.focusOutline": t.accent,
+    "list.focusAndSelectionOutline": t.accent,
     "list.highlightForeground": t["accent.text"],
     "quickInput.background": t.raised,
     "quickInputList.focusBackground": t.sel,
@@ -128,6 +138,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "terminal.background": t.code,
     "terminal.foreground": t.text,
     "terminalCursor.foreground": t.accent,
+    "terminal.tab.activeBorder": t.accent,
     "terminal.ansiBlack": appearance === "dark" ? t.app : t.text,
     "terminal.ansiRed": t.failed,
     "terminal.ansiGreen": t["diff.add"],
@@ -142,12 +153,16 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "gitDecoration.deletedResourceForeground": t.failed,
     "gitDecoration.untrackedResourceForeground": t["diff.add"],
     "gitDecoration.ignoredResourceForeground": t["text.faint"],
+    "scmGraph.historyItemRefColor": t.accent,
+    "scmGraph.historyItemRemoteRefColor": t.working,
+    "scmGraph.historyItemBaseRefColor": t.warn,
     "notifications.background": t.raised,
     "notifications.border": t.line,
     "editorError.foreground": t.failed,
     "editorWarning.foreground": t.warn,
     "editorInfo.foreground": t.working,
     "progressBar.background": t.accent,
+    "welcomePage.progress.foreground": t.accent,
   };
 }
 
