@@ -129,8 +129,10 @@
 - [x] PR watch (owner, 2026-10-28): the daemon follows each thread's PR
   through `gh`; CI red, new review comments or a conflict become the
   thread's next run; PR chip on the header, the card and the search; a
-  merged PR archives the thread (ARCHITECTURE, Phase C). To check on the
-  Mac with a real PR; per-thread หยุดเฝ้า still to do
+  merged PR archives the thread (ARCHITECTURE, Phase C). Checked on the
+  Mac with a real PR 2026-10-29: the daemon pushes the fix run's commits;
+  CI going green is unchecked (the scratch repo's Actions would not
+  start, a billing limit). Per-thread หยุดเฝ้า built 2026-10-29
 - [ ] Exit gate: three threads at once across two repos from one project
   chat; memory measured; scroll 10k blocks @60fps
 

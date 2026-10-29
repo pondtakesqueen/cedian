@@ -710,6 +710,12 @@ export type Request =
     }
   | {
       cwd: string;
+      op: "pr_watch";
+      thread: string;
+      watch: boolean;
+    }
+  | {
+      cwd: string;
       op: "rename";
       thread: string;
       title: string;
@@ -922,6 +928,10 @@ export interface ThreadInfo {
    * Its branch's pull request, while the daemon follows it.
    */
   pr?: PrChip | null;
+  /**
+   * The person stopped the daemon following this thread's pull request (หยุดเฝ้า).
+   */
+  pr_unwatched?: boolean;
   /**
    * The profile its runs take unless another is named.
    */

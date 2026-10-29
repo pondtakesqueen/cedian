@@ -6,7 +6,7 @@
 //! login shell's environment, so it is the person's own login; cedian holds no GitHub token.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -473,6 +473,53 @@ pub fn push(env: &HashMap<String, String>, cwd: &Path, branch: &str) -> anyhow::
     Ok(said)
 }
 
+/// The threads whose PR the person stopped watching, kept in the daemon's state directory
+/// as `<project key>/<thread id>` so a restart does not follow them again.
+pub struct Unwatched {
+    path: PathBuf,
+    keys: BTreeSet<String>,
+}
+
+impl Unwatched {
+    pub fn new(state_dir: &Path) -> Self {
+        let path = state_dir.join("pr-unwatched.json");
+        let keys = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+        Self { path, keys }
+    }
+
+    pub fn contains(&self, slug: &str, thread: &str) -> bool {
+        self.keys.contains(&format!("{slug}/{thread}"))
+    }
+
+    /// Records the person's choice; true when it changed anything.
+    pub fn set(&mut self, slug: &str, thread: &str, watch: bool) -> bool {
+        let key = format!("{slug}/{thread}");
+        let changed = if watch {
+            self.keys.remove(&key)
+        } else {
+            self.keys.insert(key)
+        };
+        if changed && let Err(error) = self.save() {
+            log::warn!("{error:#}");
+        }
+        changed
+    }
+
+    fn save(&self) -> anyhow::Result<()> {
+        if let Some(dir) = self.path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let temp = self.path.with_extension("json.tmp");
+        std::fs::write(&temp, serde_json::to_vec_pretty(&self.keys)?)
+            .with_context(|| format!("writing {}", temp.display()))?;
+        std::fs::rename(&temp, &self.path)
+            .with_context(|| format!("replacing {}", self.path.display()))
+    }
+}
+
 /// One thread's PR as the daemon follows it.
 pub struct Watch {
     pub cwd: PathBuf,
@@ -563,6 +610,18 @@ mod tests {
             .status()
             .expect("git");
         assert!(status.success(), "git {args:?}");
+    }
+
+    #[test]
+    fn an_unwatched_thread_stays_unwatched_after_a_restart() {
+        let dir = tempfile::tempdir().expect("dir");
+        let mut unwatched = Unwatched::new(dir.path());
+        assert!(unwatched.set("p", "t-1", false));
+        assert!(!unwatched.set("p", "t-1", false));
+        assert!(Unwatched::new(dir.path()).contains("p", "t-1"));
+        assert!(!Unwatched::new(dir.path()).contains("p", "t-2"));
+        assert!(unwatched.set("p", "t-1", true));
+        assert!(!Unwatched::new(dir.path()).contains("p", "t-1"));
     }
 
     #[test]

@@ -155,6 +155,13 @@ pub enum Request {
         thread: String,
         archived: bool,
     },
+    /// Stops following the thread's pull request, or follows it again (หยุดเฝ้า, เฝ้า PR).
+    /// Kept across restarts.
+    PrWatch {
+        cwd: PathBuf,
+        thread: String,
+        watch: bool,
+    },
     /// Gives the thread the person's title, through `cedia threads rename`.
     Rename {
         cwd: PathBuf,

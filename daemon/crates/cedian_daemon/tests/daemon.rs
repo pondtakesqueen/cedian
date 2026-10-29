@@ -1420,6 +1420,32 @@ fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
             if threads.iter().any(|t| t.pr.as_ref().is_some_and(|p| !p.fixing)))
     });
     assert!(matches!(seen.last(), Some(Notice::Threads { .. })));
+    let thread = threads
+        .iter()
+        .find(|t| t.pr.is_some())
+        .expect("thread")
+        .thread
+        .id
+        .clone();
+    // หยุดเฝ้า drops the chip and is remembered; เฝ้า PR brings it back.
+    window.ask(Request::PrWatch {
+        cwd: harness.cwd.clone(),
+        thread: thread.clone(),
+        watch: false,
+    });
+    window.until(|n| {
+        matches!(n, Notice::Threads { threads, .. }
+            if threads.iter().any(|t| t.thread.id == thread && t.pr_unwatched && t.pr.is_none()))
+    });
+    window.ask(Request::PrWatch {
+        cwd: harness.cwd.clone(),
+        thread: thread.clone(),
+        watch: true,
+    });
+    window.until(|n| {
+        matches!(n, Notice::Threads { threads, .. }
+            if threads.iter().any(|t| t.thread.id == thread && !t.pr_unwatched && t.pr.is_some()))
+    });
 }
 
 #[test]
