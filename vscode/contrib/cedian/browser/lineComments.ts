@@ -7,7 +7,7 @@ import './media/lineComments.css';
 import { $ } from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
-import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
+import { ICodeEditor, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContributionInstantiation, registerEditorContribution } from '../../../../editor/browser/editorExtensions.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Range } from '../../../../editor/common/core/range.js';
@@ -68,7 +68,9 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 	static readonly ID = 'cedian.lineComments';
 
 	private readonly plus = this.editor.createDecorationsCollection();
-	private readonly zones: string[] = [];
+	private readonly notes: NoteZone[] = [];
+	/** The line the `+` is on: the editor's own diff signs share its gutter slot and may take the click. */
+	private plusLine?: number;
 	private readonly modelListeners = this._register(new DisposableStore());
 	private at?: At;
 	private box?: CommentBox;
@@ -88,6 +90,7 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 	private attach(): void {
 		this.modelListeners.clear();
 		this.plus.clear();
+		this.plusLine = undefined;
 		this.box?.dispose();
 		const model = this.editor.getModel();
 		this.at = model && this.editor.getOption(EditorOption.inDiffEditor) ? this.reviews.reviewedAt(model.uri) : undefined;
@@ -96,12 +99,15 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 			return;
 		}
 		this.modelListeners.add(this.editor.onMouseMove(e => {
-			const line = e.target.position?.lineNumber;
+			const line = this.plusLine = e.target.position?.lineNumber;
 			this.plus.set(line ? [{ range: new Range(line, 1, line, 1), options: { description: 'cedian-comment-add', linesDecorationsClassName: 'cedian-comment-add codicon codicon-add' } }] : []);
 		}));
-		this.modelListeners.add(this.editor.onMouseLeave(() => this.plus.clear()));
+		this.modelListeners.add(this.editor.onMouseLeave(() => {
+			this.plus.clear();
+			this.plusLine = undefined;
+		}));
 		this.modelListeners.add(this.editor.onMouseDown(e => {
-			if (e.target.type === MouseTargetType.GUTTER_LINE_DECORATIONS && e.target.position && e.target.element?.classList.contains('cedian-comment-add')) {
+			if (e.target.type === MouseTargetType.GUTTER_LINE_DECORATIONS && e.target.position && e.target.position.lineNumber === this.plusLine) {
 				this.openBox(e.target.position.lineNumber);
 			}
 		}));
@@ -127,18 +133,21 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 		this.box.open();
 	}
 
-	/** The comments and open findings under their lines, as view zones. */
+	/**
+	 * The comments and open findings under their lines. Each is a zone widget: a view zone keeps
+	 * the room and an overlay draws the note above the editor's lines, so its buttons take clicks
+	 * (a view zone's own node sits under the lines).
+	 */
 	private drawNotes(): void {
 		const at = this.at;
 		const notes = at ? lineNotes(this.reviews.notes(at.thread), at.path) : [];
-		this.editor.changeViewZones(accessor => {
-			for (const id of this.zones.splice(0)) {
-				accessor.removeZone(id);
-			}
-			for (const note of notes) {
-				const node = $('div');
-				node.className = `cedian-line-note ${note.kind}`;
-				const resolved = note.kind === 'comment' && note.state === 'resolved';
+		this.notes.splice(0).forEach(zone => zone.dispose());
+		for (const note of notes) {
+			const resolved = note.kind === 'comment' && note.state === 'resolved';
+			// A resolved comment collapses to one line.
+			const lines = resolved ? 1 : 1 + Math.floor(note.text.length / 100);
+			this.notes.push(new NoteZone(this.editor, note.line, lines, node => {
+				node.classList.add('cedian-line-note', note.kind);
 				if (resolved) {
 					node.classList.add('resolved');
 				}
@@ -163,17 +172,31 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 					action('Fix this one', () => this.daemon.client.request({ op: 'fix_findings', cwd: at!.cwd, thread: at!.thread, findings: [note.id] }));
 					action('Dismiss', () => this.daemon.client.request({ op: 'dismiss', thread: at!.thread, finding: note.id, dismissed: true }));
 				}
-				// A resolved comment collapses to one line.
-				const zone: IViewZone = { afterLineNumber: note.line, heightInLines: resolved ? 1 : 1 + Math.floor(note.text.length / 100), domNode: node };
-				this.zones.push(accessor.addZone(zone));
-			}
-		});
+			}));
+		}
 	}
 
 	override dispose(): void {
 		this.box?.dispose();
-		this.editor.changeViewZones(accessor => this.zones.splice(0).forEach(id => accessor.removeZone(id)));
+		this.notes.splice(0).forEach(zone => zone.dispose());
 		super.dispose();
+	}
+}
+
+/** One note under a line of the diff, drawn by `fill`; it never moves the editor's scroll. */
+class NoteZone extends ZoneWidget {
+	constructor(editor: ICodeEditor, line: number, lines: number, private readonly fill: (node: HTMLElement) => void) {
+		super(editor, { showFrame: false, showArrow: false, isResizeable: false, keepEditorSelection: true });
+		this.create();
+		this.show({ lineNumber: line, column: 1 }, lines);
+	}
+
+	protected _fillContainer(container: HTMLElement): void {
+		this.fill(container);
+	}
+
+	protected override revealRange(): void {
+		// Drawing the notes of a file must not scroll it to each one.
 	}
 }
 

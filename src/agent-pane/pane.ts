@@ -956,7 +956,7 @@ export class AgentPane {
       const state = stateOf(c);
       const row = el(d, "div", `file comment-${state}`);
       const at = button(d, `${c.path}:${c.line}`, () => this.state.review && this.host.openReview(thread, this.cwd, this.state.review, c.path, c.line), "link m ell");
-      row.append(at, el(d, "span", "small ell", c.text), el(d, "span", "small", stateLabel(c)));
+      row.append(at, el(d, "span", "small ell", c.text), el(d, "span", "small state", stateLabel(c)));
       if (state === "open" || state === "sent") row.append(button(d, "Resolve", () => this.wire.request(setComments(thread, resolveComment(comments, c.id, true))), "btn small"));
       if (state === "resolved") row.append(button(d, "Reopen", () => this.wire.request(setComments(thread, resolveComment(comments, c.id, false))), "btn small"));
       row.append(button(d, "Delete", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));

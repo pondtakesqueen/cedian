@@ -83,6 +83,10 @@
 .cedian-agent-pane .btn.danger, .cedian-settings .btn.danger { color: var(--cedian-failed); }
 .cedian-agent-pane .btn.small { padding: 0 6px; }
 .cedian-agent-pane .comments .comment-resolved { opacity: 0.6; }
+.cedian-agent-pane .comments .file { flex-wrap: wrap; }
+.cedian-agent-pane .comments .file .link { flex: 0 1 auto; min-width: 6em; max-width: 50%; }
+.cedian-agent-pane .comments .file > .ell { flex: 1 1 8em; }
+.cedian-agent-pane .comments .file > .state { white-space: nowrap; }
 .cedian-agent-pane .link { font: inherit; background: none; border: 0; padding: 0; color: var(--cedian-working); cursor: pointer; }
 .cedian-agent-pane .x { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; }
 .cedian-agent-pane .sel, .cedian-settings .sel, .cedian-settings .input { font: inherit; font-size: 12px; color: var(--cedian-text); background: var(--cedian-field); border: 1px solid var(--cedian-line); border-radius: 6px; padding: 2px 6px; }
