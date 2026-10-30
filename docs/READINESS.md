@@ -153,9 +153,8 @@
 ## Phase D (Media, depth, started 2026-10-29)
 - [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
   only schema change is `plugin` as a command source
-- [ ] Pin moved to cedia 2d2d6da (protocol ff69b523e6156d26, 2026-10-30):
-  cedia main then plus `--browser-sites`, on its PR branch; move it to the
-  merge on cedia main once that PR lands (same schema). The new `retry`
+- [x] Pin moved to cedia main 44ad1ba (protocol ff69b523e6156d26,
+  2026-10-30, cedia-code #199 merged: `--browser-sites`). The new `retry`
   session event is folded with the others' ids
 - [x] cedia: completion command (fill-in-the-middle on a fast cheap model):
   `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, merged
@@ -273,7 +272,7 @@
   The allowlist is `desktop.browser_sites` (project slug → hosts), shown in
   the block and in Settings → Browser, where a site is added or removed; the
   daemon passes it to each run as cedia's `--browser-sites` (cedia-code
-  2d2d6da, capability `browser.sites`), so the agent opens localhost and
+  #199, capability `browser.sites`), so the agent opens localhost and
   those sites only. Chromium's DevTools port takes WebSockets from the
   window's origin only (`--remote-allow-origins=vscode-file://vscode-app`).
   Checked: `cargo test --workspace` (tabs and the run's flags against a real
