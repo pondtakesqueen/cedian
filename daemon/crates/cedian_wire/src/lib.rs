@@ -27,7 +27,7 @@ pub use mcp::{McpAdd, McpServer, McpTarget, McpTransport};
 pub use message::{
     Decision, Helpers, Notice, Position, Request, Selection, read_message, write_message,
 };
-pub use notes::{LineComment, Notes};
+pub use notes::{CommentState, LineComment, Notes};
 pub use pr::{CiState, PrChip, PrState};
 pub use pr_view::{
     CheckState, MergeMethod, PrAction, PrCheck, PrComment, PrCommit, PrList, PrReviewer, PrSummary,

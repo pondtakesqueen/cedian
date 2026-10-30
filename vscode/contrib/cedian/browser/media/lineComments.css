@@ -1,6 +1,8 @@
 /* Line comments and review findings in a thread's review diff (lineComments.ts). */
 .monaco-editor .cedian-comment-add { cursor: pointer; color: var(--vscode-editorGutter-commentRangeForeground, var(--vscode-foreground)); font-size: 12px; margin-left: 2px; }
 .monaco-editor .cedian-line-note { display: flex; gap: 8px; align-items: flex-start; padding: 2px 8px; font-family: var(--vscode-font-family); font-size: 12px; white-space: normal; border-left: 2px solid var(--vscode-editorInfo-foreground); background: var(--vscode-editorWidget-background); box-sizing: border-box; height: 100%; overflow: hidden; }
+.monaco-editor .cedian-line-note.resolved { opacity: 0.6; border-left-color: var(--vscode-disabledForeground); }
+.monaco-editor .cedian-line-note.resolved > span { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .monaco-editor .cedian-line-note.finding { border-left-color: var(--vscode-editorWarning-foreground); }
 .monaco-editor .cedian-line-note > span { flex: 1 1 auto; }
 .monaco-editor .cedian-line-note > button { font: inherit; padding: 0 8px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); cursor: pointer; }

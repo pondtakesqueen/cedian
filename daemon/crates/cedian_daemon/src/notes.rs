@@ -3,11 +3,16 @@
 //! Kept per thread under the daemon's state directory, so a window that opens the thread later,
 //! or after a restart, sees the same notes.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Context as _;
 use cedian_protocol::{CodeFinding, CodeReview};
-use cedian_wire::{LineComment, Notes};
+use cedian_wire::{CommentState, LineComment, Notes};
+
+use crate::anchor::{anchor_at, follow};
 
 pub struct NoteStore {
     dir: PathBuf,
@@ -61,8 +66,46 @@ pub fn any(notes: &Notes) -> bool {
     !notes.comments.is_empty() || notes.review.is_some() || notes.reviewing
 }
 
-/// The message the thread gets for the person's line comments.
-pub fn comments_message(comments: &[LineComment]) -> String {
+/// Moves each line comment to where its code is now in the working tree `root`, and takes its
+/// anchor again from there. When `ended`, a run that was sent the comments has ended: each sent
+/// one becomes resolved when the run changed its code (or took it away), else open. Returns
+/// whether any comment changed.
+pub fn follow_comments(comments: &mut [LineComment], root: &Path, ended: bool) -> bool {
+    let mut files: HashMap<String, Option<String>> = HashMap::new();
+    let mut changed = false;
+    for comment in comments.iter_mut() {
+        let text = files
+            .entry(comment.path.clone())
+            .or_insert_with(|| std::fs::read_to_string(root.join(&comment.path)).ok());
+        let lines: Vec<&str> = text
+            .as_deref()
+            .map(|t| t.lines().collect())
+            .unwrap_or_default();
+        let found = follow(comment, &lines);
+        let was = comment.clone();
+        if let Some(found) = &found {
+            let anchor = anchor_at(&lines, found.line);
+            comment.line = found.line;
+            comment.quote = anchor.quote;
+            comment.before = anchor.before;
+            comment.after = anchor.after;
+        }
+        if ended && comment.state == CommentState::Sent {
+            let touched = found.as_ref().is_none_or(|f| f.touched);
+            comment.state = if touched {
+                CommentState::Resolved
+            } else {
+                CommentState::Open
+            };
+        }
+        changed |= *comment != was;
+    }
+    changed
+}
+
+/// The message the thread gets for the person's line comments that go next: drafts, and ones a
+/// run left open, which say so.
+pub fn comments_message(comments: &[&LineComment]) -> String {
     let mut text = String::from(
         "I left comments on lines of your diff. Address each one, then say what you changed for each.\n",
     );
@@ -75,6 +118,9 @@ pub fn comments_message(comments: &[LineComment]) -> String {
             .filter(|q| !q.is_empty())
         {
             text.push_str(&format!(" (`{}`)", quote.replace('`', "'")));
+        }
+        if comment.state == CommentState::Open {
+            text.push_str(" (still open: your last run left this code as it was)");
         }
         text.push_str(&format!(": {}", comment.text.trim()));
     }
@@ -143,24 +189,80 @@ mod tests {
     fn comments_go_as_one_message_with_their_lines() {
         let comments = vec![
             LineComment {
-                id: "c1".into(),
-                path: "src/a.ts".into(),
-                line: 12,
                 quote: Some("  return `x`;".into()),
-                text: "return y here ".into(),
+                ..comment("c1", "src/a.ts", 12, "return y here ")
             },
             LineComment {
-                id: "c2".into(),
-                path: "b.rs".into(),
-                line: 1,
-                quote: None,
-                text: "why?".into(),
+                state: CommentState::Open,
+                ..comment("c2", "b.rs", 1, "why?")
             },
         ];
         assert_eq!(
-            comments_message(&comments),
-            "I left comments on lines of your diff. Address each one, then say what you changed for each.\n\n- `src/a.ts:12` (`return 'x';`): return y here\n- `b.rs:1`: why?"
+            comments_message(&comments.iter().collect::<Vec<_>>()),
+            "I left comments on lines of your diff. Address each one, then say what you changed for each.\n\n- `src/a.ts:12` (`return 'x';`): return y here\n- `b.rs:1` (still open: your last run left this code as it was): why?"
         );
+    }
+
+    fn comment(id: &str, path: &str, line: u32, text: &str) -> LineComment {
+        LineComment {
+            id: id.into(),
+            path: path.into(),
+            line,
+            quote: None,
+            before: Vec::new(),
+            after: Vec::new(),
+            state: CommentState::Draft,
+            text: text.into(),
+        }
+    }
+
+    /// A comment on `line` of `text`, anchored as the window anchors it.
+    fn anchored(id: &str, text: &str, line: u32, state: CommentState) -> LineComment {
+        let lines: Vec<&str> = text.lines().collect();
+        let anchor = anchor_at(&lines, line);
+        LineComment {
+            quote: anchor.quote,
+            before: anchor.before,
+            after: anchor.after,
+            state,
+            ..comment(id, "a.ts", line, "fix")
+        }
+    }
+
+    #[test]
+    fn after_a_run_comments_follow_their_code_and_say_if_it_was_changed() {
+        let dir = tempfile::tempdir().unwrap();
+        let before = "one();\ntwo();\nthree();\nfour();\nfive();\nsix();\n";
+        let mut comments = vec![
+            anchored("kept", before, 2, CommentState::Sent),
+            anchored("edited", before, 5, CommentState::Sent),
+            anchored("draft", before, 4, CommentState::Draft),
+        ];
+        std::fs::write(
+            dir.path().join("a.ts"),
+            "zero();\none();\ntwo();\nthree();\nfour();\nfive(1);\nsix();\n",
+        )
+        .unwrap();
+        assert!(follow_comments(&mut comments, dir.path(), true));
+        let at: Vec<_> = comments
+            .iter()
+            .map(|c| (c.id.as_str(), c.line, c.state))
+            .collect();
+        assert_eq!(
+            at,
+            [
+                ("kept", 3, CommentState::Open),
+                ("edited", 6, CommentState::Resolved),
+                ("draft", 5, CommentState::Draft),
+            ]
+        );
+        assert_eq!(comments[1].quote.as_deref(), Some("five(1);"));
+        assert!(!follow_comments(&mut comments, dir.path(), true));
+        std::fs::remove_file(dir.path().join("a.ts")).unwrap();
+        comments[0].state = CommentState::Sent;
+        follow_comments(&mut comments, dir.path(), true);
+        assert_eq!(comments[0].state, CommentState::Resolved);
+        assert_eq!(comments[0].line, 3);
     }
 
     #[test]

@@ -478,6 +478,13 @@ export type ResultSubtype =
  */
 export type HunkState = "accepted" | "pending" | "rejected" | "stale";
 /**
+ * Where a line comment is in its round trip with the agent.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "CommentState".
+ */
+export type CommentState = "draft" | "sent" | "open" | "resolved";
+/**
  * `CodeReview`
  *
  * <details><summary>JSON schema</summary>
@@ -1606,18 +1613,26 @@ export interface Notes {
   reviewing?: boolean;
 }
 /**
- * A comment the person left on one line of a thread's diff, waiting to be sent with the rest (spec §3.7, diff comments).
+ * A comment the person left on one line of a thread's diff (spec §3.7, diff comments; §3.8, Annotate AI Diff). It is anchored by the lines around it, not by its line number, so it follows its code when the agent's edits move it.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "LineComment".
  */
 export interface LineComment {
   /**
+   * Up to three lines below the line, nearest first.
+   */
+  after?: string[];
+  /**
+   * Up to three lines above the line, nearest last: the hunk context it is found by.
+   */
+  before?: string[];
+  /**
    * The window's own id for it, so one comment can be edited or removed.
    */
   id: string;
   /**
-   * The line in the file as the thread left it, from 1.
+   * The line in the file as it is now, from 1; the daemon moves it after each run.
    */
   line: number;
   /**
@@ -1625,9 +1640,10 @@ export interface LineComment {
    */
   path: string;
   /**
-   * The line's text when the comment was left, quoted to the agent with it.
+   * The line's text, trimmed, when the comment was left (or last followed), quoted to the agent with it.
    */
   quote?: string | null;
+  state?: CommentState;
   text: string;
 }
 /**

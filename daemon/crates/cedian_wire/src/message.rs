@@ -212,14 +212,15 @@ pub enum Request {
         hunk: String,
         decision: Decision,
     },
-    /// Replaces the line comments the person has left on the thread's diff and not sent yet.
-    /// Every window with the thread open gets `Notice::Notes`.
+    /// Replaces the line comments the person has left on the thread's diff, sent or not (a
+    /// Resolve or Reopen is a change of one comment's state). Every window with the thread open
+    /// gets `Notice::Notes`.
     Comments {
         thread: String,
         comments: Vec<LineComment>,
     },
-    /// Sends the thread's line comments as its next message (queued when it runs, else a run)
-    /// and clears them.
+    /// Sends the thread's draft and still-open line comments as one message (queued when it
+    /// runs, else a run) and marks them sent; the run's end marks each open or resolved.
     SendComments { cwd: PathBuf, thread: String },
     /// Reviews what the thread changed (`cedia review --thread --json`), when this cedia offers
     /// `code-review`. The review lands in the thread's `Notice::Notes`.

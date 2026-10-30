@@ -2,6 +2,7 @@
 //! cedia per prompt, streams the run's lines to the windows that have the thread open, and
 //! rebuilds a thread's history from cedia's own files.
 
+mod anchor;
 mod auto_archive;
 mod browser;
 mod cedia;

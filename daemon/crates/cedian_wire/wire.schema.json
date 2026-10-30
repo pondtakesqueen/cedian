@@ -573,6 +573,39 @@
       ],
       "type": "string"
     },
+    "CommentState": {
+      "description": "Where a line comment is in its round trip with the agent.",
+      "oneOf": [
+        {
+          "description": "Left, not sent yet: goes with the next batch.",
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Sent; the run that reads it has not ended.",
+          "enum": [
+            "sent"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The run ended and left the commented code as it was: goes with the next batch again.",
+          "enum": [
+            "open"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The run changed the commented code, or the person resolved it: shown collapsed, not sent.",
+          "enum": [
+            "resolved"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "CommitDraft": {
       "anyOf": [
         {
@@ -1476,14 +1509,28 @@
       "type": "object"
     },
     "LineComment": {
-      "description": "A comment the person left on one line of a thread's diff, waiting to be sent with the rest (spec §3.7, diff comments).",
+      "description": "A comment the person left on one line of a thread's diff (spec §3.7, diff comments; §3.8, Annotate AI Diff). It is anchored by the lines around it, not by its line number, so it follows its code when the agent's edits move it.",
       "properties": {
+        "after": {
+          "description": "Up to three lines below the line, nearest first.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "before": {
+          "description": "Up to three lines above the line, nearest last: the hunk context it is found by.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "id": {
           "description": "The window's own id for it, so one comment can be edited or removed.",
           "type": "string"
         },
         "line": {
-          "description": "The line in the file as the thread left it, from 1.",
+          "description": "The line in the file as it is now, from 1; the daemon moves it after each run.",
           "format": "uint32",
           "minimum": 0.0,
           "type": "integer"
@@ -1493,11 +1540,14 @@
           "type": "string"
         },
         "quote": {
-          "description": "The line's text when the comment was left, quoted to the agent with it.",
+          "description": "The line's text, trimmed, when the comment was left (or last followed), quoted to the agent with it.",
           "type": [
             "string",
             "null"
           ]
+        },
+        "state": {
+          "$ref": "#/definitions/CommentState"
         },
         "text": {
           "type": "string"
@@ -4674,7 +4724,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Replaces the line comments the person has left on the thread's diff and not sent yet. Every window with the thread open gets `Notice::Notes`.",
+          "description": "Replaces the line comments the person has left on the thread's diff, sent or not (a Resolve or Reopen is a change of one comment's state). Every window with the thread open gets `Notice::Notes`.",
           "properties": {
             "comments": {
               "items": {
@@ -4701,7 +4751,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Sends the thread's line comments as its next message (queued when it runs, else a run) and clears them.",
+          "description": "Sends the thread's draft and still-open line comments as one message (queued when it runs, else a run) and marks them sent; the run's end marks each open or resolved.",
           "properties": {
             "cwd": {
               "type": "string"
