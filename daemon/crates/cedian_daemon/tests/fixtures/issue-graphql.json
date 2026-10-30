@@ -1,0 +1,9 @@
+{"data": {"viewer": {"login": "pond"}, "repository": {"viewerPermission": "ADMIN",
+  "labels": {"nodes": [{"name": "bug"}, {"name": "enhancement"}]},
+  "issue": {"number": 14, "url": "https://github.com/pondtakesqueen/stats/issues/14", "title": "Median is wrong for an even count",
+    "body": "median([1, 2, 3, 4]) returns 3. It should average the two middle values and return 2.5.",
+    "state": "OPEN", "stateReason": null, "author": {"login": "mai-k"},
+    "labels": {"nodes": [{"name": "bug"}]}, "assignees": {"nodes": []}, "milestone": {"title": "v1.2"},
+    "comments": {"nodes": [{"author": {"login": "ton-s"}, "body": "Same with an empty array: it throws instead of returning NaN.", "createdAt": "2026-10-29T09:00:00Z"}]},
+    "closedByPullRequestsReferences": {"nodes": [{"number": 7, "title": "Fix median for even counts", "url": "u7", "headRefName": "fix-median"}]}
+  }}}}

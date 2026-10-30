@@ -196,7 +196,38 @@
   Dismiss, in the card and under its line in the diff; Fix all sends the
   open ones. Tested in vitest and against the fake cedia; anchoring comments
   by hunk context (§11 Annotate AI Diff) is still to come
-- [ ] Git pane; pop-out panes; Help → Check for updates
+- [ ] Git pane (built 2026-10-29; Source Control and the Git card tried on
+  the owner's Mac against local remotes, not yet against GitHub): VS Code's own
+  Source Control follows the agent pane's open thread: `git.openRepository`
+  on its worktree (else the project), then focused and pinned in the SCM
+  view (`vscode/contrib/cedian/browser/sourceControl.ts`), so Changes,
+  Commit, Pull, Push and the graph are the thread's; `git.detectWorktrees`
+  lists every thread's worktree beside the project. In the thread, as the
+  prototype draws it: a `⑂ <branch>` chip in the composer opens the Git
+  card (`fix-login → origin/main · ahead 2 · behind 1`, uncommitted and
+  unpushed counts, Pull and Push, Source Control), read and run by the
+  daemon with hooks off (`Request::Git`, `Request::GitAction`,
+  `cedian_daemon::git_state`). Pull autostashes and aborts a rebase that
+  conflicts; opening the card fetches, off the window's reader thread with
+  a 120 s limit and no credential prompt
+- [ ] Review, merge and issues in Cedian (built 2026-10-29, not yet tried in
+  the app), through the person's own `gh`, each action the command a person
+  would type. The PR block under a thread's receipt (`pr-block.ts`,
+  `cedian_daemon::pr_view`, one GraphQL read): description, comments and
+  line-comment threads with their hunk (Reply, Resolve, Fix in thread,
+  Apply suggestion in thread), Approve and Request changes on someone
+  else's PR, + Reviewer, Checks with a failed run's log and Fix in thread,
+  Commits, Files (the diff), and Merge with its blockers, method, Update
+  branch, Ready for review and Merge when ready. `/prs` lists the
+  repository's PRs (To review, Yours, All open); Review in a thread checks
+  one out in a new worktree and reviews it read-only, and the PR watch never
+  acts on someone else's PR. `/issues` (`issues.ts`,
+  `cedian_daemon::issues`): search, Open / Closed / Assigned to me, an issue
+  with labels, assignees, milestone, the PRs that close it and this
+  project's thread on one, Comment, Close as completed or not planned,
+  Reopen, New issue, and Start a thread, which fills a new thread's message
+  asking its PR to say "Fixes #N"
+- [ ] Pop-out panes; Help → Check for updates
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing

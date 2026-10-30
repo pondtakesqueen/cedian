@@ -392,6 +392,15 @@
       ],
       "type": "object"
     },
+    "CheckState": {
+      "enum": [
+        "pending",
+        "passed",
+        "failed",
+        "skipped"
+      ],
+      "type": "string"
+    },
     "CiState": {
       "description": "The checks on the PR's head commit, taken together.",
       "oneOf": [
@@ -411,6 +420,13 @@
           "type": "string"
         }
       ]
+    },
+    "CloseReason": {
+      "enum": [
+        "completed",
+        "not_planned"
+      ],
+      "type": "string"
     },
     "CodeFinding": {
       "description": "`CodeFinding`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"id\", \"text\" ], \"properties\": { \"id\": { \"type\": \"string\" }, \"line\": { \"type\": \"number\" }, \"path\": { \"type\": \"string\" }, \"text\": { \"type\": \"string\" } } } ``` </details>",
@@ -832,6 +848,97 @@
       ],
       "type": "object"
     },
+    "GitAction": {
+      "description": "What the Git menu asks of a thread's folder. Each runs git with hooks off.",
+      "oneOf": [
+        {
+          "description": "`git pull --rebase --autostash` from the upstream, else a rebase onto the base; a conflict is aborted, leaving the folder as it was.",
+          "enum": [
+            "pull"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "`git push` to the upstream, else `git push -u origin <branch>`.",
+          "enum": [
+            "push"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "GitState": {
+      "description": "Where a thread's folder (its worktree, else the project) stands in git, for the branch chip and the Git menu (spec §11 Phase D, the git pane).",
+      "properties": {
+        "ahead": {
+          "description": "Commits on the branch the base does not have.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "base": {
+          "default": null,
+          "description": "The branch it will merge into: the remote's default (`origin/HEAD`), else a local `main` or `master`; none when there is neither, or it is the base itself.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "behind": {
+          "description": "Commits on the base the branch does not have.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "branch": {
+          "default": null,
+          "description": "The checked-out branch; none on a detached HEAD.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changed": {
+          "description": "Files with uncommitted changes, untracked ones included.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "fetch_error": {
+          "description": "Why fetching from the remote failed, when it was asked for and did; the counts are then against what was last fetched.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rebasing": {
+          "default": false,
+          "description": "A rebase stopped part way (a conflict git left), which the next run would start inside.",
+          "type": "boolean"
+        },
+        "unpushed": {
+          "description": "Commits not pushed to the upstream; all of `ahead` when there is no upstream.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "upstream": {
+          "default": null,
+          "description": "The branch's upstream (`origin/<branch>`) once it has been pushed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "ahead",
+        "behind",
+        "changed",
+        "unpushed"
+      ],
+      "type": "object"
+    },
     "Helpers": {
       "additionalProperties": false,
       "description": "The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]` or `none`; none keeps cedia's setting (`roles` in its settings).",
@@ -1067,6 +1174,300 @@
       ],
       "type": "object"
     },
+    "IssueAction": {
+      "description": "What the Issues block asks of one issue, each as the `gh` command a person would type.",
+      "oneOf": [
+        {
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "comment"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "body",
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Closes it, with a comment first when `body` is not empty.",
+          "properties": {
+            "body": {
+              "default": "",
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "close"
+              ],
+              "type": "string"
+            },
+            "reason": {
+              "$ref": "#/definitions/CloseReason"
+            }
+          },
+          "required": [
+            "do",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "do": {
+              "enum": [
+                "reopen"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "add": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "do": {
+              "enum": [
+                "labels"
+              ],
+              "type": "string"
+            },
+            "remove": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "add": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "do": {
+              "enum": [
+                "assignees"
+              ],
+              "type": "string"
+            },
+            "remove": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "IssueFilter": {
+      "description": "Which issues the list asks for: its tabs, and the search box's text.",
+      "properties": {
+        "assigned": {
+          "default": false,
+          "description": "Only the ones assigned to the person.",
+          "type": "boolean"
+        },
+        "search": {
+          "default": "",
+          "description": "GitHub search text (`gh issue list --search`); empty for none.",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/IssueState"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
+    "IssueState": {
+      "enum": [
+        "open",
+        "closed"
+      ],
+      "type": "string"
+    },
+    "IssueSummary": {
+      "description": "One issue of the project's repository, for the Issues list (spec §11 Phase D: review, merge and issues in Cedian), read through the person's own `gh`.",
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "comments": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "created": {
+          "description": "When it was opened, as GitHub says it (RFC 3339).",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mine": {
+          "description": "The person (`gh`'s login) opened it.",
+          "type": "boolean"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/definitions/IssueState"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "author",
+        "comments",
+        "created",
+        "labels",
+        "mine",
+        "number",
+        "state",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
+    "IssueView": {
+      "description": "An issue as the Issues block draws it.",
+      "properties": {
+        "assignees": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "author": {
+          "type": "string"
+        },
+        "body": {
+          "description": "The description, as Markdown.",
+          "type": "string"
+        },
+        "can_triage": {
+          "description": "The person may label, assign, close and reopen (triage or more on the repository).",
+          "type": "boolean"
+        },
+        "comments": {
+          "description": "Oldest first.",
+          "items": {
+            "$ref": "#/definitions/PrComment"
+          },
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "linked": {
+          "description": "The pull requests that close it when merged.",
+          "items": {
+            "$ref": "#/definitions/LinkedPr"
+          },
+          "type": "array"
+        },
+        "me": {
+          "description": "The person's own login, for Assign me.",
+          "type": "string"
+        },
+        "milestone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "repo_labels": {
+          "description": "The repository's labels, for + Label.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/definitions/IssueState"
+        },
+        "state_reason": {
+          "description": "`completed`, `not_planned`, `duplicate` once closed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "assignees",
+        "author",
+        "body",
+        "can_triage",
+        "comments",
+        "labels",
+        "linked",
+        "me",
+        "number",
+        "repo_labels",
+        "state",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
     "LineComment": {
       "description": "A comment the person left on one line of a thread's diff, waiting to be sent with the rest (spec §3.7, diff comments).",
       "properties": {
@@ -1100,6 +1501,32 @@
         "line",
         "path",
         "text"
+      ],
+      "type": "object"
+    },
+    "LinkedPr": {
+      "properties": {
+        "head": {
+          "description": "The PR's head branch, which a thread of this project may be on.",
+          "type": "string"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "head",
+        "number",
+        "title",
+        "url"
       ],
       "type": "object"
     },
@@ -1417,6 +1844,14 @@
       ],
       "type": "object"
     },
+    "MergeMethod": {
+      "enum": [
+        "squash",
+        "merge",
+        "rebase"
+      ],
+      "type": "string"
+    },
     "ModelEntry": {
       "description": "`ModelEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"available\", \"contextWindow\", \"effort\", \"label\", \"provider\", \"ref\" ], \"properties\": { \"alias\": { \"type\": \"string\" }, \"available\": { \"type\": \"boolean\" }, \"contextWindow\": { \"type\": \"number\" }, \"defaultEffort\": { \"$ref\": \"#/definitions/Effort\" }, \"effort\": { \"type\": \"boolean\" }, \"effortLevels\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Effort\" } }, \"label\": { \"type\": \"string\" }, \"provider\": { \"type\": \"string\" }, \"reason\": { \"type\": \"string\" }, \"ref\": { \"type\": \"string\" } } } ``` </details>",
       "properties": {
@@ -1517,6 +1952,29 @@
       "required": [
         "label",
         "name"
+      ],
+      "type": "object"
+    },
+    "NewIssue": {
+      "description": "A new issue, from New issue.",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "labels": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "body",
+        "title"
       ],
       "type": "object"
     },
@@ -2369,6 +2827,196 @@
         },
         {
           "additionalProperties": false,
+          "description": "The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why there is none (not a git repository).",
+          "properties": {
+            "after": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/GitAction"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The action this answers, once it has finished; none for a plain read."
+            },
+            "fetched": {
+              "description": "It fetched first (`Request::Git` `fetch`), so behind is current.",
+              "type": "boolean"
+            },
+            "kind": {
+              "enum": [
+                "git"
+              ],
+              "type": "string"
+            },
+            "state": {
+              "$ref": "#/definitions/Result_of_GitState_or_String"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "state",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::PrView` and `Request::PrAct`: the thread's PR, none when its branch has none, or why it could not be read (`gh` missing or signed out).",
+          "properties": {
+            "acted": {
+              "description": "It answers a `Request::PrAct`, which has finished.",
+              "type": "boolean"
+            },
+            "kind": {
+              "enum": [
+                "pr_view"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            },
+            "view": {
+              "$ref": "#/definitions/Result_of_Nullable_PrView_or_String"
+            }
+          },
+          "required": [
+            "kind",
+            "thread",
+            "view"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Prs`, or why there is none (`gh` missing or signed out, or no GitHub remote).",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "prs"
+              ],
+              "type": "string"
+            },
+            "list": {
+              "$ref": "#/definitions/Result_of_PrList_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "list"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Issues`, or why there is none (`gh` missing or signed out, or no GitHub remote).",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "filter": {
+              "$ref": "#/definitions/IssueFilter"
+            },
+            "kind": {
+              "enum": [
+                "issues"
+              ],
+              "type": "string"
+            },
+            "list": {
+              "$ref": "#/definitions/Result_of_Array_of_IssueSummary_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "filter",
+            "kind",
+            "list"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::Issue`, `Request::IssueAct` and `Request::NewIssue`: the issue as it stands, read again after an action. `number` is none when a new issue was not opened.",
+          "properties": {
+            "acted": {
+              "description": "It answers an action (or a new issue) that `gh` did.",
+              "type": "boolean"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "failed": {
+              "description": "Why the action failed; the view is still the issue as it stands.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "issue"
+              ],
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "view": {
+              "$ref": "#/definitions/Result_of_IssueView_or_String"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "view"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The answer to `Request::PrLog`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "pr_log"
+              ],
+              "type": "string"
+            },
+            "log": {
+              "type": "string"
+            },
+            "run": {
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "log",
+            "run",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The thread was not archived: its worktree has uncommitted changes in `files`, which go when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?",
           "properties": {
             "cwd": {
@@ -2556,6 +3204,238 @@
       ],
       "type": "object"
     },
+    "PrAction": {
+      "description": "What the PR block asks of the thread's PR, each through `gh`.",
+      "oneOf": [
+        {
+          "description": "A comment on the conversation.",
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "comment"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "body",
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A reply in a line comment's thread.",
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "reply"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "body",
+            "do",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "do": {
+              "enum": [
+                "resolve"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "do": {
+              "enum": [
+                "unresolve"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A review with the person's verdict; Approve and RequestChanges only on someone else's PR.",
+          "properties": {
+            "body": {
+              "type": "string"
+            },
+            "do": {
+              "enum": [
+                "review"
+              ],
+              "type": "string"
+            },
+            "event": {
+              "$ref": "#/definitions/ReviewEvent"
+            }
+          },
+          "required": [
+            "body",
+            "do",
+            "event"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Merges now; `delete_branch` deletes the head after.",
+          "properties": {
+            "delete_branch": {
+              "type": "boolean"
+            },
+            "do": {
+              "enum": [
+                "merge"
+              ],
+              "type": "string"
+            },
+            "method": {
+              "$ref": "#/definitions/MergeMethod"
+            }
+          },
+          "required": [
+            "delete_branch",
+            "do",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Merge when ready on (`method`) or off (none).",
+          "properties": {
+            "do": {
+              "enum": [
+                "auto_merge"
+              ],
+              "type": "string"
+            },
+            "method": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/MergeMethod"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Merges the base into the head on GitHub.",
+          "properties": {
+            "do": {
+              "enum": [
+                "update_branch"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Marks a draft ready for review.",
+          "properties": {
+            "do": {
+              "enum": [
+                "ready"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "do": {
+              "enum": [
+                "request_reviewers"
+              ],
+              "type": "string"
+            },
+            "logins": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "do",
+            "logins"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PrCheck": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "run": {
+          "description": "The Actions run it belongs to, whose failed log `Request::PrAct` `log` reads.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/CheckState"
+        },
+        "url": {
+          "description": "Where it ran, to open.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "state",
+        "url"
+      ],
+      "type": "object"
+    },
     "PrChip": {
       "description": "A thread's pull request as the daemon last saw it through `gh` (ARCHITECTURE, Phase C \"Watching a thread's pull request\"), for the chip on its row and its card.",
       "properties": {
@@ -2597,6 +3477,74 @@
         "number",
         "state",
         "url"
+      ],
+      "type": "object"
+    },
+    "PrComment": {
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "author",
+        "body"
+      ],
+      "type": "object"
+    },
+    "PrCommit": {
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "oid": {
+          "description": "The short hash.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "author",
+        "headline",
+        "oid"
+      ],
+      "type": "object"
+    },
+    "PrList": {
+      "description": "The repository's open pull requests, as the list's tabs split them.",
+      "properties": {
+        "mine": {
+          "items": {
+            "$ref": "#/definitions/PrSummary"
+          },
+          "type": "array"
+        },
+        "open": {
+          "items": {
+            "$ref": "#/definitions/PrSummary"
+          },
+          "type": "array"
+        },
+        "to_review": {
+          "items": {
+            "$ref": "#/definitions/PrSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "mine",
+        "open",
+        "to_review"
       ],
       "type": "object"
     },
@@ -2667,7 +3615,292 @@
       },
       "type": "object"
     },
+    "PrReviewer": {
+      "properties": {
+        "login": {
+          "type": "string"
+        },
+        "state": {
+          "description": "`approved`, `changes_requested`, `commented`; none while asked and not yet reviewed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "login"
+      ],
+      "type": "object"
+    },
     "PrState": {
+      "enum": [
+        "open",
+        "merged",
+        "closed"
+      ],
+      "type": "string"
+    },
+    "PrSummary": {
+      "description": "One open pull request of the project's repository, for the Pull requests list.",
+      "properties": {
+        "additions": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "author": {
+          "type": "string"
+        },
+        "base": {
+          "type": "string"
+        },
+        "ci": {
+          "$ref": "#/definitions/CiState"
+        },
+        "deletions": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "draft": {
+          "type": "boolean"
+        },
+        "head": {
+          "type": "string"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "review_requested": {
+          "description": "The person's review is asked for.",
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "additions",
+        "author",
+        "base",
+        "ci",
+        "deletions",
+        "draft",
+        "head",
+        "number",
+        "review_requested",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
+    "PrThread": {
+      "properties": {
+        "comments": {
+          "items": {
+            "$ref": "#/definitions/PrComment"
+          },
+          "type": "array"
+        },
+        "hunk": {
+          "description": "The diff lines the first comment was made on, ending at its line.",
+          "type": "string"
+        },
+        "id": {
+          "description": "GitHub's node id, which a reply or Resolve names.",
+          "type": "string"
+        },
+        "line": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "resolved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "comments",
+        "hunk",
+        "id",
+        "path",
+        "resolved"
+      ],
+      "type": "object"
+    },
+    "PrView": {
+      "description": "A thread's pull request as the PR block draws it (spec §11 Phase D: review, merge and issues in Cedian), read through the person's own `gh` (`Request::PrView`).",
+      "properties": {
+        "additions": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "author": {
+          "type": "string"
+        },
+        "auto_merge": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/MergeMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The merge method GitHub will use once checks and reviews allow, when merge when ready is on."
+        },
+        "base": {
+          "type": "string"
+        },
+        "behind": {
+          "description": "The base has commits the head does not (`mergeStateStatus` BEHIND).",
+          "type": "boolean"
+        },
+        "body": {
+          "description": "The description, as Markdown.",
+          "type": "string"
+        },
+        "changed_files": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/definitions/PrCheck"
+          },
+          "type": "array"
+        },
+        "closes": {
+          "description": "The issues it closes when merged.",
+          "items": {
+            "format": "uint64",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "comments": {
+          "description": "The conversation's own comments, oldest first.",
+          "items": {
+            "$ref": "#/definitions/PrComment"
+          },
+          "type": "array"
+        },
+        "commits": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "conflict": {
+          "description": "GitHub cannot merge it without a conflict.",
+          "type": "boolean"
+        },
+        "deletions": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "draft": {
+          "type": "boolean"
+        },
+        "head": {
+          "type": "string"
+        },
+        "history": {
+          "description": "Its newest commits, oldest first (up to 50).",
+          "items": {
+            "$ref": "#/definitions/PrCommit"
+          },
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mine": {
+          "description": "The person (`gh`'s login) opened it, so Approve and Request changes are not theirs.",
+          "type": "boolean"
+        },
+        "number": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "review_decision": {
+          "description": "`approved`, `changes_requested`, `review_required`; none when no review is asked.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewers": {
+          "description": "Each reviewer's latest say, and the ones asked who have not said yet.",
+          "items": {
+            "$ref": "#/definitions/PrReviewer"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/definitions/PrViewState"
+        },
+        "threads": {
+          "description": "Line comments, grouped as GitHub threads them.",
+          "items": {
+            "$ref": "#/definitions/PrThread"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "additions",
+        "author",
+        "base",
+        "behind",
+        "body",
+        "changed_files",
+        "checks",
+        "closes",
+        "comments",
+        "commits",
+        "conflict",
+        "deletions",
+        "draft",
+        "head",
+        "history",
+        "labels",
+        "mine",
+        "number",
+        "reviewers",
+        "state",
+        "threads",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
+    "PrViewState": {
       "enum": [
         "open",
         "merged",
@@ -3616,6 +4849,292 @@
         },
         {
           "additionalProperties": false,
+          "description": "Where the thread's folder (its worktree, else the project) stands in git, answered with `Notice::Git`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "fetch": {
+              "description": "Fetch from the remote first (the person opened the Git card), so behind counts what the remote has now.",
+              "type": "boolean"
+            },
+            "op": {
+              "enum": [
+                "git"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Pull or push the thread's folder, then answers `Notice::Git` with where it stands after; a git that fails answers `Notice::Error` for the thread.",
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/GitAction"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "git_action"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The thread's pull request for the PR block, answered with `Notice::PrView`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "pr_view"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Does `action` on the thread's pull request through `gh`, then answers `Notice::PrView` with `acted`; a refusal answers `Notice::Error` for the thread first.",
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/PrAction"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "pr_act"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The repository's open pull requests, answered with `Notice::Prs`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "prs"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Starts a thread that reviews PR `number`: a new worktree with the PR checked out (`gh pr checkout`), and a first run that reads it and says what it changes. The PR watch never acts on someone else's PR, so the thread does not push to it.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "review_pr"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "number",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The repository's issues that `filter` picks, answered with `Notice::Issues`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "filter": {
+              "$ref": "#/definitions/IssueFilter"
+            },
+            "op": {
+              "enum": [
+                "issues"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "filter",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One issue, answered with `Notice::Issue`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "issue"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "number",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Does `action` on issue `number` through `gh`, then answers `Notice::Issue` with it after.",
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/IssueAction"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "number": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "op": {
+              "enum": [
+                "issue_act"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "cwd",
+            "number",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Opens a new issue (`gh issue create`), answered with `Notice::Issue` for it.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "issue": {
+              "$ref": "#/definitions/NewIssue"
+            },
+            "op": {
+              "enum": [
+                "new_issue"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "issue",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The end of a failed Actions run's log, answered with `Notice::PrLog`.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "pr_log"
+              ],
+              "type": "string"
+            },
+            "run": {
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "run",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The project's page in the shared Chromium, which the daemon starts when none runs. Answered with `Notice::Browser`; from then on the project's runs get the page.",
           "properties": {
             "cwd": {
@@ -3910,12 +5429,152 @@
       ],
       "type": "string"
     },
+    "Result_of_Array_of_IssueSummary_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "items": {
+                "$ref": "#/definitions/IssueSummary"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Result_of_BrowserPage_or_String": {
       "oneOf": [
         {
           "properties": {
             "Ok": {
               "$ref": "#/definitions/BrowserPage"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_GitState_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/GitState"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_IssueView_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/IssueView"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_Nullable_PrView_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/PrView"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "Err": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Result_of_PrList_or_String": {
+      "oneOf": [
+        {
+          "properties": {
+            "Ok": {
+              "$ref": "#/definitions/PrList"
             }
           },
           "required": [
@@ -3983,6 +5642,14 @@
         "files"
       ],
       "type": "object"
+    },
+    "ReviewEvent": {
+      "enum": [
+        "comment",
+        "approve",
+        "request_changes"
+      ],
+      "type": "string"
     },
     "RewindResult": {
       "anyOf": [

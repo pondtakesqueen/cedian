@@ -5,11 +5,15 @@
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, ModelList, Notice, PermissionList, Request, Review, ThreadInfo } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, findingCount, openFindings, reviewed, sendComments, setComments, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
+import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
+import { newPrUi, prBlock, type PrUi } from "./pr-block.js";
+import { firstTab, prListCard, type PrListTab } from "./pr-list.js";
+import { filterOf, issuesCard, issueTask, newIssuesUi, type IssuesUi } from "./issues.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
@@ -40,6 +44,10 @@ export interface PaneHost {
    * the worktree is removed after archive. Without it the pane says so inline and archives nothing.
    */
   confirmArchive?(files: string[]): Promise<boolean>;
+  /** Source Control (the git pane) on this folder: the open thread's worktree, else the project. */
+  showRepository?(path: string): void;
+  /** Opens the Source Control view on this folder, for what the Git card does not do. */
+  openSourceControl?(path: string): void;
 }
 
 /** What cedia shows a model (`ImageMime`). */
@@ -58,6 +66,11 @@ const CODE_REVIEW_ENTRY: CommandEntry = { name: "code-review", description: "Rev
 /** What the composer takes as archiving the open thread. */
 const ARCHIVE = "/archive";
 const ARCHIVE_ENTRY: CommandEntry = { name: "archive", description: "Archive this thread: it leaves the list", kind: "command", source: "user" };
+/** What the composer takes as opening the Pull requests card. */
+const PRS = "/prs";
+const PRS_ENTRY: CommandEntry = { name: "prs", description: "The repository's pull requests: review one in a thread", kind: "command", source: "user" };
+const ISSUES = "/issues";
+const ISSUES_ENTRY: CommandEntry = { name: "issues", description: "The repository's issues: read, comment, close, or start a thread on one", kind: "command", source: "user" };
 
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
@@ -102,6 +115,21 @@ export class AgentPane {
   private threads: ThreadInfo[] = [];
   private state: ThreadState;
   private ship: Ship = idleShip();
+  /** The open thread's folder in git, or why it has none; the Git card's state. */
+  private git?: GitState | string;
+  private gitOpen = false;
+  private gitBusy?: GitAction;
+  /** A fetch the card asked for has not answered yet. */
+  private gitFetching = false;
+  /** The open thread's pull request for the PR block: none yet, none at all, or why not. */
+  private pr?: PrView | null | string;
+  private prUi: PrUi = newPrUi();
+  /** The Pull requests card: shown, its list (or why none), and its tab once the person picked one. */
+  private prsOpen = false;
+  private prs?: PrList | string;
+  private prsTab?: PrListTab;
+  /** The Issues card, while open. */
+  private issues?: IssuesUi;
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
@@ -189,6 +217,17 @@ export class AgentPane {
     return this.state.info?.cwd ?? this.host.cwd;
   }
 
+  /** The folder Source Control was last pointed at. */
+  private repository?: string;
+
+  /** Points Source Control at the open thread's folder once it is known, and again when it changes. */
+  private followRepository(): void {
+    const path = this.state.thread && !this.state.info ? undefined : this.cwd;
+    if (!path || path === this.repository || !this.host.showRepository) return;
+    this.repository = path;
+    this.host.showRepository(path);
+  }
+
   // ---- actions (the keybinding layer calls these) ----
 
   newThread(): void {
@@ -214,8 +253,20 @@ export class AgentPane {
     if (info) this.state = { ...this.state, info, status: info.status };
     this.ship = idleShip();
     this.wire.request({ op: "open", cwd: this.host.cwd, thread: id });
+    this.git = undefined;
+    this.gitOpen = false;
+    this.gitBusy = undefined;
+    this.gitFetching = false;
+    this.pr = undefined;
+    this.prUi = newPrUi();
+    if (info?.pr) {
+      this.pr = null;
+      this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: id });
+    }
+    this.wire.request({ op: "git", cwd: this.host.cwd, thread: id });
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
+    this.followRepository();
   }
 
   /** The project chat (⌘0): the coordinator's thread, or a new one started from the composer. */
@@ -322,6 +373,11 @@ export class AgentPane {
         break;
       case "threads":
         if (n.cwd === this.host.cwd) this.threads = n.threads;
+        // The PR watch found the open thread's PR since it opened: draw its block.
+        if (this.state.thread && this.state.info?.pr && this.pr === undefined) {
+          this.pr = null;
+          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: this.state.thread });
+        }
         break;
       case "choices":
         if (n.models) this.models = n.models;
@@ -336,6 +392,54 @@ export class AgentPane {
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
         break;
+      case "pr_view":
+        if (n.thread !== this.state.thread) break;
+        this.pr = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        if (n.acted) this.prUi.busy = undefined;
+        break;
+      case "prs":
+        if (n.cwd === this.host.cwd) this.prs = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        break;
+      case "issues":
+        if (n.cwd === this.host.cwd && this.issues && JSON.stringify(n.filter) === JSON.stringify(filterOf(this.issues))) this.issues.list = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        break;
+      case "issue": {
+        const ui = this.issues;
+        if (n.cwd !== this.host.cwd || !ui) break;
+        if (n.acted) {
+          // A comment that went with it is on GitHub now; a failed send keeps the text to try again.
+          if (!n.failed && (ui.busy === "Comment" || ui.busy === "Close")) ui.draft = "";
+          ui.busy = undefined;
+        }
+        ui.failed = n.failed ?? undefined;
+        // A new issue opens once GitHub has it; any other answer is for the issue open now.
+        if (ui.writing && n.acted && n.number != null && !n.failed) {
+          ui.writing = false;
+          ui.newTitle = ui.newBody = "";
+          ui.open = n.number;
+        }
+        if (n.number != null && n.number === ui.open) ui.view = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        break;
+      }
+      case "pr_log":
+        if (n.thread === this.state.thread && this.prUi.log?.run === n.run) this.prUi.log = { run: n.run, text: n.log };
+        break;
+      case "git":
+        if (n.thread !== this.state.thread) break;
+        this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
+        if (n.fetched) this.gitFetching = false;
+        // A pushed branch may have a PR the watch does not follow: read it, so the block shows
+        // without arming the watch's fixes.
+        if ("Ok" in n.state && n.state.Ok.upstream && this.pr === undefined) {
+          this.pr = null;
+          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
+        }
+        // A read that lands mid-push leaves the push's button busy until its own answer.
+        if (n.after && n.after === this.gitBusy) this.gitBusy = undefined;
+        break;
+      case "committed":
+        if (n.thread === this.state.thread) this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+        break;
       case "archive_guard":
         void this.archiveGuard(n.cwd, n.thread, n.files);
         break;
@@ -345,6 +449,8 @@ export class AgentPane {
       case "status":
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
+          this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+          if (this.state.info?.pr || (this.pr && typeof this.pr === "object")) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
             this.wire.request(this.then);
@@ -354,6 +460,7 @@ export class AgentPane {
         break;
     }
     this.render();
+    if (n.kind === "threads") this.followRepository();
     if (n.kind === "blocks" || n.kind === "text") this.drawn(n.thread);
   }
 
@@ -396,6 +503,8 @@ export class AgentPane {
   private send(): void {
     if (this.input.value.trim() === CODE_REVIEW) return this.codeReview();
     if (this.input.value.trim() === ARCHIVE) return this.archive();
+    if (this.input.value.trim() === PRS) return this.openPrs();
+    if (this.input.value.trim() === ISSUES) return this.openIssues();
     if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
@@ -416,6 +525,87 @@ export class AgentPane {
       return this.render();
     }
     this.sent([{ op: "code_review", cwd: this.cwd, thread }]);
+  }
+
+  /** `/prs`: the Pull requests card, asked of GitHub again each time it opens. */
+  private openPrs(): void {
+    this.prsOpen = true;
+    this.prs = undefined;
+    this.prsTab = undefined;
+    this.wire.request({ op: "prs", cwd: this.host.cwd });
+    this.input.value = "";
+    this.closePopup();
+    this.render();
+  }
+
+  /** `/issues`: the Issues card, asked of GitHub again each time it opens. */
+  private openIssues(): void {
+    this.issues = newIssuesUi();
+    this.wire.request({ op: "issues", cwd: this.host.cwd, filter: filterOf(this.issues) });
+    this.input.value = "";
+    this.closePopup();
+    this.render();
+  }
+
+  private issuesCard(ui: IssuesUi): HTMLElement {
+    const cwd = this.host.cwd;
+    return issuesCard(this.doc, ui, {
+      list: () => {
+        ui.list = undefined;
+        this.wire.request({ op: "issues", cwd, filter: filterOf(ui) });
+        this.render();
+      },
+      open: (number) => {
+        ui.open = number;
+        ui.view = undefined;
+        ui.closeMenu = false;
+        this.wire.request({ op: "issue", cwd, number });
+        this.render();
+      },
+      act: (number, action, label) => {
+        ui.busy = label;
+        ui.failed = undefined;
+        this.wire.request({ op: "issue_act", cwd, number, action });
+        this.render();
+      },
+      create: (issue) => {
+        ui.busy = "New issue";
+        ui.failed = undefined;
+        this.wire.request({ op: "new_issue", cwd, issue });
+        this.render();
+      },
+      // As Fix in thread: the person reads the task and sends it, in a new thread's worktree.
+      start: (view) => {
+        this.issues = undefined;
+        this.newThread();
+        this.input.value = issueTask(view);
+        this.input.focus();
+        this.render();
+      },
+      threadOf: (pr) => {
+        const t = this.threads.find((t) => !t.archived && t.pr?.number === pr);
+        return t && { label: `thread ${t.state}`, open: () => ((this.issues = undefined), this.openThread(t.id)) };
+      },
+      openUrl: (url) => this.host.openUrl(url),
+      redraw: () => this.render(),
+      close: () => ((this.issues = undefined), this.render()),
+    });
+  }
+
+  private prsCard(): HTMLElement {
+    const list = this.prs;
+    const tab = this.prsTab ?? (list && typeof list === "object" ? firstTab(list) : "open");
+    return prListCard(this.doc, list, tab, {
+      tab: (t) => ((this.prsTab = t), this.render()),
+      // A new thread: the daemon checks the PR out in a worktree, and its `started` opens it here.
+      review: (number) => {
+        this.prsOpen = false;
+        this.newThread();
+        this.wire.request({ op: "review_pr", cwd: this.host.cwd, number });
+      },
+      openUrl: (url) => this.host.openUrl(url),
+      close: () => ((this.prsOpen = false), this.render()),
+    });
   }
 
   /** `/archive`: hides the open thread from the list; a worktree with uncommitted changes asks first. */
@@ -473,7 +663,7 @@ export class AgentPane {
     this.token = token;
     if (!token) return this.closePopup();
     if (token.trigger === "/") {
-      const own = this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : [];
+      const own = [...(this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : []), PRS_ENTRY, ISSUES_ENTRY];
       this.showCompletions(complete(token, [], [...own, ...this.commands]));
       return;
     }
@@ -616,7 +806,12 @@ export class AgentPane {
     if (this.state.review && this.state.review.files.length > 0 && !isRunning(this.state)) parts.push(this.reviewCard(this.state.review));
     if (this.state.notes?.comments.length) parts.push(this.commentsCard(this.state.notes.comments));
     if (this.state.notes?.reviewing || this.state.notes?.review) parts.push(this.codeReviewCard());
-    if (this.state.thread && !isRunning(this.state) && this.state.review && this.state.review.files.length > 0) parts.push(this.shipCard());
+    // A commit started from the Git card shows here too, with or without a review.
+    if (this.state.thread && !isRunning(this.state) && ((this.state.review && this.state.review.files.length > 0) || this.ship.commit.step !== "idle")) parts.push(this.shipCard());
+    if (this.gitOpen && this.state.thread) parts.push(this.gitCard());
+    if (this.prsOpen) parts.push(this.prsCard());
+    if (this.issues) parts.push(this.issuesCard(this.issues));
+    if (this.state.thread && this.pr && typeof this.pr === "object") parts.push(this.prCard(this.pr));
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
@@ -825,6 +1020,80 @@ export class AgentPane {
     return card;
   }
 
+  /** The PR block: the thread's pull request, its conversation and checks, Review and Merge. */
+  private prCard(view: PrView): HTMLElement {
+    const thread = this.state.thread!;
+    return prBlock(this.doc, view, this.prUi, {
+      act: (action, label) => {
+        this.prUi.busy = label;
+        this.wire.request({ op: "pr_act", cwd: this.host.cwd, thread, action });
+        this.render();
+      },
+      log: (run) => {
+        this.prUi.log = this.prUi.log?.run === run ? undefined : { run };
+        if (this.prUi.log) this.wire.request({ op: "pr_log", cwd: this.host.cwd, thread, run });
+        this.render();
+      },
+      // The message waits in the composer for the person to send, or change first.
+      fix: (text) => {
+        this.input.value = text;
+        this.input.focus();
+        this.render();
+      },
+      openUrl: (url) => this.host.openUrl(url),
+      // The thread's own diff when it has one; else GitHub's, since this thread did not write it.
+      openDiff: () => (this.state.review?.files.length ? this.host.openReview(thread, this.cwd, this.state.review) : this.host.openUrl(`${view.url}/files`)),
+      redraw: () => this.render(),
+    });
+  }
+
+  /** The Git card, from the branch chip: where the branch stands, and Pull and Push. */
+  private gitCard(): HTMLElement {
+    const d = this.doc;
+    const thread = this.state.thread!;
+    const card = el(d, "div", "card git");
+    const git = this.git;
+    if (git === undefined) {
+      card.append(el(d, "div", "small", "Reading git…"));
+      return card;
+    }
+    if (typeof git === "string") {
+      card.append(el(d, "div", "small bad", git));
+      return card;
+    }
+    card.append(el(d, "div", "m ell", branchLine(git)));
+    const pending = pendingLine(git);
+    if (pending) card.append(el(d, "div", "small", pending));
+    if (git.rebasing) card.append(el(d, "div", "small warn", "A rebase stopped part way here. Finish or abort it in Source Control before the next run."));
+    if (this.gitFetching) card.append(el(d, "div", "small m", "Fetching from origin…"));
+    else if (git.fetch_error) card.append(el(d, "div", "small warn", `Couldn't fetch, so these counts may be old: ${git.fetch_error}`));
+    const row = el(d, "div", "row");
+    for (const action of git.rebasing ? [] : gitActions(git)) {
+      const b = button(d, this.gitBusy === action ? ACTION_BUSY[action] : ACTION_LABEL[action], () => {
+        this.gitBusy = action;
+        this.wire.request({ op: "git_action", cwd: this.host.cwd, thread, action });
+        this.render();
+      }, "btn small");
+      if (this.gitBusy) {
+        b.disabled = true;
+        if (this.gitBusy === action) b.setAttribute("aria-busy", "true");
+      }
+      row.append(b);
+    }
+    if (this.host.openSourceControl) row.append(button(d, "Source Control", () => this.host.openSourceControl!(this.cwd), "btn small"));
+    // Commit as the receipt does (`cedia commit` drafts the message), from where git says what is uncommitted.
+    if (git.changed > 0 && this.ship.commit.step === "idle" && !isRunning(this.state) && (this.capabilities.length === 0 || this.capabilities.includes("commit"))) {
+      row.append(button(d, "Commit", () => {
+        const r = startCommit(this.ship, this.cwd, thread);
+        this.ship = r.ship;
+        if (r.request) this.wire.request(r.request);
+        this.render();
+      }, "btn small primary"));
+    }
+    if (row.childElementCount) card.append(row);
+    return card;
+  }
+
   private shipCard(): HTMLElement {
     const d = this.doc;
     const thread = this.state.thread!;
@@ -1010,6 +1279,20 @@ export class AgentPane {
       s.dataset.chip = "permission";
       s.title = "Permission (Cmd+Shift+M)";
       chips.push(s);
+    }
+    if (this.state.thread && this.git && typeof this.git !== "string") {
+      const branch = button(d, `⑂ ${this.git.branch ?? "detached"}`, () => {
+        this.gitOpen = !this.gitOpen;
+        // Opening it is the person's ask to look at the remote: fetch, so behind is current.
+        if (this.gitOpen) {
+          this.gitFetching = true;
+          this.wire.request({ op: "git", cwd: this.host.cwd, thread: this.state.thread!, fetch: true });
+        }
+        this.render();
+      }, "chip m git");
+      branch.setAttribute("aria-expanded", String(this.gitOpen));
+      branch.title = branchLine(this.git);
+      chips.push(branch);
     }
     if (!this.state.thread) {
       const label = el(d, "label", "chip check");

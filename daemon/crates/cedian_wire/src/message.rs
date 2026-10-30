@@ -13,7 +13,10 @@ use cedian_protocol::{
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{BrowserPage, Build, LineComment, McpAdd, McpServer, Notes, Status, ThreadInfo};
+use crate::{
+    BrowserPage, Build, GitAction, GitState, IssueAction, IssueFilter, IssueSummary, IssueView,
+    LineComment, McpAdd, McpServer, NewIssue, Notes, PrAction, PrList, PrView, Status, ThreadInfo,
+};
 
 /// From the window to the daemon.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -245,6 +248,56 @@ pub enum Request {
         cwd: PathBuf,
         id: String,
         enabled: bool,
+    },
+    /// Where the thread's folder (its worktree, else the project) stands in git, answered with
+    /// `Notice::Git`.
+    Git {
+        cwd: PathBuf,
+        thread: String,
+        /// Fetch from the remote first (the person opened the Git card), so behind counts
+        /// what the remote has now.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        fetch: bool,
+    },
+    /// Pull or push the thread's folder, then answers `Notice::Git` with where it stands after;
+    /// a git that fails answers `Notice::Error` for the thread.
+    GitAction {
+        cwd: PathBuf,
+        thread: String,
+        action: GitAction,
+    },
+    /// The thread's pull request for the PR block, answered with `Notice::PrView`.
+    PrView { cwd: PathBuf, thread: String },
+    /// Does `action` on the thread's pull request through `gh`, then answers `Notice::PrView`
+    /// with `acted`; a refusal answers `Notice::Error` for the thread first.
+    PrAct {
+        cwd: PathBuf,
+        thread: String,
+        action: PrAction,
+    },
+    /// The repository's open pull requests, answered with `Notice::Prs`.
+    Prs { cwd: PathBuf },
+    /// Starts a thread that reviews PR `number`: a new worktree with the PR checked out
+    /// (`gh pr checkout`), and a first run that reads it and says what it changes. The PR watch
+    /// never acts on someone else's PR, so the thread does not push to it.
+    ReviewPr { cwd: PathBuf, number: u64 },
+    /// The repository's issues that `filter` picks, answered with `Notice::Issues`.
+    Issues { cwd: PathBuf, filter: IssueFilter },
+    /// One issue, answered with `Notice::Issue`.
+    Issue { cwd: PathBuf, number: u64 },
+    /// Does `action` on issue `number` through `gh`, then answers `Notice::Issue` with it after.
+    IssueAct {
+        cwd: PathBuf,
+        number: u64,
+        action: IssueAction,
+    },
+    /// Opens a new issue (`gh issue create`), answered with `Notice::Issue` for it.
+    NewIssue { cwd: PathBuf, issue: NewIssue },
+    /// The end of a failed Actions run's log, answered with `Notice::PrLog`.
+    PrLog {
+        cwd: PathBuf,
+        thread: String,
+        run: String,
     },
     /// The project's page in the shared Chromium, which the daemon starts when none runs.
     /// Answered with `Notice::Browser`; from then on the project's runs get the page.
@@ -530,6 +583,59 @@ pub enum Notice {
     Browser {
         cwd: PathBuf,
         page: Result<BrowserPage, String>,
+    },
+    /// The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why
+    /// there is none (not a git repository).
+    Git {
+        thread: String,
+        state: Result<GitState, String>,
+        /// The action this answers, once it has finished; none for a plain read.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        after: Option<GitAction>,
+        /// It fetched first (`Request::Git` `fetch`), so behind is current.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        fetched: bool,
+    },
+    /// The answer to `Request::PrView` and `Request::PrAct`: the thread's PR, none when its branch
+    /// has none, or why it could not be read (`gh` missing or signed out).
+    PrView {
+        thread: String,
+        view: Result<Option<PrView>, String>,
+        /// It answers a `Request::PrAct`, which has finished.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        acted: bool,
+    },
+    /// The answer to `Request::Prs`, or why there is none (`gh` missing or signed out, or no
+    /// GitHub remote).
+    Prs {
+        cwd: PathBuf,
+        list: Result<PrList, String>,
+    },
+    /// The answer to `Request::Issues`, or why there is none (`gh` missing or signed out, or no
+    /// GitHub remote).
+    Issues {
+        cwd: PathBuf,
+        filter: IssueFilter,
+        list: Result<Vec<IssueSummary>, String>,
+    },
+    /// The answer to `Request::Issue`, `Request::IssueAct` and `Request::NewIssue`: the issue as
+    /// it stands, read again after an action. `number` is none when a new issue was not opened.
+    Issue {
+        cwd: PathBuf,
+        number: Option<u64>,
+        view: Result<IssueView, String>,
+        /// It answers an action (or a new issue) that `gh` did.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        acted: bool,
+        /// Why the action failed; the view is still the issue as it stands.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        failed: Option<String>,
+    },
+    /// The answer to `Request::PrLog`.
+    PrLog {
+        thread: String,
+        run: String,
+        log: String,
     },
     /// The thread was not archived: its worktree has uncommitted changes in `files`, which go
     /// when the worktree is removed after archive (spec §8.4). The window asks Archive anyway?

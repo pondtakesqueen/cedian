@@ -908,6 +908,182 @@ impl Daemon {
                     lock(shared).thread_error(client, &thread, format!("{error:#}"));
                 }
             }
+            Request::Git { cwd, thread, fetch } => {
+                let dir = lock(shared).folder(&cwd, &thread);
+                // A fetch talks to the remote: it holds none of the window's other asks.
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let state = crate::git_state::read(&dir, fetch).map_err(|e| format!("{e:#}"));
+                    let after = None;
+                    lock(&shared).send(
+                        client,
+                        Notice::Git {
+                            thread,
+                            state,
+                            after,
+                            fetched: fetch,
+                        },
+                    );
+                });
+            }
+            Request::GitAction {
+                cwd,
+                thread,
+                action,
+            } => {
+                let dir = lock(shared).folder(&cwd, &thread);
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    if let Err(error) = crate::git_state::act(&dir, action) {
+                        lock(&shared).thread_error(client, &thread, format!("{error:#}"));
+                    }
+                    let state = crate::git_state::read(&dir, false).map_err(|e| format!("{e:#}"));
+                    let after = Some(action);
+                    lock(&shared).send(
+                        client,
+                        Notice::Git {
+                            thread,
+                            state,
+                            after,
+                            fetched: false,
+                        },
+                    );
+                });
+            }
+            Request::PrView { cwd, thread } => {
+                let (gh, dir) = {
+                    let daemon = lock(shared);
+                    (daemon.gh.clone(), daemon.folder(&cwd, &thread))
+                };
+                // gh asks GitHub: it holds none of the window's other asks.
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let view = crate::pr_view::read(&gh, &dir).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::PrView {
+                        thread,
+                        view,
+                        acted: false,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::PrAct {
+                cwd,
+                thread,
+                action,
+            } => {
+                let (gh, dir) = {
+                    let daemon = lock(shared);
+                    (daemon.gh.clone(), daemon.folder(&cwd, &thread))
+                };
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    if let Err(error) = crate::pr_view::act(&gh, &dir, &action) {
+                        lock(&shared).thread_error(client, &thread, format!("{error:#}"));
+                    }
+                    let view = crate::pr_view::read(&gh, &dir).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::PrView {
+                        thread,
+                        view,
+                        acted: true,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::Prs { cwd } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let list = crate::pr_view::list(&gh, &cwd).map_err(|e| format!("{e:#}"));
+                    lock(&shared).send(client, Notice::Prs { cwd, list });
+                });
+            }
+            Request::ReviewPr { cwd, number } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || Self::review_pr(&shared, client, cwd, &gh, number));
+            }
+            Request::Issues { cwd, filter } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let list =
+                        crate::issues::list(&gh, &cwd, &filter).map_err(|e| format!("{e:#}"));
+                    lock(&shared).send(client, Notice::Issues { cwd, filter, list });
+                });
+            }
+            Request::Issue { cwd, number } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let view = crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::Issue {
+                        cwd,
+                        number: Some(number),
+                        view,
+                        acted: false,
+                        failed: None,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::IssueAct {
+                cwd,
+                number,
+                action,
+            } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let failed = crate::issues::act(&gh, &cwd, number, &action)
+                        .err()
+                        .map(|e| format!("{e:#}"));
+                    let view = crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    let notice = Notice::Issue {
+                        cwd,
+                        number: Some(number),
+                        view,
+                        acted: true,
+                        failed,
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::NewIssue { cwd, issue } => {
+                let gh = lock(shared).gh.clone();
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let notice = match crate::issues::create(&gh, &cwd, &issue) {
+                        Ok(number) => Notice::Issue {
+                            view: crate::issues::read(&gh, &cwd, number)
+                                .map_err(|e| format!("{e:#}")),
+                            cwd,
+                            number: Some(number),
+                            acted: true,
+                            failed: None,
+                        },
+                        Err(error) => Notice::Issue {
+                            cwd,
+                            number: None,
+                            view: Err(format!("{error:#}")),
+                            acted: true,
+                            failed: Some(format!("{error:#}")),
+                        },
+                    };
+                    lock(&shared).send(client, notice);
+                });
+            }
+            Request::PrLog { cwd, thread, run } => {
+                let (gh, dir) = {
+                    let daemon = lock(shared);
+                    (daemon.gh.clone(), daemon.folder(&cwd, &thread))
+                };
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let log = gh.failed_log(&dir, &run);
+                    lock(&shared).send(client, Notice::PrLog { thread, run, log });
+                });
+            }
             Request::Browser { cwd } => {
                 let browser = lock(shared).browser.clone();
                 let page = browser
@@ -1279,6 +1455,14 @@ impl Daemon {
         }
     }
 
+    /// The folder the thread's latest session ran in (its worktree), else the project's.
+    fn folder(&self, cwd: &Path, thread: &str) -> PathBuf {
+        let slug = project_key(cwd);
+        read_thread(&threads_dir(&self.home, &slug), thread)
+            .and_then(|summary| Changes::of(&self.home, &slug, &summary))
+            .map_or_else(|_| cwd.to_owned(), |changes| changes.work_tree)
+    }
+
     /// The uncommitted files in the worktree the thread's latest session ran in; none when it
     /// ran in the project itself, or has no session yet.
     fn uncommitted(&self, cwd: &Path, thread: &str) -> Vec<String> {
@@ -1558,6 +1742,44 @@ impl Daemon {
                 }
                 Err(error) => log::warn!("starting {thread}: {error:#}"),
             }
+        }
+    }
+
+    /// A thread that reviews someone's PR: a worktree with the PR checked out, and a first run
+    /// that reads it. Its task says not to push or post: the review is the person's to send,
+    /// from the PR block.
+    fn review_pr(
+        shared: &Shared,
+        client: ClientId,
+        asked_in: PathBuf,
+        gh: &crate::pr_watch::Gh,
+        number: u64,
+    ) {
+        let text = format!(
+            "Review pull request #{number}, which is checked out here. Read its diff against its \
+             base (gh pr diff {number}), then say what it changes, what looks risky or wrong, \
+             and what to ask its author, with file and line. Change nothing, and do not push, \
+             comment or review on GitHub: the person sends the review."
+        );
+        lock(shared).send(
+            client,
+            Notice::Preparing {
+                cwd: asked_in.clone(),
+                step: format!("checking out PR #{number}"),
+            },
+        );
+        let made = crate::worktree::create(&asked_in, &format!("review pr {number}"))
+            .and_then(|(dir, _)| crate::pr_view::checkout(gh, &dir, number).map(|()| dir));
+        match made {
+            Ok(dir) => {
+                let with = Flags {
+                    permission: Some("read-only"),
+                    cache_ttl: Some(PERSON_CACHE_TTL),
+                    ..Flags::default()
+                };
+                Self::prompt(shared, Some(client), asked_in, dir, &text, None, with);
+            }
+            Err(error) => lock(shared).error(client, format!("{error:#}")),
         }
     }
 

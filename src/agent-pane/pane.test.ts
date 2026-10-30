@@ -195,6 +195,113 @@ describe("agent pane", () => {
     expect(rows[1]?.textContent).toContain("Accept");
   });
 
+  it("points Source Control at the open thread's worktree, once per folder", () => {
+    const shown: string[] = [];
+    const { pane, emit } = setup({ showRepository: (path) => shown.push(path) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" }), info({ id: "t-2", cwd: "/r/.cedian/worktrees/b" })] });
+    expect(shown).toEqual(["/r"]);
+    pane.openThread("t-1");
+    expect(shown).toEqual(["/r", "/r/.cedian/worktrees/a"]);
+    // The same list again changes nothing.
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" }), info({ id: "t-2", cwd: "/r/.cedian/worktrees/b" })] });
+    pane.openThread("t-2");
+    expect(shown).toEqual(["/r", "/r/.cedian/worktrees/a", "/r/.cedian/worktrees/b"]);
+  });
+
+  it("the branch chip opens the Git card: where the branch stands, Pull and Push", () => {
+    const sc: string[] = [];
+    const { pane, emit, last, sent } = setup({ openSourceControl: (path) => sc.push(path) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    expect(sent).toContainEqual({ op: "git", cwd: "/r", thread: "t-1" });
+    expect(pane.root.querySelector(".chip.git")).toBeNull();
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
+    const chip = pane.root.querySelector<HTMLButtonElement>(".chip.git")!;
+    expect(chip.textContent).toBe("⑂ fix-login");
+    chip.click();
+    expect(last()).toEqual({ op: "git", cwd: "/r", thread: "t-1", fetch: true });
+    const card = pane.root.querySelector(".card.git")!;
+    expect(card.textContent).toContain("fix-login → origin/main · ahead 2 · behind 1");
+    expect(card.textContent).toContain("1 uncommitted file · 2 not pushed");
+    expect(card.textContent).toContain("Fetching from origin…");
+    emit({ kind: "git", thread: "t-1", fetched: true, state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
+    expect(pane.root.querySelector(".card.git")!.textContent).not.toContain("Fetching");
+    buttons(pane.root, "Push")[0]!.click();
+    expect(last()).toEqual({ op: "git_action", cwd: "/r", thread: "t-1", action: "push" });
+    expect(buttons(pane.root, "Pushing…")[0]!.disabled).toBe(true);
+    // A plain read mid-push keeps the push's button busy.
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
+    expect(buttons(pane.root, "Pushing…")[0]!.disabled).toBe(true);
+    emit({ kind: "git", thread: "t-1", after: "push", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: "origin/fix-login", unpushed: 0, changed: 1 } } });
+    expect(buttons(pane.root, "Push")).toHaveLength(0);
+    expect(buttons(pane.root, "Pull")).toHaveLength(1);
+    buttons(pane.root, "Source Control")[0]!.click();
+    expect(sc).toEqual(["/r/.cedian/worktrees/a"]);
+    // Commit from the card drafts the message as the receipt's Commit does.
+    pane.root.querySelector<HTMLButtonElement>(".card.git button.primary")!.click();
+    expect(last()).toEqual({ op: "commit_draft", cwd: "/r/.cedian/worktrees/a", thread: "t-1" });
+    expect(pane.root.textContent).toContain("Drafting the commit message");
+    // A rebase left part way: no Pull or Push, and the card says why.
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: "origin/fix-login", unpushed: 0, changed: 1, rebasing: true, fetch_error: "git fetch: no answer in 120 s" } } });
+    expect(buttons(pane.root, "Pull")).toHaveLength(0);
+    expect(pane.root.querySelector(".card.git")?.textContent).toContain("A rebase stopped part way");
+    expect(pane.root.querySelector(".card.git")?.textContent).toContain("Couldn't fetch");
+    // A folder outside git says so in the card.
+    emit({ kind: "git", thread: "t-1", state: { Err: "not a git repository" } });
+    expect(pane.root.querySelector(".card.git")?.textContent).toContain("not a git repository");
+  });
+
+  it("draws the PR block for a thread with a PR, and acts through the daemon", () => {
+    const { pane, emit, last, sent } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ pr: { number: 7, url: "u", state: "open", ci: "failing", conflict: false, review: null, fixing: false } })] });
+    pane.openThread("t-1");
+    expect(sent).toContainEqual({ op: "pr_view", cwd: "/r", thread: "t-1" });
+    const view = { number: 7, url: "u", title: "Fix it", body: "", state: "open" as const, draft: false, author: "x", mine: false, head: "h", base: "main", additions: 1, deletions: 0, commits: 1, changed_files: 1, conflict: false, behind: false, review_decision: null, reviewers: [], labels: [], closes: [], checks: [], comments: [], threads: [], history: [], auto_merge: null };
+    emit({ kind: "pr_view", thread: "t-1", view: { Ok: view } });
+    expect(pane.root.querySelector(".pr-block")?.textContent).toContain("#7 Fix it");
+    buttons(pane.root, "Approve")[0]!.click();
+    expect(last()).toEqual({ op: "pr_act", cwd: "/r", thread: "t-1", action: { do: "review", event: "approve", body: "" } });
+    expect(buttons(pane.root, "Approve…")[0]!.disabled).toBe(true);
+    emit({ kind: "pr_view", thread: "t-1", view: { Ok: { ...view, review_decision: "approved" } }, acted: true });
+    expect(buttons(pane.root, "Approve")[0]!.disabled).toBe(false);
+  });
+
+  it("a pushed branch's PR shows its block without the PR watch", () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "b", base: "origin/main", ahead: 1, behind: 0, upstream: "origin/b", unpushed: 0, changed: 0 } } });
+    expect(last()).toEqual({ op: "pr_view", cwd: "/r", thread: "t-1" });
+  });
+
+  it("/prs opens the Pull requests card, and Review in a thread starts one", () => {
+    const { pane, emit, last } = setup();
+    type(pane, "/prs");
+    enter(pane);
+    enter(pane);
+    expect(last()).toEqual({ op: "prs", cwd: "/r" });
+    expect(pane.root.querySelector(".pr-list")?.textContent).toContain("Asking GitHub");
+    emit({ kind: "prs", cwd: "/r", list: { Ok: { to_review: [{ number: 11, url: "u", title: "Cache", author: "t", head: "c", base: "main", draft: false, additions: 1, deletions: 0, ci: "none", review_requested: true }], mine: [], open: [] } } });
+    buttons(pane.root, "Review in a thread")[0]!.click();
+    expect(last()).toEqual({ op: "review_pr", cwd: "/r", number: 11 });
+    expect(pane.root.querySelector(".pr-list")).toBeNull();
+  });
+
+  it("/issues opens the Issues card; an issue's Start a thread fills a new thread's message", () => {
+    const { pane, emit, last } = setup();
+    type(pane, "/issues");
+    enter(pane);
+    enter(pane);
+    expect(last()).toEqual({ op: "issues", cwd: "/r", filter: { state: "open", assigned: false, search: "" } });
+    emit({ kind: "issues", cwd: "/r", filter: { state: "open", assigned: false, search: "" }, list: { Ok: [{ number: 14, url: "u", title: "Median", author: "m", mine: false, state: "open", labels: [], comments: 0, created: "" }] } });
+    buttons(pane.root, "Median")[0]!.click();
+    expect(last()).toEqual({ op: "issue", cwd: "/r", number: 14 });
+    emit({ kind: "issue", cwd: "/r", number: 14, view: { Ok: { number: 14, url: "u", title: "Median", body: "b", state: "open", author: "m", labels: [], assignees: [], me: "p", comments: [], linked: [], repo_labels: [], can_triage: true } } });
+    buttons(pane.root, "Start a thread")[0]!.click();
+    expect(pane.root.querySelector(".card.issues")).toBeNull();
+    expect(pane.root.querySelector("textarea")!.value).toContain("Fix issue #14: Median");
+  });
+
   it("commits and opens a PR from the receipt", () => {
     const { pane, emit, last } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });
@@ -314,7 +421,7 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".thread-card")).toBeNull();
     // ⌘0 goes back to the chat.
     pane.projectChat();
-    expect(sent.at(-2)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
+    expect(sent.at(-3)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
     expect(pane.root.querySelector<HTMLSelectElement>("select.threads")!.value).toBe("@chat");
   });
 
