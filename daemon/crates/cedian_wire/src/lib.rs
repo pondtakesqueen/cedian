@@ -15,7 +15,7 @@ mod schema;
 mod socket;
 mod status;
 
-pub use browser::BrowserPage;
+pub use browser::{BrowserPage, BrowserTab, BrowserTabAction};
 pub use build::Build;
 pub use cedian_review::{FileReview, Hunk, HunkState, Review};
 pub use git::{GitAction, GitState};

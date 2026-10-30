@@ -14,8 +14,9 @@ use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    BrowserPage, Build, GitAction, GitState, IssueAction, IssueFilter, IssueSummary, IssueView,
-    LineComment, McpAdd, McpServer, NewIssue, Notes, PrAction, PrList, PrView, Status, ThreadInfo,
+    BrowserPage, BrowserTabAction, Build, GitAction, GitState, IssueAction, IssueFilter,
+    IssueSummary, IssueView, LineComment, McpAdd, McpServer, NewIssue, Notes, PrAction, PrList,
+    PrView, Status, ThreadInfo,
 };
 
 /// From the window to the daemon.
@@ -300,9 +301,14 @@ pub enum Request {
         thread: String,
         run: String,
     },
-    /// The project's page in the shared Chromium, which the daemon starts when none runs.
-    /// Answered with `Notice::Browser`; from then on the project's runs get the page.
-    Browser { cwd: PathBuf },
+    /// The project's tabs in the shared Chromium, which the daemon starts when none runs, after
+    /// `tab` when given. Every window gets `Notice::Browser`; from then on the project's runs
+    /// get the active tab.
+    Browser {
+        cwd: PathBuf,
+        #[serde(default)]
+        tab: Option<BrowserTabAction>,
+    },
     /// A message for the files `thread` changed in `cwd` (its worktree, else the project),
     /// drafted by its writer model (`cedia commit --thread --json`), answered with
     /// `Notice::CommitDraft`, when this cedia offers `commit`. Nothing is committed.

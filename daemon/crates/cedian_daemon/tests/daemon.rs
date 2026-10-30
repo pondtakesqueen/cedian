@@ -33,6 +33,10 @@ fn start(fixture: &str) -> Harness {
 
 /// `caps`: capabilities the fake cedia adds to its version, as JSON strings with commas.
 fn start_with(fixture: &str, caps: &str) -> Harness {
+    start_with_env(fixture, caps, [])
+}
+
+fn start_with_env<const N: usize>(fixture: &str, caps: &str, more: [(&str, String); N]) -> Harness {
     let dir = tempfile::tempdir().expect("tempdir");
     let home = dir.path().join("home");
     // Canonical, as the window passes it: macOS's temp dir is under the /var -> /private/var
@@ -61,6 +65,10 @@ fn start_with(fixture: &str, caps: &str) -> Harness {
             home.join("sessions").join(&slug).display().to_string(),
         ),
     ]);
+    let env = env
+        .into_iter()
+        .chain(more.into_iter().map(|(k, v)| (k.to_owned(), v)))
+        .collect();
     let socket = dir.path().join("state/daemon.sock");
     let record = dir.path().join("wire.jsonl");
     let config = Config {
@@ -2275,4 +2283,85 @@ fn a_cedia_without_inline_edit_or_completion_answers_the_ask_with_why() {
         window.next(),
         Notice::Completion { id, completion: cedian_protocol::Completion::Variant1 { .. } } if id == "c-1"
     ));
+}
+
+/// A real Chromium for the browser tests: `CEDIAN_CHROMIUM`, else Playwright's in the cloud.
+fn chromium() -> Option<String> {
+    std::env::var("CEDIAN_CHROMIUM").ok().or_else(|| {
+        Path::new("/opt/pw-browsers/chromium")
+            .exists()
+            .then(|| "/opt/pw-browsers/chromium".to_owned())
+    })
+}
+
+#[test]
+fn a_run_drives_the_active_tab_and_keeps_to_the_project_s_sites() {
+    let Some(bin) = chromium() else { return };
+    let harness = start_with_env(
+        "edit-and-check",
+        "\"browser\",\"browser.sites\"",
+        [("CEDIAN_CHROMIUM", bin)],
+    );
+    let slug = cedian_index::project_key(&harness.cwd);
+    std::fs::create_dir_all(&harness.home).expect("home");
+    std::fs::write(
+        harness.home.join("settings.json"),
+        serde_json::json!({ "desktop": { "browser_sites": { slug: ["Docs.Example.com"] } } })
+            .to_string(),
+    )
+    .expect("settings");
+    let mut window = Window::connect(&harness);
+    let mut other = Window::connect(&harness);
+    window.ask(Request::Browser {
+        cwd: harness.cwd.clone(),
+        tab: None,
+    });
+    let page = |seen: &[Notice]| match seen.last() {
+        Some(Notice::Browser { page: Ok(page), .. }) => page.clone(),
+        other => panic!("{other:?}"),
+    };
+    let (_, seen) = window.until(|n| matches!(n, Notice::Browser { .. }));
+    let first = page(&seen);
+    assert_eq!(first.tabs.len(), 1);
+    window.ask(Request::Browser {
+        cwd: harness.cwd.clone(),
+        tab: Some(cedian_wire::BrowserTabAction::Open { url: None }),
+    });
+    let (_, seen) =
+        window.until(|n| matches!(n, Notice::Browser { page: Ok(p), .. } if p.tabs.len() == 2));
+    let second = page(&seen);
+    assert_eq!(second.socket, second.tabs[1].socket);
+    // Another window hears of the tab it did not open.
+    let (_, seen) =
+        other.until(|n| matches!(n, Notice::Browser { page: Ok(p), .. } if p.tabs.len() == 2));
+    assert_eq!(page(&seen), second);
+    window.ask(Request::Prompt {
+        cwd: harness.cwd.clone(),
+        text: "look at the page".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+    });
+    window.until(status_is(Status::Done));
+    let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
+    let args: Vec<&str> = args.lines().collect();
+    assert!(
+        args.windows(2)
+            .any(|w| w == ["--browser", second.socket.as_str()]),
+        "{args:?}"
+    );
+    assert!(
+        args.windows(2)
+            .any(|w| w == ["--browser-sites", "docs.example.com"]),
+        "{args:?}"
+    );
+    let _ = std::process::Command::new("pkill")
+        .arg("-f")
+        .arg(harness._dir.path().join("state").display().to_string())
+        .status();
 }

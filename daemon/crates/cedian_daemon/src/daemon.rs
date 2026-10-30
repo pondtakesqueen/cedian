@@ -21,7 +21,7 @@ use cedian_wire::{Build, Notice, Request, Status, ThreadInfo};
 use crate::{
     Cedia, auto_archive,
     browser::Browser,
-    cedia::Flags,
+    cedia::{Flags, browser_sites},
     desktop_settings::{read_desktop, set_desktop_key, settings_path},
     flow::{Flow, Held},
     follow::{Offsets, follow},
@@ -1104,17 +1104,31 @@ impl Daemon {
                     lock(&shared).send(client, Notice::PrLog { thread, run, log });
                 });
             }
-            Request::Browser { cwd } => {
+            Request::Browser { cwd, tab } => {
                 let browser = lock(shared).browser.clone();
                 let page = browser
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .page(&project_key(&cwd))
+                    .page(&project_key(&cwd), tab.as_ref())
                     .map_err(|e| format!("{e:#}"));
                 if let Err(error) = &page {
                     log::warn!("browser: {error}");
                 }
-                lock(shared).send(client, Notice::Browser { cwd, page });
+                // A tab one window opened or closed is every window's: each shows the project's
+                // tabs as the daemon has them. Why there are none is the asking window's.
+                let mut daemon = lock(shared);
+                let clients: Vec<ClientId> = if page.is_ok() {
+                    daemon.clients.keys().copied().collect()
+                } else {
+                    vec![client]
+                };
+                for id in clients {
+                    let notice = Notice::Browser {
+                        cwd: cwd.clone(),
+                        page: page.clone(),
+                    };
+                    daemon.send(id, notice);
+                }
             }
             Request::CommitDraft { .. }
             | Request::Commit { .. }
@@ -1907,10 +1921,17 @@ impl Daemon {
             })
             .flatten();
         let shows_images = can(cedian_protocol::Capability::Images);
+        // The project's allowlist holds for the agent too, when this cedia can hold it.
+        let sites = (page.is_some() && can(cedian_protocol::Capability::BrowserSites)).then(|| {
+            read_desktop(&settings_path(&daemon.home))
+                .map(|desktop| browser_sites(&desktop, &slug))
+                .unwrap_or_default()
+        });
         let with = Flags {
             ask: can(cedian_protocol::Capability::Ask),
             todo: can(cedian_protocol::Capability::Todo),
             browser: page.as_ref().map(|p| p.socket.as_str()),
+            sites: sites.as_deref(),
             cache_ttl: with
                 .cache_ttl
                 .filter(|_| can(cedian_protocol::Capability::CacheTtl)),
