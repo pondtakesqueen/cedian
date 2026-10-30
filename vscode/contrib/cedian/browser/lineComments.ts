@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/lineComments.css';
-import { $ } from '../../../../base/browser/dom.js';
+import { $, getWindow } from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { ICodeEditor, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
@@ -183,16 +183,48 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 	}
 }
 
-/** One note under a line of the diff, drawn by `fill`; it never moves the editor's scroll. */
+/**
+ * One note under a line of the diff, drawn by `fill`; it never moves the editor's scroll. Its
+ * height follows its text and buttons as they wrap at the editor's width.
+ */
 class NoteZone extends ZoneWidget {
+	private lines: number;
+	private measuring = false;
+
 	constructor(editor: ICodeEditor, line: number, lines: number, private readonly fill: (node: HTMLElement) => void) {
 		super(editor, { showFrame: false, showArrow: false, isResizeable: false, keepEditorSelection: true });
+		this.lines = lines;
 		this.create();
 		this.show({ lineNumber: line, column: 1 }, lines);
 	}
 
 	protected _fillContainer(container: HTMLElement): void {
 		this.fill(container);
+	}
+
+	protected override _doLayout(): void {
+		this.measure();
+	}
+
+	/** After the next frame, the lines the note needs at its width; the zone grows or shrinks to them. */
+	private measure(): void {
+		const container = this.container;
+		if (!container || this.measuring) {
+			return;
+		}
+		this.measuring = true;
+		getWindow(container).requestAnimationFrame(() => {
+			this.measuring = false;
+			const height = container.style.height;
+			container.style.height = 'auto';
+			const natural = container.offsetHeight;
+			container.style.height = height;
+			const lines = Math.max(1, Math.ceil(natural / this.editor.getOption(EditorOption.lineHeight)));
+			if (natural > 0 && lines !== this.lines) {
+				this.lines = lines;
+				this._relayout(lines);
+			}
+		});
 	}
 
 	protected override revealRange(): void {

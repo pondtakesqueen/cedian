@@ -94,7 +94,7 @@ export function stateLabel(comment: LineComment): string {
     case "draft":
       return "Not sent";
     case "sent":
-      return "Sent · waiting for the run";
+      return "Sent";
     case "open":
       return "Still open";
     case "resolved":
