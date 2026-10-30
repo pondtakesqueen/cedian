@@ -10,6 +10,7 @@ import { Disposable, DisposableStore, IDisposable } from '../../../../base/commo
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { localize, localize2 } from '../../../../nls.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Extensions as ConfigurationExtensions, IConfigurationDefaults, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -25,11 +26,13 @@ import { ColorScheme } from '../../../../platform/theme/common/theme.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
-import { EditorExtensions } from '../../../common/editor.js';
+import { EditorExtensions, IEditorFactoryRegistry } from '../../../common/editor.js';
 import { IViewContainersRegistry, IViewsRegistry, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from './agentEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
+import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { runInlineEdit } from './inlineEdit.js';
 import './lineComments.js';
@@ -70,6 +73,46 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	EditorPaneDescriptor.create(CedianSettingsEditor, CedianSettingsEditor.ID, localize('cedian.settings', "Cedian Settings")),
 	[new SyncDescriptor(CedianSettingsInput)],
 );
+
+// ---- pop-out panes: the agent pane in a window of its own, as an editor there ----
+
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(CedianAgentEditor, CedianAgentEditor.ID, localize('cedian.agent.editor', "Agent")),
+	[new SyncDescriptor(CedianAgentInput)],
+);
+Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(CedianAgentInput.ID, CedianAgentInputSerializer);
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.popOut',
+			title: localize2('cedian.popOut', "Open Thread in New Window"),
+			category: localize2('cedian.category', "Cedian"),
+			icon: Codicon.openInWindow,
+			f1: true,
+			menu: [{ id: MenuId.ViewTitle, when: ContextKeyExpr.equals('view', AGENT_PANE_VIEW_ID), group: 'navigation', order: 10 }],
+		});
+	}
+	run(accessor: ServicesAccessor): Promise<void> {
+		return withPane(accessor, p => p.popOut());
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.popOutReview',
+			title: localize2('cedian.popOutReview', "Open Review in New Window"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor): Promise<void> {
+		return withPane(accessor, p => p.popOutReview());
+	}
+});
+
+registerAction2(CheckForUpdatesAction);
 
 // ---- commands and the keybinding layer (spec §7.2) ----
 

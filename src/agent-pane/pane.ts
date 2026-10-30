@@ -38,6 +38,13 @@ export interface PaneHost {
   saveImage?(bytes: Uint8Array, mime: string): Promise<string>;
   /** The diff editor for the thread's review, at one file when named, at one of its lines when given. */
   openReview(thread: string, cwd: string, review: Review, file?: string, line?: number): void;
+  /** The thread's review in a window of its own (pop-out); without it the card offers none. */
+  openReviewWindow?(thread: string, cwd: string, review: Review): void;
+  /**
+   * An agent pane in a window of its own on this thread, or on a new one (pop-out). Without it,
+   * as in a pane already popped out, the header offers none.
+   */
+  popOut?(thread: string | undefined): void;
   openUrl(url: string): void;
   /**
    * Whether to archive a thread whose worktree has uncommitted changes in `files`, which go when
@@ -315,6 +322,19 @@ export class AgentPane {
     this.input.focus();
   }
 
+  /** Moves the open thread into a window of its own; this pane goes on with a new thread. */
+  popOut(): void {
+    if (!this.host.popOut) return;
+    const thread = this.state.thread;
+    this.host.popOut(thread);
+    if (thread) this.newThread();
+  }
+
+  /** Opens the open thread's review in a window of its own. */
+  popOutReview(): void {
+    if (this.state.thread && this.state.review?.files.length) this.host.openReviewWindow?.(this.state.thread, this.cwd, this.state.review);
+  }
+
   toggleReview(): void {
     this.reviewOpen = !this.reviewOpen;
     if (this.reviewOpen && this.state.thread && this.state.review) this.host.openReview(this.state.thread, this.cwd, this.state.review);
@@ -467,8 +487,11 @@ export class AgentPane {
   /** Acks a thread's notice once the frame that shows it is painted (spec §3.9 credit). */
   private drawn(thread: string): void {
     const ack = () => this.wire.request({ op: "ack", thread });
-    const frame = this.doc.defaultView?.requestAnimationFrame;
-    if (frame) frame.call(this.doc.defaultView, ack);
+    // The window the pane is drawn in now: a pane popped out makes its DOM from the main window's
+    // document (VS Code allows no other), and the main window may be hidden while it paints.
+    const view = this.root.ownerDocument.defaultView ?? this.doc.defaultView;
+    const frame = view?.requestAnimationFrame;
+    if (frame) frame.call(view, ack);
     else setTimeout(ack, 0);
   }
 
@@ -750,6 +773,12 @@ export class AgentPane {
     const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
     mode.title = "Switch view (Ctrl+O)";
     this.header.replaceChildren(picker, dot, mode);
+    if (this.host.popOut) {
+      const pop = button(d, "⧉", () => this.popOut(), "chip pop");
+      pop.title = "Open in new window";
+      pop.setAttribute("aria-label", "Open in new window");
+      this.header.append(pop);
+    }
     const open = this.state.thread ? this.threads.find((t) => t.id === this.state.thread) : undefined;
     if (open?.pr) {
       this.header.insertBefore(this.prChip(open.pr), mode);
@@ -909,6 +938,7 @@ export class AgentPane {
     // so accepting or rejecting it no longer applies.
     if (sum.stale) head.append(el(d, "span", "small warn", `${sum.stale} changed since`));
     head.append(button(d, "Open diff", () => this.host.openReview(thread, this.cwd, review)));
+    if (this.host.openReviewWindow) head.append(button(d, "New window", () => this.host.openReviewWindow?.(thread, this.cwd, review)));
     const pending = review.files.flatMap((f) => f.hunks).filter((h) => h.state === "pending");
     if (pending.length) {
       head.append(button(d, "Accept all", () => {

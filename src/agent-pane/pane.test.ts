@@ -667,4 +667,33 @@ describe("agent pane, from the Mac gate", () => {
     enter(pane);
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "more", thread: "t-1", worktree: false, permission: "workspace" });
   });
+
+  it("pops the open thread out into its own window and goes on with a new thread here", () => {
+    const popped: (string | undefined)[] = [];
+    const windows: string[] = [];
+    const { pane, emit, sent } = setup({ popOut: (t) => popped.push(t), openReviewWindow: (thread, cwd, review) => windows.push(`${thread}:${cwd}:${review.files.length}`) });
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "review", thread: "t-1", review: { files: [{ path: "src/a.ts", added: 1, removed: 0, binary: false, hunks: [] }] } });
+    buttons(pane.root, "New window")[0]!.click();
+    expect(windows).toEqual(["t-1:/r:1"]);
+    const pop = pane.root.querySelector<HTMLButtonElement>(".head .pop")!;
+    expect(pop.getAttribute("aria-label")).toBe("Open in new window");
+    pop.click();
+    expect(popped).toEqual(["t-1"]);
+    expect(pane.thread).toBeUndefined();
+    expect(sent).toContainEqual({ op: "close", thread: "t-1" });
+    // From a new thread, a new window opens on a new thread too, and this one stays as it is.
+    pane.popOut();
+    expect(popped).toEqual(["t-1", undefined]);
+  });
+
+  it("offers no pop-out where the host has none, as in a pane already popped out", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    emit({ kind: "review", thread: "t-1", review: { files: [{ path: "src/a.ts", added: 1, removed: 0, binary: false, hunks: [] }] } });
+    expect(pane.root.querySelector(".head .pop")).toBeNull();
+    expect(buttons(pane.root, "New window")).toEqual([]);
+  });
 });

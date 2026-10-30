@@ -15,7 +15,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { TextEditorSelectionRevealType } from '../../../../platform/editor/common/editor.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorService, PreferredGroup } from '../../../services/editor/common/editorService.js';
 import { ICedianDaemonService } from './daemonService.js';
 import type { FileReview, Notes, Review } from './protocol/wire.js';
 import { hunkLine, originalText } from './review/original.js';
@@ -25,7 +25,8 @@ export const ICedianReviewService = createDecorator<ICedianReviewService>('cedia
 /** Opens a thread's review in VS Code's diff editor (spec §11 Phase B: review via the diff editor + cedian_review). */
 export interface ICedianReviewService {
 	readonly _serviceBrand: undefined;
-	open(thread: string, cwd: string, review: Review, file?: string, line?: number): Promise<void>;
+	/** In `group` when given: the main window's from a popped-out pane, a new window's for pop-out. */
+	open(thread: string, cwd: string, review: Review, file?: string, line?: number, group?: PreferredGroup): Promise<void>;
 	/** The thread, its working tree and the file's path in it, when `resource` is a file of a review opened here. */
 	reviewedAt(resource: URI): { thread: string; cwd: string; path: string } | undefined;
 	/** The thread's line comments and code review, as the daemon last sent them. */
@@ -78,7 +79,7 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 		return this.notesByThread.get(thread);
 	}
 
-	async open(thread: string, cwd: string, review: Review, file?: string, line?: number): Promise<void> {
+	async open(thread: string, cwd: string, review: Review, file?: string, line?: number, group?: PreferredGroup): Promise<void> {
 		this.reviews.set(thread, { cwd, review });
 		// A left side already open follows the review as it is now.
 		for (const model of this.modelService.getModels()) {
@@ -105,7 +106,7 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 				...sides(f),
 				label: `${f.path} (review)`,
 				options: at !== undefined ? { selection: { startLineNumber: at, startColumn: 1 }, selectionRevealType: TextEditorSelectionRevealType.CenterIfOutsideViewport, pinned: true } : { pinned: true },
-			});
+			}, group);
 			return;
 		}
 		await this.editorService.openEditor({
@@ -113,7 +114,7 @@ class CedianReviewService extends Disposable implements ICedianReviewService, IT
 			resources: files.map(sides),
 			label: `Review: ${files.length} ${files.length === 1 ? 'file' : 'files'}`,
 			isTransient: true,
-		});
+		}, group);
 	}
 
 	private originalUri(thread: string, cwd: string, path: string): URI {

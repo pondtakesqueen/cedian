@@ -233,7 +233,25 @@
   project's thread on one, Comment, Close as completed or not planned,
   Reopen, New issue, and Start a thread, which fills a new thread's message
   asking its PR to say "Fixes #N"
-- [ ] Pop-out panes; Help → Check for updates
+- [ ] Pop-out panes; Help → Check for updates (built 2026-10-30, not yet
+  tried in the app; the contribution typechecks against VS Code 1.143.1's
+  `src/tsconfig.json` in the cloud, no errors but the missing Electron types).
+  Pop-out: ⧉ in the agent pane's header, the Agent view's title bar or
+  `Cedian: Open Thread in New Window` moves the open thread into an agent
+  pane of its own window (an editor, `agentEditor.ts`, in VS Code's
+  auxiliary window, compact), and the side pane goes on with a new thread;
+  a thread already out brings its window forward, and a restart reopens the
+  window on the thread it showed last. Reviews from a popped-out pane open
+  in the main window. The review card's New window (and `Cedian: Open Review
+  in New Window`) opens the thread's diff in a window of its own. The panes
+  share the window's one daemon connection through `ThreadShare`
+  (`src/daemon-client/thread-share.ts`): `close` reaches the daemon only
+  once no pane has the thread open. Check for updates: Help → Check for
+  Updates... asks GitHub's latest release of pondtakesqueen/cedian only
+  when picked, compares it with Cedian's own version (package.json's,
+  written into product.json as `cedianVersion` by `script/vscode/prepare`)
+  and says up to date, no release yet, or offers Download (the release page;
+  auto-update stays deferred)
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing
