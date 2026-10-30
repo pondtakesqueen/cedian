@@ -11,6 +11,7 @@ describe("git pane", () => {
     expect(branchLine({ ...state, branch: null })).toBe("detached HEAD → origin/main · ahead 2 · behind 1");
     expect(pendingLine(state)).toBe("1 uncommitted file · 2 not pushed");
     expect(pendingLine({ ...state, changed: 0, unpushed: 0 })).toBe("");
+    expect(pendingLine({ ...state, changed: 0, unpushed: 0, upstream: "origin/fix-login", unpulled: 1 })).toBe("1 to pull from origin/fix-login");
   });
 
   it("offers Pull when the base moved and Push when the branch has commits to send", () => {

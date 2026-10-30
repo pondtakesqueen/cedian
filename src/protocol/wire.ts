@@ -2158,6 +2158,10 @@ export interface GitState {
    */
   rebasing?: boolean;
   /**
+   * Commits on the upstream the branch does not have yet, which Pull brings in.
+   */
+  unpulled?: number;
+  /**
    * Commits not pushed to the upstream; all of `ahead` when there is no upstream.
    */
   unpushed: number;

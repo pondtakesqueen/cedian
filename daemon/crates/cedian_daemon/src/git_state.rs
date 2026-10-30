@@ -129,11 +129,9 @@ pub fn read(dir: &Path, fetch: bool) -> anyhow::Result<GitState> {
     )
     .ok()
     .map(|u| u.trim().to_owned());
-    state.unpushed = match &state.upstream {
-        Some(upstream) => apart(dir, upstream, "HEAD")
-            .map(|(_, ahead)| ahead)
-            .unwrap_or(0),
-        None => state.ahead,
+    (state.unpulled, state.unpushed) = match &state.upstream {
+        Some(upstream) => apart(dir, upstream, "HEAD").unwrap_or((0, 0)),
+        None => (0, state.ahead),
     };
     let status = git(
         dir,
@@ -260,6 +258,7 @@ mod tests {
                 behind: 0,
                 upstream: None,
                 unpushed: 2,
+                unpulled: 0,
                 changed: 1,
                 rebasing: false,
                 fetch_error: None,
@@ -293,7 +292,8 @@ mod tests {
             apart(&repo, "origin/fix-login", "HEAD").expect("apart"),
             (0, 0)
         );
-        assert_eq!(read(&repo, true).expect("state").fetch_error, None);
+        let fetched = read(&repo, true).expect("state");
+        assert_eq!((fetched.fetch_error, fetched.unpulled), (None, 1));
         assert_eq!(
             apart(&repo, "origin/fix-login", "HEAD").expect("apart"),
             (1, 0)

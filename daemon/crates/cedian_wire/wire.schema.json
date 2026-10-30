@@ -916,6 +916,13 @@
           "description": "A rebase stopped part way (a conflict git left), which the next run would start inside.",
           "type": "boolean"
         },
+        "unpulled": {
+          "default": 0,
+          "description": "Commits on the upstream the branch does not have yet, which Pull brings in.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
         "unpushed": {
           "description": "Commits not pushed to the upstream; all of `ahead` when there is no upstream.",
           "format": "uint32",

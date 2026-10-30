@@ -982,6 +982,15 @@ impl Daemon {
                         lock(&shared).thread_error(client, &thread, format!("{error:#}"));
                     }
                     let view = crate::pr_view::read(&gh, &dir).map_err(|e| format!("{e:#}"));
+                    // gh can exit 0 having asked no one (a login that is not a collaborator).
+                    if let Ok(Some(v)) = &view
+                        && let Some(missing) = crate::pr_view::not_asked(v, &action)
+                    {
+                        let message = format!(
+                            "GitHub did not ask {missing} to review: only the repository's collaborators can be asked"
+                        );
+                        lock(&shared).thread_error(client, &thread, message);
+                    }
                     let notice = Notice::PrView {
                         thread,
                         view,
@@ -1038,7 +1047,18 @@ impl Daemon {
                     let failed = crate::issues::act(&gh, &cwd, number, &action)
                         .err()
                         .map(|e| format!("{e:#}"));
-                    let view = crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    let mut view =
+                        crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    // GitHub's read can lag its write by a moment: read once more before the
+                    // card shows the issue as it was.
+                    if failed.is_none()
+                        && view
+                            .as_ref()
+                            .is_ok_and(|v| !crate::issues::reflects(v, &action))
+                    {
+                        std::thread::sleep(std::time::Duration::from_millis(1500));
+                        view = crate::issues::read(&gh, &cwd, number).map_err(|e| format!("{e:#}"));
+                    }
                     let notice = Notice::Issue {
                         cwd,
                         number: Some(number),
