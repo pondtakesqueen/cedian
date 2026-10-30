@@ -5,18 +5,9 @@
 
 import './media/agentPane.css';
 import { $, append } from '../../../../base/browser/dom.js';
-import { VSBuffer } from '../../../../base/common/buffer.js';
-import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
-import { joinPath, relativePath } from '../../../../base/common/resources.js';
-import { URI } from '../../../../base/common/uri.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IDialogService, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
-import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -26,25 +17,15 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
-import { ISearchService } from '../../../services/search/common/search.js';
-import { ISCMService, ISCMViewService } from '../../scm/common/scm.js';
-import { QueryBuilder } from '../../../services/search/common/queryBuilder.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { AgentPane } from './agent-pane/pane.js';
+import { popOutThread } from './agentEditor.js';
 import { ICedianDaemonService } from './daemonService.js';
-import { COMPOSER_FOCUS, PANE_FOCUS } from './keybindings/keybindings.js';
-import { CedianPanes } from './panes.js';
-import { ICedianReviewService } from './review.js';
-import { showRepository } from './sourceControl.js';
-
-/** Videos cedia takes on `--image` and shows as frames. */
-const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi'];
-const VIDEO_FILE = /\.(mp4|m4v|mov|webm|mkv|avi)$/i;
+import { createPaneHost } from './paneHost.js';
+import { CedianPanes, connectionBar } from './panes.js';
 
 export const AGENT_PANE_CONTAINER_ID = 'workbench.view.cedian.agent';
 export const AGENT_PANE_VIEW_ID = 'workbench.view.cedian.agent.pane';
-
-export const ComposerFocus = new RawContextKey<boolean>(COMPOSER_FOCUS, false);
-export const PaneFocus = new RawContextKey<boolean>(PANE_FOCUS, false);
 
 /**
  * The agent pane: one live thread of the window's project, drawn from the daemon's notices
@@ -67,17 +48,9 @@ export class AgentPaneView extends ViewPane {
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
 		@ICedianDaemonService private readonly daemon: ICedianDaemonService,
-		@ICedianReviewService private readonly reviews: ICedianReviewService,
 		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
-		@ISearchService private readonly searchService: ISearchService,
-		@IFileDialogService private readonly fileDialogService: IFileDialogService,
-		@IFileService private readonly fileService: IFileService,
-		@IEnvironmentService private readonly environmentService: IEnvironmentService,
+		@IEditorService private readonly editorService: IEditorService,
 		@INotificationService private readonly notifications: INotificationService,
-		@IDialogService private readonly dialogs: IDialogService,
-		@ICommandService private readonly commands: ICommandService,
-		@ISCMService private readonly scm: ISCMService,
-		@ISCMViewService private readonly scmView: ISCMViewService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -90,91 +63,16 @@ export class AgentPaneView extends ViewPane {
 			append(empty, $('.empty')).textContent = 'Open the project\'s folder first, then give the agent work here';
 			return;
 		}
-		const queryBuilder = this.instantiationService.createInstance(QueryBuilder);
-		const pane = new AgentPane(parent.ownerDocument, this.daemon.client, {
-			cwd: folder.uri.fsPath,
-			files: async query => {
-				const source = new CancellationTokenSource();
-				try {
-					const result = await this.searchService.fileSearch(queryBuilder.file([folder], { filePattern: query, maxResults: 40, sortByScore: true }), source.token);
-					return result.results.map(r => relativePath(folder.uri, r.resource) ?? r.resource.fsPath);
-				} finally {
-					source.dispose();
-				}
-			},
-			pickImages: async video => {
-				const images = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
-				const picked = await this.fileDialogService.showOpenDialog({
-					canSelectFiles: true,
-					canSelectMany: true,
-					title: video ? 'Attach images or videos' : 'Attach images',
-					filters: video ? [{ name: 'Images and videos', extensions: [...images, ...VIDEO_EXTENSIONS] }] : [{ name: 'Images', extensions: images }],
-				});
-				return (picked ?? []).map(uri => uri.fsPath);
-			},
-			// A pasted image without a file goes in the window's cache folder; cedia copies it when the run starts.
-			saveImage: async (bytes, mime) => {
-				const extension = mime === 'image/jpeg' ? 'jpg' : mime === 'video/quicktime' ? 'mov' : mime === 'video/x-matroska' ? 'mkv' : mime === 'video/x-msvideo' ? 'avi' : mime.split('/')[1];
-				const file = joinPath(this.environmentService.cacheHome, 'cedian-paste', `${generateUuid()}.${extension}`);
-				await this.fileService.writeFile(file, VSBuffer.wrap(bytes));
-				return file.fsPath;
-			},
-			// A review that can't open says so in a notification (spec §8.4: transient).
-			openReview: (thread, cwd, review, file, line) => { this.reviews.open(thread, cwd, review, file, line).catch(e => this.notifications.warn(`Couldn't open the review: ${e instanceof Error ? e.message : e}`)); },
-			openUrl: url => { this.openerService.open(URI.parse(url)); },
-			// The git pane follows the open thread; a folder git can't open just leaves it where it was.
-			showRepository: path => { showRepository(this.commands, this.scm, this.scmView, path).catch(() => { }); },
-			openSourceControl: path => {
-				showRepository(this.commands, this.scm, this.scmView, path)
-					.then(() => this.commands.executeCommand('workbench.view.scm'))
-					.catch(e => this.notifications.warn(`Couldn't open Source Control: ${e instanceof Error ? e.message : e}`));
-			},
-			// Spec §8.4: "Archive anyway? This worktree has uncommitted changes"; cancel keeps them.
-			confirmArchive: async files => {
-				const shown = files.slice(0, 5).join('\n') + (files.length > 5 ? `\nand ${files.length - 5} more` : '');
-				const { confirmed } = await this.dialogs.confirm({
-					type: 'warning',
-					message: 'Archive anyway? This worktree has uncommitted changes',
-					detail: `They go when the worktree is removed after archive:\n${shown}`,
-					primaryButton: 'Archive Anyway',
-				});
-				return confirmed;
-			},
-		});
+		const host = this.instantiationService.invokeFunction(accessor => createPaneHost(accessor, folder, {
+			popOut: thread => { popOutThread(this.editorService, thread).catch(e => this.notifications.warn(`Couldn't open a new window: ${e instanceof Error ? e.message : e}`)); },
+		}));
+		const wire = CedianPanes.wire(this.daemon.client);
+		const pane = new AgentPane(parent.ownerDocument, wire, host);
 		this.pane = pane;
-		CedianPanes.current = pane;
+		this._register({ dispose: () => { pane.dispose(); wire.dispose(); } });
+		this._register(CedianPanes.add(pane, this.scopedContextKeyService));
 		parent.append(pane.root);
-		this.connectionState(pane.root);
-
-		const composerFocus = ComposerFocus.bindTo(this.scopedContextKeyService);
-		const paneFocus = PaneFocus.bindTo(this.scopedContextKeyService);
-		pane.composer.addEventListener('focus', () => composerFocus.set(true));
-		pane.composer.addEventListener('blur', () => composerFocus.set(false));
-		pane.root.addEventListener('focusin', () => paneFocus.set(true));
-		pane.root.addEventListener('focusout', () => paneFocus.set(false));
-		// An image dropped in the composer is attached by its file path, and a video once cedia takes one
-		// (the pane handles a paste).
-		pane.composer.addEventListener('drop', e => {
-			const attachable = (p: string) => /\.(png|jpe?g|gif|webp)$/i.test(p) || (pane.takesVideo() && VIDEO_FILE.test(p));
-			const files = [...(e.dataTransfer?.files ?? [])].map(f => (f as File & { path?: string }).path).filter((p): p is string => !!p && attachable(p));
-			if (files.length) {
-				e.preventDefault();
-				pane.attach(files);
-			}
-		});
-	}
-
-	/** A line over the pane while the daemon does not answer. */
-	private connectionState(root: HTMLElement): void {
-		const bar = $('.conn');
-		bar.setAttribute('role', 'status');
-		root.prepend(bar);
-		const show = (state: string) => {
-			bar.textContent = state === 'connected' ? '' : state === 'connecting' ? 'Connecting to the cedian daemon…' : 'Can\'t reach the cedian daemon; retrying';
-			bar.hidden = state === 'connected';
-		};
-		show(this.daemon.client.connection);
-		this._register({ dispose: this.daemon.client.onConnection(show) });
+		this._register(connectionBar(pane.root, this.daemon.client));
 	}
 
 	override focus(): void {
@@ -187,13 +85,5 @@ export class AgentPaneView extends ViewPane {
 		if (this.pane) {
 			this.pane.root.style.height = `${height}px`;
 		}
-	}
-
-	override dispose(): void {
-		if (this.pane && CedianPanes.current === this.pane) {
-			CedianPanes.current = undefined;
-		}
-		this.pane?.dispose();
-		super.dispose();
 	}
 }

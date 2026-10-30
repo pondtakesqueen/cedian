@@ -33,15 +33,17 @@ for patch in "$repo"/vscode/patches/*.patch; do
   echo "applied $(basename "$patch")"
 done
 
-python3 -I - "$dir/product.json" "$repo/vscode/product.json" <<'PY'
+python3 -I - "$dir/product.json" "$repo/vscode/product.json" "$repo/package.json" <<'PY'
 import json, sys
-path, overrides = sys.argv[1], sys.argv[2]
+path, overrides, package = sys.argv[1], sys.argv[2], sys.argv[3]
 product = json.load(open(path))
 for key, value in json.load(open(overrides)).items():
     if value is None:
         product.pop(key, None)
     else:
         product[key] = value
+# Cedian's own version, for Help → Check for updates; `version` stays VS Code's.
+product["cedianVersion"] = json.load(open(package))["version"]
 with open(path, "w") as f:
     json.dump(product, f, indent="\t")
     f.write("\n")
@@ -59,7 +61,7 @@ rm -rf "$contrib"
 cp -R "$repo/vscode/contrib/cedian" "$contrib"
 # The window's logic and drawing live in src/ (tested there with vitest); each module dir is
 # copied under browser/ as it is, tests left out.
-for mod in agent-pane completion composer daemon-client dom inline-edit keybindings protocol review settings theme; do
+for mod in agent-pane completion composer daemon-client dom inline-edit keybindings protocol review settings theme updates; do
   mkdir -p "$contrib/browser/$mod"
   for f in "$repo/src/$mod"/*.ts; do
     case "$f" in *.test.ts) continue ;; esac
