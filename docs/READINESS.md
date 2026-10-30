@@ -153,6 +153,10 @@
 ## Phase D (Media, depth, started 2026-10-29)
 - [x] Pin moved to cedia main a5da949 (protocol 39028f3719326bb7); the
   only schema change is `plugin` as a command source
+- [ ] Pin moved to cedia 2d2d6da (protocol ff69b523e6156d26, 2026-10-30):
+  cedia main then plus `--browser-sites`, on its PR branch; move it to the
+  merge on cedia main once that PR lands (same schema). The new `retry`
+  session event is folded with the others' ids
 - [x] cedia: completion command (fill-in-the-middle on a fast cheap model):
   `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, merged
   2026-10-29, pinned at main b140712), on `roles.complete`, default the code model
@@ -252,6 +256,33 @@
   written into product.json as `cedianVersion` by `script/vscode/prepare`)
   and says up to date, no release yet, or offers Download (the release page;
   auto-update stays deferred)
+- [ ] Browser pane, the first block (built 2026-10-30 in the cloud, not yet
+  tried in the app; Phase C's browser row, spec §3.3, §6.3). The project's
+  tabs in the daemon's Chromium, screencast into a Browser editor
+  (`Cedian: Open Browser`, or the globe on the Agent view's title bar), so it
+  splits, drags and pops out like any editor; `src/blocks/block.ts` is the
+  shape later blocks take. Tabs are the daemon's (`Request::Browser` with a
+  tab action; every window gets `Notice::Browser`), and a run drives the
+  active one. Address bar (localhost on http, a host on https, never a
+  search), back, forward, reload, a 390 px phone width, Dev servers from
+  `.cedia/launch.json` else `.claude/launch.json` (a terminal runs it, the
+  block opens its URL once it answers), the console with error and warning
+  counts and Attach, and the element picker: the next click picks instead of
+  clicking and puts the element's selector, text, box, computed styles and
+  markup in the composer with its picture (no source-map `file:line` yet).
+  The allowlist is `desktop.browser_sites` (project slug → hosts), shown in
+  the block and in Settings → Browser, where a site is added or removed; the
+  daemon passes it to each run as cedia's `--browser-sites` (cedia-code
+  2d2d6da, capability `browser.sites`), so the agent opens localhost and
+  those sites only. Chromium's DevTools port takes WebSockets from the
+  window's origin only (`--remote-allow-origins=vscode-file://vscode-app`).
+  Checked: `cargo test --workspace` (tabs and the run's flags against a real
+  Chromium), `vitest src/browser-panel` (the page session against a real
+  Chromium), and `node test/smoke/browser.mjs` (15 checks: the real daemon
+  and its Chromium, the block in a page of Playwright's Chromium); the
+  contribution typechecks against VS Code 1.143.1 with TypeScript 6. Still
+  to do: try it in the app on the Mac; capture-and-draw; Tern's drag, zoom,
+  park and PiP over the block
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing
@@ -294,10 +325,14 @@
     auto-archive leaves such a thread alone. Settings keeps a root a thread
     still works in ("A thread is using this root: <title>. Archive it
     first"). The review card says which hunks were changed since the agent
-    wrote them ("1 changed since", "Changed since" on the file). Waiting on
-    the browser pane, which the window does not have yet (the daemon only
-    starts Chromium for cedia's runs): "Claude tools are off for this site",
-    and the browser's transient errors as notifications
+    wrote them ("1 changed since", "Changed since" on the file). The Browser
+    block (2026-10-30, checked in the cloud by `test/smoke/browser.mjs`, not
+    yet in the app): "Claude tools are off for this site: <host>" in the
+    block on a site not on the project's list, with Allow; the browser's
+    transient errors ("the network went away", "the connection timed out",
+    "the browser block closed before its page opened") as notifications; a
+    page that does not load, or a browser that does not start, inline in the
+    block with Try again
   - [ ] License: `python3 script/license-scan.py --app <Cedian.app>` passes
     (309 packages, no copyleft beyond the allowed jschardet); NOTICE ships
     in the app as `licenses/Cedian-NOTICE.txt` beside VS Code's LICENSE.txt
