@@ -213,6 +213,7 @@ export class SettingsView {
     const d = this.doc;
     const desk = this.desktop;
     this.row(p, "Theme", select(d, [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" }], desk.theme ?? "dark", (v) => this.set("theme", v)));
+    this.row(p, "App icon", select(d, [{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }, { value: "theme", label: "Match theme" }], desk.app_icon ?? "light", (v) => this.set("app_icon", v)));
     this.row(p, "UI font", this.text(desk.font?.ui, "System", (v) => this.set("font", { ...(desk.font ?? {}), ui: v || undefined })));
     this.row(p, "Code font", this.text(desk.font?.code, "Lilex", (v) => this.set("font", { ...(desk.font ?? {}), code: v || undefined })));
     this.row(p, "UI size", this.number(desk.ui_font_size, 14, 10, 24, (v) => this.set("ui_font_size", v)));

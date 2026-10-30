@@ -611,6 +611,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 {
   "desktop": {
     "theme": "dark",
+    "app_icon": "light",
     "font": { "ui": "SF Pro", "code": "Lilex" },
     "ui_font_size": 14,
     "code_font_size": 13,
@@ -671,7 +672,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 
 ### 7.1 Settings window (Cedian's own; VS Code settings UI disabled)
 
-- Appearance: theme, fonts, sizes, density, view mode, sound
+- Appearance: theme, app icon (light by default; dark or match the theme sets the Dock icon while Cedian runs), fonts, sizes, density, view mode, sound
 - Bots, Models, MCP (cedia's keys, edited through schema)
 - Roots: per-project root paths (validate git repo, dedup); the primary root (first, whose slug keys the project) cannot be removed
 - Worktrees: branch prefix, custom location (per project)
