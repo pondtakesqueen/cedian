@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Notes } from "../protocol/wire.js";
-import { addComment, byFile, findingCount, lineNotes, openFindings, removeComment, walkSteps } from "./notes.js";
+import { addComment, anchorAt, byFile, commentCount, findingCount, goesNext, lineNotes, openFindings, removeComment, resolveComment, stateLabel, walkSteps } from "./notes.js";
 
 const notes = (dismissed: string[] = []): Notes => ({
   comments: [],
@@ -51,5 +51,24 @@ describe("review notes", () => {
     const n = { ...notes(["f4"]), comments: [{ id: "c1", path: "b.ts", line: 4, text: "and here" }, { id: "c2", path: "a.ts", line: 1, text: "elsewhere" }] };
     expect(lineNotes(n, "b.ts").map((l) => `${l.kind}:${l.id}@${l.line}`)).toEqual(["comment:c1@4", "finding:f1@4"]);
     expect(lineNotes(n, "src/a.ts").map((l) => l.id)).toEqual(["f3"]);
+    expect(lineNotes(n, "b.ts")[0]).toMatchObject({ state: "draft" });
+  });
+
+  it("anchors a comment by its line and up to three lines around it, as the daemon does", () => {
+    const lines = ["fn main() {", "    let x = 1;", "", "    print(x);", "    done();", "}"];
+    expect(anchorAt(lines, 4)).toEqual({ quote: "print(x);", before: ["fn main() {", "let x = 1;", ""], after: ["done();", "}"] });
+    expect(anchorAt(lines, 3)).toEqual({ before: ["fn main() {", "let x = 1;"], after: ["print(x);", "done();", "}"] });
+    expect(anchorAt(lines, 1).before).toEqual([]);
+  });
+
+  it("sends drafts and still-open comments, and counts each state", () => {
+    const c = (id: string, state?: "sent" | "open" | "resolved") => ({ id, path: "a.ts", line: 1, text: id, ...(state ? { state } : {}) });
+    const comments = [c("d"), c("s", "sent"), c("o", "open"), c("r", "resolved")];
+    expect(comments.filter(goesNext).map((x) => x.id)).toEqual(["d", "o"]);
+    expect(commentCount(comments)).toBe("2 to send · 1 sent · 1 resolved");
+    expect(commentCount([])).toBe("No comments");
+    expect(stateLabel(c("o", "open"))).toBe("Still open");
+    expect(resolveComment(comments, "o", true)[2].state).toBe("resolved");
+    expect(resolveComment(comments, "r", false)[3].state).toBe("open");
   });
 });

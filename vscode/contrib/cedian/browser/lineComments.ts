@@ -4,18 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/lineComments.css';
-import { $ } from '../../../../base/browser/dom.js';
+import { $, getWindow } from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
-import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
+import { ICodeEditor, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContributionInstantiation, registerEditorContribution } from '../../../../editor/browser/editorExtensions.js';
 import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { ZoneWidget } from '../../../../editor/contrib/zoneWidget/browser/zoneWidget.js';
 import { ICedianDaemonService } from './daemonService.js';
-import { addComment, lineNotes, sendComments, setComments } from './review/notes.js';
+import { addComment, anchorAt, lineNotes, resolveComment, sendComments, setComments } from './review/notes.js';
 import { ICedianReviewService } from './review.js';
+import type { CommentState } from './protocol/wire.js';
 
 /** Where the person is commenting: the thread, its working tree and the file's path in it. */
 type At = { thread: string; cwd: string; path: string };
@@ -56,16 +57,20 @@ class CommentBox extends ZoneWidget {
 }
 
 /**
- * Line comments in a thread's review diff (spec §3.7): a `+` beside the line under the pointer
- * opens a comment box. The comments wait in the daemon until Cmd+Enter (or Send all on the pane's
- * card) sends them as the thread's next message. The comments and the review's open findings
- * show under their lines, a finding with Fix this one and Dismiss.
+ * Line comments in a thread's review diff (spec §3.7, §3.8): a `+` beside the line under the
+ * pointer opens a comment box. A comment is anchored by its line and the lines around it, and the
+ * daemon moves it with its code after each run. The comments wait in the daemon until Cmd+Enter
+ * (or Send all on the pane's card) sends the unsent and still-open ones as one message; after the
+ * run each sent one is still open, or resolved (collapsed, with Reopen) when the run changed its
+ * code. The review's open findings show under their lines too, with Fix this one and Dismiss.
  */
 class CedianLineComments extends Disposable implements IEditorContribution {
 	static readonly ID = 'cedian.lineComments';
 
 	private readonly plus = this.editor.createDecorationsCollection();
-	private readonly zones: string[] = [];
+	private readonly notes: NoteZone[] = [];
+	/** The line the `+` is on: the editor's own diff signs share its gutter slot and may take the click. */
+	private plusLine?: number;
 	private readonly modelListeners = this._register(new DisposableStore());
 	private at?: At;
 	private box?: CommentBox;
@@ -85,6 +90,7 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 	private attach(): void {
 		this.modelListeners.clear();
 		this.plus.clear();
+		this.plusLine = undefined;
 		this.box?.dispose();
 		const model = this.editor.getModel();
 		this.at = model && this.editor.getOption(EditorOption.inDiffEditor) ? this.reviews.reviewedAt(model.uri) : undefined;
@@ -93,12 +99,15 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 			return;
 		}
 		this.modelListeners.add(this.editor.onMouseMove(e => {
-			const line = e.target.position?.lineNumber;
+			const line = this.plusLine = e.target.position?.lineNumber;
 			this.plus.set(line ? [{ range: new Range(line, 1, line, 1), options: { description: 'cedian-comment-add', linesDecorationsClassName: 'cedian-comment-add codicon codicon-add' } }] : []);
 		}));
-		this.modelListeners.add(this.editor.onMouseLeave(() => this.plus.clear()));
+		this.modelListeners.add(this.editor.onMouseLeave(() => {
+			this.plus.clear();
+			this.plusLine = undefined;
+		}));
 		this.modelListeners.add(this.editor.onMouseDown(e => {
-			if (e.target.type === MouseTargetType.GUTTER_LINE_DECORATIONS && e.target.position && e.target.element?.classList.contains('cedian-comment-add')) {
+			if (e.target.type === MouseTargetType.GUTTER_LINE_DECORATIONS && e.target.position && e.target.position.lineNumber === this.plusLine) {
 				this.openBox(e.target.position.lineNumber);
 			}
 		}));
@@ -110,10 +119,10 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 			return;
 		}
 		this.box?.dispose();
-		const quote = this.editor.getModel()?.getLineContent(line).trim();
+		const anchor = anchorAt(this.editor.getModel()?.getLinesContent() ?? [], line);
 		this.box = new CommentBox(this.editor, line, (text, send) => {
 			const comments = this.reviews.notes(at.thread)?.comments ?? [];
-			const more = addComment(comments, { path: at.path, line, text, ...(quote ? { quote } : {}) });
+			const more = addComment(comments, { path: at.path, line, text, ...anchor });
 			if (more !== comments) {
 				this.daemon.client.request(setComments(at.thread, more));
 			}
@@ -124,19 +133,26 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 		this.box.open();
 	}
 
-	/** The comments and open findings under their lines, as view zones. */
+	/**
+	 * The comments and open findings under their lines. Each is a zone widget: a view zone keeps
+	 * the room and an overlay draws the note above the editor's lines, so its buttons take clicks
+	 * (a view zone's own node sits under the lines).
+	 */
 	private drawNotes(): void {
 		const at = this.at;
 		const notes = at ? lineNotes(this.reviews.notes(at.thread), at.path) : [];
-		this.editor.changeViewZones(accessor => {
-			for (const id of this.zones.splice(0)) {
-				accessor.removeZone(id);
-			}
-			for (const note of notes) {
-				const node = $('div');
-				node.className = `cedian-line-note ${note.kind}`;
+		this.notes.splice(0).forEach(zone => zone.dispose());
+		for (const note of notes) {
+			const resolved = note.kind === 'comment' && note.state === 'resolved';
+			// A resolved comment collapses to one line.
+			const lines = resolved ? 1 : 1 + Math.floor(note.text.length / 100);
+			this.notes.push(new NoteZone(this.editor, note.line, lines, node => {
+				node.classList.add('cedian-line-note', note.kind);
+				if (resolved) {
+					node.classList.add('resolved');
+				}
 				const text = $('span');
-				text.textContent = note.kind === 'comment' ? `Comment: ${note.text}` : `Review: ${note.text}`;
+				text.textContent = note.kind === 'comment' ? `${commentLead(note.state)}: ${note.text}` : `Review: ${note.text}`;
 				node.append(text);
 				const action = (label: string, run: () => void) => {
 					const b = $('button');
@@ -145,24 +161,84 @@ class CedianLineComments extends Disposable implements IEditorContribution {
 					node.append(b);
 				};
 				if (note.kind === 'comment') {
-					action('Delete', () => {
-						const comments = this.reviews.notes(at!.thread)?.comments ?? [];
-						this.daemon.client.request(setComments(at!.thread, comments.filter(c => c.id !== note.id)));
-					});
+					const comments = () => this.reviews.notes(at!.thread)?.comments ?? [];
+					if (note.state === 'open' || note.state === 'sent') {
+						action('Resolve', () => this.daemon.client.request(setComments(at!.thread, resolveComment(comments(), note.id, true))));
+					} else if (resolved) {
+						action('Reopen', () => this.daemon.client.request(setComments(at!.thread, resolveComment(comments(), note.id, false))));
+					}
+					action('Delete', () => this.daemon.client.request(setComments(at!.thread, comments().filter(c => c.id !== note.id))));
 				} else {
 					action('Fix this one', () => this.daemon.client.request({ op: 'fix_findings', cwd: at!.cwd, thread: at!.thread, findings: [note.id] }));
 					action('Dismiss', () => this.daemon.client.request({ op: 'dismiss', thread: at!.thread, finding: note.id, dismissed: true }));
 				}
-				const zone: IViewZone = { afterLineNumber: note.line, heightInLines: 1 + Math.floor(note.text.length / 100), domNode: node };
-				this.zones.push(accessor.addZone(zone));
-			}
-		});
+			}));
+		}
 	}
 
 	override dispose(): void {
 		this.box?.dispose();
-		this.editor.changeViewZones(accessor => this.zones.splice(0).forEach(id => accessor.removeZone(id)));
+		this.notes.splice(0).forEach(zone => zone.dispose());
 		super.dispose();
+	}
+}
+
+/**
+ * One note under a line of the diff, drawn by `fill`; it never moves the editor's scroll. Its
+ * height follows its text and buttons as they wrap at the editor's width.
+ */
+class NoteZone extends ZoneWidget {
+	private lines: number;
+	private measuring = false;
+
+	constructor(editor: ICodeEditor, line: number, lines: number, private readonly fill: (node: HTMLElement) => void) {
+		super(editor, { showFrame: false, showArrow: false, isResizeable: false, keepEditorSelection: true });
+		this.lines = lines;
+		this.create();
+		this.show({ lineNumber: line, column: 1 }, lines);
+	}
+
+	protected _fillContainer(container: HTMLElement): void {
+		this.fill(container);
+	}
+
+	protected override _doLayout(): void {
+		this.measure();
+	}
+
+	/** After the next frame, the lines the note needs at its width; the zone grows or shrinks to them. */
+	private measure(): void {
+		const container = this.container;
+		if (!container || this.measuring) {
+			return;
+		}
+		this.measuring = true;
+		getWindow(container).requestAnimationFrame(() => {
+			this.measuring = false;
+			const height = container.style.height;
+			container.style.height = 'auto';
+			const natural = container.offsetHeight;
+			container.style.height = height;
+			const lines = Math.max(1, Math.ceil(natural / this.editor.getOption(EditorOption.lineHeight)));
+			if (natural > 0 && lines !== this.lines) {
+				this.lines = lines;
+				this._relayout(lines);
+			}
+		});
+	}
+
+	protected override revealRange(): void {
+		// Drawing the notes of a file must not scroll it to each one.
+	}
+}
+
+/** What a comment in the diff starts with: where it is in its round trip with the agent. */
+function commentLead(state: CommentState): string {
+	switch (state) {
+		case 'draft': return 'Comment';
+		case 'sent': return 'Sent';
+		case 'open': return 'Still open';
+		case 'resolved': return 'Resolved';
 	}
 }
 

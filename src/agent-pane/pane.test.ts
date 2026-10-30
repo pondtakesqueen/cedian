@@ -133,11 +133,33 @@ describe("agent pane", () => {
       { id: "c2", path: "src/b.ts", line: 9, text: "why?" },
     ];
     emit({ kind: "notes", thread: "t-1", notes: { comments } });
-    expect(pane.root.querySelector(".comments")?.textContent).toContain("2 diff comments");
+    expect(pane.root.querySelector(".comments")?.textContent).toContain("2 to send");
     buttons(pane.root, "Delete")[0]!.click();
     expect(last()).toEqual({ op: "comments", thread: "t-1", comments: [comments[1]] });
     buttons(pane.root, "Send all")[0]!.click();
     expect(last()).toEqual({ op: "send_comments", cwd: "/r", thread: "t-1" });
+  });
+
+  it("after a run each comment says still open or resolved; resolved ones go last and can be reopened", () => {
+    const { pane, emit, last } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    const comments = [
+      { id: "c1", path: "src/a.ts", line: 3, text: "return y", state: "resolved" as const },
+      { id: "c2", path: "src/b.ts", line: 9, text: "why?", state: "open" as const },
+    ];
+    emit({ kind: "notes", thread: "t-1", notes: { comments } });
+    const card = pane.root.querySelector(".comments")!;
+    expect(card.textContent).toContain("1 to send · 1 resolved");
+    expect([...card.querySelectorAll(".file")].map((r) => r.className)).toEqual(["file comment-open", "file comment-resolved"]);
+    expect(card.textContent).toContain("Still open");
+    buttons(pane.root, "Resolve")[0]!.click();
+    expect(last()).toEqual({ op: "comments", thread: "t-1", comments: [comments[0], { ...comments[1], state: "resolved" }] });
+    buttons(pane.root, "Reopen")[0]!.click();
+    expect(last()).toEqual({ op: "comments", thread: "t-1", comments: [{ ...comments[0], state: "open" }, comments[1]] });
+    // Nothing left to send: no Send all.
+    emit({ kind: "notes", thread: "t-1", notes: { comments: [comments[0]] } });
+    expect(buttons(pane.root, "Send all")).toHaveLength(0);
   });
 
   it("/code-review with no thread open says so and sends nothing", () => {

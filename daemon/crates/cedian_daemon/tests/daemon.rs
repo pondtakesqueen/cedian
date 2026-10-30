@@ -11,7 +11,9 @@ use std::{
 
 use cedian_daemon::{Cedia, Config, serve};
 use cedian_protocol::{RewindResult, fixtures_dir};
-use cedian_wire::{Decision, HunkState, Notice, Request, Status, read_message, write_message};
+use cedian_wire::{
+    CommentState, Decision, HunkState, Notice, Request, Status, read_message, write_message,
+};
 
 struct Harness {
     _dir: tempfile::TempDir,
@@ -585,13 +587,18 @@ fn line_comments_and_a_code_review_are_kept_for_the_thread_and_sent_as_its_next_
     assert!(args.contains("--permission\nworkspace\n"), "{args}");
     window.until(status_is(Status::Done));
 
+    // A comment anchored on line 2, as the window anchors it.
+    std::fs::write(cwd.join("f.txt"), "intro\ngood\nend\n").expect("f.txt");
     window.ask(Request::Comments {
         thread: thread(),
         comments: vec![cedian_wire::LineComment {
             id: "c1".into(),
             path: "f.txt".into(),
-            line: 1,
+            line: 2,
             quote: Some("good".into()),
+            before: vec!["intro".into()],
+            after: vec!["end".into()],
+            state: CommentState::Draft,
             text: "say great".into(),
         }],
     });
@@ -600,10 +607,34 @@ fn line_comments_and_a_code_review_are_kept_for_the_thread_and_sent_as_its_next_
         cwd: cwd.clone(),
         thread: thread(),
     });
-    window.until(notes(|n| n.comments.is_empty()));
+    window.until(notes(|n| n.comments[0].state == CommentState::Sent));
     let args = args_with("I left comments");
-    assert!(args.contains("- `f.txt:1` (`good`): say great"), "{args}");
-    // Nothing left to send says so.
+    assert!(args.contains("- `f.txt:2` (`good`): say great"), "{args}");
+    // The run left the line as it was: the comment is still open after it.
+    window.until(notes(|n| n.comments[0].state == CommentState::Open));
+    window.until(status_is(Status::Done));
+
+    // The code moved down; the next batch finds it there and says it is still open.
+    std::fs::write(cwd.join("f.txt"), "new\nintro\ngood\nend\n").expect("f.txt");
+    window.ask(Request::SendComments {
+        cwd: cwd.clone(),
+        thread: thread(),
+    });
+    let (_, seen) = window.until(notes(|n| n.comments[0].state == CommentState::Sent));
+    assert_eq!(last_notes(seen).comments[0].line, 3);
+    let args = args_with("f.txt:3");
+    assert!(args.contains("- `f.txt:3` (`good`) (still open"), "{args}");
+    let (_, seen) = window.until(notes(|n| n.comments[0].state == CommentState::Open));
+    window.until(status_is(Status::Done));
+
+    // Resolved by the person: nothing goes next, and saying so.
+    let mut resolved = last_notes(seen).comments;
+    resolved[0].state = CommentState::Resolved;
+    window.ask(Request::Comments {
+        thread: thread(),
+        comments: resolved,
+    });
+    window.until(notes(|n| n.comments[0].state == CommentState::Resolved));
     window.ask(Request::SendComments {
         cwd: cwd.clone(),
         thread: thread(),

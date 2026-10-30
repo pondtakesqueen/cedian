@@ -1253,11 +1253,22 @@ impl Daemon {
             Request::SendComments { cwd, thread } => {
                 let mut text = None;
                 lock(shared).change_notes(client, &thread, |notes| {
-                    if notes.comments.is_empty() {
+                    // Where each line is now, so the message names lines the agent can find.
+                    crate::notes::follow_comments(&mut notes.comments, &cwd, false);
+                    let next: Vec<_> = notes
+                        .comments
+                        .iter()
+                        .filter(|c| c.state.goes_next())
+                        .collect();
+                    if next.is_empty() {
                         return Err("no line comments to send".into());
                     }
-                    text = Some(crate::notes::comments_message(&notes.comments));
-                    notes.comments.clear();
+                    text = Some(crate::notes::comments_message(&next));
+                    for comment in &mut notes.comments {
+                        if comment.state.goes_next() {
+                            comment.state = cedian_wire::CommentState::Sent;
+                        }
+                    }
                     Ok(())
                 });
                 if let Some(text) = text {
@@ -1346,6 +1357,26 @@ impl Daemon {
         }
         if let Err(error) = self.notes.save(thread, &notes) {
             return self.thread_error(client, thread, format!("{error:#}"));
+        }
+        self.tell_readers(
+            thread,
+            &Notice::Notes {
+                thread: thread.to_owned(),
+                notes,
+            },
+        );
+    }
+
+    /// After a run of the thread ends: its line comments move to where their code is now, and
+    /// each one it was sent says whether the run changed that code.
+    fn follow_comments(&mut self, thread: &str, cwd: &Path) {
+        let mut notes = self.notes.load(thread);
+        if !crate::notes::follow_comments(&mut notes.comments, cwd, true) {
+            return;
+        }
+        if let Err(error) = self.notes.save(thread, &notes) {
+            log::warn!("{thread}: {error:#}");
+            return;
         }
         self.tell_readers(
             thread,
@@ -2088,6 +2119,8 @@ impl Daemon {
         let stderr = run.stderr.iter().cloned().collect::<Vec<_>>().join("\n");
         match thread {
             Some(thread) => {
+                let cwd = run.cwd.clone();
+                self.follow_comments(&thread, &cwd);
                 let status = self.status(&slug, &thread);
                 self.tell_readers(
                     &thread.clone(),

@@ -7,7 +7,7 @@ import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunC
 import { button, el, select, type Wire } from "../dom/el.js";
 import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
-import { byFile, findingCount, openFindings, reviewed, sendComments, setComments, walkSteps } from "../review/notes.js";
+import { byFile, commentCount, findingCount, goesNext, openFindings, resolveComment, reviewed, sendComments, setComments, stateLabel, stateOf, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
@@ -939,18 +939,27 @@ export class AgentPane {
     return card;
   }
 
-  /** The line comments waiting to go: each one, Remove, and Send all (Cmd+Enter in the diff). */
+  /**
+   * The line comments: each one with its state, Resolve or Reopen, and Delete; Send all (Cmd+Enter
+   * in the diff) sends the unsent and still-open ones as one message. Resolved ones go last.
+   */
   private commentsCard(comments: NonNullable<ThreadState["notes"]>["comments"]): HTMLElement {
     const d = this.doc;
     const thread = this.state.thread!;
     const card = el(d, "div", "card comments");
     const head = el(d, "div", "row");
-    head.append(el(d, "span", "", `${comments.length} diff ${comments.length === 1 ? "comment" : "comments"}`), button(d, "Send all", () => this.wire.request(sendComments(this.cwd, thread)), "btn primary"));
+    head.append(el(d, "span", "", commentCount(comments)));
+    if (comments.some(goesNext)) head.append(button(d, "Send all", () => this.wire.request(sendComments(this.cwd, thread)), "btn primary"));
     card.append(head);
-    for (const c of comments) {
-      const row = el(d, "div", "file");
+    const order = [...comments].sort((a, b) => Number(stateOf(a) === "resolved") - Number(stateOf(b) === "resolved"));
+    for (const c of order) {
+      const state = stateOf(c);
+      const row = el(d, "div", `file comment-${state}`);
       const at = button(d, `${c.path}:${c.line}`, () => this.state.review && this.host.openReview(thread, this.cwd, this.state.review, c.path, c.line), "link m ell");
-      row.append(at, el(d, "span", "small ell", c.text), button(d, "Delete", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));
+      row.append(at, el(d, "span", "small ell", c.text), el(d, "span", "small state", stateLabel(c)));
+      if (state === "open" || state === "sent") row.append(button(d, "Resolve", () => this.wire.request(setComments(thread, resolveComment(comments, c.id, true))), "btn small"));
+      if (state === "resolved") row.append(button(d, "Reopen", () => this.wire.request(setComments(thread, resolveComment(comments, c.id, false))), "btn small"));
+      row.append(button(d, "Delete", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));
       card.append(row);
     }
     return card;

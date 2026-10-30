@@ -194,8 +194,14 @@
   --json` (capability `code-review`); the card groups the findings by file,
   Walk through opens each open one at its line, and each has Fix this one and
   Dismiss, in the card and under its line in the diff; Fix all sends the
-  open ones. Tested in vitest and against the fake cedia; anchoring comments
-  by hunk context (§11 Annotate AI Diff) is still to come
+  open ones. Tested in vitest and against the fake cedia. Comments follow
+  their code (§3.8 Annotate AI Diff, built 2026-10-30): each is anchored by
+  its line's text and three lines either side (`anchor.rs`), and the daemon
+  finds it again after every run of the thread and before each send. Send all
+  sends the unsent and still-open ones as one batch and marks them sent; when
+  the run ends each sent one is Resolved (collapsed, Reopen) if the run
+  changed its line or a line next to it, else Still open, which the next
+  batch carries again and says so
 - [ ] Git pane (built 2026-10-29; Source Control and the Git card tried on
   the owner's Mac against local remotes, not yet against GitHub): VS Code's own
   Source Control follows the agent pane's open thread: `git.openRepository`
