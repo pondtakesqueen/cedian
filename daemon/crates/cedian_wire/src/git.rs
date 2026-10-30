@@ -20,6 +20,9 @@ pub struct GitState {
     pub upstream: Option<String>,
     /// Commits not pushed to the upstream; all of `ahead` when there is no upstream.
     pub unpushed: u32,
+    /// Commits on the upstream the branch does not have yet, which Pull brings in.
+    #[serde(default)]
+    pub unpulled: u32,
     /// Files with uncommitted changes, untracked ones included.
     pub changed: u32,
     /// A rebase stopped part way (a conflict git left), which the next run would start inside.

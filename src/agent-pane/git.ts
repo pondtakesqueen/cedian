@@ -17,6 +17,7 @@ export function pendingLine(s: GitState): string {
   const parts = [
     s.changed ? `${s.changed} uncommitted ${s.changed === 1 ? "file" : "files"}` : "",
     s.branch && s.unpushed ? `${s.unpushed} not pushed` : "",
+    s.upstream && s.unpulled ? `${s.unpulled} to pull from ${s.upstream}` : "",
   ].filter(Boolean);
   return parts.join(" · ");
 }
