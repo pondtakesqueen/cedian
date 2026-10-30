@@ -31,10 +31,31 @@ pub struct Flags<'a> {
     /// The project's page in the shared browser (`--browser`), when it runs and this cedia can
     /// drive it.
     pub browser: Option<&'a str>,
+    /// The only sites the browser opens besides localhost (`--browser-sites`): the project's
+    /// allowlist, when the run has the browser and this cedia can hold it to one.
+    pub sites: Option<&'a [String]>,
     /// Image files shown to the writer with the text (`--image`), when this cedia can.
     pub images: &'a [PathBuf],
     /// How long the writer's cached prompt lasts (`--cache-ttl`), when this cedia can set it.
     pub cache_ttl: Option<&'a str>,
+}
+
+/// A project's site allowlist, from `desktop.browser_sites` (project slug → hosts): the sites
+/// besides localhost its browser opens (spec §6.3). Empty when the owner added none.
+pub fn browser_sites(desktop: &serde_json::Value, slug: &str) -> Vec<String> {
+    desktop
+        .get("browser_sites")
+        .and_then(|sites| sites.get(slug))
+        .and_then(serde_json::Value::as_array)
+        .map(|hosts| {
+            hosts
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(|h| h.trim().to_ascii_lowercase())
+                .filter(|h| !h.is_empty() && !h.contains(','))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The workspace a project root belongs to, from `desktop.roots` (slug of the primary root →
@@ -438,6 +459,14 @@ impl Cedia {
         // The page the person sees in the Browser block (core/tools/browser.ts in cedia).
         if let Some(page) = flags.browser {
             command.args(["--browser", page]);
+            if let Some(sites) = flags.sites {
+                let list = if sites.is_empty() {
+                    "none".to_owned()
+                } else {
+                    sites.join(",")
+                };
+                command.args(["--browser-sites", &list]);
+            }
         }
         if let Some(ttl) = flags.cache_ttl {
             command.args(["--cache-ttl", ttl]);

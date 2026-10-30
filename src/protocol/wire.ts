@@ -261,7 +261,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -292,6 +292,7 @@ export type Capability =
   | "threads.side"
   | "usage"
   | "browser"
+  | "browser.sites"
   | "threads.restore-json"
   | "images"
   | "cache-ttl"
@@ -307,6 +308,8 @@ export type Capability =
   | "media-route"
   | "code-review"
   | "complete"
+  | "context"
+  | "threads.recap"
   | "inline-edit";
 /**
  * The checks on the PR's head commit, taken together.
@@ -654,6 +657,17 @@ export type PrOpened =
       error: string;
     };
 /**
+ * `McpToolRule`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "read", "exec", "deny" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "McpToolRule".
+ */
+export type McpToolRule = "read" | "exec" | "deny";
+/**
  * `Completion`
  *
  * <details><summary>JSON schema</summary>
@@ -702,7 +716,7 @@ export type InlineEdit =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "anyOf": [ { "type": "object", "required": [ "name", "ok", "tools" ], "properties": { "name": { "type": "string" }, "ok": { "type": "boolean", "const": true }, "tools": { "type": "array", "items": { "type": "object", "required": [ "name" ], "properties": { "description": { "type": "string" }, "name": { "type": "string" } } } } } }, { "type": "object", "required": [ "error", "name", "ok" ], "properties": { "error": { "type": "string" }, "name": { "type": "string" }, "ok": { "type": "boolean", "const": false } } } ] } ``` </details>
+ * ```json { "anyOf": [ { "type": "object", "required": [ "name", "ok", "tools" ], "properties": { "name": { "type": "string" }, "ok": { "type": "boolean", "const": true }, "tools": { "type": "array", "items": { "$ref": "#/definitions/McpCheckTool" } } } }, { "type": "object", "required": [ "error", "name", "ok" ], "properties": { "error": { "type": "string" }, "name": { "type": "string" }, "ok": { "type": "boolean", "const": false } } } ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpCheck".
@@ -711,7 +725,7 @@ export type McpCheck =
   | {
       name: string;
       ok: boolean;
-      tools: McpCheckVariant0ToolsItem[];
+      tools: McpCheckTool[];
     }
   | {
       error: string;
@@ -1098,6 +1112,7 @@ export type Request =
   | {
       cwd: string;
       op: "browser";
+      tab?: BrowserTabAction | null;
     }
   | {
       cwd: string;
@@ -1249,6 +1264,25 @@ export type IssueAction =
  * via the `definition` "CloseReason".
  */
 export type CloseReason = "completed" | "not_planned";
+/**
+ * What the Browser block asks of a project's tabs.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "BrowserTabAction".
+ */
+export type BrowserTabAction =
+  | {
+      action: "open";
+      url?: string | null;
+    }
+  | {
+      action: "select";
+      id: string;
+    }
+  | {
+      action: "close";
+      id: string;
+    };
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTarget".
@@ -2063,7 +2097,7 @@ export interface McpList {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "name" ], "properties": { "args": { "type": "array", "items": { "type": "string" } }, "command": { "type": "string" }, "cwd": { "type": "string" }, "env": { "type": "array", "items": { "type": "string" } }, "error": { "type": "string" }, "headers": { "type": "array", "items": { "type": "string" } }, "name": { "type": "string" }, "readOnly": { "type": "boolean" }, "timeoutSec": { "type": "number" }, "url": { "type": "string" } } } ``` </details>
+ * ```json { "type": "object", "required": [ "name" ], "properties": { "args": { "type": "array", "items": { "type": "string" } }, "command": { "type": "string" }, "cwd": { "type": "string" }, "env": { "type": "array", "items": { "type": "string" } }, "error": { "type": "string" }, "headers": { "type": "array", "items": { "type": "string" } }, "name": { "type": "string" }, "readOnly": { "type": "boolean" }, "timeoutSec": { "type": "number" }, "tools": { "type": "object", "additionalProperties": { "$ref": "#/definitions/McpToolRule" } }, "url": { "type": "string" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpEntry".
@@ -2078,6 +2112,9 @@ export interface McpEntry {
   name: string;
   readOnly?: boolean | null;
   timeoutSec?: number | null;
+  tools?: {
+    [k: string]: McpToolRule | undefined;
+  };
   url?: string | null;
 }
 /**
@@ -2109,21 +2146,24 @@ export interface InlineEditRange {
   start: InlineEditPosition;
 }
 /**
- * `McpCheckVariant0ToolsItem`
+ * `McpCheckTool`
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "name" ], "properties": { "description": { "type": "string" }, "name": { "type": "string" } } } ``` </details>
+ * ```json { "type": "object", "required": [ "name" ], "properties": { "description": { "type": "string" }, "destructiveHint": { "type": "boolean" }, "name": { "type": "string" }, "readOnlyHint": { "type": "boolean" }, "rule": { "$ref": "#/definitions/McpToolRule" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "McpCheckVariant0ToolsItem".
+ * via the `definition` "McpCheckTool".
  */
-export interface McpCheckVariant0ToolsItem {
+export interface McpCheckTool {
   description?: string | null;
+  destructiveHint?: boolean | null;
   name: string;
+  readOnlyHint?: boolean | null;
+  rule?: McpToolRule | null;
 }
 /**
- * A project's page in the shared Chromium the daemon runs: the page the Browser block shows and the one the project's runs get with cedia's `--browser`.
+ * A project's pages in the shared Chromium the daemon runs: the tabs the Browser block shows, and the active one, which the project's runs get with cedia's `--browser`.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "BrowserPage".
@@ -2134,7 +2174,27 @@ export interface BrowserPage {
    */
   endpoint: string;
   /**
-   * The page's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.
+   * The active tab's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.
+   */
+  socket: string;
+  /**
+   * The project's tabs in the order they opened; the active one among them.
+   */
+  tabs?: BrowserTab[];
+}
+/**
+ * One tab of a project: a page target in the shared Chromium.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "BrowserTab".
+ */
+export interface BrowserTab {
+  /**
+   * Chromium's target id.
+   */
+  id: string;
+  /**
+   * The tab's DevTools WebSocket.
    */
   socket: string;
 }

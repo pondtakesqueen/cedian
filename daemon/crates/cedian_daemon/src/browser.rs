@@ -1,7 +1,8 @@
 //! The shared browser (Interface, Phase C: Browser): one headless Chromium the daemon starts the
-//! first time a window opens a Browser block, with a page per project. The block draws the
-//! page and the project's runs drive the same page through cedia's browser tool, so the person
-//! and the agent see one page. Its profile lives in the daemon's state directory, so sign-ins
+//! first time a window opens a Browser block, with tabs per project. The block draws the active
+//! tab and the project's runs drive the same tab through cedia's browser tool, so the person
+//! and the agent see one page. Which tabs are a project's lives here, and Chromium has the pages
+//! themselves, so a window rebuilds its tab strip from the daemon. Its profile lives in the daemon's state directory, so sign-ins
 //! last; a daemon that restarts finds the Chromium still running there and keeps using it.
 //! The Chromium is the headless shell cedian ships beside the daemon, else an installed one.
 
@@ -15,7 +16,7 @@ use std::{
 };
 
 use anyhow::{Context as _, anyhow, bail};
-use cedian_wire::BrowserPage;
+use cedian_wire::{BrowserPage, BrowserTab, BrowserTabAction};
 
 /// How long Chromium has to say which port it listens on.
 const START_TIMEOUT: Duration = Duration::from_secs(15);
@@ -53,8 +54,15 @@ pub struct Browser {
     profile: PathBuf,
     env: HashMap<String, String>,
     port: Option<u16>,
-    /// Each project's page id, by cedia's project key.
-    pages: HashMap<String, String>,
+    /// Each project's tabs, by cedia's project key.
+    pages: HashMap<String, Tabs>,
+}
+
+/// A project's tabs: Chromium's target ids in the order they opened, and the active one.
+#[derive(Default)]
+struct Tabs {
+    ids: Vec<String>,
+    active: String,
 }
 
 impl Browser {
@@ -67,19 +75,23 @@ impl Browser {
         }
     }
 
-    /// The project's page, starting Chromium first when it does not run.
-    pub fn page(&mut self, project: &str) -> anyhow::Result<BrowserPage> {
+    /// The project's tabs after `tab`, starting Chromium first when it does not run.
+    pub fn page(
+        &mut self,
+        project: &str,
+        tab: Option<&BrowserTabAction>,
+    ) -> anyhow::Result<BrowserPage> {
         let port = match self.alive() {
             Some(port) => port,
             None => self.start()?,
         };
-        self.page_on(port, project)
+        self.page_on(port, project, tab)
     }
 
-    /// The project's page when Chromium already runs, for a run: a run never starts it.
+    /// The project's tabs when Chromium already runs, for a run: a run never starts it.
     pub fn running_page(&mut self, project: &str) -> Option<BrowserPage> {
         let port = self.alive()?;
-        self.page_on(port, project)
+        self.page_on(port, project, None)
             .inspect_err(|e| log::warn!("browser page for {project}: {e:#}"))
             .ok()
     }
@@ -114,7 +126,7 @@ impl Browser {
         let _ = std::fs::remove_file(&port_file);
         log::info!("starting {}", bin.display());
         Command::new(&bin)
-            .args(chromium_args(&self.profile))
+            .args(chromium_args(&self.profile, &self.env))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -138,30 +150,85 @@ impl Browser {
         )
     }
 
-    /// The project's page if Chromium still has it, else a new one.
-    fn page_on(&mut self, port: u16, project: &str) -> anyhow::Result<BrowserPage> {
+    /// The project's tabs Chromium still has, after `tab`; a project with none gets a blank one.
+    fn page_on(
+        &mut self,
+        port: u16,
+        project: &str,
+        tab: Option<&BrowserTabAction>,
+    ) -> anyhow::Result<BrowserPage> {
         let targets: Vec<Target> = serde_json::from_str(&http(port, "GET", "/json/list")?)
             .context("reading the browser's pages")?;
-        let known = self
-            .pages
-            .get(project)
-            .filter(|id| targets.iter().any(|t| &t.id == *id && t.kind == "page"))
-            .cloned();
-        let id = match known {
-            Some(id) => id,
-            None => {
-                let made: Target =
-                    serde_json::from_str(&http(port, "PUT", "/json/new?about:blank")?)
-                        .context("opening a page")?;
-                self.pages.insert(project.to_owned(), made.id.clone());
-                made.id
+        let tabs = self.pages.entry(project.to_owned()).or_default();
+        tabs.ids
+            .retain(|id| targets.iter().any(|t| &t.id == id && t.kind == "page"));
+        match tab {
+            None => {}
+            Some(BrowserTabAction::Open { url }) => {
+                let url = url.as_deref().unwrap_or("about:blank");
+                if !(url == "about:blank"
+                    || url.starts_with("http://")
+                    || url.starts_with("https://"))
+                {
+                    bail!("a tab opens http and https pages only, not {url}");
+                }
+                let made: Target = serde_json::from_str(&http(
+                    port,
+                    "PUT",
+                    &format!("/json/new?{}", escape(url)),
+                )?)
+                .context("opening a tab")?;
+                tabs.ids.push(made.id.clone());
+                tabs.active = made.id;
             }
-        };
+            Some(BrowserTabAction::Select { id }) => {
+                if !tabs.ids.contains(id) {
+                    bail!("no tab {id} in this project");
+                }
+                tabs.active = id.clone();
+            }
+            Some(BrowserTabAction::Close { id }) => {
+                if !tabs.ids.contains(id) {
+                    bail!("no tab {id} in this project");
+                }
+                http(port, "GET", &format!("/json/close/{id}"))?;
+                tabs.ids.retain(|t| t != id);
+            }
+        }
+        if tabs.ids.is_empty() {
+            let made: Target = serde_json::from_str(&http(port, "PUT", "/json/new?about:blank")?)
+                .context("opening a page")?;
+            tabs.ids.push(made.id);
+        }
+        if !tabs.ids.contains(&tabs.active) {
+            tabs.active = tabs.ids.last().cloned().unwrap_or_default();
+        }
+        let socket = |id: &str| format!("ws://127.0.0.1:{port}/devtools/page/{id}");
         Ok(BrowserPage {
             endpoint: format!("http://127.0.0.1:{port}"),
-            socket: format!("ws://127.0.0.1:{port}/devtools/page/{id}"),
+            socket: socket(&tabs.active),
+            tabs: tabs
+                .ids
+                .iter()
+                .map(|id| BrowserTab {
+                    id: id.clone(),
+                    socket: socket(id),
+                })
+                .collect(),
         })
     }
+}
+
+/// `url` percent-encoded for the query of `/json/new`, which Chromium unescapes whole.
+fn escape(url: &str) -> String {
+    url.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b':' | b'/' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }
 
 #[derive(serde::Deserialize)]
@@ -171,8 +238,26 @@ struct Target {
     kind: String,
 }
 
+/// The window's origin, the only one whose WebSocket Chromium's DevTools port takes: a page in
+/// any other browser on this Mac can't drive it. `CEDIAN_BROWSER_ORIGINS` adds others, for tests
+/// that draw the block in a plain page.
+const WINDOW_ORIGIN: &str = "vscode-file://vscode-app";
+
 /// Headless: the Browser block draws the page, so Chromium shows no window of its own.
-fn chromium_args(profile: &Path) -> Vec<String> {
+fn chromium_args(profile: &Path, env: &HashMap<String, String>) -> Vec<String> {
+    let origins = std::iter::once(WINDOW_ORIGIN)
+        .chain(
+            env.get("CEDIAN_BROWSER_ORIGINS")
+                .map(|o| {
+                    o.split(',')
+                        .map(str::trim)
+                        .filter(|o| !o.is_empty())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+        )
+        .collect::<Vec<_>>()
+        .join(",");
     // Chromium refuses its own sandbox as root, which only a container runs as.
     // SAFETY: geteuid has no preconditions.
     let root = cfg!(target_os = "linux") && unsafe { libc::geteuid() } == 0;
@@ -182,6 +267,7 @@ fn chromium_args(profile: &Path) -> Vec<String> {
             "--headless=new".to_owned(),
             "--remote-debugging-port=0".to_owned(),
             "--remote-debugging-address=127.0.0.1".to_owned(),
+            format!("--remote-allow-origins={origins}"),
             format!("--user-data-dir={}", profile.display()),
             "--no-first-run".to_owned(),
             "--no-default-browser-check".to_owned(),
@@ -344,6 +430,31 @@ mod tests {
     }
 
     #[test]
+    fn only_the_window_s_origin_may_open_a_page_s_socket() {
+        let args = |env: &[(&str, &str)]| {
+            let env = env
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
+            chromium_args(Path::new("/p"), &env)
+        };
+        assert!(args(&[]).contains(&"--remote-allow-origins=vscode-file://vscode-app".to_owned()));
+        assert!(
+            args(&[("CEDIAN_BROWSER_ORIGINS", "http://127.0.0.1:5000, ")]).contains(
+                &"--remote-allow-origins=vscode-file://vscode-app,http://127.0.0.1:5000".to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn a_tab_url_is_escaped_whole() {
+        assert_eq!(
+            escape("http://localhost:3000/a?b=c&d=e f#g"),
+            "http://localhost:3000/a%3Fb%3Dc%26d%3De%20f%23g"
+        );
+    }
+
+    #[test]
     fn a_port_file_names_its_port_on_the_first_line() {
         let dir = tempfile::tempdir().expect("dir");
         std::fs::write(
@@ -367,10 +478,55 @@ mod tests {
         let env = HashMap::from([("CEDIAN_CHROMIUM".to_owned(), bin)]);
         let mut browser = Browser::new(dir.path(), env.clone());
         assert!(browser.running_page("a").is_none(), "a run never starts it");
-        let a = browser.page("a").expect("page");
-        assert_eq!(browser.page("a").expect("again"), a);
-        let b = browser.page("b").expect("other project");
+        let a = browser.page("a", None).expect("page");
+        assert_eq!(browser.page("a", None).expect("again"), a);
+        assert_eq!(a.tabs.len(), 1);
+        let b = browser.page("b", None).expect("other project");
         assert_ne!(a.socket, b.socket);
+        // Tabs: a new one is active; selecting and closing move the active one; the last one
+        // closed leaves a blank one.
+        let two = browser
+            .page(
+                "a",
+                Some(&BrowserTabAction::Open {
+                    url: Some("about:blank".into()),
+                }),
+            )
+            .expect("open");
+        assert_eq!(two.tabs.len(), 2);
+        assert_eq!(two.socket, two.tabs[1].socket);
+        let first = two.tabs[0].id.clone();
+        let back = browser
+            .page("a", Some(&BrowserTabAction::Select { id: first.clone() }))
+            .expect("select");
+        assert_eq!(back.socket, a.socket);
+        assert!(
+            browser
+                .page("a", Some(&BrowserTabAction::Select { id: "nope".into() }))
+                .is_err()
+        );
+        assert!(
+            browser
+                .page(
+                    "a",
+                    Some(&BrowserTabAction::Open {
+                        url: Some("file:///etc/passwd".into())
+                    })
+                )
+                .is_err()
+        );
+        let one = browser
+            .page("a", Some(&BrowserTabAction::Close { id: first }))
+            .expect("close");
+        assert_eq!(one.tabs, vec![two.tabs[1].clone()]);
+        assert_eq!(one.socket, two.tabs[1].socket);
+        let last = one.tabs[0].id.clone();
+        let fresh = browser
+            .page("a", Some(&BrowserTabAction::Close { id: last.clone() }))
+            .expect("close last");
+        assert_eq!(fresh.tabs.len(), 1);
+        assert_ne!(fresh.tabs[0].id, last);
+        let a = fresh;
         // A daemon that restarts finds the same Chromium and opens pages there.
         let mut again = Browser::new(dir.path(), env);
         let c = again.running_page("a").expect("still running");

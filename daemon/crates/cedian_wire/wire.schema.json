@@ -285,15 +285,23 @@
       ]
     },
     "BrowserPage": {
-      "description": "A project's page in the shared Chromium the daemon runs: the page the Browser block shows and the one the project's runs get with cedia's `--browser`.",
+      "description": "A project's pages in the shared Chromium the daemon runs: the tabs the Browser block shows, and the active one, which the project's runs get with cedia's `--browser`.",
       "properties": {
         "endpoint": {
           "description": "The browser's DevTools endpoint, `http://127.0.0.1:<port>`.",
           "type": "string"
         },
         "socket": {
-          "description": "The page's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.",
+          "description": "The active tab's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.",
           "type": "string"
+        },
+        "tabs": {
+          "default": [],
+          "description": "The project's tabs in the order they opened; the active one among them.",
+          "items": {
+            "$ref": "#/definitions/BrowserTab"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -301,6 +309,89 @@
         "socket"
       ],
       "type": "object"
+    },
+    "BrowserTab": {
+      "description": "One tab of a project: a page target in the shared Chromium.",
+      "properties": {
+        "id": {
+          "description": "Chromium's target id.",
+          "type": "string"
+        },
+        "socket": {
+          "description": "The tab's DevTools WebSocket.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "socket"
+      ],
+      "type": "object"
+    },
+    "BrowserTabAction": {
+      "description": "What the Browser block asks of a project's tabs.",
+      "oneOf": [
+        {
+          "description": "A new tab, active from then on, on `url` or a blank page.",
+          "properties": {
+            "action": {
+              "enum": [
+                "open"
+              ],
+              "type": "string"
+            },
+            "url": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Makes the tab active: the one the block shows and the runs drive.",
+          "properties": {
+            "action": {
+              "enum": [
+                "select"
+              ],
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Closes the tab; the last one closed leaves a blank one in its place.",
+          "properties": {
+            "action": {
+              "enum": [
+                "close"
+              ],
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "id"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "Build": {
       "additionalProperties": false,
@@ -323,7 +414,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -350,6 +441,7 @@
         "threads.side",
         "usage",
         "browser",
+        "browser.sites",
         "threads.restore-json",
         "images",
         "cache-ttl",
@@ -365,6 +457,8 @@
         "media-route",
         "code-review",
         "complete",
+        "context",
+        "threads.recap",
         "inline-edit"
       ],
       "type": "string"
@@ -1633,7 +1727,7 @@
             },
             "tools": {
               "items": {
-                "$ref": "#/definitions/McpCheckVariant0ToolsItem"
+                "$ref": "#/definitions/McpCheckTool"
               },
               "type": "array"
             }
@@ -1665,10 +1759,10 @@
           "type": "object"
         }
       ],
-      "description": "`McpCheck`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"name\", \"ok\", \"tools\" ], \"properties\": { \"name\": { \"type\": \"string\" }, \"ok\": { \"type\": \"boolean\", \"const\": true }, \"tools\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"description\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" } } } } } }, { \"type\": \"object\", \"required\": [ \"error\", \"name\", \"ok\" ], \"properties\": { \"error\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" }, \"ok\": { \"type\": \"boolean\", \"const\": false } } } ] } ``` </details>"
+      "description": "`McpCheck`\n\n<details><summary>JSON schema</summary>\n\n```json { \"anyOf\": [ { \"type\": \"object\", \"required\": [ \"name\", \"ok\", \"tools\" ], \"properties\": { \"name\": { \"type\": \"string\" }, \"ok\": { \"type\": \"boolean\", \"const\": true }, \"tools\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/McpCheckTool\" } } } }, { \"type\": \"object\", \"required\": [ \"error\", \"name\", \"ok\" ], \"properties\": { \"error\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" }, \"ok\": { \"type\": \"boolean\", \"const\": false } } } ] } ``` </details>"
     },
-    "McpCheckVariant0ToolsItem": {
-      "description": "`McpCheckVariant0ToolsItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"description\": { \"type\": \"string\" }, \"name\": { \"type\": \"string\" } } } ``` </details>",
+    "McpCheckTool": {
+      "description": "`McpCheckTool`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"description\": { \"type\": \"string\" }, \"destructiveHint\": { \"type\": \"boolean\" }, \"name\": { \"type\": \"string\" }, \"readOnlyHint\": { \"type\": \"boolean\" }, \"rule\": { \"$ref\": \"#/definitions/McpToolRule\" } } } ``` </details>",
       "properties": {
         "description": {
           "type": [
@@ -1676,8 +1770,30 @@
             "null"
           ]
         },
+        "destructiveHint": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "name": {
           "type": "string"
+        },
+        "readOnlyHint": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/McpToolRule"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1686,7 +1802,7 @@
       "type": "object"
     },
     "McpEntry": {
-      "description": "`McpEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"args\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"command\": { \"type\": \"string\" }, \"cwd\": { \"type\": \"string\" }, \"env\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"error\": { \"type\": \"string\" }, \"headers\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"name\": { \"type\": \"string\" }, \"readOnly\": { \"type\": \"boolean\" }, \"timeoutSec\": { \"type\": \"number\" }, \"url\": { \"type\": \"string\" } } } ``` </details>",
+      "description": "`McpEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"name\" ], \"properties\": { \"args\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"command\": { \"type\": \"string\" }, \"cwd\": { \"type\": \"string\" }, \"env\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"error\": { \"type\": \"string\" }, \"headers\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"name\": { \"type\": \"string\" }, \"readOnly\": { \"type\": \"boolean\" }, \"timeoutSec\": { \"type\": \"number\" }, \"tools\": { \"type\": \"object\", \"additionalProperties\": { \"$ref\": \"#/definitions/McpToolRule\" } }, \"url\": { \"type\": \"string\" } } } ``` </details>",
       "properties": {
         "args": {
           "items": {
@@ -1739,6 +1855,12 @@
             "number",
             "null"
           ]
+        },
+        "tools": {
+          "additionalProperties": {
+            "$ref": "#/definitions/McpToolRule"
+          },
+          "type": "object"
         },
         "url": {
           "type": [
@@ -1834,6 +1956,15 @@
           "type": "object"
         }
       ]
+    },
+    "McpToolRule": {
+      "description": "`McpToolRule`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"read\", \"exec\", \"deny\" ] } ``` </details>",
+      "enum": [
+        "read",
+        "exec",
+        "deny"
+      ],
+      "type": "string"
     },
     "McpTransport": {
       "oneOf": [
@@ -5192,7 +5323,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "The project's page in the shared Chromium, which the daemon starts when none runs. Answered with `Notice::Browser`; from then on the project's runs get the page.",
+          "description": "The project's tabs in the shared Chromium, which the daemon starts when none runs, after `tab` when given. Every window gets `Notice::Browser`; from then on the project's runs get the active tab.",
           "properties": {
             "cwd": {
               "type": "string"
@@ -5202,6 +5333,17 @@
                 "browser"
               ],
               "type": "string"
+            },
+            "tab": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/BrowserTabAction"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             }
           },
           "required": [

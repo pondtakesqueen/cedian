@@ -31,6 +31,7 @@ import { IViewContainersRegistry, IViewsRegistry, ViewContainerLocation, Extensi
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from './agentEditor.js';
+import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, openBrowser } from './browserEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
@@ -109,6 +110,30 @@ registerAction2(class extends Action2 {
 	}
 	run(accessor: ServicesAccessor): Promise<void> {
 		return withPane(accessor, p => p.popOutReview());
+	}
+});
+
+// ---- the Browser block: the project's tabs in the daemon's Chromium (spec §3.3, §6.3) ----
+
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(CedianBrowserEditor, CedianBrowserEditor.ID, localize('cedian.browser', "Browser")),
+	[new SyncDescriptor(CedianBrowserInput)],
+);
+Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(CedianBrowserInput.ID, CedianBrowserInputSerializer);
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.openBrowser',
+			title: localize2('cedian.openBrowser', "Open Browser"),
+			category: localize2('cedian.category', "Cedian"),
+			icon: Codicon.globe,
+			f1: true,
+			menu: [{ id: MenuId.ViewTitle, when: ContextKeyExpr.equals('view', AGENT_PANE_VIEW_ID), group: 'navigation', order: 5 }],
+		});
+	}
+	run(accessor: ServicesAccessor): Promise<void> {
+		return openBrowser(accessor.get(IEditorService));
 	}
 });
 

@@ -18,6 +18,7 @@ impl SessionEvent {
             | SessionEvent::User { id, parent_id, .. }
             | SessionEvent::Request { id, parent_id, .. }
             | SessionEvent::Attempt { id, parent_id, .. }
+            | SessionEvent::Retry { id, parent_id, .. }
             | SessionEvent::Assistant { id, parent_id, .. }
             | SessionEvent::Keepalive { id, parent_id, .. }
             | SessionEvent::Snapshot { id, parent_id, .. }
