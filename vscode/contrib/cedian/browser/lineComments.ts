@@ -206,7 +206,12 @@ class NoteZone extends ZoneWidget {
 		this.measure();
 	}
 
-	/** After the next frame, the lines the note needs at its width; the zone grows or shrinks to them. */
+	// The editor's width changed: the text wraps at a new width.
+	protected override _onWidth(): void {
+		this.measure();
+	}
+
+	/** After the next frame, the lines (in part) the note needs at its width; the zone grows or shrinks to them. */
 	private measure(): void {
 		const container = this.container;
 		if (!container || this.measuring) {
@@ -219,8 +224,9 @@ class NoteZone extends ZoneWidget {
 			container.style.height = 'auto';
 			const natural = container.offsetHeight;
 			container.style.height = height;
-			const lines = Math.max(1, Math.ceil(natural / this.editor.getOption(EditorOption.lineHeight)));
-			if (natural > 0 && lines !== this.lines) {
+			// Not rounded up to whole lines: a one-line note stays one line high.
+			const lines = Math.max(1, natural / this.editor.getOption(EditorOption.lineHeight));
+			if (natural > 0 && Math.abs(lines - this.lines) > 0.01) {
 				this.lines = lines;
 				this._relayout(lines);
 			}
