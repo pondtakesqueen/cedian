@@ -228,6 +228,23 @@ pub fn args(number: u64, action: &IssueAction) -> Vec<String> {
     }
 }
 
+/// The issue as read shows what `action` did.
+pub fn reflects(view: &IssueView, action: &IssueAction) -> bool {
+    let has = |list: &[String], item: &String| list.iter().any(|x| x.eq_ignore_ascii_case(item));
+    match action {
+        IssueAction::Comment { .. } => true,
+        IssueAction::Close { .. } => view.state == IssueState::Closed,
+        IssueAction::Reopen => view.state == IssueState::Open,
+        IssueAction::Labels { add, remove } => {
+            add.iter().all(|l| has(&view.labels, l)) && !remove.iter().any(|l| has(&view.labels, l))
+        }
+        IssueAction::Assignees { add, remove } => {
+            add.iter().all(|a| has(&view.assignees, a))
+                && !remove.iter().any(|a| has(&view.assignees, a))
+        }
+    }
+}
+
 pub fn act(gh: &Gh, dir: &Path, number: u64, action: &IssueAction) -> anyhow::Result<()> {
     let args = args(number, action);
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -290,7 +307,7 @@ mod tests {
                 .expect("fixture");
         let view = parse(&value).expect("view");
         assert_eq!(
-            (view.number, view.state, view.state_reason),
+            (view.number, view.state, view.state_reason.clone()),
             (14, IssueState::Open, None)
         );
         assert_eq!(view.me, "pond");
@@ -308,6 +325,18 @@ mod tests {
         );
         assert_eq!(view.repo_labels, ["bug", "enhancement"]);
         assert!(view.can_triage);
+        let assign = |add: &str| IssueAction::Assignees {
+            add: vec![add.into()],
+            remove: vec![],
+        };
+        assert!(!reflects(&view, &assign("pond")));
+        assert!(reflects(
+            &IssueView {
+                assignees: vec!["Pond".into()],
+                ..view.clone()
+            },
+            &assign("pond")
+        ));
     }
 
     #[test]

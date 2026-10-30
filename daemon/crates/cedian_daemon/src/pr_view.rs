@@ -345,6 +345,24 @@ pub fn args(number: u64, action: &PrAction) -> Vec<String> {
     }
 }
 
+/// The logins a reviewer ask named that the PR still does not list, comma-joined.
+pub fn not_asked(view: &PrView, action: &PrAction) -> Option<String> {
+    let PrAction::RequestReviewers { logins } = action else {
+        return None;
+    };
+    let missing: Vec<&str> = logins
+        .iter()
+        .filter(|l| {
+            !view
+                .reviewers
+                .iter()
+                .any(|r| r.login.eq_ignore_ascii_case(l))
+        })
+        .map(String::as_str)
+        .collect();
+    (!missing.is_empty()).then(|| missing.join(", "))
+}
+
 /// Does `action` on the PR of the branch checked out in `dir`.
 pub fn act(gh: &Gh, dir: &Path, action: &PrAction) -> anyhow::Result<()> {
     let branch = crate::pr_watch::branch(dir).context("no branch checked out")?;
@@ -465,6 +483,14 @@ mod tests {
             ]
         );
         assert_eq!(view.closes, [14]);
+        let ask = |l: &str| PrAction::RequestReviewers {
+            logins: vec!["mai-k".into(), l.into()],
+        };
+        assert_eq!(not_asked(&view, &ask("ton-s")), None);
+        assert_eq!(
+            not_asked(&view, &ask("octocat")).as_deref(),
+            Some("octocat")
+        );
         assert_eq!(
             view.checks
                 .iter()
