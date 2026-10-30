@@ -10,6 +10,11 @@ describe("VS Code settings from desktop", () => {
     expect(s["files.autoSave"]).toBe("afterDelay");
     expect(s["editor.inlineSuggest.enabled"]).toBe(true);
     expect(Object.keys(s["workbench.colorCustomizations"] as object)).toEqual(["[Dark Modern]", "[Light Modern]"]);
+    // The editor and side bars as blocks: Modern UI's cards, pill tabs, gaps unless compact.
+    expect(s["workbench.experimental.modernUI"]).toBe(true);
+    expect(s["workbench.experimental.modernUIEditorTabStyle"]).toBe("pill");
+    expect(s["window.density.layout"]).toBe("default");
+    expect(vscodeSettings({ density: "compact" }, true)["window.density.layout"]).toBe("compact");
   });
   it("follows the keys the person set", () => {
     const s = vscodeSettings({ theme: "light", font: { code: "JetBrains Mono" }, code_font_size: 15, editor: { auto_save: false, format_on_save: true } }, true);

@@ -17,7 +17,8 @@ describe("Warm & Lime", () => {
       for (const rule of syntaxRules(a)) expect(rule.settings.foreground).toMatch(/^#/);
     }
     expect(workbenchColors("dark").focusBorder).toBe(TOKENS.dark.accent);
-    expect(workbenchColors("light")["editor.background"]).toBe(TOKENS.light.sheet);
+    expect(workbenchColors("light")["editor.background"]).toBe(TOKENS.light.code);
+    expect(workbenchColors("dark")["tab.activeBorderTop"]).toBe("#00000000");
     expect(workbenchColors("dark")["editor.selectionBackground"]).toBe("#6FB0FF47");
   });
 

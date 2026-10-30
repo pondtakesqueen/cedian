@@ -8,3 +8,7 @@
 .monaco-workbench .scm-view .scm-editor-container .monaco-editor,
 .monaco-workbench .scm-view .scm-editor-container .monaco-editor .overflow-guard { border-radius: 6px; }
 .monaco-workbench .scm-history-view .scm-provider .state-label.monaco-count-badge.long { border-radius: 6px; }
+/* Modern UI's cards (the editor, side bars, panel) take the prototype's block corners, 12px, and
+   so do the widgets drawn inside them (suggest, hover). Only corners: the gaps are VS Code's, which
+   its layout measures. */
+.monaco-workbench.floating-panels > .monaco-grid-view { --vscode-cornerRadius-large: 12px; }
