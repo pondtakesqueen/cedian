@@ -46,6 +46,12 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "window.autoDetectColorScheme": desktop.theme === "system",
     "workbench.preferredDarkColorTheme": BASE_THEME.dark,
     "workbench.preferredLightColorTheme": BASE_THEME.light,
+    // VS Code's Modern UI draws the editor, side bars and panel as rounded cards with gaps, the
+    // prototype's blocks; its default comes from an experiment no Cedian build reaches, so say it.
+    // Tabs are pills, as in the prototype's block headers. `desktop.density` compact drops the gaps.
+    "workbench.experimental.modernUI": true,
+    "workbench.experimental.modernUIEditorTabStyle": "pill",
+    "window.density.layout": desktop.density === "compact" ? "compact" : "default",
     "workbench.colorCustomizations": {
       [`[${BASE_THEME.dark}]`]: workbenchColors("dark"),
       [`[${BASE_THEME.light}]`]: workbenchColors("light"),
