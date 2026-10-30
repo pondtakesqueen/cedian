@@ -359,6 +359,25 @@ export class AgentPane {
     this.renderComposer();
   }
 
+  /**
+   * Puts context from elsewhere in the composer: text (an element the Browser block picked, a
+   * console line) after what is typed, and its picture when given, saved through `saveImage`.
+   */
+  async addContext(text: string, png?: Uint8Array): Promise<void> {
+    const typed = this.input.value.trimEnd();
+    this.input.value = typed ? `${typed}\n\n${text}\n` : `${text}\n`;
+    this.typed();
+    if (png && this.host.saveImage) {
+      try {
+        this.attach([await this.host.saveImage(png, "image/png")]);
+      } catch (e) {
+        this.state = { ...this.state, error: `Couldn't attach the element's picture: ${(e as Error).message}` };
+        this.render();
+      }
+    }
+    this.input.focus();
+  }
+
   /** cedia takes a video on `--image` and shows it as frames. */
   takesVideo(): boolean {
     return this.capabilities.includes("video");

@@ -6,14 +6,16 @@ import type { McpEntry, ModelList, Notice, PermissionList, Request, ThreadInfo }
 import { VIEW_MODES } from "../agent-pane/view-modes.js";
 import { KEYBINDINGS } from "../keybindings/keybindings.js";
 import { addRoot, desktopOf, removeRoot, rootsOf, type Desktop } from "./desktop.js";
+import { addressOf, allowSite, hostOf, revokeSite, sitesOf } from "../browser-panel/sites.js";
 
-export type Section = "appearance" | "models" | "mcp" | "roots" | "editor" | "keys";
+export type Section = "appearance" | "models" | "mcp" | "roots" | "browser" | "editor" | "keys";
 
 export const SECTIONS: { id: Section; label: string }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "models", label: "Models" },
   { id: "mcp", label: "MCP" },
   { id: "roots", label: "Roots" },
+  { id: "browser", label: "Browser" },
   { id: "editor", label: "Editor" },
   { id: "keys", label: "Shortcuts" },
 ];
@@ -165,6 +167,7 @@ export class SettingsView {
       case "models": this.modelsSection(content); break;
       case "mcp": this.mcpSection(content); break;
       case "roots": this.roots(content); break;
+      case "browser": this.browser(content); break;
       case "editor": this.editor(content); break;
       case "keys": this.keys(content); break;
     }
@@ -324,6 +327,41 @@ export class SettingsView {
       this.rootError = "error" in r ? r.error : undefined;
       if ("roots" in r) this.set("roots", r.roots);
       else this.render();
+    });
+    const row = el(d, "div", "row");
+    row.append(input, add);
+    p.append(row, error);
+  }
+
+  /** Spec §6.3: the project's site allowlist, revocable here. Localhost needs no entry. */
+  private browser(p: HTMLElement): void {
+    const d = this.doc;
+    const primary = this.host.primary;
+    if (!primary) {
+      p.append(el(d, "div", "small", "Open the project's folder first"));
+      return;
+    }
+    p.append(el(d, "div", "small", "The sites the agent may open in this project's browser. Others are refused, never asked about mid-run."));
+    const list = el(d, "ul", "list");
+    const local = el(d, "li", "item");
+    local.append(el(d, "span", "m ell", "localhost"), el(d, "span", "tag", "Always"));
+    list.append(local);
+    for (const site of sitesOf(this.desktop, primary)) {
+      const li = el(d, "li", "item");
+      li.append(el(d, "span", "m ell", site), button(d, "Remove", () => this.set("browser_sites", revokeSite(this.desktop, primary, site)), "btn danger"));
+      list.append(li);
+    }
+    p.append(list);
+    const input = this.text("", "docs.example.com", () => {});
+    const error = el(d, "div", "small bad", "");
+    const add = button(d, "Add site", () => {
+      const to = addressOf(input.value);
+      const host = "url" in to ? hostOf(to.url) : undefined;
+      if (!host) {
+        error.textContent = "error" in to ? to.error : `Not a web address: ${input.value}`;
+        return;
+      }
+      this.set("browser_sites", allowSite(this.desktop, primary, host));
     });
     const row = el(d, "div", "row");
     row.append(input, add);

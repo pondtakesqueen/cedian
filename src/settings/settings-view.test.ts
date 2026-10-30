@@ -51,6 +51,25 @@ describe("settings window", () => {
     expect(view.root.textContent).toContain("A thread is using this root: Tidy the lib. Archive it first");
   });
 
+  it("lists the project's browser sites, adds one by its host and removes one (spec §6.3)", () => {
+    const f = fake();
+    const view = new SettingsView(document, f.wire, { primary: "/r/main", isGitRepo: async () => true });
+    view.show("browser");
+    f.emit({ kind: "settings", desktop: { browser_sites: { "r-main": ["github.com"], "r-else": ["x.com"] } }, path: "" });
+    const items = [...view.root.querySelectorAll("li")].map((li) => li.textContent);
+    expect(items).toEqual(["localhostAlways", "github.comRemove"]);
+    (view.root.querySelector("input") as HTMLInputElement).value = "https://Docs.Example.com/a";
+    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Add site")!.click();
+    expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "browser_sites", value: { "r-main": ["github.com", "docs.example.com"], "r-else": ["x.com"] } });
+    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Remove")!.click();
+    expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "browser_sites", value: { "r-main": [], "r-else": ["x.com"] } });
+    (view.root.querySelector("input") as HTMLInputElement).value = "not a site";
+    const before = f.sent.length;
+    [...view.root.querySelectorAll("button")].find((b) => b.textContent === "Add site")!.click();
+    expect(f.sent).toHaveLength(before);
+    expect(view.root.textContent).toContain("Not a web address: not a site");
+  });
+
   it("lists MCP servers with checks", () => {
     const f = fake();
     const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
