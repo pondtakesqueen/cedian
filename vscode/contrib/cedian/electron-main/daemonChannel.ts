@@ -11,6 +11,7 @@ import { dirname, join } from 'path';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IPCServer, IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
+import { setAppIcon } from './appIcon.js';
 import { DaemonBuild, DaemonConnectionState, isOtherBuild } from '../common/daemon.js';
 
 /**
@@ -49,6 +50,7 @@ export class CedianDaemonChannel<TContext> extends Disposable implements IServer
 		switch (command) {
 			case 'connect': connection.open(); return connection.state as T;
 			case 'send': connection.send(String(arg)); return undefined as T;
+			case 'appIcon': setAppIcon(arg); return undefined as T;
 		}
 		throw new Error(`cedianDaemon: no command ${command}`);
 	}

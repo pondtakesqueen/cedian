@@ -12,4 +12,6 @@ export const ICedianDaemonService = createDecorator<ICedianDaemonService>('cedia
 export interface ICedianDaemonService {
 	readonly _serviceBrand: undefined;
 	readonly client: DaemonClient;
+	/** Sets the Dock icon while Cedian runs; the bundle's own icon is the light one. */
+	setAppIcon(appearance: 'light' | 'dark'): void;
 }

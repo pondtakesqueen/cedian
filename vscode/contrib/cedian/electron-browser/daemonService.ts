@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ConnectionState, DaemonClient, Transport } from '../browser/daemon-client/client.js';
@@ -14,10 +15,11 @@ import { CEDIAN_DAEMON_CHANNEL } from '../common/daemon.js';
 class CedianDaemonService extends Disposable implements ICedianDaemonService {
 	declare readonly _serviceBrand: undefined;
 	readonly client: DaemonClient;
+	private readonly channel: IChannel;
 
 	constructor(@IMainProcessService mainProcessService: IMainProcessService) {
 		super();
-		const channel = mainProcessService.getChannel(CEDIAN_DAEMON_CHANNEL);
+		const channel = this.channel = mainProcessService.getChannel(CEDIAN_DAEMON_CHANNEL);
 		const transport: Transport = {
 			send: line => { channel.call('send', line); },
 			onLine: listener => { this._register(channel.listen<string>('onLine')(listener)); },
@@ -25,6 +27,10 @@ class CedianDaemonService extends Disposable implements ICedianDaemonService {
 		};
 		this.client = new DaemonClient(transport);
 		channel.call('connect');
+	}
+
+	setAppIcon(appearance: 'light' | 'dark'): void {
+		this.channel.call('appIcon', appearance);
 	}
 }
 

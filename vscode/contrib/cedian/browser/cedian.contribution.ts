@@ -38,7 +38,7 @@ import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
 import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
-import { desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
+import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
 import type { AgentPane } from './agent-pane/pane.js';
 
@@ -187,9 +187,10 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 	private desktop: Desktop = desktopOf(cached(DESKTOP_CACHE));
 	private keymap = JSON.stringify(cached(KEYMAP_CACHE) ?? {});
 	private readonly style: HTMLStyleElement;
+	private appIcon: 'light' | 'dark' | undefined;
 
 	constructor(
-		@ICedianDaemonService daemon: ICedianDaemonService,
+		@ICedianDaemonService private readonly daemon: ICedianDaemonService,
 		@IThemeService private readonly themeService: IThemeService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 	) {
@@ -242,12 +243,17 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 		service.updateResolver?.();
 	}
 
-	/** The tokens of the theme showing now, and the pane's type from `desktop`. */
+	/** The tokens of the theme showing now, the pane's type and the Dock icon from `desktop`. */
 	private paint(): void {
 		const type = this.themeService.getColorTheme().type;
 		const appearance = type === ColorScheme.LIGHT || type === ColorScheme.HIGH_CONTRAST_LIGHT ? 'light' : 'dark';
 		const typography = Object.entries(paneTypography(this.desktop)).map(([k, v]) => `  ${k}: ${v};`).join('\n');
 		this.style.textContent = `${cssText(appearance, '.monaco-workbench')}.monaco-workbench {\n${typography}\n}\n`;
+		const icon = appIconOf(this.desktop, appearance);
+		if (icon !== this.appIcon) {
+			this.appIcon = icon;
+			this.daemon.setAppIcon(icon);
+		}
 	}
 }
 

@@ -7,6 +7,8 @@ import { appearanceOf, BASE_THEME, syntaxRules, workbenchColors } from "../theme
 /** The keys Cedian reads; anything else in `desktop` is kept as it is. */
 export interface Desktop {
   theme?: "dark" | "light" | "system";
+  /** The Dock icon: light (the default), dark, or the theme showing now. */
+  app_icon?: "light" | "dark" | "theme";
   font?: { ui?: string; code?: string };
   ui_font_size?: number;
   code_font_size?: number;
@@ -77,6 +79,12 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     // .cedian/worktrees, which the folder scan never reaches).
     "git.detectWorktrees": true,
   };
+}
+
+/** Which app icon `desktop.app_icon` asks for, given the appearance of the theme showing now. */
+export function appIconOf(desktop: Desktop, showing: "light" | "dark"): "light" | "dark" {
+  if (desktop.app_icon === "dark") return "dark";
+  return desktop.app_icon === "theme" ? showing : "light";
 }
 
 /** The agent pane's own type, as CSS custom properties. */

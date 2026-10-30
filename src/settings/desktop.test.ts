@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRoot, desktopOf, paneTypography, projectSlug, removeRoot, rootsOf, vscodeSettings } from "./desktop";
+import { addRoot, appIconOf, desktopOf, paneTypography, projectSlug, removeRoot, rootsOf, vscodeSettings } from "./desktop";
 
 describe("VS Code settings from desktop", () => {
   it("defaults: Warm & Lime over Dark Modern, Lilex, Thai line height", () => {
@@ -26,6 +26,13 @@ describe("VS Code settings from desktop", () => {
     expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(false);
     expect(vscodeSettings({ theme: "system" }, false)["window.autoDetectColorScheme"]).toBe(true);
     expect(vscodeSettings({ code_font_size: 400 }, true)["editor.fontSize"]).toBe(13);
+  });
+  it("picks the app icon: light unless dark, or the theme's when it matches the theme", () => {
+    expect(appIconOf({}, "dark")).toBe("light");
+    expect(appIconOf({ app_icon: "dark" }, "light")).toBe("dark");
+    expect(appIconOf({ app_icon: "theme" }, "dark")).toBe("dark");
+    expect(appIconOf({ app_icon: "theme" }, "light")).toBe("light");
+    expect(appIconOf({ app_icon: "bogus" as never }, "dark")).toBe("light");
   });
   it("types the pane", () => {
     expect(paneTypography({ ui_font_size: 16, density: "compact" })).toMatchObject({ "--cedian-ui-size": "16px", "--cedian-gap": "8px", "--cedian-line-height": "1.6" });
