@@ -32,6 +32,10 @@ pub struct ThreadSummary {
     #[serde(default)]
     pub todo: Vec<Step>,
     pub archived: bool,
+    /// A side chat (`cedia threads fork <id> end --side`): the window that asked shows it and
+    /// throws it away, so a thread list leaves it out.
+    #[serde(default)]
+    pub side: bool,
     pub sessions: Vec<SessionRef>,
     pub messages: Vec<ThreadMessage>,
     /// Messages no session has been shown yet.
@@ -149,6 +153,7 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
         root: None,
         todo: Vec::new(),
         archived: false,
+        side: false,
         sessions: Vec::new(),
         messages: Vec::new(),
         pending: Vec::new(),
@@ -179,9 +184,11 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
                 by,
                 profile,
                 root,
+                side,
                 at,
                 ..
             } if !opened => {
+                thread.side = side.unwrap_or(false);
                 opened = true;
                 thread.title = title.clone();
                 thread.task = task.clone();
@@ -521,6 +528,14 @@ mod tests {
             &self::events(&[r#"{"kind":"open","title":"u","task":"u","by":"t-1","at":"6"}"#]),
         );
         assert_eq!(opened.by.as_deref(), Some("t-1"));
+        assert!(!opened.side);
+        let side = fold(
+            "t-3",
+            &self::events(&[
+                r#"{"kind":"open","title":"side chat: u","task":"u","side":true,"forkOf":{"thread":"t-2"},"at":"7"}"#,
+            ]),
+        );
+        assert!(side.side, "a side chat says so");
         let threads = [thread, opened.clone()];
         assert_eq!(
             opener_model(&threads, opened.by.as_deref()).as_deref(),

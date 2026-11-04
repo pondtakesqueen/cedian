@@ -96,6 +96,9 @@ pub struct Daemon {
     /// Each window's latest tab completion: its id, and the pid of the cedia answering it once
     /// started. A newer ask stops the one before.
     completing: HashMap<ClientId, (String, Option<u32>)>,
+    /// Each window's open side chats (`Request::Side`), with their project: thrown away when it
+    /// closes one, and when it goes, so a side chat outlives neither.
+    sides: HashMap<ClientId, Vec<(PathBuf, String)>>,
     next_id: u64,
 }
 
@@ -160,6 +163,7 @@ impl Daemon {
             gh_login: None,
             pr_unwatched: crate::pr_watch::Unwatched::new(state_dir),
             completing: HashMap::new(),
+            sides: HashMap::new(),
             next_id: 1,
         }
     }
@@ -300,6 +304,59 @@ impl Daemon {
         id
     }
 
+    /// The window `id` went: what it held goes with it, its side chats too.
+    pub fn gone(shared: &Shared, id: ClientId) {
+        let sides = {
+            let mut daemon = lock(shared);
+            daemon.disconnect(id);
+            daemon.sides.remove(&id).unwrap_or_default()
+        };
+        if !sides.is_empty() {
+            Self::discard(shared, sides);
+        }
+    }
+
+    /// Throws side chats away: stops each one's run, then, once it has ended (or after a few
+    /// seconds), deletes the thread and its sessions (`cedia threads delete --force`).
+    fn discard(shared: &Shared, sides: Vec<(PathBuf, String)>) {
+        let shared = shared.clone();
+        std::thread::spawn(move || {
+            for (cwd, thread) in sides {
+                let alive = |daemon: &Daemon| {
+                    daemon
+                        .by_thread
+                        .get(&thread)
+                        .and_then(|id| daemon.runs.get(id))
+                        .is_some_and(|run| run.alive)
+                };
+                {
+                    let daemon = lock(&shared);
+                    if let Some(run) = daemon
+                        .by_thread
+                        .get(&thread)
+                        .and_then(|id| daemon.runs.get(id))
+                        && run.alive
+                        && let Ok(pid) = libc::pid_t::try_from(run.pid)
+                    {
+                        // SAFETY: kill only sends a signal; the run is alive, so the pid is still
+                        // its child.
+                        unsafe { libc::kill(pid, libc::SIGTERM) };
+                    }
+                }
+                for _ in 0..50 {
+                    if !alive(&lock(&shared)) {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                let cedia = lock(&shared).cedia.clone();
+                if let Err(error) = cedia.discard(&cwd, &thread) {
+                    log::warn!("throwing away side chat {thread}: {error:#}");
+                }
+            }
+        });
+    }
+
     pub fn disconnect(&mut self, id: ClientId) {
         self.clients.remove(&id);
         if let Some((_, Some(pid))) = self.completing.remove(&id) {
@@ -391,6 +448,10 @@ impl Daemon {
     fn threads(&mut self, slug: &str) -> anyhow::Result<Vec<ThreadInfo>> {
         let mut threads = Vec::new();
         for thread in list_threads(&threads_dir(&self.home, slug))? {
+            // A side chat is shown only by the window that asked for it, beside its thread.
+            if thread.side {
+                continue;
+            }
             // A window showing the thread as it changes counts as seeing it.
             if self.clients.values().any(|c| c.open.contains(&thread.id)) {
                 self.seen.mark(slug, &thread.id, &thread.updated_at);
@@ -690,6 +751,35 @@ impl Daemon {
                     Err(error) => lock(shared).thread_error(client, &thread, format!("{error:#}")),
                 }
             }
+            Request::Side { cwd, thread } => {
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::ThreadsSide);
+                if !can {
+                    return lock(shared).thread_error(
+                        client,
+                        &thread,
+                        "this cedia cannot open a side chat".into(),
+                    );
+                }
+                match cedia.side(&cwd, &thread) {
+                    Ok(side) => {
+                        let mut daemon = lock(shared);
+                        daemon
+                            .sides
+                            .entry(client)
+                            .or_default()
+                            .push((cwd.clone(), side.clone()));
+                        daemon.send(
+                            client,
+                            Notice::SideChat {
+                                cwd,
+                                from: thread,
+                                thread: side,
+                            },
+                        );
+                    }
+                    Err(error) => lock(shared).thread_error(client, &thread, format!("{error:#}")),
+                }
+            }
             Request::Restore {
                 cwd,
                 thread,
@@ -903,6 +993,16 @@ impl Daemon {
                 }
             }
             Request::Delete { cwd, thread } => {
+                // A side chat goes even while it works: it is the window's, not the person's work.
+                let side = {
+                    let mut daemon = lock(shared);
+                    let list = daemon.sides.entry(client).or_default();
+                    let at = list.iter().position(|(_, t)| *t == thread);
+                    at.map(|i| list.remove(i))
+                };
+                if let Some(side) = side {
+                    return Self::discard(shared, vec![side]);
+                }
                 let cedia = lock(shared).cedia.clone();
                 if let Err(error) = cedia.delete(&cwd, &thread) {
                     lock(shared).thread_error(client, &thread, format!("{error:#}"));

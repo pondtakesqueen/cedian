@@ -105,6 +105,21 @@ if [[ "${1:-}" == "mcp" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "threads" && "${4:-}" == "delete" ]]; then
+  # threads --cwd <dir> delete <id> [--force]
+  rm -f "$FAKE_THREADS/$5.jsonl"
+  exit 0
+fi
+
+if [[ "${1:-}" == "threads" && "${4:-}" == "fork" && "${7:-}" == "--side" ]]; then
+  # threads --cwd <dir> fork <id> end --side --json: a side chat.
+  mkdir -p "$FAKE_THREADS"
+  printf '{"at":"2026-10-22T03:00:05.000Z","kind":"open","title":"side chat: forked","task":"forked","side":true,"forkOf":{"thread":"%s"}}\n' "$5" \
+    >"$FAKE_THREADS/t-0000side.jsonl"
+  printf '{"thread":"t-0000side"}\n'
+  exit 0
+fi
+
 if [[ "${1:-}" == "threads" && "${4:-}" == "fork" ]]; then
   # threads --cwd <dir> fork <id> <run> --json
   printf '{"at":"2026-10-22T03:00:05.000Z","kind":"open","title":"forked","task":"forked","forkOf":{"thread":"%s","run":"%s"}}\n' "$5" "$6" \

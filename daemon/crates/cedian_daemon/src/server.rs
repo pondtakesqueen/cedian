@@ -144,12 +144,9 @@ fn client(
                 Daemon::handle(shared, id, request)
             }
             Ok(None) => break Ok(()),
-            Err(error) => {
-                lock(shared).disconnect(id);
-                break Err(error);
-            }
+            Err(error) => break Err(error),
         }
     };
-    lock(shared).disconnect(id);
+    Daemon::gone(shared, id);
     result
 }
