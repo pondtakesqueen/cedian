@@ -139,6 +139,28 @@ try {
   b = await box();
   ok("and shrinks back to its corner", near(b.width, 440) && near(b.height, 300));
 
+  // Resize by the free corner: bottom right grows up and left; the corner stays put.
+  b = await box();
+  await page.mouse.move(b.x + 4, b.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 4 - 60, b.y + 4 - 40, { steps: 6 });
+  await page.mouse.move(b.x + 4 - 120, b.y + 4 - 80, { steps: 6 });
+  await page.mouse.up();
+  await settled();
+  b = await box();
+  const grown = (await last())[0];
+  ok("resized by its free corner, the resting corner stays", near(b.width, 560) && near(b.height, 380) && near(b.x + b.width, W - GAP) && near(b.y + b.height, H - GAP) && grown.width === 560 && grown.height === 380, `${b.x},${b.y} ${b.width}x${b.height}`);
+  await page.screenshot({ path: join(out, "3b-resized.png") });
+  await head.focus();
+  await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Shift+ArrowDown");
+  await settled();
+  b = await box();
+  ok("Shift+arrows resize it from the keyboard", near(b.width, 480) && near(b.height, 420), `${b.width}x${b.height}`);
+  await page.evaluate(() => window.layer.resizeTo("browser", { width: 440, height: 300 }));
+  await settled();
+
   // Arrow keys on the header step corners.
   await head.focus();
   await page.keyboard.press("ArrowUp");

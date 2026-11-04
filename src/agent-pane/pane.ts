@@ -45,6 +45,8 @@ export interface PaneHost {
    * as in a pane already popped out, the header offers none.
    */
   popOut?(thread: string | undefined): void;
+  /** Floats `thread` (a new thread when none) over the window, in the block layer. */
+  float?(thread: string | undefined): void;
   openUrl(url: string): void;
   /**
    * Whether to archive a thread whose worktree has uncommitted changes in `files`, which go when
@@ -217,6 +219,13 @@ export class AgentPane {
     return this.state.thread;
   }
 
+  /** What the pane shows, in a few words: the thread's title, else the project chat or a new thread. */
+  title(): string {
+    if (this.chat) return "Project chat";
+    const info = this.state.info ?? this.threads.find((t) => t.id === this.state.thread);
+    return info?.title || info?.task || (this.state.thread ? "Thread" : "New thread");
+  }
+
   get composer(): HTMLTextAreaElement {
     return this.input;
   }
@@ -329,6 +338,14 @@ export class AgentPane {
     if (!this.host.popOut) return;
     const thread = this.state.thread;
     this.host.popOut(thread);
+    if (thread) this.newThread();
+  }
+
+  /** Floats the open thread over the window; this pane goes on to a new thread. */
+  float(): void {
+    if (!this.host.float) return;
+    const thread = this.state.thread;
+    this.host.float(thread);
     if (thread) this.newThread();
   }
 
@@ -802,6 +819,12 @@ export class AgentPane {
       pop.title = "Open in new window";
       pop.setAttribute("aria-label", "Open in new window");
       this.header.append(pop);
+    }
+    if (this.host.float) {
+      const float = button(d, "◳", () => this.float(), "chip float");
+      float.title = "Float over the window";
+      float.setAttribute("aria-label", "Float over the window");
+      this.header.append(float);
     }
     const open = this.state.thread ? this.threads.find((t) => t.id === this.state.thread) : undefined;
     if (open?.pr) {

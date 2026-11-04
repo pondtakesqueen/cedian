@@ -13,8 +13,9 @@ export const HEAD = 30;
 
 /** What the layer needs from the window around it. */
 export interface LayerHost {
-  /** Puts a block of `kind` back in the editor area. The layer has already closed its own. */
-  dock(kind: string): void;
+  /** Puts a block of `kind` back in the editor area, showing `id` when it showed one (an agent's
+   * thread). The layer has already closed its own. */
+  dock(kind: string, id?: string): void;
   /** What floats, or where, changed: the host asks the daemon to keep `floating`. */
   changed(floating: Floating[]): void;
   /** A block of `kind` was closed from its header. */
@@ -205,10 +206,12 @@ export class BlockLayer {
 
   /** Closes the block of `kind` here and puts it back in the editor area. */
   dock(kind: string): void {
-    if (!this.find(kind)) return;
+    const pip = this.find(kind);
+    if (!pip) return;
+    const id = pip.block.id;
     this.drop(kind);
     this.changed();
-    this.host.dock(kind);
+    this.host.dock(kind, id);
   }
 
   close(kind: string): void {

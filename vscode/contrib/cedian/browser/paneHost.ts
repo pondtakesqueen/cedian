@@ -33,6 +33,8 @@ export interface PanePlace {
 	reviewGroup?: () => PreferredGroup;
 	/** Opens a thread in a pane of its own window; none for a pane already popped out. */
 	popOut?: (thread: string | undefined) => void;
+	/** Floats a thread over the window in the block layer; none for a pane already floating. */
+	float?: (thread: string | undefined) => void;
 }
 
 /** What an agent pane needs from the workbench around it, for the project folder `folder`. */
@@ -82,6 +84,7 @@ export function createPaneHost(accessor: ServicesAccessor, folder: IWorkspaceFol
 		openReview: (thread, cwd, review, file, line) => { reviews.open(thread, cwd, review, file, line, place.reviewGroup?.()).catch(reviewFailed); },
 		openReviewWindow: (thread, cwd, review) => { reviews.open(thread, cwd, review, undefined, undefined, AUX_WINDOW_GROUP).catch(reviewFailed); },
 		popOut: place.popOut,
+		float: place.float,
 		openUrl: url => { openerService.open(URI.parse(url)); },
 		// The git pane follows the open thread; a folder git can't open just leaves it where it was.
 		showRepository: path => { showRepository(commands, scm, scmView, path).catch(() => { }); },
