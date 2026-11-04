@@ -32,6 +32,11 @@ export const CedianPanes = new class {
 		}
 	}
 
+	/** Every pane drawn now, the one that had focus last at the end. */
+	get all(): readonly AgentPane[] {
+		return this.panes;
+	}
+
 	/** The pane the keybinding layer acts on: the one that had focus last. */
 	get current(): AgentPane | undefined {
 		return this.panes.at(-1);

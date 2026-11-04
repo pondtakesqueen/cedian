@@ -19,8 +19,8 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { EditorInputCapabilities, EditorsOrder, IEditorOpenContext, IEditorSerializer } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { GroupsOrder, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { AUX_WINDOW_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { AgentPane } from './agent-pane/pane.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { createPaneHost } from './paneHost.js';
@@ -146,9 +146,16 @@ export class CedianAgentEditor extends EditorPane {
 		if (!folder || folder.uri.scheme !== 'file') {
 			return;
 		}
-		// Reviews from here open in the main window, beside the code, not over this pane.
+		// Reviews from here open in the main window, beside the code, not over this pane: in another
+		// group when this one is the main window's (the agent in the middle), else its active group.
 		const host = this.instantiationService.invokeFunction(accessor => createPaneHost(accessor, folder, {
-			reviewGroup: () => this.editorGroups.mainPart.activeGroup,
+			reviewGroup: () => {
+				const main = this.editorGroups.mainPart;
+				if (main.activeGroup !== this.group) {
+					return main.activeGroup;
+				}
+				return main.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE).find(g => g !== this.group) ?? SIDE_GROUP;
+			},
 		}));
 		const wire = CedianPanes.wire(this.daemon.client);
 		// VS Code makes every element from the main window's document, a popped-out window's included.

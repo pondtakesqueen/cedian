@@ -45,6 +45,7 @@ import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
 import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
+import { THREADS_CONTAINER_ID, THREADS_VIEW_ID, ThreadsView } from './threadsView.js';
 import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
 import type { AgentPane, SideSource } from './agent-pane/pane.js';
@@ -70,6 +71,28 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 	canToggleVisibility: false,
 	canMoveView: true,
 }], container);
+
+// ---- the Threads list: the prototype's left column ----
+
+const threadsIcon = registerIcon('cedian-threads-view-icon', Codicon.listUnordered, localize('cedianThreadsIcon', 'View icon of the Cedian threads list.'));
+
+const threadsContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
+	id: THREADS_CONTAINER_ID,
+	title: localize2('cedian.threads.container', "Threads"),
+	icon: threadsIcon,
+	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [THREADS_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
+	storageId: THREADS_CONTAINER_ID,
+	order: -1,
+}, ViewContainerLocation.Sidebar, { isDefault: true });
+
+Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
+	id: THREADS_VIEW_ID,
+	name: localize2('cedian.threads.view', "Threads"),
+	containerIcon: threadsIcon,
+	ctorDescriptor: new SyncDescriptor(ThreadsView),
+	canToggleVisibility: false,
+	canMoveView: true,
+}], threadsContainer);
 
 // ---- the settings window ----
 

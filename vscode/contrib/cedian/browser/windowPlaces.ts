@@ -8,7 +8,10 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { AGENT_CONTAINER, movesFor, PLACES_VERSION, TOOLS, type Place } from './blocks/places.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { movesFor, PLACES_VERSION, THREADS_CONTAINER, TOOLS, type Place } from './blocks/places.js';
+import { ensureCenter } from './threadsView.js';
 
 const PLACE_OF: Record<ViewContainerLocation, Place> = {
 	[ViewContainerLocation.Sidebar]: 'sidebar',
@@ -23,10 +26,13 @@ const LOCATION_OF: Record<Place, ViewContainerLocation> = {
 
 /** Which version of `PLACES` this profile's window was moved to. */
 const PLACES_KEY = 'cedian.places';
+/** Whether this project's window has had the agent in the middle opened. */
+const CENTER_KEY = 'cedian.center';
 
 /**
- * Lays the window out as the prototype does (src/blocks/places.ts): the agent pane in the left side
- * bar, and Files, Search, Git and Terminal as the tabs of the right one. Once per profile and
+ * Lays the window out as the prototype does (src/blocks/places.ts): Threads in the left side bar,
+ * the agent in the middle (an agent editor in a locked group of its own), and Files, Search, Git,
+ * Terminal and the side agent as the tabs of the right one. Once per profile and
  * `PLACES_VERSION`: VS Code keeps where each went, and a part the person moves later stays moved.
  */
 export class CedianWindowPlaces extends Disposable implements IWorkbenchContribution {
@@ -36,8 +42,15 @@ export class CedianWindowPlaces extends Disposable implements IWorkbenchContribu
 		@IViewDescriptorService views: IViewDescriptorService,
 		@IViewsService viewsService: IViewsService,
 		@IStorageService storage: IStorageService,
+		@IEditorService editorService: IEditorService,
+		@IEditorGroupsService editorGroups: IEditorGroupsService,
 	) {
 		super();
+		// The agent in the middle, once per project: a person who closes it has it closed there.
+		if (!storage.getBoolean(CENTER_KEY, StorageScope.WORKSPACE, false)) {
+			storage.store(CENTER_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			ensureCenter(editorService, editorGroups).catch(() => { });
+		}
 		if (storage.getNumber(PLACES_KEY, StorageScope.PROFILE, 0) >= PLACES_VERSION) {
 			return;
 		}
@@ -53,8 +66,8 @@ export class CedianWindowPlaces extends Disposable implements IWorkbenchContribu
 			}
 		}
 		storage.store(PLACES_KEY, PLACES_VERSION, StorageScope.PROFILE, StorageTarget.MACHINE);
-		// Both sides showing, the agent and the first tool.
-		void viewsService.openViewContainer(AGENT_CONTAINER, false);
+		// Both sides showing, Threads and the first tool.
+		void viewsService.openViewContainer(THREADS_CONTAINER, false);
 		void viewsService.openViewContainer(TOOLS[0].container, false);
 	}
 }
