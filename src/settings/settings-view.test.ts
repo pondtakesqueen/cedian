@@ -89,4 +89,18 @@ describe("settings window", () => {
     expect(mcpAddRequest("bad name", "x", "", false)).toHaveProperty("error");
     expect(mcpAddRequest("a", "x", "nokey", false)).toHaveProperty("error");
   });
+  it("turns creator mode on and off in desktop.creator, shown with the models (spec §3.10)", () => {
+    const f = fake();
+    const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
+    view.show("models");
+    f.emit({ kind: "settings", desktop: {}, path: "" });
+    const box = () => [...view.root.querySelectorAll("label")].find((l) => l.textContent?.startsWith("Creator mode"))!.querySelector("input") as HTMLInputElement;
+    expect(box().checked).toBe(false);
+    expect(view.root.textContent).toContain("cedia may write and install plugins");
+    box().checked = true;
+    box().dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "creator", value: { enabled: true } });
+    f.emit({ kind: "settings", desktop: { creator: { enabled: true } }, path: "" });
+    expect(box().checked).toBe(true);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRoot, appIconOf, desktopOf, paneTypography, projectSlug, removeRoot, rootsOf, vscodeSettings } from "./desktop";
+import { addRoot, appIconOf, creatorOn, desktopOf, paneTypography, projectSlug, removeRoot, rootsOf, vscodeSettings } from "./desktop";
 
 describe("VS Code settings from desktop", () => {
   it("defaults: Warm & Lime over Dark Modern, Lilex, Thai line height", () => {
@@ -75,4 +75,12 @@ describe("roots", () => {
     // Archived, or in a folder that only starts the same: the root goes.
     expect(removeRoot(desktop, primary, "/x", [{ title: "Tidy", archived: true, root: "/x" }, { title: "Other", archived: false, cwd: "/xy" }])).toEqual({ roots: {} });
   });
+
+describe("creator mode", () => {
+  it("is on only when desktop.creator.enabled is true", () => {
+    expect(creatorOn({})).toBe(false);
+    expect(creatorOn({ creator: { enabled: true } })).toBe(true);
+    expect(creatorOn(desktopOf({ creator: { enabled: "yes" } }))).toBe(false);
+  });
+});
 });

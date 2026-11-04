@@ -5,7 +5,7 @@ import { button, el, select, type Wire } from "../dom/el.js";
 import type { McpEntry, ModelList, Notice, PermissionList, Request, ThreadInfo } from "../protocol/wire.js";
 import { VIEW_MODES } from "../agent-pane/view-modes.js";
 import { KEYBINDINGS } from "../keybindings/keybindings.js";
-import { addRoot, desktopOf, removeRoot, rootsOf, type Desktop } from "./desktop.js";
+import { addRoot, creatorOn, desktopOf, removeRoot, rootsOf, type Desktop } from "./desktop.js";
 import { addressOf, allowSite, hostOf, revokeSite, sitesOf } from "../browser-panel/sites.js";
 
 export type Section = "appearance" | "models" | "mcp" | "roots" | "browser" | "editor" | "keys";
@@ -228,6 +228,13 @@ export class SettingsView {
 
   private modelsSection(p: HTMLElement): void {
     const d = this.doc;
+    // Creator mode (spec §3.10): a flag on cedia's runs, so it holds whether or not cedia lists models.
+    this.row(
+      p,
+      "Creator mode",
+      this.check(creatorOn(this.desktop), (v) => this.set("creator", { ...(this.desktop.creator ?? {}), enabled: v })),
+      "cedia may write and install plugins of its own for new runs; nothing it writes starts an MCP server or a hook",
+    );
     if (!this.models) {
       p.append(el(d, "div", "small", "This cedia does not list its models (cedia models)"));
       return;
