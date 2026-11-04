@@ -291,7 +291,8 @@
   the block layer's (below)
 - [ ] Block layer, Tern's PiP over any block (built 2026-11-04 in the cloud,
   not yet tried in the app; spec §3.3, §4.4, §5.5). `src/blocks/layer.ts`
-  floats a `Block` over the main window: it rests in a corner, drags by its
+  floats a `Block` over the main window's editor area (so the side pane's
+  composer stays clear): it rests in a corner, drags by its
   header and settles in the nearest corner or flings on (a pause before
   letting go is a drop), stashes against a side with a tab that brings it
   back, expands to fill the window and shrinks back, docks back into the

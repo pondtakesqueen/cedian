@@ -15,7 +15,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { BlockLayer } from './blocks/layer.js';
 import { floatingIn, sameFloating, withFloating, type Floating } from './blocks/layout.js';
 import { AgentBlock } from './agent-pane/floating.js';
@@ -28,7 +28,7 @@ import { CedianPanes, connectionBar } from './panes.js';
 import { desktopOf, type Desktop } from './settings/desktop.js';
 
 /**
- * The main window's block layer (spec §3.3, §4.4): blocks floating over the workbench as PiPs.
+ * The main window's block layer (spec §3.3, §4.4): blocks floating over the editor area as PiPs.
  * A block floats from its editor (the Browser block's Float button, or Float Browser) and docks
  * back into one. Where each rests is `desktop.layout` (spec §5.5), kept by the daemon, so the
  * next window opens it where it was.
@@ -64,7 +64,12 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 			},
 			changed: floating => this.keep(floating),
 		});
-		layoutService.mainContainer.append(this.layer.root);
+		// Blocks float over the editor area, the frame Tern's PiPs float in: the side pane and its
+		// composer stay clear, as do the activity bar and the title bar. Without an editor part
+		// (none yet), over the whole window.
+		const frame = layoutService.getContainer(mainWindow, Parts.EDITOR_PART) ?? layoutService.mainContainer;
+		frame.classList.add('cedian-block-frame');
+		frame.append(this.layer.root);
 		this._register({ dispose: () => this.layer.dispose() });
 		const off = daemon.client.on('settings', notice => {
 			this.desktop = desktopOf(notice.desktop);

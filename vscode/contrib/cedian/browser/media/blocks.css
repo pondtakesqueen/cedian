@@ -1,6 +1,7 @@
-/* The block layer (src/blocks/layer.ts): blocks floating over the workbench as PiPs, after Tern's
-   (spec §3.3, §4.4). The layer covers the workbench and lets clicks through; each floating block
+/* The block layer (src/blocks/layer.ts): blocks floating over the editor area as PiPs, after Tern's
+   (spec §3.3, §4.4). The layer covers the editor area and lets clicks through; each floating block
    is a card with a header to drag it by. Moves glide unless Reduce Motion is on (spec §9 a11y). */
+.cedian-block-frame { position: relative; }
 .cedian-blocks { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; }
 .cedian-pip { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; pointer-events: auto; border-radius: 12px; overflow: hidden; background: var(--cedian-app); box-shadow: 0 0 0 1px var(--cedian-line-strong), 0 12px 32px rgba(0, 0, 0, .28); transition: transform .22s cubic-bezier(.2, .8, .2, 1), width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); }
 .cedian-pip.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 1px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }
