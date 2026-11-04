@@ -13,6 +13,8 @@ describe("VS Code settings from desktop", () => {
     // The editor and side bars as blocks: Modern UI's cards, pill tabs, gaps unless compact.
     expect(s["workbench.experimental.modernUI"]).toBe(true);
     expect(s["workbench.experimental.modernUIEditorTabStyle"]).toBe("pill");
+    expect(s["workbench.activityBar.location"]).toBe("hidden");
+    expect(s["workbench.secondarySideBar.showLabels"]).toBe(true);
     expect(s["window.density.layout"]).toBe("default");
     expect(vscodeSettings({ density: "compact" }, true)["window.density.layout"]).toBe("compact");
   });

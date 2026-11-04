@@ -35,6 +35,7 @@ import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from 
 import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, openBrowser } from './browserEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CedianBlockLayer } from './blockLayer.js';
+import { CedianWindowPlaces } from './windowPlaces.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { runInlineEdit } from './inlineEdit.js';
@@ -142,6 +143,7 @@ registerAction2(class extends Action2 {
 // ---- the block layer: blocks floating over the window as PiPs (spec §3.3, §4.4) ----
 
 registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianWindowPlaces.ID, CedianWindowPlaces, WorkbenchPhase.AfterRestored);
 
 registerAction2(class extends Action2 {
 	constructor() {
