@@ -634,7 +634,7 @@ mod tests {
     fn a_job_that_never_started_is_not_given_to_the_thread() {
         let missing = ("78".to_string(), "(no log: log not found: 123)".to_string());
         let failed = ("79".to_string(), "error TS2322".to_string());
-        assert!(never_ran(&[missing.clone()]));
+        assert!(never_ran(std::slice::from_ref(&missing)));
         assert!(!never_ran(&[missing, failed]));
         assert!(!never_ran(&[]));
     }

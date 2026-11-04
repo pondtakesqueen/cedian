@@ -2,7 +2,7 @@
 //!
 //! Recovered loop (support article, "Edit and iterate" + "Fix errors"): ask
 //! Claude to change it, edit directly (Docs/Slides/Design canvas), highlight
-//! + "Edit with Claude", leave edit requests across several Markdown files and
+//! and "Edit with Claude", leave edit requests across several Markdown files and
 //! submit as one batch, or edit an earlier message to branch into a different
 //! version with its own artifacts. "Try fixing with Claude" re-sends the error
 //! text; success is not guaranteed.
