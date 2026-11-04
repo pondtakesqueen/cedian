@@ -72,6 +72,8 @@ pub fn serve(config: Config) -> anyhow::Result<()> {
         Ok(None) => {}
         Err(error) => log::warn!("remote: {error:#}"),
     }
+    // Phone notifications, when `desktop.remote.push` is set (push.rs).
+    crate::push::watch_pushes(shared.clone(), home.clone());
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {

@@ -21,6 +21,7 @@ mod ledger;
 mod notes;
 mod pr_view;
 mod pr_watch;
+mod push;
 mod record;
 mod remote;
 mod review;

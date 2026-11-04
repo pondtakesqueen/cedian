@@ -445,7 +445,7 @@ impl Daemon {
             .is_some_and(|run| run.alive)
     }
 
-    fn threads(&mut self, slug: &str) -> anyhow::Result<Vec<ThreadInfo>> {
+    pub(crate) fn threads(&mut self, slug: &str) -> anyhow::Result<Vec<ThreadInfo>> {
         let mut threads = Vec::new();
         for thread in list_threads(&threads_dir(&self.home, slug))? {
             // A side chat is shown only by the window that asked for it, beside its thread.
