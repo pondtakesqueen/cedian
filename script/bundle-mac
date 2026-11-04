@@ -11,6 +11,7 @@
 #   Cedian.app/Contents/MacOS/cedian-daemon              found by the window beside itself
 #   Cedian.app/Contents/MacOS/cedia                      the pinned cedia build, found by the daemon
 #   Cedian.app/Contents/Resources/chromium/              found by the daemon at ../Resources
+#   Cedian.app/Contents/Resources/remote-web/            remote control's page, likewise
 #
 # Usage: script/bundle-mac --cedia <path> [--arch aarch64|x86_64] [--sign <identity>] [--dmg]
 #                          [--notarize <keychain profile>] [--runtime-shaders]
@@ -101,6 +102,8 @@ for bin in cedian cedian-daemon; do
 done
 cp "$cedia" "$app/Contents/MacOS/cedia"
 cp -R "$out/chromium" "$app/Contents/Resources/chromium"
+# Remote control's page (docs/CEDIAN_SPEC.md §6.5), found by the daemon at ../Resources.
+node script/remote-web.mjs "$app/Contents/Resources/remote-web"
 cp brand/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 # The third-party notices travel with the binaries they cover (Chromium's stays in chromium/).
 cp LICENSE NOTICE "$app/Contents/Resources/"

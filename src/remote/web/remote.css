@@ -1,0 +1,7 @@
+/* The page around the agent pane in a phone's browser (spec §6.5). */
+html, body { margin: 0; height: 100%; background: var(--cedian-app); color: var(--cedian-text); font-family: var(--cedian-font-ui, -apple-system, system-ui, sans-serif); }
+#app { display: flex; flex-direction: column; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; }
+#app > .cedian-agent-pane { flex: 1; min-height: 0; }
+.remote-projects { margin: 8px 12px 0; padding: 6px 8px; background: var(--cedian-field); color: var(--cedian-text); border: 1px solid var(--cedian-line); border-radius: 6px; font: inherit; }
+.remote-status:empty { display: none; }
+.remote-status { margin: 8px 12px 0; padding: 6px 10px; border-radius: 6px; background: var(--cedian-raised); color: var(--cedian-warn); font-size: 13px; }
