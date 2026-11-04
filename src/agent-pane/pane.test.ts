@@ -398,6 +398,13 @@ describe("agent pane", () => {
     expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["el.png"]);
   });
 
+  it("names a picked element's picture by what it is, keeping the file as the chip's title", async () => {
+    const { pane } = setup({ saveImage: async () => "/cache/f94aaeba-1c2d.png" });
+    await pane.addContext("Element on http://localhost:3000/: <button>", new Uint8Array([1]), "button#add.png");
+    expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["button#add.png"]);
+    expect(pane.root.querySelector<HTMLElement>(".tag")?.title).toBe("/cache/f94aaeba-1c2d.png");
+  });
+
   it("says in the pane when a pasted screenshot can't be saved, and attaches nothing", async () => {
     const { pane } = setup({ saveImage: async () => Promise.reject(new Error("disk full")) });
     await pane.paste([new File([new Uint8Array([1])], "image.png", { type: "image/png" })]);

@@ -409,6 +409,16 @@ function add<T>(set: Set<T>, listener: T): () => void {
 }
 
 /** What the composer gets for a picked element: the agent reads it as the person's pointer. */
+/**
+ * A name for the element's picture that says what it is, for the composer's chip: the selector's
+ * last part without its position (`button#add.png`, `div.card.png`), else the tag.
+ */
+export function imageName(picked: PickedElement): string {
+  const last = picked.selector.split(" > ").pop() ?? "";
+  const name = last.replace(/:nth-of-type\(\d+\)$/, "").replace(/\\/g, "").replace(/[^\w#.-]+/g, "-").slice(0, 60);
+  return `${name || picked.tag || "element"}.png`;
+}
+
 export function elementContext(picked: PickedElement): string {
   const styles = Object.entries(picked.styles)
     .filter(([, v]) => v && v !== "none" && v !== "normal" && v !== "0px" && v !== "auto")

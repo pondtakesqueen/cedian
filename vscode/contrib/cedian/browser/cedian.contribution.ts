@@ -241,6 +241,20 @@ function registerKeymap(keymap: unknown): void {
 // the copy of `desktop.keymap` the last window kept. A change the daemon sends later replaces it.
 registerKeymap(cached(KEYMAP_CACHE));
 
+/**
+ * VS Code's defaults from the copy of `desktop` the last window kept, put in while the module
+ * loads, before the configuration service reads the registry. Registered from the contribution's
+ * constructor instead, the change would reach the layout's listener before the workbench grid
+ * exists (the contribution starts before the workbench renders), and turning Modern UI on there
+ * relayouts it: `TypeError: Cannot read properties of undefined (reading 'layout')`.
+ */
+function defaultsOf(desktop: Desktop): IConfigurationDefaults {
+	const systemDark = mainWindow.matchMedia('(prefers-color-scheme: dark)').matches;
+	return { overrides: vscodeSettings(desktop, systemDark), donotCache: true };
+}
+const startupDefaults = defaultsOf(desktopOf(cached(DESKTOP_CACHE)));
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerDefaultConfigurations([startupDefaults]);
+
 // ---- desktop → VS Code settings, theme and the pane's type ----
 
 /**
@@ -251,7 +265,7 @@ registerKeymap(cached(KEYMAP_CACHE));
 class CedianDesktopContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.desktop';
 
-	private defaults: IConfigurationDefaults | undefined;
+	private defaults: IConfigurationDefaults = startupDefaults;
 	private desktop: Desktop = desktopOf(cached(DESKTOP_CACHE));
 	private keymap = JSON.stringify(cached(KEYMAP_CACHE) ?? {});
 	private readonly style: HTMLStyleElement;
@@ -289,15 +303,15 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 		daemon.client.request({ op: 'settings' });
 	}
 
+	/** Swaps VS Code's defaults for the ones `desktop` makes now, only when they differ. */
 	private apply(): void {
-		const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
-		const systemDark = mainWindow.matchMedia('(prefers-color-scheme: dark)').matches;
-		const next: IConfigurationDefaults = { overrides: vscodeSettings(this.desktop, systemDark), donotCache: true };
-		if (this.defaults) {
+		const next = defaultsOf(this.desktop);
+		if (JSON.stringify(next.overrides) !== JSON.stringify(this.defaults.overrides)) {
+			const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 			registry.deregisterDefaultConfigurations([this.defaults]);
+			registry.registerDefaultConfigurations([next]);
+			this.defaults = next;
 		}
-		registry.registerDefaultConfigurations([next]);
-		this.defaults = next;
 		this.paint();
 	}
 
