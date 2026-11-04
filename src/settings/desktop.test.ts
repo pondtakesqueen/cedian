@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { addRoot, appIconOf, creatorOn, desktopOf, paneTypography, projectSlug, removeRoot, rootsOf, vscodeSettings } from "./desktop";
 
 describe("VS Code settings from desktop", () => {
-  it("defaults: Warm & Lime over Dark Modern, Lilex, Thai line height", () => {
+  it("defaults: Warm & Lime over Dark Modern, Geist Mono, Thai line height", () => {
     const s = vscodeSettings({}, true);
     expect(s["workbench.colorTheme"]).toBe("Dark Modern");
-    expect(s["editor.fontFamily"]).toMatch(/^'Lilex'/);
+    expect(s["editor.fontFamily"]).toMatch(/^'Geist Mono'/);
+    // Geist has no Thai: the system's Thai face comes after it.
+    expect(s["editor.fontFamily"]).toContain("'Thonburi'");
     expect(s["editor.lineHeight"]).toBeGreaterThanOrEqual(1.6);
     expect(s["files.autoSave"]).toBe("afterDelay");
     expect(s["editor.inlineSuggest.enabled"]).toBe(true);
@@ -98,4 +100,9 @@ describe("creator mode", () => {
     expect(creatorOn(desktopOf({ creator: { enabled: "yes" } }))).toBe(false);
   });
 });
+  it("sets the interface in Geist unless desktop.font.ui names another, Thai after it", () => {
+    expect(paneTypography({})["--cedian-font-ui"]).toMatch(/^'Geist', .*'Sukhumvit Set', 'Thonburi'/);
+    expect(paneTypography({ font: { ui: "Inter" } })["--cedian-font-ui"]).toMatch(/^'Inter', /);
+    expect(paneTypography({})["--cedian-font-code"]).toMatch(/^'Geist Mono', /);
+  });
 });

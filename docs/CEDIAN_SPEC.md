@@ -631,7 +631,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
   "desktop": {
     "theme": "dark",
     "app_icon": "light",
-    "font": { "ui": "SF Pro", "code": "Lilex" },
+    "font": { "ui": "Geist", "code": "Geist Mono" },
     "ui_font_size": 14,
     "code_font_size": 13,
     "density": "comfortable",

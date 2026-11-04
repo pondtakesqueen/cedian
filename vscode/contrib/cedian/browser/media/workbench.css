@@ -1,3 +1,19 @@
+/* Cedian's faces, bundled (fonts/, SIL OFL 1.1, NOTICE): Geist for the interface and Geist Mono for
+   code and the terminal, each one variable file for every weight. VS Code's own text takes them too,
+   in place of the platform faces it names per OS: the interface from `--cedian-font-ui` and its
+   monospace places (the hover's code, the keybinding labels) from `--cedian-font-code`, both written
+   from `desktop.font` (src/settings/desktop.ts), Thai falling through to the system's Thai face. */
+@font-face { font-family: 'Geist'; src: url('./fonts/Geist.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('./fonts/Geist-Italic.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('./fonts/GeistMono.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('./fonts/GeistMono-Italic.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
+.monaco-workbench.mac,
+.monaco-workbench.windows,
+.monaco-workbench.linux {
+	font-family: var(--cedian-font-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+	--monaco-monospace-font: var(--cedian-font-code, "SF Mono", Monaco, Menlo, monospace);
+}
+
 /* VS Code's own controls with the agent pane's corners (agentPane.css): buttons 8px, fields 6px,
    Source Control's commit message box drawn as a field. Only corners: VS Code's layout stays. */
 .monaco-workbench .monaco-text-button { border-radius: 8px; }
