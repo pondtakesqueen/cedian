@@ -29,18 +29,26 @@ export const TOOLS: readonly Placed[] = [
 ];
 
 /**
+ * VS Code's own Chat (`ChatViewContainerId`). Cedian's agent replaces it, but it can still show in
+ * the right panel beside the tools (seen on a web build with `chat.disableAIFeatures` on), so it
+ * goes to the bottom panel, out of the tools' way. Not in + Tool.
+ */
+export const VSCODE_CHAT = "workbench.panel.chat";
+
+/**
  * VS Code's other containers that start in the left side bar, moved to the bottom panel so Threads
- * is alone there and its tab strip hides (`workbench.activityBar.autoHide`).
+ * is alone there and its tab strip hides (`workbench.activityBar.autoHide`), and VS Code's Chat.
  */
 export const ASIDE: readonly Placed[] = [
   { container: "workbench.view.debug", place: "panel" },
   { container: "workbench.view.extensions", place: "panel" },
+  { container: VSCODE_CHAT, place: "panel" },
 ];
 
 export const PLACES: readonly Placed[] = [{ container: THREADS_CONTAINER, place: "sidebar" }, ...TOOLS, { container: AGENT_CONTAINER, place: "auxiliary" }, ...ASIDE];
 
 /** Raised when PLACES changes, so a window moves the parts again once. */
-export const PLACES_VERSION = 3;
+export const PLACES_VERSION = 4;
 
 export interface Move {
   container: string;
