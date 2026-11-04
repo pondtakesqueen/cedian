@@ -107,6 +107,21 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     expect(closed).toEqual(["browser"]);
     expect(docked).toEqual(["browser"]);
   });
+  test("a throwaway block (a side chat) has no dock, docks nowhere, and is not kept", () => {
+    const { layer, docked, changes } = setup();
+    layer.float(new FakeBlock());
+    const side = Object.assign(new FakeBlock("side"), { throwaway: true });
+    layer.float(side);
+    expect(pipOf(layer, "side").querySelector(".pip-dock")).toBeNull();
+    expect(pipOf(layer, "side").querySelector(".pip-close")).not.toBeNull();
+    layer.dock("side");
+    expect(docked).toEqual([]);
+    expect(side.disposed).toBe(false);
+    expect(layer.floating().map((f) => f.kind)).toEqual(["browser"]);
+    expect(changes.at(-1)?.map((f) => f.kind)).toEqual(["browser"]);
+    layer.close("side");
+    expect(side.disposed).toBe(true);
+  });
   test("one block per kind; two kinds in one corner stack", () => {
     const { layer } = setup();
     const first = new FakeBlock();

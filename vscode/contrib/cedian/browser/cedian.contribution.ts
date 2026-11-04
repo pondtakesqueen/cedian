@@ -17,6 +17,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -45,7 +46,7 @@ import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
 import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
-import type { AgentPane } from './agent-pane/pane.js';
+import type { AgentPane, SideSource } from './agent-pane/pane.js';
 
 // ---- the agent pane ----
 
@@ -188,6 +189,40 @@ registerAction2(class extends Action2 {
 		return withPane(accessor, p => p.float());
 	}
 });
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.sideChat',
+			title: localize2('cedian.sideChat', "Side Chat"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor, from?: unknown, text?: unknown): void {
+		const layer = CedianBlockLayer.current;
+		if (!layer) {
+			return;
+		}
+		// From `/btw`: the pane names its thread and the question.
+		if (isSideSource(from)) {
+			layer.sideChat(from, typeof text === 'string' ? text : undefined);
+			return;
+		}
+		// ⌘;: a side chat on the thread the last focused pane shows; from inside one, it closes.
+		const source = CedianPanes.current?.sideSource();
+		if (source) {
+			layer.sideChat(source);
+		} else if (!layer.closeSide()) {
+			accessor.get(INotificationService).info(localize('cedian.sideChat.none', "Open a thread first, then press ⌘; to ask beside it."));
+		}
+	}
+});
+
+function isSideSource(value: unknown): value is SideSource {
+	const v = value as SideSource | undefined;
+	return typeof v === 'object' && v !== null && typeof v.thread === 'string' && typeof v.title === 'string' && typeof v.cwd === 'string';
+}
 
 registerAction2(CheckForUpdatesAction);
 

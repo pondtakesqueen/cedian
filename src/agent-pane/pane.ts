@@ -23,6 +23,13 @@ import { currentModel, isRunning, openState, queued, reduce, threadPermission, t
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
 
+/** The thread a side chat is copied from: its id, its title, and the folder it works in. */
+export interface SideSource {
+  thread: string;
+  title: string;
+  cwd: string;
+}
+
 /** What the pane needs from the workbench around it. */
 export interface PaneHost {
   /** The window's project folder. */
@@ -47,6 +54,11 @@ export interface PaneHost {
   popOut?(thread: string | undefined): void;
   /** Floats `thread` (a new thread when none) over the window, in the block layer. */
   float?(thread: string | undefined): void;
+  /**
+   * A side chat on `thread` (⌘;, `/btw`): a copy of it as it stands, floating beside it, where
+   * questions about it run read-only and go nowhere else; `text` is the first question.
+   */
+  sideChat?(from: SideSource, text?: string): void;
   openUrl(url: string): void;
   /**
    * Whether to archive a thread whose worktree has uncommitted changes in `files`, which go when
@@ -78,6 +90,11 @@ const ARCHIVE_ENTRY: CommandEntry = { name: "archive", description: "Archive thi
 /** What the composer takes as opening the Pull requests card. */
 const PRS = "/prs";
 const PRS_ENTRY: CommandEntry = { name: "prs", description: "The repository's pull requests: review one in a thread", kind: "command", source: "user" };
+/** What the composer takes as a side chat on the open thread, with a first question after it. */
+const BTW = "/btw";
+const BTW_ENTRY: CommandEntry = { name: "btw", description: "Ask beside this thread in a side chat: read-only, thrown away on close", kind: "command", source: "user" };
+/** The permission a side chat's runs take: it reads, and changes nothing. */
+export const SIDE_PERMISSION = "read-only";
 const ISSUES = "/issues";
 const ISSUES_ENTRY: CommandEntry = { name: "issues", description: "The repository's issues: read, comment, close, or start a thread on one", kind: "command", source: "user" };
 
@@ -160,6 +177,8 @@ export class AgentPane {
   private reviewOpen = true;
   /** The project chat is showing: the coordinator's thread, or the chat before it starts. */
   private chat = false;
+  /** In a side chat: the thread it was copied from, its title, and the folder it works in. */
+  private sideOf?: SideSource;
 
   private readonly header: HTMLElement;
   private readonly log: HTMLElement;
@@ -222,6 +241,7 @@ export class AgentPane {
   /** What the pane shows, in a few words: the thread's title, else the project chat or a new thread. */
   title(): string {
     if (this.chat) return "Project chat";
+    if (this.sideOf) return `Side chat · ${this.sideOf.title}`;
     const info = this.state.info ?? this.threads.find((t) => t.id === this.state.thread);
     return info?.title || info?.task || (this.state.thread ? "Thread" : "New thread");
   }
@@ -232,7 +252,7 @@ export class AgentPane {
 
   /** The thread's own folder (its worktree), else the project's. */
   private get cwd(): string {
-    return this.state.info?.cwd ?? this.host.cwd;
+    return this.state.info?.cwd ?? this.sideOf?.cwd ?? this.host.cwd;
   }
 
   /** The folder Source Control was last pointed at. */
@@ -246,9 +266,31 @@ export class AgentPane {
     this.host.showRepository(path);
   }
 
+  /** The open thread, for a side chat on it: its id, title and folder; none for a new thread. */
+  sideSource(): SideSource | undefined {
+    if (!this.state.thread || this.sideOf) return undefined;
+    return { thread: this.state.thread, title: this.title(), cwd: this.cwd };
+  }
+
+  /**
+   * Makes this pane a side chat (`thread`, copied from `from`): no thread picker, no pop-out or
+   * float, and every run read-only. `text`, when given, is sent as its first question.
+   */
+  side(thread: string, from: SideSource, text?: string): void {
+    this.sideOf = from;
+    this.openThread(thread);
+    if (text?.trim()) {
+      this.input.value = text;
+      this.typed();
+      this.send();
+    }
+  }
+
   // ---- actions (the keybinding layer calls these) ----
 
   newThread(): void {
+    // A side chat stays on its thread: it closes, it moves to no other.
+    if (this.sideOf) return;
     this.leave();
     this.chat = false;
     this.state = openState(this.host.cwd);
@@ -295,11 +337,13 @@ export class AgentPane {
 
   /** Opens what the thread search picked. */
   pick(id: string): void {
+    if (this.sideOf) return;
     if (id === CHAT) this.projectChat();
     else this.openThread(id);
   }
 
   projectChat(): void {
+    if (this.sideOf) return;
     const coordinator = coordinatorThread(this.threads);
     if (coordinator) this.openThread(coordinator.id);
     else {
@@ -312,6 +356,7 @@ export class AgentPane {
 
   /** The next (1) or previous (-1) thread in the list. */
   stepThread(delta: number): void {
+    if (this.sideOf) return;
     const list = threadList(this.threads);
     if (list.length === 0) return;
     const at = list.findIndex((t) => t.id === this.state.thread);
@@ -335,7 +380,7 @@ export class AgentPane {
 
   /** Moves the open thread into a window of its own; this pane goes on with a new thread. */
   popOut(): void {
-    if (!this.host.popOut) return;
+    if (!this.host.popOut || this.sideOf) return;
     const thread = this.state.thread;
     this.host.popOut(thread);
     if (thread) this.newThread();
@@ -343,7 +388,7 @@ export class AgentPane {
 
   /** Floats the open thread over the window; this pane goes on to a new thread. */
   float(): void {
-    if (!this.host.float) return;
+    if (!this.host.float || this.sideOf) return;
     const thread = this.state.thread;
     this.host.float(thread);
     if (thread) this.newThread();
@@ -569,16 +614,34 @@ export class AgentPane {
     if (this.input.value.trim() === ARCHIVE) return this.archive();
     if (this.input.value.trim() === PRS) return this.openPrs();
     if (this.input.value.trim() === ISSUES) return this.openIssues();
+    if (this.btw()) return;
     if (this.chat && this.state.thread && this.sendToThread()) return;
     const target = { cwd: this.state.thread ? this.cwd : this.host.cwd, ...(this.state.thread ? { thread: this.state.thread } : {}), running: isRunning(this.state) };
     // A thread goes on with its own model and permission unless the person picked others for it.
     const choices = { ...this.choices };
     if (this.state.thread && !this.chosen.has("model")) choices.model = undefined;
     if (this.state.thread && !this.chosen.has("permission")) choices.permission = threadPermission(this.state.info) ?? choices.permission;
+    if (this.sideOf) choices.permission = SIDE_PERMISSION;
     let requests = submit(this.draft, target, choices);
     // The chat's first message starts the coordinator's thread in the project itself.
     if (this.chat && !this.state.thread) requests = requests.map((r) => (r.op === "prompt" ? { ...r, profile: COORDINATOR, worktree: false } : r));
     this.sent(requests);
+  }
+
+  /** `/btw <question>`: a side chat on the open thread, asked the question. True when taken. */
+  private btw(): boolean {
+    const text = this.input.value.trim();
+    if (text !== BTW && !text.startsWith(`${BTW} `)) return false;
+    const from = this.sideSource();
+    if (!from || !this.host.sideChat) {
+      this.state = { ...this.state, error: this.sideOf ? "This is a side chat already: ask here" : "Open a thread first, then ask beside it with /btw" };
+      this.render();
+      return true;
+    }
+    this.host.sideChat(from, text.slice(BTW.length).trim() || undefined);
+    this.input.value = "";
+    this.typed();
+    return true;
   }
 
   /** `/code-review`: cedia reviews what the open thread changed; the card shows the findings. */
@@ -727,7 +790,7 @@ export class AgentPane {
     this.token = token;
     if (!token) return this.closePopup();
     if (token.trigger === "/") {
-      const own = [...(this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY] : []), PRS_ENTRY, ISSUES_ENTRY];
+      const own = this.sideOf ? [] : [...(this.state.thread ? [...(this.can("code-review") ? [CODE_REVIEW_ENTRY] : []), ARCHIVE_ENTRY, ...(this.host.sideChat ? [BTW_ENTRY] : [])] : []), PRS_ENTRY, ISSUES_ENTRY];
       this.showCompletions(complete(token, [], [...own, ...this.commands]));
       return;
     }
@@ -808,6 +871,7 @@ export class AgentPane {
     ];
     const picker = select(d, options, this.chat ? CHAT : (this.state.thread ?? ""), (id) => (id === CHAT ? this.projectChat() : id ? this.openThread(id) : this.newThread()), "sel threads");
     picker.setAttribute("aria-label", "Thread");
+    if (this.sideOf) return this.renderSideHeader();
     const status = this.state.status;
     const dot = el(d, "span", `dot st-${status ?? "none"}`);
     if (status) dot.title = STATUS_LABEL[status] ?? status;
@@ -1321,10 +1385,24 @@ export class AgentPane {
     });
   }
 
+  /** A side chat's header: what it is beside, and its state; it moves to no other thread. */
+  private renderSideHeader(): void {
+    const d = this.doc;
+    const label = el(d, "span", "side-label");
+    label.textContent = `Side chat · ${this.sideOf!.title}`;
+    label.title = "Read-only: it sees the thread as it stood, changes nothing, and is thrown away when closed";
+    const status = this.state.status;
+    const dot = el(d, "span", `dot st-${status ?? "none"}`);
+    if (status) dot.title = STATUS_LABEL[status] ?? status;
+    const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
+    mode.title = "Switch view (Ctrl+O)";
+    this.header.replaceChildren(label, dot, mode);
+  }
+
   private renderComposer(): void {
     const d = this.doc;
     const running = isRunning(this.state);
-    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.state.thread ? "Continue this thread" : "What should the agent do? (@ files, / commands)";
+    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Continue this thread" : "What should the agent do? (@ files, / commands)";
     this.sendButton.textContent = running && isEmpty(this.draft) ? "Stop" : running ? "Queue" : "Send";
     this.sendButton.className = running && isEmpty(this.draft) ? "btn send stop" : "btn send";
     this.attachments.replaceChildren(
@@ -1360,7 +1438,7 @@ export class AgentPane {
         chips.push(e);
       }
     }
-    if (this.permissions) {
+    if (this.permissions && !this.sideOf) {
       const threadMode = this.state.thread && !this.chosen.has("permission") ? threadPermission(this.state.info) : undefined;
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";

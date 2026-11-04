@@ -8,6 +8,8 @@
 .cedian-pip [hidden] { display: none !important; }
 .cedian-pip .pip-head { flex: none; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 12px; background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); cursor: grab; user-select: none; touch-action: none; }
 .cedian-pip .pip-head:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+/* A side chat reads as a margin note: dashed, so it is not taken for the thread itself. */
+.cedian-pip[data-kind="side"] { outline: 1px dashed var(--cedian-line); outline-offset: -1px; }
 .cedian-pip .pip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 12px; }
 .cedian-pip .ibtn { flex: none; min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--cedian-text-muted); font: inherit; }
 .cedian-pip .ibtn:hover { background: var(--cedian-hover); color: var(--cedian-text); }

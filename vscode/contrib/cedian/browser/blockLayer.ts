@@ -19,7 +19,7 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 import { BlockLayer } from './blocks/layer.js';
 import { floatingIn, sameFloating, withFloating, type Floating } from './blocks/layout.js';
 import { AgentBlock } from './agent-pane/floating.js';
-import { AgentPane } from './agent-pane/pane.js';
+import { AgentPane, type SideSource } from './agent-pane/pane.js';
 import { CedianAgentInput } from './agentEditor.js';
 import { browserServices, CedianBrowserInput, createBrowserPanel, openBrowser } from './browserEditor.js';
 import { ICedianDaemonService } from './daemonService.js';
@@ -130,6 +130,72 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		const saved = floatingIn(this.desktop, folder.uri.fsPath).find(f => f.kind === 'agent');
 		// Its own corner by default: the Browser block rests bottom right.
 		this.floatAgentAt(thread, saved ? { ...saved, id: thread } : { corner: 'tr', width: 400, height: 560 }, false);
+	}
+
+	/**
+	 * A side chat on `from` (⌘;, `/btw`): the daemon copies the thread as it stands, and the copy
+	 * floats beside it, read-only, asked `text` first when given. Closing it throws it away; the
+	 * daemon does too when the window goes. One at a time: a new one replaces the last.
+	 */
+	sideChat(from: SideSource, text?: string): void {
+		const folder = this.folder();
+		if (!folder) {
+			return;
+		}
+		const client = this.daemon.client;
+		const offs: (() => void)[] = [];
+		const done = () => { for (const off of offs.splice(0)) { off(); } };
+		offs.push(client.on('side_chat', notice => {
+			if (notice.from === from.thread) {
+				done();
+				this.floatSide(folder, notice.thread, from, text);
+			}
+		}));
+		// A cedia that cannot, or a fork that failed, says so on the thread; the pane shows it there.
+		offs.push(client.on('error', notice => {
+			if (notice.thread === from.thread) {
+				done();
+				this.notifications.warn(`Couldn't open a side chat: ${notice.message}`);
+			}
+		}));
+		client.request({ op: 'side', cwd: folder.fsPath, thread: from.thread });
+	}
+
+	/** Closes the side chat, throwing it away; false when none floats. */
+	closeSide(): boolean {
+		if (!this.layer.has('side')) {
+			return false;
+		}
+		this.layer.close('side');
+		return true;
+	}
+
+	private floatSide(folder: URI, thread: string, from: SideSource, text: string | undefined): void {
+		const host = this.instantiation.invokeFunction(accessor => createPaneHost(accessor, this.workspace.getWorkspace().folders[0], {
+			reviewGroup: () => this.editorGroups.mainPart.activeGroup,
+		}));
+		const wire = CedianPanes.wire(this.daemon.client);
+		const pane = new AgentPane(mainWindow.document, wire, host);
+		const scoped = this.contextKeyService.createScoped(pane.root);
+		const listed = CedianPanes.add(pane, scoped);
+		const bar = connectionBar(pane.root, this.daemon.client);
+		const block = new AgentBlock({
+			pane,
+			onAny: listener => wire.onAny(listener),
+			side: true,
+			release: () => {
+				bar.dispose();
+				listed.dispose();
+				scoped.dispose();
+				wire.dispose();
+				// Thrown away: the daemon stops it if it works and deletes it.
+				this.daemon.client.request({ op: 'delete', cwd: folder.fsPath, thread });
+			},
+		});
+		pane.side(thread, from, text);
+		// Bottom left: the Browser block rests bottom right and a floating thread top right.
+		this.layer.float(block, { corner: 'bl', width: 400, height: 480 });
+		block.focus();
 	}
 
 	private floatAgentAt(thread: string | undefined, at: Partial<Floating>, quiet: boolean): void {

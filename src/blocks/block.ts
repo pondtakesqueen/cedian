@@ -37,6 +37,9 @@ export interface Block {
    * where it floats so a new window opens the same one. */
   readonly id?: string;
   readonly root: HTMLElement;
+  /** Thrown away when it closes (a side chat): it never docks into the editor area, and where it
+   * floats is not kept, so a new window does not open it again. */
+  readonly throwaway?: boolean;
   /** What the block's header says now: the page's title, the thread's. */
   title(): string;
   /** Called when the title changes. */

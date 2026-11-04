@@ -65,7 +65,7 @@ export class BlockLayer {
 
   /** The blocks floating now, in the order they were floated, as `desktop.layout` keeps them. */
   floating(): Floating[] {
-    return this.pips.map((p) => ({ kind: p.block.kind, ...(p.block.id ? { id: p.block.id } : {}), ...p.rest, width: p.size.width, height: p.size.height }));
+    return this.pips.filter((p) => !p.block.throwaway).map((p) => ({ kind: p.block.kind, ...(p.block.id ? { id: p.block.id } : {}), ...p.rest, width: p.size.width, height: p.size.height }));
   }
 
   has(kind: string): boolean {
@@ -102,7 +102,7 @@ export class BlockLayer {
     const close = button(d, "×", () => this.close(block.kind), "ibtn pip-close");
     close.setAttribute("aria-label", "Close");
     close.title = "Close";
-    head.append(title, stash, expand, dock, close);
+    head.append(title, stash, expand, ...(block.throwaway ? [] : [dock]), close);
     const body = el(d, "div", "pip-body");
     body.append(block.root);
     const tab = button(d, "", () => this.unstash(block.kind), "pip-tab");
@@ -219,7 +219,7 @@ export class BlockLayer {
   /** Closes the block of `kind` here and puts it back in the editor area. */
   dock(kind: string): void {
     const pip = this.find(kind);
-    if (!pip) return;
+    if (!pip || pip.block.throwaway) return;
     const id = pip.block.id;
     this.drop(kind);
     this.changed();

@@ -314,10 +314,17 @@
   Thread`) floats the open thread in an agent pane of its own, top right, and
   the side pane goes on to a new thread; the thread is kept with where it
   floats, and Dock opens it as an agent editor. `node test/smoke/blocks.mjs`
-  has 14 checks with resize. Still to do: try it in the app on the Mac; fan;
+  has 14 checks with resize, tried in the app on the Mac (#47, #48). Side
+  chat: ⌘; (or `/btw <question>` in the composer, or `Cedian: Side Chat`)
+  asks the daemon for a copy of the open thread as it stands (`cedia threads
+  fork <id> end --side`) and floats it bottom left as a side chat block: no
+  thread picker, pop-out, float or dock, every run read-only, and the thread
+  lists leave it out. Closing it (×, or ⌘; from inside it) has the daemon stop
+  and delete it, and a window that goes takes its side chats with it. Checked:
+  `cargo test` (side chat tests in `tests/daemon.rs`), `vitest` (pane, layer,
+  floating). Still to do: try the side chat on the Mac; fan;
   tear-off out of the window; named layouts (the old app's
-  `desktop.layout.blocks` is not read yet); side chat (⌘;, a read-only
-  thread discarded on close); more blocks than the Browser and a thread
+  `desktop.layout.blocks` is not read yet); more blocks than the Browser and a thread
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing

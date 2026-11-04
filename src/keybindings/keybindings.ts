@@ -35,6 +35,7 @@ export const KEYBINDINGS: Binding[] = [
   { command: "cedian.settings", mac: "cmd+,", label: "Settings" },
   { command: "cedian.stop", mac: "cmd+.", label: "Stop" },
   { command: "cedian.focusComposer", mac: "cmd+l", label: "Focus the composer" },
+  { command: "cedian.sideChat", mac: "cmd+;", label: "Side chat on the open thread" },
 ];
 
 /** The table with the person's keys in place of Cedian's, by command id. */

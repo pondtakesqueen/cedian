@@ -12,15 +12,21 @@ export interface AgentBlockParts {
   onAny(listener: (notice: Notice) => void): () => void;
   /** Lets go of the pane's wire and anything else drawn with it. */
   release(): void;
+  /** A side chat (⌘;): its own kind, so it floats beside a floating thread, and thrown away
+   * when it closes. */
+  side?: boolean;
 }
 
 export class AgentBlock implements Block {
-  readonly kind = "agent";
+  readonly kind: string;
+  readonly throwaway: boolean;
   private readonly listeners = new Set<(title: string) => void>();
   private readonly off: () => void;
   private shown: string;
 
   constructor(private readonly parts: AgentBlockParts) {
+    this.kind = parts.side ? "side" : "agent";
+    this.throwaway = parts.side ?? false;
     this.shown = this.said();
     this.off = parts.onAny(() => this.check());
   }
