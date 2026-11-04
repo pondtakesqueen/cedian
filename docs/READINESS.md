@@ -302,9 +302,17 @@
   through `set_desktop` and floated again in a new window. Checked: `vitest
   src/blocks` (31) and `node test/smoke/blocks.mjs` (12 checks: the layer in
   a page of Playwright's Chromium, dragged and flung with the mouse); the
-  contribution typechecks against VS Code 1.143.1 with TypeScript 6. Still to
-  do: try it in the app on the Mac; resize by an edge; fan; tear-off out of
-  the window; named layouts; more blocks than the Browser
+  contribution typechecks against VS Code 1.143.1 with TypeScript 6. A floating
+  block resizes by the edges toward the window's middle and their corner
+  (or Shift+arrows on the header), its corner staying put, and the size is
+  kept. A thread floats too: ◳ in the agent pane's header (or `Cedian: Float
+  Thread`) floats the open thread in an agent pane of its own, top right, and
+  the side pane goes on to a new thread; the thread is kept with where it
+  floats, and Dock opens it as an agent editor. `node test/smoke/blocks.mjs`
+  has 14 checks with resize. Still to do: try it in the app on the Mac; fan;
+  tear-off out of the window; named layouts (the old app's
+  `desktop.layout.blocks` is not read yet); side chat (⌘;, a read-only
+  thread discarded on close); more blocks than the Browser and a thread
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing
