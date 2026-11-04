@@ -28,8 +28,6 @@ export interface RunChoices {
   worktree: boolean;
 }
 
-export const emptyDraft = (): Draft => ({ text: "", images: [] });
-
 /** Nothing to send: no text and no image. */
 export const isEmpty = (draft: Draft) => draft.text.trim() === "" && draft.images.length === 0;
 

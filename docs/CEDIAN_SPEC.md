@@ -816,7 +816,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
   |------|-------------------------------|------------------------------|
   | Agent runs | `cedian_daemon` (runs, worktrees, git ops) + `cedian_agent` (stream fold, Phase B) | `src/agent-pane/`, `src/composer/` |
   | Protocol | `cedian_protocol` (cedia schema types), `cedian_wire` (socket framing) | generated TS types from wire (Phase B) |
-  | Index/search | `cedian_index` (threads/sessions/memory reads) | `src/workbench/` (sidebar, project chat) |
+  | Index/search | `cedian_index` (threads/sessions/memory reads) | `src/agent-pane/thread-list.ts`, `src/agent-pane/project-chat.ts` (sidebar, project chat) |
   | Review | `cedian_review` (hunks vs first snapshot) | diff UI via VS Code diff editor |
   | Artifacts | `cedian_artifact` (trigger, kind, versions, 20 MB store) + daemon record files (§5.4) | `src/artifacts/` (kinds, policy gating, pane render) |
   | Layout | block trees in `desktop.layout` (daemon persists) | `src/blocks/` (drag/zoom/park/PiP) |

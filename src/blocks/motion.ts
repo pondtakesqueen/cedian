@@ -11,12 +11,10 @@
 export const OPEN_MS = 180;
 export const CLOSE_MS = 140;
 
-/** Opening, for the frame loops and as CSS (exactly cubic ease-out). */
-export const easeOpen = (t: number) => 1 - Math.pow(1 - t, 3);
+/** Opening, as CSS: exactly cubic ease-out, 1 - (1 - t)³ (motion.test.ts). */
 export const EASE_OPEN = "cubic-bezier(.33, 1, .68, 1)";
 
-/** Closing: opening's curve played backwards (exactly cubic ease-in). */
-export const easeClose = (t: number) => t * t * t;
+/** Closing: opening's curve played backwards, exactly cubic ease-in, t³ (motion.test.ts). */
 export const EASE_CLOSE = "cubic-bezier(.32, 0, .67, 0)";
 
 /** Opening's or closing's timing, for an element's `animate`. */

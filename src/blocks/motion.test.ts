@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOSE_MS, EASE_CLOSE, EASE_OPEN, easeClose, easeOpen, MOTION_PROPERTIES, OPEN_MS } from "./motion.js";
+import { CLOSE_MS, EASE_CLOSE, EASE_OPEN, MOTION_PROPERTIES, OPEN_MS } from "./motion.js";
 
 /** A CSS cubic-bezier's y at x, solved for t by bisection. */
 function bezier(css: string, x: number): number {
@@ -13,24 +13,22 @@ function bezier(css: string, x: number): number {
   return at(y1, y2, (lo + hi) / 2);
 }
 
+const XS = [0.1, 0.25, 0.5, 0.75, 0.9];
+
 describe("motion", () => {
+  it("opens on cubic ease-out and closes on cubic ease-in", () => {
+    for (const x of XS) {
+      expect(bezier(EASE_OPEN, x)).toBeCloseTo(1 - (1 - x) ** 3, 2);
+      expect(bezier(EASE_CLOSE, x)).toBeCloseTo(x ** 3, 2);
+    }
+  });
+
   it("closing is opening played backwards", () => {
-    for (const t of [0.1, 0.3, 0.5, 0.8]) expect(easeClose(t)).toBeCloseTo(1 - easeOpen(1 - t), 10);
+    for (const x of XS) expect(bezier(EASE_CLOSE, x)).toBeCloseTo(1 - bezier(EASE_OPEN, 1 - x), 2);
   });
 
-  it("opens slower than it closes, both ending where they should", () => {
+  it("opens slower than it closes", () => {
     expect(OPEN_MS).toBeGreaterThan(CLOSE_MS);
-    for (const ease of [easeOpen, easeClose]) {
-      expect(ease(0)).toBe(0);
-      expect(ease(1)).toBe(1);
-    }
-  });
-
-  it("draws the same curves in CSS as in the frame loops", () => {
-    for (const x of [0.1, 0.25, 0.5, 0.75, 0.9]) {
-      expect(bezier(EASE_OPEN, x)).toBeCloseTo(easeOpen(x), 1);
-      expect(bezier(EASE_CLOSE, x)).toBeCloseTo(easeClose(x), 1);
-    }
   });
 
   it("gives the CSS the same numbers", () => {
