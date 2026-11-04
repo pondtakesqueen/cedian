@@ -37,6 +37,7 @@ import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './ag
 import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
 import { CedianBlockExit } from './blockExit.js';
+import { CedianBlockStretch } from './blockStretch.js';
 import { CedianProjectTabs } from './projectTabs.js';
 import { TOOL_PICKS } from './blocks/places.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
@@ -174,6 +175,7 @@ registerAction2(class extends Action2 {
 registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianWindowPlaces.ID, CedianWindowPlaces, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianBlockExit.ID, CedianBlockExit, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianBlockStretch.ID, CedianBlockStretch, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianProjectTabs.ID, CedianProjectTabs, WorkbenchPhase.AfterRestored);
 
 registerAction2(class extends Action2 {

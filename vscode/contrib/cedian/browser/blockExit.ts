@@ -9,6 +9,7 @@ import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { stretching } from './blockStretch.js';
 
 /** The side blocks whose leaving is shown. The editor groups are followed one by one. */
 const SIDE_PARTS: readonly Parts[] = [Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART];
@@ -32,7 +33,7 @@ function shrink(element: HTMLElement): { origin: string; to: string } {
 }
 
 /**
- * A block that goes leaves as the prototype's do: it fades and shrinks a little where it stood
+ * A block that goes and has not shrunk away first (blockStretch.ts) leaves as the prototype's do: it fades and shrinks a little where it stood
  * instead of vanishing. VS Code takes the block out of the layout at once, and its neighbours take
  * the room straight away; only a picture of it is left behind, so nothing lays out again. That
  * picture is the block's own element when VS Code has removed it (a closed editor group), a copy
@@ -57,7 +58,8 @@ export class CedianBlockExit extends Disposable implements IWorkbenchContributio
 				return;
 			}
 			const part = SIDE_PARTS.find(p => p === e.partId);
-			const element = part ? layout.getContainer(mainWindow, part) : undefined;
+			// A block that shrank before it went (blockStretch.ts) has nothing left to fade.
+			const element = part && !stretching.has(part) ? layout.getContainer(mainWindow, part) : undefined;
 			if (element) {
 				this.leave(element, true);
 			}
