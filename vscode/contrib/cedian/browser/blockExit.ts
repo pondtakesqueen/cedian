@@ -13,8 +13,23 @@ import { IEditorGroupsService } from '../../../services/editor/common/editorGrou
 /** The side blocks whose leaving is shown. The editor groups are followed one by one. */
 const SIDE_PARTS: readonly Parts[] = [Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART];
 
-/** How a block leaves: the prototype's pop-in run backwards, as long as the arrival (workbench.css). */
-const EXIT_MS = 160;
+/** How a block leaves: its arrival (workbench.css) run backwards, a little quicker, speeding up as it goes. */
+const EXIT_MS = 240;
+const EXIT_EASE = 'cubic-bezier(.4, 0, 1, 1)';
+
+/** Where a block shrinks towards and how far: the edge it hangs from, as it grew (workbench.css). */
+function shrink(element: HTMLElement): { origin: string; to: string } {
+	if (element.classList.contains('sidebar')) {
+		return { origin: 'left center', to: 'scale(.84, .97)' };
+	}
+	if (element.classList.contains('auxiliarybar')) {
+		return { origin: 'right center', to: 'scale(.84, .97)' };
+	}
+	if (element.classList.contains('panel')) {
+		return { origin: 'center bottom', to: 'scale(.97, .84)' };
+	}
+	return { origin: 'center', to: 'scale(.92)' };
+}
 
 /**
  * A block that goes leaves as the prototype's do: it fades and shrinks a little where it stood
@@ -92,12 +107,16 @@ export class CedianBlockExit extends Disposable implements IWorkbenchContributio
 		holder.style.height = `${rect.height}px`;
 		ghost.style.width = '100%';
 		ghost.style.height = '100%';
+		// A copy of a side bar would match the grow-in rule and grow in again on its way out.
+		ghost.style.animation = 'none';
+		const { origin, to } = shrink(element);
+		holder.style.transformOrigin = origin;
 		holder.appendChild(ghost);
 		workbench.appendChild(holder);
 		const done = () => holder.remove();
 		const run = holder.animate(
-			[{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }],
-			{ duration: EXIT_MS, easing: 'cubic-bezier(.2, .7, .3, 1)', fill: 'forwards' },
+			[{ opacity: 1, transform: 'none' }, { opacity: 0, transform: to }],
+			{ duration: EXIT_MS, easing: EXIT_EASE, fill: 'forwards' },
 		);
 		run.onfinish = done;
 		run.oncancel = done;
