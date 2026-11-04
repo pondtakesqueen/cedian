@@ -76,33 +76,17 @@
 .monaco-workbench .monaco-sash.hover::before,
 .monaco-workbench .monaco-sash.active::before { background: var(--cedian-line-strong, var(--vscode-sash-hoverBorder)); border-radius: 2px; }
 
-/* Motion, as the prototype's blocks: a block that appears (a side bar shown, a group opened, the
-   window's first paint) grows out of the edge it hangs from, a side bar from the window's side, the
-   panel from the bottom, an editor group from its middle, and settles with an ease that slows to a
-   stop; the focused block's top edge lights up. Only transform and opacity move, so the GPU
-   composites it and nothing lays out again; resizing stays instant. VS Code puts
-   monaco-enable-motion on the window unless the OS asks for reduced motion or
-   `workbench.reduceMotion` is on, so both turn this off. A hidden block takes display: none, which
-   restarts the animation when it shows again. blockExit.ts runs the same growth backwards when a
-   block goes. A side block shown or hidden after the first paint stretches instead (blockStretch.ts):
-   its real size moves frame by frame and its neighbours with it, and it turns this growth off. A
-   block dragged to another place slides there from where it stood instead (blockMove.ts). */
+/* Motion, as a tiling window manager's: blocks never scale or fade, they only stretch and slide.
+   A side block shown or hidden stretches open and shut, its real size moving frame by frame and
+   its neighbours with it (blockStretch.ts); an editor group opened stretches out of the block it
+   split from, one closed collapses into its edge, and the rest slide to their new places
+   (blockMove.ts). The focused block's top edge lights up. VS Code puts monaco-enable-motion on the
+   window unless the OS asks for reduced motion or `workbench.reduceMotion` is on, so both turn the
+   motion off. */
 .monaco-workbench {
-	--cedian-motion-in: 320ms;
 	--cedian-motion-focus: 120ms;
 	--cedian-ease-out: cubic-bezier(.2, .7, .3, 1);
-	--cedian-ease-grow: cubic-bezier(.3, .7, .2, 1);
 }
-/* The size eases out over the whole arrival; the fade runs evenly over its first two thirds, so
-   the block is seen growing rather than blinking in. */
-@keyframes cedian-grow-x { from { transform: scale(.84, .97); } }
-@keyframes cedian-grow-y { from { transform: scale(.97, .84); } }
-@keyframes cedian-grow { from { transform: scale(.92); } }
-@keyframes cedian-fade-in { from { opacity: 0; } }
-.monaco-workbench.monaco-enable-motion .part.sidebar { transform-origin: left center; animation: cedian-grow-x var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
-.monaco-workbench.monaco-enable-motion .part.auxiliarybar { transform-origin: right center; animation: cedian-grow-x var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
-.monaco-workbench.monaco-enable-motion .part.panel { transform-origin: center bottom; animation: cedian-grow-y var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
-.monaco-workbench.monaco-enable-motion .part.editor:not(.modal-editor-part) .editor-group-container { transform-origin: center; animation: cedian-grow var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.sidebar,
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.auxiliarybar,
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.panel,
@@ -137,14 +121,12 @@
 }
 .monaco-workbench.monaco-enable-motion .codicon-toolbar-more { transition: opacity var(--cedian-motion-focus, 120ms) var(--cedian-ease-out, ease-out); }
 
-/* What is left of a block that went, while it fades (blockExit.ts): where it stood, above the
-   blocks that took its room, never in the pointer's way. An editor group out of the editor area
-   has lost its card, so it gets one back. */
-.cedian-block-exit { position: fixed; z-index: 30; pointer-events: none; }
-.cedian-block-exit > .editor-group-container {
+/* An editor group that closed, while it collapses into its edge (blockMove.ts): where it stood,
+   never in the pointer's way. Out of the editor area it has lost its card's ground, so it gets it
+   back; its corners and the gaps around it are drawn by the clip it collapses with. */
+.cedian-block-closing { position: fixed; z-index: 30; pointer-events: none; }
+.cedian-block-closing > .editor-group-container {
 	background-color: var(--vscode-editor-background);
-	border: 1px solid var(--modern-ui-editor-border-color, var(--vscode-editor-border, var(--vscode-widget-border, transparent)));
-	border-radius: var(--vscode-cornerRadius-large, 12px);
 	box-sizing: border-box;
 	overflow: hidden;
 }

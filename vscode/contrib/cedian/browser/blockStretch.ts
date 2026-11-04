@@ -25,8 +25,8 @@ const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
 interface Sized { minimumWidth: number; minimumHeight: number; layout(width: number, height: number, top: number, left: number): void }
 interface PartsOf { getPart?(part: Parts): Sized }
 
-/** The side blocks closing by stretching now; blockExit.ts leaves them be. */
-export const stretching = new Set<Parts>();
+/** The side blocks closing by stretching now: hiding them again is theirs. */
+const stretching = new Set<Parts>();
 
 /** Opening eases out (cubic): it comes at once and lands softly. */
 const easeOpen = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -43,8 +43,9 @@ interface Run { stop(): void; size(): number; target: number; closing: boolean; 
  * contents stay laid out at its full size, held at the window's edge, and its moving edge uncovers
  * them as a drawer's would. Its minimum size is lifted while it moves and put back after. VS Code's commands that hide a block run once it has
  * shrunk, after its size is set back to its width in the same frame, so the layout remembers that
- * width and the next opening grows back to it. A block hidden any other way fades where it stood
- * (blockExit.ts). Off with the window's reduced motion.
+ * width and the next opening grows back to it. It stays fully drawn the whole time: its edge
+ * uncovers what is inside, nothing fades. A block hidden any other way goes at once, and the
+ * editor's blocks slide over into its room (blockMove.ts). Off with the window's reduced motion.
  */
 export class CedianBlockStretch extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.blockStretch';
@@ -178,8 +179,6 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		const key = this.tall(part) ? 'minimumHeight' : 'minimumWidth';
 		const minimum = sized[key];
 		sized[key] = 0;
-		// Its own fade stands in for the pop-in it would play on showing (workbench.css).
-		element.style.animation = 'none';
 		// Its contents keep their full size, held at the window's edge, so the moving edge uncovers
 		// them as a drawer's would; laid out narrow they would wrap and jump on every frame.
 		const tall = this.tall(part);
@@ -199,7 +198,6 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 			own.call(sized, tall ? width : Math.max(width, target), tall ? Math.max(height, target) : height, top, left);
 		};
 		const hold = (size: number) => {
-			element.style.opacity = String(Math.min(1, size / Math.max(1, target) * 1.6));
 			inner.forEach((c, i) => {
 				c.style[tall ? 'minHeight' : 'minWidth'] = `${held[i]}px`;
 				c.style.transform = far ? `translate${tall ? 'Y' : 'X'}(${size - target}px)` : '';
@@ -217,7 +215,6 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 			if (last && this.layout.isVisible(part, mainWindow)) {
 				own.call(sized, ...last);
 			}
-			element.style.opacity = '';
 			element.style.overflow = '';
 			for (const c of inner) {
 				c.style.minHeight = c.style.minWidth = c.style.transform = '';
@@ -233,7 +230,6 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 			const t = Math.min(1, (mainWindow.performance.now() - start) / ms);
 			current = from + (to - from) * (done ? easeClose(t) : easeOpen(t));
 			this.setSize(part, Math.round(current));
-			// Faint while it is narrow, so a sliver of a block never shows its insides.
 			hold(Math.round(current));
 			if (t < 1) {
 				frame = mainWindow.requestAnimationFrame(step);
