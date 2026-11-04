@@ -13,6 +13,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IPCServer, IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { setAppIcon } from './appIcon.js';
 import { DaemonBuild, DaemonConnectionState, daemonGone, dialStartsDaemon, isOtherBuild } from '../common/daemon.js';
+import { LineSplitter } from '../common/lines.js';
 
 /**
  * Carries a window's lines to the daemon's socket and back (spec §6.2): the sandboxed renderer
@@ -132,7 +133,7 @@ class WindowConnection {
 
 	state: DaemonConnectionState = 'disconnected';
 	private socket: Socket | undefined;
-	private rest = '';
+	private lines = new LineSplitter();
 	private opened = false;
 	private disposed = false;
 	private retry: ReturnType<typeof setTimeout> | undefined;
@@ -175,16 +176,12 @@ class WindowConnection {
 			this.setState('connected');
 		});
 		socket.on('data', (chunk: string) => {
-			const lines = (this.rest + chunk).split('\n');
-			this.rest = lines.pop() ?? '';
-			for (const line of lines) {
-				if (line.length > 0) {
-					if (!this.welcomed) {
-						this.welcomed = true;
-						this.onWelcome(line);
-					}
-					this._onLine.fire(line);
+			for (const line of this.lines.push(chunk)) {
+				if (!this.welcomed) {
+					this.welcomed = true;
+					this.onWelcome(line);
 				}
+				this._onLine.fire(line);
 			}
 		});
 		socket.on('error', () => { /* 'close' follows */ });
@@ -193,7 +190,7 @@ class WindowConnection {
 				return;
 			}
 			this.socket = undefined;
-			this.rest = '';
+			this.lines = new LineSplitter();
 			this.setState('disconnected');
 			// The first failed dial starts the daemon; every tenth (about 45 s apart once the wait
 			// reaches 5 s) starts it again if the one started has exited. A daemon that finds
