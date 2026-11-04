@@ -78,6 +78,8 @@ export class BrowserPanel implements Block {
   /** An address typed before the tab's session was there, opened once it is. */
   private pending: string | undefined;
   private disposed = false;
+  /** Whether the block's page area is on screen, as last observed. */
+  private onScreen = true;
 
   constructor(private readonly doc: Document, private readonly wire: Wire<Request, Notice>, private readonly host: BrowserHost) {
     const d = doc;
@@ -155,6 +157,8 @@ export class BrowserPanel implements Block {
     this.offs.push(
       wire.onAny((n) => {
         if (n.kind === "browser" && n.cwd === host.cwd) this.onPage(n.page);
+        // A daemon that restarted knows of no open block; this one says so again.
+        else if (n.kind === "welcome") this.wire.request({ op: "browser_block", open: true });
         else if (n.kind === "settings") {
           this.desktop = desktopOf(n.desktop);
           this.drawBanner();
@@ -162,6 +166,9 @@ export class BrowserPanel implements Block {
       }),
     );
     this.wire.request({ op: "settings" });
+    // While a block is open the daemon keeps Chromium; once none is, it quits it after a while.
+    this.wire.request({ op: "browser_block", open: true });
+    this.offs.push(() => this.wire.request({ op: "browser_block", open: false }));
     this.wire.request({ op: "browser", cwd: host.cwd });
     host.devServers().then(
       (list) => this.setDevServers(list),
@@ -172,6 +179,19 @@ export class BrowserPanel implements Block {
       observer.observe(this.stage);
       this.offs.push(() => observer.disconnect());
     }
+    // No frames while the block can't be seen: another editor tab in front, stashed off the
+    // edge, or the window hidden.
+    if (typeof IntersectionObserver !== "undefined") {
+      const observer = new IntersectionObserver((entries) => {
+        this.onScreen = entries[entries.length - 1]?.isIntersecting ?? this.onScreen;
+        this.pauseIfHidden();
+      });
+      observer.observe(this.stage);
+      this.offs.push(() => observer.disconnect());
+    }
+    const onVisibility = () => this.pauseIfHidden();
+    doc.addEventListener("visibilitychange", onVisibility);
+    this.offs.push(() => doc.removeEventListener("visibilitychange", onVisibility));
     this.draw();
   }
 
@@ -202,6 +222,14 @@ export class BrowserPanel implements Block {
     this.session?.dispose();
     this.session = undefined;
     this.root.remove();
+  }
+
+  private hidden(): boolean {
+    return !this.onScreen || this.doc.visibilityState === "hidden";
+  }
+
+  private pauseIfHidden(): void {
+    this.session?.setPaused(this.hidden()).catch(() => {});
   }
 
   /** Opens `text` as typed in the address bar, or says why it can't. */
@@ -286,6 +314,7 @@ export class BrowserPanel implements Block {
       this.socket = "";
       this.wire.request({ op: "browser", cwd: this.host.cwd });
     });
+    void session.setPaused(this.hidden());
     const { width, height } = this.size();
     session.start(width, height, this.scale()).then(
       () => {

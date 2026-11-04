@@ -63,6 +63,26 @@ describe.skipIf(!bin)("the page session on a real Chromium", () => {
     return session;
   };
 
+  test("sends no frames while paused, and sends them again once resumed", async () => {
+    const session = await open();
+    let frames = 0;
+    session.onFrame(() => frames++);
+    await session.navigate(site);
+    await until(() => session.view.load === "loaded" && frames > 0);
+    await session.setPaused(true);
+    await new Promise((r) => setTimeout(r, 300));
+    frames = 0;
+    // The page still runs and redraws while paused: a reload paints it again.
+    await session.reload();
+    await until(() => session.view.load === "loaded");
+    await new Promise((r) => setTimeout(r, 800));
+    expect(frames).toBe(0);
+    await session.setPaused(false);
+    await session.reload();
+    await until(() => frames > 0);
+    session.dispose();
+  }, 20_000);
+
   test("screencasts the page, follows its load, title and console, and takes input", async () => {
     const session = await open();
     const frames: Frame[] = [];

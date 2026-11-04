@@ -674,6 +674,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 ### 6.3 Browser (Chromium/CDP)
 
 - daemon Chromium (bundled) screencast into panel for browser pane
+- Idle cost: a Browser block sends no frames while it can't be seen (another editor tab in front, stashed, window hidden); the page keeps running for the agent. With no block open in any window and no run going for 5 minutes, the daemon quits Chromium (its tabs go, the profile stays) and the next block starts it again
 - CDP for agent-driven browser (read/click/type/navigate)
 - Element selection via CDP DOM.inspect
 - Screenshot via Page.captureScreenshot

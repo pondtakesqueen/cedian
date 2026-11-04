@@ -1127,6 +1127,10 @@ export type Request =
       tab?: BrowserTabAction | null;
     }
   | {
+      op: "browser_block";
+      open: boolean;
+    }
+  | {
       cwd: string;
       op: "commit_draft";
       thread: string;
