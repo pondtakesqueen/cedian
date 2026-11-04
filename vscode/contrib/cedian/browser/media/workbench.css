@@ -103,6 +103,12 @@
 	--cedian-motion-focus: 120ms;
 	--cedian-ease-out: cubic-bezier(.2, .7, .3, 1);
 }
+/* A view's section (Outline, Timeline) opened or folded moves its real height, as VS Code draws it,
+   on the blocks' timing (src/blocks/motion.ts) instead of VS Code's 150ms. */
+.monaco-workbench .monaco-pane-view.animated .split-view-view {
+	transition-duration: var(--cedian-motion-open, .15s);
+	transition-timing-function: var(--cedian-ease-open, ease-out);
+}
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.sidebar,
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.auxiliarybar,
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.panel,
