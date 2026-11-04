@@ -3,6 +3,7 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
@@ -43,6 +44,9 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 	static readonly ID = 'workbench.contrib.cedian.blockStretch';
 
 	private readonly runs = new Map<Parts, Run>();
+	/** Side blocks a maximize or its undoing shows and moves itself: they don't stretch open on their own. */
+	private readonly quiet = new Set<Parts>();
+	private maximizing = false;
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
@@ -51,7 +55,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		super();
 		this._register(layout.onDidChangePartVisibility(e => {
 			const side = SIDES.find(s => s.part === e.partId);
-			if (side && e.visible && !stretching.has(side.part)) {
+			if (side && e.visible && !stretching.has(side.part) && !this.quiet.has(side.part)) {
 				// The event comes from inside the layout's own showing: measured once it has laid out,
 				// before the frame is painted.
 				queueMicrotask(() => this.open(side.part));
@@ -82,6 +86,164 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 			}
 		}
 		this._register(toDisposable(() => { for (const run of this.runs.values()) { run.stop(); } }));
+		this.maximizes();
+	}
+
+	/**
+	 * Maximizing the bottom panel or the right panel, and putting it back, stretches it as opening
+	 * and closing one does: its real size moves frame by frame and the blocks it covers give way to
+	 * nothing (their minimum sizes lifted meanwhile), then VS Code maximizes it with nothing left to
+	 * jump; putting it back, VS Code restores the layout and the block shrinks from the whole window
+	 * to its size while the others come back. VS Code's own toggles are followed, so its commands,
+	 * its buttons and its keys all do it. A maximize VS Code makes for itself stays as it is.
+	 */
+	private maximizes(): void {
+		type Toggles = { toggleMaximizedPanel(): void; toggleMaximizedAuxiliaryBar(): void };
+		const layout = this.layout as unknown as Toggles;
+		const panel = layout.toggleMaximizedPanel;
+		const aux = layout.toggleMaximizedAuxiliaryBar;
+		if (typeof panel !== 'function' || typeof aux !== 'function') {
+			return;
+		}
+		layout.toggleMaximizedPanel = () => this.maximizePanel(() => panel.call(layout));
+		layout.toggleMaximizedAuxiliaryBar = () => this.maximizeAux(() => aux.call(layout));
+		this._register(toDisposable(() => {
+			delete (layout as Partial<Toggles>).toggleMaximizedPanel;
+			delete (layout as Partial<Toggles>).toggleMaximizedAuxiliaryBar;
+		}));
+	}
+
+	private visible(part: Parts): boolean {
+		return this.layout.isVisible(part, mainWindow);
+	}
+
+	/** The editor area's size the way `part` moves. */
+	private editorSize(part: Parts): number {
+		const size = this.layout.getSize(Parts.EDITOR_PART);
+		return this.tall(part) ? size.height : size.width;
+	}
+
+	private maximizePanel(own: () => void): void {
+		const part = Parts.PANEL_PART;
+		const tall = this.tall(part);
+		// VS Code maximizes a bottom panel only when it spans the editor's column.
+		if (!this.moving() || this.maximizing || this.runs.size || (tall && this.layout.getPanelAlignment() !== 'center')) {
+			return own();
+		}
+		if (this.layout.isPanelMaximized()) {
+			own();
+			const to = this.size(part);
+			this.tween([{ part, from: to + this.editorSize(part), to }], CLOSE_MS, easeClose);
+			return;
+		}
+		if (!this.visible(part) || !this.visible(Parts.EDITOR_PART)) {
+			return own();
+		}
+		const from = this.size(part);
+		// VS Code keeps the size it had to go back to: it is given back before VS Code takes it.
+		this.tween([{ part, from, to: from + this.editorSize(part) }], OPEN_MS, easeOpen, () => { this.setSize(part, from); own(); });
+	}
+
+	private maximizeAux(own: () => void): void {
+		const part = Parts.AUXILIARYBAR_PART;
+		// A panel beside the editor, not under it, would need a third block to give way: VS Code's as is.
+		const sidePanel = this.visible(Parts.PANEL_PART) && !this.tall(Parts.PANEL_PART);
+		if (!this.moving() || this.maximizing || this.runs.size || sidePanel) {
+			return own();
+		}
+		const sidebar = Parts.SIDEBAR_PART;
+		if (this.layout.isAuxiliaryBarMaximized()) {
+			// What VS Code shows again moves with it, not on its own.
+			this.quiet.add(sidebar);
+			this.quiet.add(Parts.PANEL_PART);
+			try {
+				own();
+			} finally {
+				this.quiet.clear();
+			}
+			const to = this.size(part);
+			const side = this.visible(sidebar) ? this.size(sidebar) : 0;
+			const steps = [{ part, from: to + this.editorSize(part) + side, to }];
+			if (side) {
+				steps.unshift({ part: sidebar, from: 0, to: side });
+			}
+			this.tween(steps, CLOSE_MS, easeClose);
+			return;
+		}
+		if (!this.visible(part) || !this.visible(Parts.EDITOR_PART)) {
+			return own();
+		}
+		const from = this.size(part);
+		const side = this.visible(sidebar) ? this.size(sidebar) : 0;
+		const steps = [{ part, from, to: from + this.editorSize(part) + side }];
+		if (side) {
+			steps.unshift({ part: sidebar, from: side, to: 0 });
+		}
+		this.tween(steps, OPEN_MS, easeOpen, () => {
+			if (side) {
+				this.setSize(sidebar, side);
+			}
+			this.setSize(part, from);
+			own();
+		});
+	}
+
+	/**
+	 * Moves blocks' real sizes from `from` to `to` together, frame by frame, the editor area and the
+	 * side blocks free to go down to nothing meanwhile; `done` runs in the last frame, before it is drawn.
+	 */
+	private tween(steps: readonly { part: Parts; from: number; to: number }[], ms: number, ease: (t: number) => number, done?: () => void): void {
+		this.maximizing = true;
+		const parts = (this.layout as unknown as PartsOf);
+		const lifted: (() => void)[] = [];
+		for (const part of [Parts.EDITOR_PART, Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART]) {
+			const view = parts.getPart?.(part);
+			for (const key of ['minimumWidth', 'minimumHeight'] as const) {
+				if (!view) {
+					continue;
+				}
+				const own = Object.getOwnPropertyDescriptor(view, key);
+				Object.defineProperty(view, key, { configurable: true, get: () => 0, set: () => { } });
+				lifted.push(() => {
+					if (own) {
+						Object.defineProperty(view, key, own);
+					} else {
+						delete (view as Partial<Sized>)[key];
+					}
+				});
+			}
+		}
+		const set = (t: number) => {
+			for (const step of steps) {
+				this.setSize(step.part, Math.round(step.from + (step.to - step.from) * ease(t)));
+			}
+		};
+		const start = mainWindow.performance.now();
+		const end = () => {
+			for (const undo of lifted.reverse()) {
+				undo();
+			}
+			this.maximizing = false;
+		};
+		const frame = () => {
+			const t = Math.min(1, (mainWindow.performance.now() - start) / ms);
+			try {
+				set(t);
+			} catch (error) {
+				// A block gone meanwhile: the rest stays where it is, and VS Code's layout stands.
+				end();
+				onUnexpectedError(error);
+				return;
+			}
+			if (t < 1) {
+				mainWindow.requestAnimationFrame(frame);
+				return;
+			}
+			end();
+			done?.();
+		};
+		set(0);
+		mainWindow.requestAnimationFrame(frame);
 	}
 
 	private moving(): boolean {

@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { addDisposableListener } from '../../../../base/browser/dom.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { closing, easeOpen, moving, OPEN_MS, opening } from './blocks/motion.js';
+import { CLOSE_MS, closing, easeClose, easeOpen, moving, OPEN_MS, opening } from './blocks/motion.js';
 
 
 
@@ -117,6 +118,108 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		}));
 		this._register(toDisposable(() => { for (const stop of [...this.runs.values()]) { stop(); } }));
 		this.note();
+		this.maximizes();
+	}
+
+	/**
+	 * Maximizing a block in the editor, and putting it back, stretches it as a side block's maximize
+	 * does (blockStretch.ts): its real size grows frame by frame to the whole editor while the others
+	 * give way to nothing (their minimums lifted meanwhile), then VS Code maximizes it with nothing
+	 * left to jump; putting it back, VS Code lays the others out again and the block shrinks from the
+	 * whole editor to its size. VS Code's own toggle is followed, so its command and a double click
+	 * on a tab both do it.
+	 */
+	private maximizes(): void {
+		type Toggle = { toggleMaximizeGroup(group?: IEditorGroup | number): void };
+		const part = this.groups.mainPart as unknown as Toggle & typeof this.groups.mainPart;
+		const own = part.toggleMaximizeGroup;
+		if (typeof own !== 'function') {
+			return;
+		}
+		part.toggleMaximizeGroup = (target?: IEditorGroup | number) => {
+			const group = typeof target === 'number' ? part.getGroup(target) : target ?? part.activeGroup;
+			const run = () => own.call(part, target);
+			if (!group || !moving(this.layout.mainContainer) || this.maximizing || part.groups.length < 2) {
+				return run();
+			}
+			const others = part.groups.filter(g => g !== group);
+			if (part.hasMaximizedGroup()) {
+				run();
+				const to = part.getSize(group);
+				const full = this.whole(group, others);
+				this.tween(group, others, full, to, CLOSE_MS, easeClose);
+				return;
+			}
+			const from = part.getSize(group);
+			const full = this.whole(group, others);
+			// VS Code keeps the sizes to go back to: they are given back before VS Code takes them.
+			this.tween(group, others, from, full, OPEN_MS, easeOpen, () => { part.setSize(group, from); run(); });
+		};
+		this._register(toDisposable(() => { delete (part as Partial<Toggle>).toggleMaximizeGroup; }));
+	}
+
+	/** The whole editor, as the size `group` would have with the others at nothing (measured, then put back). */
+	private whole(group: IEditorGroup, others: IEditorGroup[]): { width: number; height: number } {
+		const part = this.groups.mainPart;
+		const undo = this.lift(others);
+		const was = part.getSize(group);
+		part.setSize(group, { width: 1e6, height: 1e6 });
+		const full = part.getSize(group);
+		part.setSize(group, was);
+		undo();
+		return full;
+	}
+
+	/** Lets the groups go down to nothing; the returned function gives them their minimums back. */
+	private lift(groups: IEditorGroup[]): () => void {
+		const undo: (() => void)[] = [];
+		for (const group of groups) {
+			for (const key of ['minimumWidth', 'minimumHeight'] as const) {
+				const own = Object.getOwnPropertyDescriptor(group, key);
+				Object.defineProperty(group, key, { configurable: true, get: () => 0, set: () => { } });
+				undo.push(() => {
+					if (own) {
+						Object.defineProperty(group, key, own);
+					} else {
+						delete (group as unknown as Record<string, unknown>)[key];
+					}
+				});
+			}
+		}
+		return () => { for (const u of undo.reverse()) { u(); } };
+	}
+
+	private maximizing = false;
+
+	/** Moves `group`'s real size from `from` to `to` frame by frame, the others free to give way; `done` runs in the last frame. */
+	private tween(group: IEditorGroup, others: IEditorGroup[], from: { width: number; height: number }, to: { width: number; height: number }, ms: number, ease: (t: number) => number, done?: () => void): void {
+		const part = this.groups.mainPart;
+		this.maximizing = true;
+		const undo = this.lift(others);
+		const set = (t: number) => part.setSize(group, {
+			width: Math.round(from.width + (to.width - from.width) * ease(t)),
+			height: Math.round(from.height + (to.height - from.height) * ease(t)),
+		});
+		const end = () => { undo(); this.maximizing = false; };
+		const start = mainWindow.performance.now();
+		const frame = () => {
+			const t = Math.min(1, (mainWindow.performance.now() - start) / ms);
+			try {
+				set(t);
+			} catch (error) {
+				end();
+				onUnexpectedError(error);
+				return;
+			}
+			if (t < 1) {
+				mainWindow.requestAnimationFrame(frame);
+				return;
+			}
+			end();
+			done?.();
+		};
+		set(0);
+		mainWindow.requestAnimationFrame(frame);
 	}
 
 	private moving(): boolean {
