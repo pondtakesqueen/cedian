@@ -75,3 +75,35 @@
 .monaco-workbench.modern-ui { --vscode-sash-hover-size: 2px; }
 .monaco-workbench .monaco-sash.hover::before,
 .monaco-workbench .monaco-sash.active::before { background: var(--cedian-line-strong, var(--vscode-sash-hoverBorder)); border-radius: 2px; }
+
+/* Motion, as the prototype's blocks: a block that appears (a side bar shown, a group opened, the
+   window's first paint) pops in, and the focused block's top edge lights up. Only transform and
+   opacity move, so the GPU composites it and nothing lays out again; resizing stays instant. VS Code
+   puts monaco-enable-motion on the window unless the OS asks for reduced motion or
+   `workbench.reduceMotion` is on, so both turn this off. A hidden block takes display: none, which
+   restarts the animation when it shows again. A block that goes leaves at once: holding it on screen
+   takes script, not CSS. */
+.monaco-workbench {
+	--cedian-motion-in: 160ms;
+	--cedian-motion-focus: 120ms;
+	--cedian-ease-out: cubic-bezier(.2, .7, .3, 1);
+}
+@keyframes cedian-pop-in { from { opacity: 0; transform: scale(.98); } }
+.monaco-workbench.monaco-enable-motion .part.sidebar,
+.monaco-workbench.monaco-enable-motion .part.auxiliarybar,
+.monaco-workbench.monaco-enable-motion .part.panel,
+.monaco-workbench.monaco-enable-motion .part.editor:not(.modal-editor-part) .editor-group-container {
+	animation: cedian-pop-in var(--cedian-motion-in) var(--cedian-ease-out);
+}
+.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.sidebar,
+.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.auxiliarybar,
+.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.panel,
+.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) .editor-group-container::after {
+	transition: box-shadow var(--cedian-motion-focus) var(--cedian-ease-out);
+}
+.monaco-workbench.modern-ui.floating-panels .part.sidebar:focus-within,
+.monaco-workbench.modern-ui.floating-panels .part.auxiliarybar:focus-within,
+.monaco-workbench.modern-ui.floating-panels .part.panel:focus-within,
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part):focus-within .editor-group-container.active::after {
+	box-shadow: inset 0 2px 0 var(--cedian-text-muted, var(--vscode-focusBorder));
+}
