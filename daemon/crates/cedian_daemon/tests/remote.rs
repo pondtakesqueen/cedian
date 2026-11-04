@@ -35,7 +35,7 @@ fn start(dir: &Path, port: u16, web: &Path) -> Daemon {
     std::fs::create_dir_all(&home).expect("home");
     std::fs::write(
         home.join("settings.json"),
-        format!(r#"{{"desktop":{{"remote":{{"port":{port}}}}}}}"#),
+        format!(r#"{{"desktop":{{"remote":{{"port":{port},"projects":["/repo"]}}}}}}"#),
     )
     .expect("settings");
     let child = Command::new(env!("CARGO_BIN_EXE_cedian-daemon"))
@@ -111,6 +111,14 @@ fn a_browser_window_with_the_token_gets_the_daemon_s_notices() {
         )
         .starts_with("HTTP/1.1 421")
     );
+
+    let config = http(
+        port,
+        &format!(
+            "GET /config.json HTTP/1.1\r\nHost: localhost\r\nCookie: cedian_remote={token}\r\n\r\n"
+        ),
+    );
+    assert!(config.ends_with(r#"{"projects":["/repo"]}"#), "{config}");
 
     let socket = |cookie: Option<&str>, origin: &str| {
         let mut request = format!("ws://127.0.0.1:{port}/ws")

@@ -10,8 +10,8 @@
 //!
 //! `/ws` speaks the window's own protocol (`cedian_wire`): one JSON request or notice per text
 //! frame, the same lines `daemon.sock` carries, so the browser is just another window.
-//! Everything else is a file of the web build (`CEDIAN_REMOTE_WEB`, else `remote-web` beside
-//! the binary).
+//! Everything else is a file of the web build (`CEDIAN_REMOTE_WEB`, else the app's
+//! `Contents/Resources/remote-web`, which `script/remote-web.mjs` writes).
 
 use std::{
     io::{BufRead as _, BufReader, ErrorKind, Read as _, Write as _},
@@ -36,6 +36,8 @@ pub const COOKIE: &str = "cedian_remote";
 const MAX_HEAD: usize = 16 * 1024;
 
 pub struct RemoteConfig {
+    /// cedia's home, for the projects the page offers (`desktop.remote.projects`).
+    pub home: PathBuf,
     pub port: u16,
     pub token: String,
     pub web: Option<PathBuf>,
@@ -52,11 +54,15 @@ pub fn remote_config(home: &Path, state_dir: &Path) -> anyhow::Result<Option<Rem
     let web = std::env::var_os("CEDIAN_REMOTE_WEB")
         .map(PathBuf::from)
         .or_else(|| {
-            std::env::current_exe()
-                .ok()
-                .and_then(|exe| exe.parent().map(|dir| dir.join("remote-web")))
+            // In the app: Contents/Resources/remote-web, as Chromium sits beside the daemon.
+            let exe = std::env::current_exe().ok()?;
+            let dir = exe.parent()?;
+            [dir.join("../Resources/remote-web"), dir.join("remote-web")]
+                .into_iter()
+                .find(|d| d.is_dir())
         });
     Ok(Some(RemoteConfig {
+        home: home.to_path_buf(),
         port,
         token: token(state_dir)?,
         web: web.filter(|dir| dir.is_dir()),
@@ -215,6 +221,8 @@ pub fn has_token(head: &Head, token: &str) -> bool {
 pub enum Reply {
     Status(u16, &'static str),
     Login,
+    /// `/config.json`: the projects the page offers, read when asked.
+    Config,
     File(PathBuf),
 }
 
@@ -233,6 +241,9 @@ pub fn route(head: &Head, token: &str, web: Option<&Path>) -> Reply {
             401,
             "open the link with ?token= from `cedian-daemon remote-url`",
         );
+    }
+    if head.path() == "/config.json" {
+        return Reply::Config;
     }
     let Some(web) = web else {
         return Reply::Status(404, "no web build: set CEDIAN_REMOTE_WEB");
@@ -268,8 +279,28 @@ fn content_type(path: &Path) -> &'static str {
 
 const SECURITY: &str = "Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nCache-Control: no-store\r\n";
 
-fn respond(stream: &mut TcpStream, reply: Reply, token: &str) -> anyhow::Result<()> {
+/// `{"projects": [...]}` from `desktop.remote.projects`: the folders the owner lets the page show.
+fn config_json(home: &Path) -> String {
+    let projects =
+        crate::desktop_settings::read_desktop(&crate::desktop_settings::settings_path(home))
+            .ok()
+            .and_then(|desktop| desktop.pointer("/remote/projects").cloned())
+            .filter(Value::is_array)
+            .unwrap_or_else(|| Value::Array(Vec::new()));
+    serde_json::json!({ "projects": projects }).to_string()
+}
+
+fn respond(stream: &mut TcpStream, reply: Reply, config: &RemoteConfig) -> anyhow::Result<()> {
+    let token = &config.token;
     match reply {
+        Reply::Config => {
+            let body = config_json(&config.home);
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{SECURITY}Connection: close\r\n\r\n{body}",
+                body.len()
+            )?;
+        }
         Reply::Status(code, text) => write!(
             stream,
             "HTTP/1.1 {code} {text}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\n{SECURITY}Connection: close\r\n\r\n{text}\n",
@@ -324,7 +355,7 @@ fn connection(
         return respond(
             &mut stream,
             route(&head, &config.token, config.web.as_deref()),
-            &config.token,
+            config,
         );
     }
     let host_ok = head.header("host").is_some_and(allowed_host);
@@ -344,7 +375,7 @@ fn connection(
         None
     };
     if let Some(reply) = refused {
-        return respond(&mut stream, reply, &config.token);
+        return respond(&mut stream, reply, config);
     }
     let accept = derive_accept_key(key.unwrap_or_default().as_bytes());
     write!(
@@ -498,6 +529,14 @@ mod tests {
         assert!(matches!(
             get("GET /../secret HTTP/1.1\r\nHost: localhost\r\nCookie: cedian_remote=t\r\n\r\n"),
             Reply::Status(404, _)
+        ));
+        assert!(matches!(
+            get("GET /config.json HTTP/1.1\r\nHost: localhost\r\nCookie: cedian_remote=t\r\n\r\n"),
+            Reply::Config
+        ));
+        assert!(matches!(
+            get("GET /config.json HTTP/1.1\r\nHost: localhost\r\n\r\n"),
+            Reply::Status(401, _)
         ));
         assert!(matches!(
             get("GET /.env HTTP/1.1\r\nHost: localhost\r\nCookie: cedian_remote=t\r\n\r\n"),

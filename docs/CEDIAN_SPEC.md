@@ -692,7 +692,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 
 The agent pane in a phone's browser, so the owner can follow threads, answer their questions and send prompts while away from the Mac. The pane is plain DOM over `DaemonClient` and a line `Transport`, so the browser is one more window: no second UI and no second protocol.
 
-- **Daemon** (`cedian_daemon/src/remote.rs`): on when `desktop.remote.port` is set. It listens on 127.0.0.1 only. `/ws` carries `cedian_wire` requests and notices, one JSON message per text frame, the same messages `daemon.sock` carries. Other paths are files of the web build (`CEDIAN_REMOTE_WEB`, else `remote-web` beside the binary).
+- **Daemon** (`cedian_daemon/src/remote.rs`): on when `desktop.remote.port` is set. It listens on 127.0.0.1 only. `/ws` carries `cedian_wire` requests and notices, one JSON message per text frame, the same messages `daemon.sock` carries. Other paths are files of the web build (`node script/remote-web.mjs` emits the pane's own sources as ES modules with its CSS; the daemon reads `CEDIAN_REMOTE_WEB`, else the app's `Contents/Resources/remote-web`). `/config.json` lists `desktop.remote.projects`, the folders the page may show.
 - **Reach**: `tailscale serve --bg <port>` keeps it inside the owner's tailnet with HTTPS. Nothing is exposed to the internet, and there is no cloud relay.
 - **Auth**: a 32-byte token in the state dir's `remote-token` (0600). `cedian-daemon remote-url` prints the link; `/?token=` sets it as an http-only, SameSite=Strict cookie. Every page and the socket need it.
 - **Origin rules**: a Host, or a socket's Origin, that is not localhost or a `*.ts.net` name is refused (421). This blocks DNS rebinding and cross-site sockets. Pages carry a CSP of `default-src 'self'`.
