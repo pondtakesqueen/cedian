@@ -90,6 +90,114 @@ export function pickProject(projects: readonly string[], search: string, remembe
   return projects[0];
 }
 
+/** Where the page stands on notifications, from what the browser offers and has granted. */
+export type PushState = "unsupported" | "home-screen" | "denied" | "off" | "on";
+
+export function pushState(env: {
+  push: boolean;
+  ios: boolean;
+  standalone: boolean;
+  permission?: NotificationPermission;
+  subscribed: boolean;
+}): PushState {
+  // iOS gives Web Push only to a page opened from the home screen (16.4 and later).
+  if (!env.push) return env.ios && !env.standalone ? "home-screen" : "unsupported";
+  if (env.permission === "denied") return "denied";
+  return env.subscribed ? "on" : "off";
+}
+
+/** What the notifications control shows for each state: a button's label, or a hint. */
+export const PUSH_TEXT: Record<PushState, { button?: string; hint?: string }> = {
+  unsupported: {},
+  "home-screen": { hint: "For notifications on iPhone: Share, then Add to Home Screen, and open Cedian from there." },
+  denied: { hint: "Notifications are blocked for this page in the browser's settings." },
+  off: { button: "Notify me" },
+  on: { button: "Notifications on" },
+};
+
+/** A base64url key as the bytes `pushManager.subscribe` takes. */
+export function keyBytes(key: string): Uint8Array<ArrayBuffer> {
+  const text = atob(key.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(key.length / 4) * 4, "="));
+  const bytes = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+  return bytes;
+}
+
+function same(a: ArrayBuffer | null, b: Uint8Array): boolean {
+  if (!a || a.byteLength !== b.length) return false;
+  const x = new Uint8Array(a);
+  return x.every((v, i) => v === b[i]);
+}
+
+/** Tells the daemon about a subscription, or that it is gone. */
+async function tell(path: "/push/subscribe" | "/push/unsubscribe", body: unknown): Promise<void> {
+  const reply = await fetch(path, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!reply.ok) throw new Error(`${path}: ${reply.status} ${await reply.text()}`);
+}
+
+/**
+ * The notifications control: registers the service worker, keeps the daemon's copy of this
+ * browser's subscription current, and turns notifications on or off on a tap (a browser asks
+ * for permission only from a tap).
+ */
+async function notifications(doc: Document, bar: HTMLElement, hint: HTMLElement, key: string | undefined): Promise<void> {
+  const nav = navigator as Navigator & { standalone?: boolean };
+  const ios = /iPhone|iPad|iPod/.test(nav.userAgent) || (nav.platform === "MacIntel" && nav.maxTouchPoints > 1);
+  const standalone = nav.standalone === true || window.matchMedia?.("(display-mode: standalone)").matches;
+  const push = !!key && "serviceWorker" in nav && "PushManager" in window && "Notification" in window;
+  const registration = push ? await nav.serviceWorker.register("sw.js", { scope: "/" }) : undefined;
+  const applicationServerKey = key ? keyBytes(key) : undefined;
+  let subscription = (await registration?.pushManager.getSubscription()) ?? null;
+  // A subscription made with another key (the daemon's state was reset) cannot be used.
+  if (subscription && applicationServerKey && !same(subscription.options.applicationServerKey, applicationServerKey)) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
+  if (subscription) await tell("/push/subscribe", subscription.toJSON()).catch(() => {});
+  const button = doc.createElement("button");
+  button.className = "remote-notify";
+  const draw = () => {
+    const state = pushState({
+      push,
+      ios,
+      standalone,
+      permission: "Notification" in window ? Notification.permission : undefined,
+      subscribed: !!subscription,
+    });
+    const text = PUSH_TEXT[state];
+    button.hidden = !text.button;
+    button.textContent = text.button ?? "";
+    button.setAttribute("aria-pressed", String(state === "on"));
+    hint.textContent = text.hint ?? "";
+  };
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      if (subscription) {
+        await tell("/push/unsubscribe", { endpoint: subscription.endpoint }).catch(() => {});
+        await subscription.unsubscribe();
+        subscription = null;
+      } else if (registration && applicationServerKey && (await Notification.requestPermission()) === "granted") {
+        subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+        await tell("/push/subscribe", subscription.toJSON());
+      }
+    } catch (error) {
+      hint.textContent = `Notifications could not be turned on: ${error instanceof Error ? error.message : String(error)}`;
+      button.disabled = false;
+      return;
+    }
+    button.disabled = false;
+    draw();
+  };
+  bar.append(button);
+  draw();
+}
+
 const REMEMBER = "cedian.remote.cwd";
 
 async function main(): Promise<void> {
@@ -98,7 +206,7 @@ async function main(): Promise<void> {
   const theme = doc.createElement("style");
   theme.textContent = cssText(dark ? "dark" : "light");
   doc.head.append(theme);
-  const config = (await (await fetch("/config.json", { credentials: "same-origin" })).json()) as { projects?: string[] };
+  const config = (await (await fetch("/config.json", { credentials: "same-origin" })).json()) as { projects?: string[]; push_key?: string };
   const projects = config.projects ?? [];
   let remembered: string | null = null;
   try {
@@ -114,6 +222,11 @@ async function main(): Promise<void> {
   try {
     localStorage.setItem(REMEMBER, cwd);
   } catch {}
+  const bar = doc.createElement("div");
+  bar.className = "remote-bar";
+  const hint = doc.createElement("div");
+  hint.className = "remote-hint";
+  app.append(bar, hint);
   if (projects.length > 1) {
     const select = doc.createElement("select");
     select.className = "remote-projects";
@@ -121,8 +234,11 @@ async function main(): Promise<void> {
     select.onchange = () => {
       location.search = `?cwd=${encodeURIComponent(select.value)}`;
     };
-    app.append(select);
+    bar.prepend(select);
   }
+  void notifications(doc, bar, hint, config.push_key).catch((error) => {
+    hint.textContent = `Notifications are not available: ${error instanceof Error ? error.message : String(error)}`;
+  });
   const transport = new SocketTransport(socketUrl(location));
   const client = new DaemonClient(transport);
   const status = doc.createElement("div");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickProject, socketUrl, SocketTransport, webHost } from "./main.js";
+import { keyBytes, pickProject, PUSH_TEXT, pushState, socketUrl, SocketTransport, webHost } from "./main.js";
 
 class FakeSocket {
   sent: string[] = [];
@@ -75,5 +75,21 @@ describe("remote control page", () => {
     expect(await host.pickImages()).toEqual([]);
     host.openUrl("https://github.com/x");
     expect(opened).toEqual([["https://github.com/x", "_blank", "noopener,noreferrer"]]);
+  });
+
+  it("offers notifications where the browser can push, and says how on an iPhone that cannot yet", () => {
+    const base = { push: true, ios: false, standalone: false, permission: "default" as const, subscribed: false };
+    expect(pushState(base)).toBe("off");
+    expect(pushState({ ...base, subscribed: true })).toBe("on");
+    expect(pushState({ ...base, permission: "denied" })).toBe("denied");
+    expect(pushState({ ...base, push: false, ios: true })).toBe("home-screen");
+    expect(pushState({ ...base, push: false })).toBe("unsupported");
+    expect(PUSH_TEXT["home-screen"].hint).toContain("Add to Home Screen");
+    expect(PUSH_TEXT.unsupported).toEqual({});
+  });
+
+  it("reads the daemon's base64url key as the bytes subscribe takes", () => {
+    expect([...keyBytes("-_8")]).toEqual([0xfb, 0xff]);
+    expect(keyBytes("BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4").length).toBe(65);
   });
 });

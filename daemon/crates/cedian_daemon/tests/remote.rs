@@ -118,7 +118,28 @@ fn a_browser_window_with_the_token_gets_the_daemon_s_notices() {
             "GET /config.json HTTP/1.1\r\nHost: localhost\r\nCookie: cedian_remote={token}\r\n\r\n"
         ),
     );
-    assert!(config.ends_with(r#"{"projects":["/repo"]}"#), "{config}");
+    let body = config.split("\r\n\r\n").nth(1).expect("body");
+    let config: serde_json::Value = serde_json::from_str(body).expect("json");
+    assert_eq!(config["projects"], serde_json::json!(["/repo"]));
+    assert_eq!(
+        config["push_key"].as_str().map(str::len),
+        Some(87),
+        "a P-256 public key, uncompressed, in base64url"
+    );
+
+    // The page subscribes to notifications; the daemon keeps the subscription for the owner.
+    let subscription = r#"{"endpoint":"https://web.push.apple.com/QG","keys":{"p256dh":"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4","auth":"BTBZMqHH6r4Tts7J_aSIgg"}}"#;
+    let subscribed = http(
+        port,
+        &format!(
+            "POST /push/subscribe HTTP/1.1\r\nHost: mac.tail1234.ts.net\r\nOrigin: https://mac.tail1234.ts.net\r\nCookie: cedian_remote={token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{subscription}",
+            subscription.len()
+        ),
+    );
+    assert!(subscribed.starts_with("HTTP/1.1 204"), "{subscribed}");
+    let kept =
+        std::fs::read_to_string(dir.path().join("state/push-subscriptions.json")).expect("kept");
+    assert!(kept.contains("https://web.push.apple.com/QG"), "{kept}");
 
     let socket = |cookie: Option<&str>, origin: &str| {
         let mut request = format!("ws://127.0.0.1:{port}/ws")
