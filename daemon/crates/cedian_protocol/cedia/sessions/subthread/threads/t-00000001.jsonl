@@ -1,5 +1,5 @@
-{"at":"2026-10-29T06:00:10.849Z","kind":"open","title":"make f.txt say good","task":"make f.txt say good"}
-{"at":"2026-10-29T06:00:10.860Z","kind":"run","id":"r-b138c802","prompt":"make f.txt say good","cwd":"/fixture/repo","tree":"4b825dc642cb6eb9a060e54bf8d69288fbee4904","permission":"workspace"}
-{"at":"2026-10-29T06:00:10.863Z","run":"r-b138c802","kind":"session","sessionId":"fc365732-5a1d-407f-825c-c429e7aa5dbb","model":"faux/scripted","role":"code","why":"start","path":"/fixture/home/sessions/fixture-repo/fc365732-5a1d-407f-825c-c429e7aa5dbb.jsonl"}
-{"at":"2026-10-29T06:00:10.959Z","run":"r-b138c802","kind":"turn","cwd":"/fixture/repo","before":"4b825dc642cb6eb9a060e54bf8d69288fbee4904","after":"99f8c32e405deb9aaa1ecb9d26171f9c8936cfcf","sessions":["fc365732-5a1d-407f-825c-c429e7aa5dbb"]}
-{"at":"2026-10-29T06:00:10.959Z","run":"r-b138c802","kind":"state","state":"done","result":"done, checked"}
+{"at":"2026-11-04T05:05:08.100Z","kind":"open","title":"make f.txt say good","task":"make f.txt say good"}
+{"at":"2026-11-04T05:05:08.111Z","kind":"run","id":"r-21015d01","prompt":"make f.txt say good","cwd":"/fixture/repo","tree":"4b825dc642cb6eb9a060e54bf8d69288fbee4904","permission":"workspace","pid":18460}
+{"at":"2026-11-04T05:05:08.113Z","run":"r-21015d01","kind":"session","sessionId":"38f3aeac-2143-4e90-bb05-ecdc17d410da","model":"faux/scripted","role":"code","why":"start","path":"/fixture/home/sessions/fixture-repo/38f3aeac-2143-4e90-bb05-ecdc17d410da.jsonl"}
+{"at":"2026-11-04T05:05:08.183Z","run":"r-21015d01","kind":"turn","cwd":"/fixture/repo","before":"4b825dc642cb6eb9a060e54bf8d69288fbee4904","after":"99f8c32e405deb9aaa1ecb9d26171f9c8936cfcf","sessions":["38f3aeac-2143-4e90-bb05-ecdc17d410da"]}
+{"at":"2026-11-04T05:05:08.183Z","run":"r-21015d01","kind":"state","state":"done","result":"done, checked"}
