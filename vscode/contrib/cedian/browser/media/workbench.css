@@ -147,6 +147,26 @@
    (blockStretch.ts), over the blocks that took its room, never in the pointer's way. */
 .monaco-workbench > .cedian-block-leaving { position: fixed; z-index: 30; pointer-events: none; animation: none; }
 
+/* A press on a button of the window's frame (the tool strip, the project tabs, + Tool, a floating
+   block's and a block header's buttons) dips it a little and lets it go (src/blocks/motion.ts: the
+   only scale anywhere, the length of a tap); none with reduced motion. */
+.monaco-workbench.monaco-enable-motion .cedian-tool-strip-item,
+.monaco-workbench.monaco-enable-motion .cedian-project-tab,
+.monaco-workbench.monaco-enable-motion .part.titlebar .action-item.menu-entry > .action-label,
+.monaco-workbench.monaco-enable-motion .cedian-pip .ibtn,
+.monaco-workbench.monaco-enable-motion .part > .composite.title .action-label,
+.monaco-workbench.monaco-enable-motion .editor-group-container .editor-actions .action-label {
+	transition: transform var(--cedian-motion-press, 90ms) var(--cedian-ease-open, ease-out);
+}
+.monaco-workbench.monaco-enable-motion .cedian-tool-strip-item:active,
+.monaco-workbench.monaco-enable-motion .cedian-project-tab:active,
+.monaco-workbench.monaco-enable-motion .part.titlebar .action-item.menu-entry > .action-label:active,
+.monaco-workbench.monaco-enable-motion .cedian-pip .ibtn:active,
+.monaco-workbench.monaco-enable-motion .part > .composite.title .action-label:active,
+.monaco-workbench.monaco-enable-motion .editor-group-container .editor-actions .action-label:active {
+	transform: scale(.97);
+}
+
 /* An editor group that closed, while it folds into its edge (blockMove.ts): where it stood,
    never in the pointer's way. Out of the editor area it has lost its card's ground, so it gets it
    back; its corners and the gaps around it are drawn by the clip it collapses with. */
