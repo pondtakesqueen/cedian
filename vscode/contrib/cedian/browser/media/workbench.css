@@ -12,3 +12,7 @@
    so do the widgets drawn inside them (suggest, hover). Only corners: the gaps are VS Code's, which
    its layout measures. */
 .monaco-workbench.floating-panels > .monaco-grid-view { --vscode-cornerRadius-large: 12px; }
+/* Editor tabs as the prototype's pills: Modern UI's pill style (`modernUIEditorTabStyle: pill`,
+   set from `desktop`) rounds them only by its small corner radius, so the tab strip takes a full
+   one. Scoped to the strip, so nothing else changes its corners. */
+.monaco-workbench.modern-ui-tabs:not(.modern-ui-connected-editor-tabs) .part.editor .tabs-container { --vscode-cornerRadius-small: 999px; }

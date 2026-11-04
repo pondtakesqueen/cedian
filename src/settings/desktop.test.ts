@@ -30,6 +30,10 @@ describe("VS Code settings from desktop", () => {
     expect(vscodeSettings({}, true)["[markdown]"]).toEqual({ "editor.wrappingStrategy": "advanced" });
     expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(false);
     expect(vscodeSettings({ theme: "system" }, false)["window.autoDetectColorScheme"]).toBe(true);
+    // No theme chosen follows the Mac too, from the first frame.
+    expect(vscodeSettings({}, false)["window.autoDetectColorScheme"]).toBe(true);
+    expect(vscodeSettings({ theme: "light" }, true)["window.autoDetectColorScheme"]).toBe(false);
+    expect(vscodeSettings({ theme: "dark" }, false)["window.autoDetectColorScheme"]).toBe(false);
     expect(vscodeSettings({ code_font_size: 400 }, true)["editor.fontSize"]).toBe(13);
   });
   it("picks the app icon: light unless dark, or the theme's when it matches the theme", () => {

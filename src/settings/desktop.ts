@@ -46,7 +46,10 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
   const codeSize = size(desktop.code_font_size, 8, 40) ?? 13;
   return {
     "workbench.colorTheme": base,
-    "window.autoDetectColorScheme": desktop.theme === "system",
+    // Unset follows the Mac as "system" does. VS Code paints a placeholder theme until the real
+    // one loads, dark unless it detects the system's, so both turn detection on; a window on a
+    // light Mac with no theme chosen would otherwise open dark and turn light a second later.
+    "window.autoDetectColorScheme": desktop.theme !== "light" && desktop.theme !== "dark",
     "workbench.preferredDarkColorTheme": BASE_THEME.dark,
     "workbench.preferredLightColorTheme": BASE_THEME.light,
     // VS Code's Modern UI draws the editor, side bars and panel as rounded cards with gaps, the

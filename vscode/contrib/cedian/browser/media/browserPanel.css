@@ -19,8 +19,8 @@
 .cedian-browser .btn.flat { border-color: transparent; background: transparent; color: var(--cedian-text-muted); }
 .cedian-browser .btn:hover { background: var(--cedian-hover); color: var(--cedian-text); }
 .cedian-browser :focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
-.cedian-browser .tabs { display: flex; align-items: center; gap: 2px; padding: 4px 6px 0; overflow-x: auto; border-bottom: 1px solid var(--cedian-line); }
-.cedian-browser .tab { display: flex; align-items: center; max-width: 200px; min-width: 80px; border-radius: 8px 8px 0 0; color: var(--cedian-text-muted); }
+.cedian-browser .tabs { display: flex; align-items: center; gap: 2px; padding: 4px 6px; overflow-x: auto; border-bottom: 1px solid var(--cedian-line); }
+.cedian-browser .tab { display: flex; align-items: center; max-width: 200px; min-width: 80px; border-radius: 999px; color: var(--cedian-text-muted); }
 .cedian-browser .tab.on { background: var(--cedian-sheet); color: var(--cedian-text); box-shadow: inset 0 0 0 1px var(--cedian-line); }
 .cedian-browser .tab .tt { flex: 1 1 auto; text-align: left; border: 0; background: transparent; padding: 4px 4px 4px 10px; cursor: pointer; }
 .cedian-browser .tab .tx { flex: none; border: 0; background: transparent; padding: 0 6px; cursor: pointer; color: var(--cedian-text-faint); }
