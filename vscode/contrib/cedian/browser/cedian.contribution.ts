@@ -15,7 +15,7 @@ import { CommandsRegistry, ICommandService } from '../../../../platform/commands
 import { Extensions as ConfigurationExtensions, IConfigurationDefaults, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
@@ -232,6 +232,85 @@ registerAction2(class extends Action2 {
 		CedianBlockLayer.current?.toggleFan();
 	}
 });
+
+// ---- named layouts ----
+
+const SAVE_LAYOUT = '\u0000save';
+const DELETE_LAYOUT = '\u0000delete';
+
+/** Asks for a name and saves what is open where now under it. */
+async function saveLayout(accessor: ServicesAccessor): Promise<void> {
+	const layer = CedianBlockLayer.current;
+	if (!layer) {
+		return;
+	}
+	const quick = accessor.get(IQuickInputService);
+	const { current } = layer.layouts();
+	const name = await quick.input({
+		prompt: localize('cedian.saveLayout.prompt', "Save the editors' split and what floats as a layout. A name in use saves over it."),
+		placeHolder: localize('cedian.saveLayout.name', "Layout name"),
+		value: current ?? '',
+		validateInput: async v => v.trim() ? undefined : localize('cedian.saveLayout.empty', "Give it a name"),
+	});
+	if (name) {
+		layer.saveLayout(name);
+	}
+}
+
+async function deleteLayout(accessor: ServicesAccessor): Promise<void> {
+	const layer = CedianBlockLayer.current;
+	if (!layer) {
+		return;
+	}
+	const picked = await accessor.get(IQuickInputService).pick(layer.layouts().layouts.map(l => ({ label: l.name, id: l.name })), {
+		placeHolder: localize('cedian.deleteLayout', "Delete a layout"),
+	});
+	if (picked) {
+		layer.deleteLayout(picked.id);
+	}
+}
+
+/** The project's layouts by name, with their keys and the current one marked; Enter switches. */
+async function switchLayout(accessor: ServicesAccessor): Promise<void> {
+	const layer = CedianBlockLayer.current;
+	if (!layer) {
+		return;
+	}
+	const quick = accessor.get(IQuickInputService);
+	const instantiation = accessor.get(IInstantiationService);
+	const { layouts, current } = layer.layouts();
+	const items = [
+		...layouts.map((l, i) => ({ label: l.name, id: l.name, description: [i < 9 ? `⌘⌥${i + 1}` : '', l.name === current ? localize('cedian.layout.current', "current") : ''].filter(Boolean).join(' · ') })),
+		{ label: localize('cedian.saveLayout.item', "Save the current layout as…"), id: SAVE_LAYOUT },
+		...(layouts.length ? [{ label: localize('cedian.deleteLayout.item', "Delete a layout…"), id: DELETE_LAYOUT }] : []),
+	];
+	const picked = await quick.pick(items, { placeHolder: localize('cedian.switchLayout', "Switch layout") });
+	if (picked?.id === SAVE_LAYOUT) {
+		await instantiation.invokeFunction(saveLayout);
+	} else if (picked?.id === DELETE_LAYOUT) {
+		await instantiation.invokeFunction(deleteLayout);
+	} else if (picked) {
+		layer.switchLayout(picked.id);
+	}
+}
+
+for (const [id, title, run] of [
+	['cedian.switchLayout', localize2('cedian.switchLayout.title', "Switch Layout"), switchLayout],
+	['cedian.saveLayout', localize2('cedian.saveLayout.title', "Save Layout As…"), saveLayout],
+	['cedian.deleteLayout', localize2('cedian.deleteLayout.title', "Delete Layout…"), deleteLayout],
+] as const) {
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({ id, title, category: localize2('cedian.category', "Cedian"), f1: true });
+		}
+		run(accessor: ServicesAccessor): Promise<void> {
+			return run(accessor);
+		}
+	});
+}
+for (let n = 1; n <= 9; n++) {
+	CommandsRegistry.registerCommand({ id: `cedian.layout${n}`, handler: () => CedianBlockLayer.current?.switchLayoutAt(n - 1), metadata: { description: `Layout ${n}` } });
+}
 
 function isSideSource(value: unknown): value is SideSource {
 	const v = value as SideSource | undefined;

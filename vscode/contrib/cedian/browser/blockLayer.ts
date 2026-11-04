@@ -13,11 +13,12 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorsOrder } from '../../../common/editor.js';
-import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { EditorGroupLayout, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { BlockLayer } from './blocks/layer.js';
 import { floatingIn, sameFloating, withFloating, type Floating } from './blocks/layout.js';
+import { layoutName, layoutsIn, withCurrent, withLayout, withoutLayout, type NamedLayout } from './blocks/layouts.js';
 import { AgentBlock } from './agent-pane/floating.js';
 import { AgentPane, type SideSource } from './agent-pane/pane.js';
 import { CedianAgentInput } from './agentEditor.js';
@@ -248,6 +249,84 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		}
 	}
 
+	// ---- named layouts ----
+
+	/** The project's layouts and the current one's name (the starters until it saves its own). */
+	layouts(): { layouts: NamedLayout[]; current?: string } {
+		const folder = this.folder();
+		return folder ? layoutsIn(this.desktop, folder.fsPath) : { layouts: [] };
+	}
+
+	/** Saves what is open where now (the editor area's split and what floats) as `name`, current. */
+	saveLayout(name: string): void {
+		const folder = this.folder();
+		const kept = layoutName(name);
+		if (!folder || !kept) {
+			return;
+		}
+		this.write(withLayout(this.desktop, folder.fsPath, { name: kept, pip: this.layer.floating(), groups: this.editorGroups.getLayout() }));
+	}
+
+	deleteLayout(name: string): void {
+		const folder = this.folder();
+		if (folder) {
+			this.write(withoutLayout(this.desktop, folder.fsPath, name));
+		}
+	}
+
+	/** Switches to the layout `name`: the editor area splits as it did, and its blocks float. */
+	switchLayout(name: string): void {
+		const folder = this.folder();
+		const layout = this.layouts().layouts.find(l => l.name === name);
+		if (!folder || !layout) {
+			return;
+		}
+		if (layout.groups) {
+			try {
+				this.editorGroups.applyLayout(layout.groups as EditorGroupLayout);
+			} catch (e) {
+				this.notifications.warn(`Couldn't arrange the editors as ${name}: ${e instanceof Error ? e.message : e}`);
+			}
+		}
+		this.applyFloating(folder, layout.pip);
+		this.write(withCurrent(this.desktop, folder.fsPath, name));
+	}
+
+	/** The `n`th layout (from 0), for ⌘⌥1–9. */
+	switchLayoutAt(n: number): void {
+		const layout = this.layouts().layouts[n];
+		if (layout) {
+			this.switchLayout(layout.name);
+		}
+	}
+
+	/** Floats what `pip` lists where it lists it, and closes what floats that it does not list. */
+	private applyFloating(folder: URI, pip: Floating[]): void {
+		for (const now of this.layer.floating()) {
+			const want = pip.find(f => f.kind === now.kind);
+			if (!want || want.id !== now.id) {
+				this.layer.close(now.kind);
+			}
+		}
+		for (const f of pip) {
+			if (this.layer.has(f.kind)) {
+				// The size first: a size takes a block out of its stash, and the rest puts it back.
+				this.layer.resizeTo(f.kind, { width: f.width, height: f.height });
+				this.layer.moveTo(f.kind, f);
+			} else if (f.kind === 'browser') {
+				this.floatBrowserAt(folder, f, false);
+			} else if (f.kind === 'agent') {
+				this.floatAgentAt(f.id, f, false);
+			}
+		}
+	}
+
+	/** Asks the daemon to keep `layout` as `desktop.layout`; until its notice, it is what is kept. */
+	private write(layout: Record<string, unknown>): void {
+		this.desktop = { ...this.desktop, layout };
+		this.daemon.client.request({ op: 'set_desktop', key: 'layout', value: layout });
+	}
+
 	/** Opens what floated in this project when the last window closed. */
 	private restore(): void {
 		const folder = this.folder();
@@ -269,9 +348,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		if (!folder || sameFloating(floating, floatingIn(this.desktop, folder.fsPath))) {
 			return;
 		}
-		const layout = withFloating(this.desktop, folder.fsPath, floating);
 		// The daemon's notice follows; until then, what was asked is what floats.
-		this.desktop = { ...this.desktop, layout };
-		this.daemon.client.request({ op: 'set_desktop', key: 'layout', value: layout });
+		this.write(withFloating(this.desktop, folder.fsPath, floating));
 	}
 }

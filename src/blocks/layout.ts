@@ -22,7 +22,7 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
 
 const px = (value: unknown): number | undefined => (typeof value === "number" && Number.isFinite(value) && value > 0 && value < 10_000 ? Math.round(value) : undefined);
 
-function floatingOf(value: unknown): Floating | undefined {
+export function floatingOf(value: unknown): Floating | undefined {
   const r = record(value);
   if (!r || typeof r.kind !== "string" || !r.kind || !isCorner(r.corner)) return undefined;
   const width = px(r.width);

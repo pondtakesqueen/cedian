@@ -333,9 +333,17 @@
   window, closes it here and opens it as an editor in a window of its own
   where it was (or under the pointer), at its size (`auxiliary.bounds`): the
   Browser block, or an agent editor on the thread it showed. A side chat
-  stays. Checked: `vitest src/blocks`. Still
-  to do: try the side chat, the fan and tear-off on the Mac; named layouts (the old app's
-  `desktop.layout.blocks` is not read yet); more blocks than the Browser and a thread
+  stays. Checked: `vitest src/blocks`. Named layouts: a project keeps its
+  arrangements by name in `desktop.layout` (slug → `layouts`, `current`),
+  each the editor area's split (`EditorGroupLayout`) and the blocks floating
+  over it; โฟกัส, เขียนโค้ด, พรีวิว and รีวิว until it saves its own.
+  `Cedian: Switch Layout` (⌘⌥0) lists them with their keys and the current
+  one, and saves or deletes one; ⌘⌥1–9 switch to the first nine; switching
+  splits the editors as saved, closes what floats that the layout does not
+  list and floats what it does where it rests. Checked: `vitest
+  src/blocks/layouts.test.ts`. Still to do: try the side chat, the fan,
+  tear-off and named layouts on the Mac; the old app's
+  `desktop.layout.blocks` is not read; more blocks than the Browser and a thread
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing
