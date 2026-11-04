@@ -104,6 +104,39 @@ pub fn token(state_dir: &Path) -> anyhow::Result<String> {
     Ok(token)
 }
 
+/// This machine's name on the tailnet, from `tailscale status --json` (`Self.DNSName`, which
+/// ends in a dot), when it is a `*.ts.net` name.
+pub fn tailnet_name(status_json: &str) -> Option<String> {
+    let status: Value = serde_json::from_str(status_json).ok()?;
+    let name = status
+        .pointer("/Self/DNSName")?
+        .as_str()?
+        .trim_end_matches('.');
+    (name.ends_with(".ts.net") && allowed_host(name)).then(|| name.to_ascii_lowercase())
+}
+
+/// Asks the Tailscale CLI for this machine's tailnet name: the one on PATH, else the one inside
+/// the macOS app.
+pub fn tailnet_host() -> Option<String> {
+    [
+        "tailscale",
+        "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    ]
+    .into_iter()
+    .find_map(|cli| {
+        let output = std::process::Command::new(cli)
+            .args(["status", "--json"])
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        output
+            .status
+            .success()
+            .then(|| tailnet_name(&String::from_utf8_lossy(&output.stdout)))
+            .flatten()
+    })
+}
+
 /// Listens on 127.0.0.1 in a thread of its own.
 pub fn serve_remote(shared: Shared, config: RemoteConfig, recorder: Option<Arc<Recorder>>) {
     let listener = match TcpListener::bind(("127.0.0.1", config.port)) {
@@ -677,6 +710,20 @@ mod tests {
             post("/config.json", page, ""),
             Reply::Status(405, _)
         ));
+    }
+
+    #[test]
+    fn finds_this_machine_s_tailnet_name() {
+        assert_eq!(
+            tailnet_name(r#"{"Self":{"DNSName":"Pond-Mac.tail1234.ts.net.","HostName":"x"}}"#),
+            Some("pond-mac.tail1234.ts.net".into())
+        );
+        assert_eq!(tailnet_name(r#"{"Self":{"DNSName":""}}"#), None);
+        assert_eq!(
+            tailnet_name(r#"{"Self":{"DNSName":"mac.example.com."}}"#),
+            None
+        );
+        assert_eq!(tailnet_name("not json"), None);
     }
 
     #[test]
