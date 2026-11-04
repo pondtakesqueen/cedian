@@ -12,9 +12,6 @@ mod generated {
 pub use generated::*;
 pub use line::{Line, LineError};
 
-/// The cedia revision these types and fixtures come from.
-pub const CEDIA_REV: &str = include_str!("../cedia/REV");
-
 /// The pinned schema's hash, as cedia's `--version --json` prints it in `protocol`.
 pub const PROTOCOL_HASH: &str = include_str!(concat!(env!("OUT_DIR"), "/protocol_hash"));
 

@@ -17,7 +17,6 @@ cedian_review = { path = "../cedian_review" }
 cedian_agent = { path = "../cedian_agent" }
 cedian_wire = { path = "../cedian_wire" }
 chrono.workspace = true
-futures.workspace = true
 libc.workspace = true
 log.workspace = true
 serde.workspace = true

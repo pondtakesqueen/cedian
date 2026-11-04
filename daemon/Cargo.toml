@@ -12,7 +12,6 @@ license-file = "LICENSE"
 [workspace.dependencies]
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
-futures = "0.3"
 libc = "0.2"
 log = "0.4"
 schemars = "0.8"
