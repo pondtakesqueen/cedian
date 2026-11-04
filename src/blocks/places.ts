@@ -28,10 +28,19 @@ export const TOOLS: readonly Placed[] = [
   { container: "terminal", place: "auxiliary" },
 ];
 
-export const PLACES: readonly Placed[] = [{ container: THREADS_CONTAINER, place: "sidebar" }, ...TOOLS, { container: AGENT_CONTAINER, place: "auxiliary" }];
+/**
+ * VS Code's other containers that start in the left side bar, moved to the bottom panel so Threads
+ * is alone there and its tab strip hides (`workbench.activityBar.autoHide`).
+ */
+export const ASIDE: readonly Placed[] = [
+  { container: "workbench.view.debug", place: "panel" },
+  { container: "workbench.view.extensions", place: "panel" },
+];
+
+export const PLACES: readonly Placed[] = [{ container: THREADS_CONTAINER, place: "sidebar" }, ...TOOLS, { container: AGENT_CONTAINER, place: "auxiliary" }, ...ASIDE];
 
 /** Raised when PLACES changes, so a window moves the parts again once. */
-export const PLACES_VERSION = 2;
+export const PLACES_VERSION = 3;
 
 export interface Move {
   container: string;
@@ -73,6 +82,8 @@ export const TOOL_PICKS: readonly ToolPick[] = [
   { label: "Git", group: "tools", open: { container: "workbench.view.scm" } },
   { label: "Terminal", group: "tools", open: { container: "terminal" } },
   { label: "Browser", group: "tools", open: { command: "cedian.openBrowser" } },
+  { label: "Run and Debug", group: "tools", open: { container: "workbench.view.debug" } },
+  { label: "Extensions", group: "tools", open: { container: "workbench.view.extensions" } },
   { label: "Agent", group: "project", open: { container: AGENT_CONTAINER } },
   { label: "Threads", group: "project", open: { container: THREADS_CONTAINER } },
 ];
