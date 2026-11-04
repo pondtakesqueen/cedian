@@ -1572,7 +1572,7 @@ export interface Evidence {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "command", "exitCode" ], "properties": { "command": { "type": "string" }, "exitCode": { "type": "number" }, "thread": { "type": "string" } } } ``` </details>
+ * ```json { "type": "object", "required": [ "command", "exitCode" ], "properties": { "command": { "type": "string" }, "exitCode": { "type": "number" }, "ms": { "type": "number" }, "tail": { "type": "string" }, "thread": { "type": "string" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Check".
@@ -1580,6 +1580,8 @@ export interface Evidence {
 export interface Check {
   command: string;
   exitCode: number;
+  ms?: number | null;
+  tail?: string | null;
   thread?: string | null;
 }
 /**

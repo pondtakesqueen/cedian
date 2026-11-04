@@ -465,7 +465,7 @@
       "type": "string"
     },
     "Check": {
-      "description": "`Check`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"command\", \"exitCode\" ], \"properties\": { \"command\": { \"type\": \"string\" }, \"exitCode\": { \"type\": \"number\" }, \"thread\": { \"type\": \"string\" } } } ``` </details>",
+      "description": "`Check`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"command\", \"exitCode\" ], \"properties\": { \"command\": { \"type\": \"string\" }, \"exitCode\": { \"type\": \"number\" }, \"ms\": { \"type\": \"number\" }, \"tail\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" } } } ``` </details>",
       "properties": {
         "command": {
           "type": "string"
@@ -473,6 +473,19 @@
         "exitCode": {
           "format": "double",
           "type": "number"
+        },
+        "ms": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "tail": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "thread": {
           "type": [

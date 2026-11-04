@@ -160,6 +160,10 @@
   2026-11-04, cedia-code #219 merged: the `creator` capability). The new
   `satisfaction` thread event is indexed like `rate` and not shown; `usage`
   gained `toolErrors` and `toolErrorBaselines`
+- [x] Pin moved to cedia main 20d9970 (protocol d5c91c2d4f0b25b7,
+  2026-11-04): an evidence check gained `ms` and `tail`; the replay fixtures
+  were re-recorded. Each launch on the owner's Mac warned of a mismatch until
+  its cedia matched the pin
 - [x] cedia: completion command (fill-in-the-middle on a fast cheap model):
   `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, merged
   2026-10-29, pinned at main b140712), on `roles.complete`, default the code model

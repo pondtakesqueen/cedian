@@ -59,6 +59,10 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "workbench.experimental.modernUIEditorTabStyle": "pill",
     "window.density.layout": desktop.density === "compact" ? "compact" : "default",
     "workbench.colorCustomizations": {
+      // Unkeyed, the appearance showing now: VS Code paints a placeholder theme of its own
+      // until the base theme loads, and only these reach it (the keyed ones name a theme it
+      // isn't), so the first frame has Cedian's activity bar and status bar, not VS Code's.
+      ...workbenchColors(appearance),
       [`[${BASE_THEME.dark}]`]: workbenchColors("dark"),
       [`[${BASE_THEME.light}]`]: workbenchColors("light"),
     },

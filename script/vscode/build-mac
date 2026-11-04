@@ -19,7 +19,12 @@ npm ci
 npm run gulp "vscode-darwin-$arch-min"
 app="$(dirname "$dir")/VSCode-darwin-$arch/Cedian.app"
 (cd "$repo/daemon" && cargo build --release --locked -p cedian_daemon --bin cedian-daemon)
-cp "$repo/daemon/target/release/cedian-daemon" "$app/Contents/MacOS/cedian-daemon"
+# Signed beside the bundle's copy, then renamed over it in one step: macOS kills a daemon that
+# launchd or a window starts from a file being rewritten or not yet signed (Code Signature
+# Invalid), which is how a rebuild used to take the running daemon down.
+cp "$repo/daemon/target/release/cedian-daemon" "$app/Contents/MacOS/cedian-daemon.new"
+codesign --force --sign - "$app/Contents/MacOS/cedian-daemon.new"
+mv -f "$app/Contents/MacOS/cedian-daemon.new" "$app/Contents/MacOS/cedian-daemon"
 # Without it the daemon falls back to an installed Google Chrome, whose headless mode never
 # finished loading a localhost page in the Browser block (owner's Mac, Chrome 149 and 156).
 "$repo/script/fetch-chromium" "mac-$arch" "$repo/daemon/target"

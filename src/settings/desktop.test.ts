@@ -9,7 +9,7 @@ describe("VS Code settings from desktop", () => {
     expect(s["editor.lineHeight"]).toBeGreaterThanOrEqual(1.6);
     expect(s["files.autoSave"]).toBe("afterDelay");
     expect(s["editor.inlineSuggest.enabled"]).toBe(true);
-    expect(Object.keys(s["workbench.colorCustomizations"] as object)).toEqual(["[Dark Modern]", "[Light Modern]"]);
+    expect(Object.keys(s["workbench.colorCustomizations"] as object)).toEqual(expect.arrayContaining(["[Dark Modern]", "[Light Modern]"]));
     // The editor and side bars as blocks: Modern UI's cards, pill tabs, gaps unless compact.
     expect(s["workbench.experimental.modernUI"]).toBe(true);
     expect(s["workbench.experimental.modernUIEditorTabStyle"]).toBe("pill");
@@ -30,6 +30,11 @@ describe("VS Code settings from desktop", () => {
     expect(vscodeSettings({}, true)["[markdown]"]).toEqual({ "editor.wrappingStrategy": "advanced" });
     expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(false);
     expect(vscodeSettings({ theme: "system" }, false)["window.autoDetectColorScheme"]).toBe(true);
+    // The first frame's placeholder theme gets the colors of the appearance showing; each base
+    // theme keeps its own.
+    const colors = vscodeSettings({ theme: "light" }, true)["workbench.colorCustomizations"] as Record<string, unknown>;
+    expect(colors["statusBar.background"]).toBe((colors["[Light Modern]"] as Record<string, unknown>)["statusBar.background"]);
+    expect(colors["activityBar.background"]).toBe((colors["[Light Modern]"] as Record<string, unknown>)["activityBar.background"]);
     // No theme chosen follows the Mac too, from the first frame.
     expect(vscodeSettings({}, false)["window.autoDetectColorScheme"]).toBe(true);
     expect(vscodeSettings({ theme: "light" }, true)["window.autoDetectColorScheme"]).toBe(false);

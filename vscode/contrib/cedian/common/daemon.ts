@@ -22,3 +22,16 @@ export interface DaemonBuild {
 export function isOtherBuild(running: DaemonBuild | null | undefined, own: DaemonBuild): boolean {
 	return !running || running.exe !== own.exe || running.modified !== own.modified;
 }
+
+/**
+ * Whether a failed dial (`failures` before it, from 0) should start the daemon: the first one,
+ * and every tenth after, in case the daemon started before has died.
+ */
+export function dialStartsDaemon(failures: number): boolean {
+	return failures % 10 === 0;
+}
+
+/** Whether the daemon this app started is gone (or none was started), so another may start. */
+export function daemonGone(child: { exitCode: number | null; signalCode: string | null } | undefined): boolean {
+	return !child || child.exitCode !== null || child.signalCode !== null;
+}

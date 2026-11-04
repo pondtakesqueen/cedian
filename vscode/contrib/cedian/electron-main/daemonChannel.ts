@@ -3,7 +3,7 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
-import { execFile, spawn } from 'child_process';
+import { ChildProcess, execFile, spawn } from 'child_process';
 import { closeSync, existsSync, mkdirSync, openSync, realpathSync, renameSync, statSync } from 'fs';
 import { connect, Socket } from 'net';
 import { homedir } from 'os';
@@ -12,7 +12,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IPCServer, IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { setAppIcon } from './appIcon.js';
-import { DaemonBuild, DaemonConnectionState, isOtherBuild } from '../common/daemon.js';
+import { DaemonBuild, DaemonConnectionState, daemonGone, dialStartsDaemon, isOtherBuild } from '../common/daemon.js';
 
 /**
  * Carries a window's lines to the daemon's socket and back (spec §6.2): the sandboxed renderer
@@ -25,7 +25,8 @@ import { DaemonBuild, DaemonConnectionState, isOtherBuild } from '../common/daem
 export class CedianDaemonChannel<TContext> extends Disposable implements IServerChannel<TContext> {
 
 	private readonly connections = new Map<TContext, WindowConnection>();
-	private started = false;
+	/** The daemon this app started; another is started only once it has exited. */
+	private child: ChildProcess | undefined;
 	private handedOver = false;
 
 	constructor(ipcServer: IPCServer<TContext>) {
@@ -64,17 +65,21 @@ export class CedianDaemonChannel<TContext> extends Disposable implements IServer
 		return connection;
 	}
 
-	/** Starts `cedian-daemon` detached, once per app launch: it outlives the window. */
+	/**
+	 * Starts `cedian-daemon` detached (it outlives the window), unless the one this app started is
+	 * still running. One that died before it bound its socket is replaced: macOS kills a daemon
+	 * launched while a rebuild swaps its binary, and the window then retried until the app quit.
+	 */
 	private startDaemon(): void {
-		if (this.started) {
+		if (!daemonGone(this.child)) {
 			return;
 		}
-		this.started = true;
 		const binary = daemonBinary();
 		try {
 			// Its log goes where the launch agent's does (`daemon.log`), so a person can read it.
 			const log = openLog(join(dirname(socketPath()), 'daemon.log'));
 			const child = spawn(binary, [], { detached: true, stdio: ['ignore', log ?? 'ignore', log ?? 'ignore'] });
+			this.child = child;
 			if (log !== undefined) {
 				closeSync(log);
 			}
@@ -190,7 +195,10 @@ class WindowConnection {
 			this.socket = undefined;
 			this.rest = '';
 			this.setState('disconnected');
-			if (this.failures === 0) {
+			// The first failed dial starts the daemon; every tenth (about 45 s apart once the wait
+			// reaches 5 s) starts it again if the one started has exited. A daemon that finds
+			// another serving the socket exits at once, so this never runs two.
+			if (dialStartsDaemon(this.failures)) {
 				this.startDaemon();
 			}
 			this.failures++;
