@@ -261,8 +261,9 @@
   written into product.json as `cedianVersion` by `script/vscode/prepare`)
   and says up to date, no release yet, or offers Download (the release page;
   auto-update stays deferred)
-- [ ] Browser pane, the first block (built 2026-10-30 in the cloud, not yet
-  tried in the app; Phase C's browser row, spec §3.3, §6.3). The project's
+- [x] Browser pane, the first block (built 2026-10-30 in the cloud, tried in
+  the app on the owner's Mac 2026-11-04 with #44–#46; Phase C's browser row,
+  spec §3.3, §6.3). The project's
   tabs in the daemon's Chromium, screencast into a Browser editor
   (`Cedian: Open Browser`, or the globe on the Agent view's title bar), so it
   splits, drags and pops out like any editor; `src/blocks/block.ts` is the
@@ -286,8 +287,24 @@
   Chromium), and `node test/smoke/browser.mjs` (15 checks: the real daemon
   and its Chromium, the block in a page of Playwright's Chromium); the
   contribution typechecks against VS Code 1.143.1 with TypeScript 6. Still
-  to do: try it in the app on the Mac; capture-and-draw; Tern's drag, zoom,
-  park and PiP over the block
+  to do: capture-and-draw. Tern's float, stash and zoom over the block are
+  the block layer's (below)
+- [ ] Block layer, Tern's PiP over any block (built 2026-11-04 in the cloud,
+  not yet tried in the app; spec §3.3, §4.4, §5.5). `src/blocks/layer.ts`
+  floats a `Block` over the main window: it rests in a corner, drags by its
+  header and settles in the nearest corner or flings on (a pause before
+  letting go is a drop), stashes against a side with a tab that brings it
+  back, expands to fill the window and shrinks back, docks back into the
+  editor area, and closes; two in one corner stack; arrow keys on the header
+  step corners; Reduce Motion stops the glide. The Browser block floats from
+  the ⧉ in its bar or `Cedian: Float Browser` (`Cedian: Dock Browser` puts it
+  back). Where it rests is `desktop.layout` (project slug → `pip`), written
+  through `set_desktop` and floated again in a new window. Checked: `vitest
+  src/blocks` (31) and `node test/smoke/blocks.mjs` (12 checks: the layer in
+  a page of Playwright's Chromium, dragged and flung with the mouse); the
+  contribution typechecks against VS Code 1.143.1 with TypeScript 6. Still to
+  do: try it in the app on the Mac; resize by an edge; fan; tear-off out of
+  the window; named layouts; more blocks than the Browser
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing

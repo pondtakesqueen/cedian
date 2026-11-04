@@ -31,6 +31,8 @@ export interface BrowserHost {
   runDevServer(server: DevServer): void;
   /** Opens Settings at the Browser section, where sites are removed. */
   openSettings?(): void;
+  /** Floats the block over the window (the block layer's PiP); none when it floats already. */
+  float?(): void;
 }
 
 /** How long a dev server has to answer after it starts before the block stops trying. */
@@ -124,6 +126,12 @@ export class BrowserPanel implements Block {
     this.picker.setAttribute("aria-pressed", "false");
     this.picker.title = "Select an element for the agent";
     this.bar.append(this.back, this.forward, this.reload, url, this.servers, this.phone, this.picker);
+    if (host.float) {
+      const float = button(d, "⧉", () => host.float?.(), "ibtn float");
+      float.setAttribute("aria-label", "Float over the window");
+      float.title = "Float over the window, in a corner";
+      this.bar.append(float);
+    }
     this.banner = el(d, "div", "banner");
     this.banner.setAttribute("role", "status");
     this.stage = el(d, "div", "stage");

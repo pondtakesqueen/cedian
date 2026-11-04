@@ -33,6 +33,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from './agentEditor.js';
 import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, openBrowser } from './browserEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
+import { CedianBlockLayer } from './blockLayer.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { runInlineEdit } from './inlineEdit.js';
@@ -134,6 +135,38 @@ registerAction2(class extends Action2 {
 	}
 	run(accessor: ServicesAccessor): Promise<void> {
 		return openBrowser(accessor.get(IEditorService));
+	}
+});
+
+// ---- the block layer: blocks floating over the window as PiPs (spec §3.3, §4.4) ----
+
+registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.floatBrowser',
+			title: localize2('cedian.floatBrowser', "Float Browser"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	run(): Promise<void> {
+		return CedianBlockLayer.current?.floatBrowser() ?? Promise.resolve();
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.dockBrowser',
+			title: localize2('cedian.dockBrowser', "Dock Browser"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	run(): void {
+		CedianBlockLayer.current?.dockBrowser();
 	}
 });
 
