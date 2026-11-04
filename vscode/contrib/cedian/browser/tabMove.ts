@@ -22,8 +22,8 @@ interface Spot { editor: EditorInput; left: number; top: number; width: number; 
  * after it slide aside to make room, a tab closed collapses into its left edge while the tabs after
  * it slide over into its room, and tabs reordered (dragged, pinned) slide to their new places.
  * VS Code redraws the row at once, reusing its tab elements in order, so each tab is followed by the
- * editor it shows: where every editor's tab stood is noted after each change and as a key or a
- * pointer is pressed. Once VS Code has drawn the change, before the frame is painted, each tab is
+ * editor it shows: where every editor's tab stood is noted after each change, as a pointer is
+ * pressed, and after a scroll or a resize. Once VS Code has drawn the change, before the frame is painted, each tab is
  * put back where its editor's stood with a transform and eased to its place; only transform and
  * clip-path move, so the row never lays out again and its scrolling, the active tab's line and
  * sticky tabs stay VS Code's. A closed tab's copy is shown over the row, outside VS Code's tabs.
@@ -34,6 +34,8 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 
 	private readonly spots = new Map<IEditorGroup, Spot[]>();
 	private readonly pending = new Set<IEditorGroup>();
+	/** The groups VS Code has now: a change noted for one it has taken out since is dropped. */
+	private readonly live = new Set<IEditorGroup>();
 	private readonly watched = this._register(new DisposableMap<IEditorGroup>());
 
 	constructor(
@@ -46,15 +48,24 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 			this.watch(group);
 		}
 		this._register(part.onDidAddGroup(group => this.watch(group)));
-		this._register(part.onDidRemoveGroup(group => { this.watched.deleteAndDispose(group); this.spots.delete(group); }));
-		// Noted before a key or a click changes the row, in case it moved since (a tab grew a dirty mark).
+		this._register(part.onDidRemoveGroup(group => { this.live.delete(group); this.pending.delete(group); this.watched.deleteAndDispose(group); this.spots.delete(group); }));
 		const note = () => { for (const group of part.groups) { if (!this.pending.has(group)) { this.note(group); } } };
+		// Rows move between changes only by hand (a click, a scroll) or with the window: noted before
+		// a click acts, and once a frame at most after a scroll or a resize; never per key or layout.
+		let queued = false;
+		const later = () => {
+			if (!queued) {
+				queued = true;
+				mainWindow.requestAnimationFrame(() => { queued = false; note(); });
+			}
+		};
 		this._register(addDisposableListener(mainWindow, 'pointerdown', note, true));
-		this._register(addDisposableListener(mainWindow, 'keydown', note, true));
-		this._register(part.onDidLayout(() => mainWindow.requestAnimationFrame(note)));
+		this._register(addDisposableListener(mainWindow, 'wheel', later, { capture: true, passive: true }));
+		this._register(addDisposableListener(mainWindow, 'resize', later));
 	}
 
 	private watch(group: IEditorGroup): void {
+		this.live.add(group);
 		this.note(group);
 		this.watched.set(group, group.onDidModelChange(() => this.changed(group)));
 	}
@@ -66,6 +77,10 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 	}
 
 	private note(group: IEditorGroup): void {
+		// A group VS Code has taken out is gone: kept here, it would keep its whole view alive.
+		if (!this.live.has(group)) {
+			return;
+		}
 		const editors = group.getEditors(EditorsOrder.SEQUENTIAL);
 		const tabs = this.tabsOf(group);
 		if (tabs.length !== editors.length) {
@@ -90,6 +105,9 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 		// After VS Code has drawn the row, before the frame is painted.
 		mainWindow.requestAnimationFrame(() => {
 			this.pending.delete(group);
+			if (!this.live.has(group)) {
+				return;
+			}
 			try {
 				if (moving(this.layout.mainContainer)) {
 					this.move(group, this.spots.get(group) ?? []);
