@@ -9,13 +9,8 @@ import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { closing, easeOpen, moving, OPEN_MS, opening } from './blocks/motion.js';
 
-/** How long blocks take to slide to their new places, and a new block to open: as a side block's (blockStretch.ts). */
-const MOVE_MS = 320;
-const OPEN_MS = 320;
-/** Set off at once and land softly. */
-const MOVE_EASE = 'cubic-bezier(.2, .7, .3, 1)';
-const easeOpen = (t: number) => 1 - Math.pow(1 - t, 3);
 
 
 interface Box { left: number; top: number; width: number; height: number }
@@ -125,7 +120,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	}
 
 	private moving(): boolean {
-		return this.layout.mainContainer.classList.contains('monaco-enable-motion');
+		return moving(this.layout.mainContainer);
 	}
 
 	private note(): void {
@@ -188,6 +183,9 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		const before = this.boxes;
 		const groups = this.groups.mainPart.groups;
 		const now = groups.map(g => viewOf(g)?.element).filter((e): e is HTMLElement => !!e?.offsetParent);
+		// A change that only took blocks away moves on the closing timing, the rest on the opening's.
+		const gone = !dropped && !this.added.size && [...before.keys()].some(e => !e.isConnected);
+		const timing = gone ? closing : opening;
 		// A group that closed collapses into the edge away from the block that takes its room. One a
 		// drop emptied has nothing to show: its editor slides into its new block.
 		for (const [element, box] of dropped ? [] : before) {
@@ -201,7 +199,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 						taker = boxOf(other);
 					}
 				}
-				this.collapse(element, box, taker, this.insets.get(element));
+				this.collapse(element, box, taker, this.insets.get(element), timing);
 			}
 		}
 		for (const group of groups) {
@@ -231,7 +229,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			}
 			const from = before.get(element) ?? fromDrop;
 			if (from) {
-				this.slide(element, from, to, !before.has(element));
+				this.slide(element, from, to, !before.has(element), timing);
 			}
 		}
 	}
@@ -306,7 +304,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	}
 
 	/** Slides a block from where it stood to where it is laid out now; a side that grew is uncovered as it goes. */
-	private slide(element: HTMLElement, from: Box, to: Box, over: boolean): void {
+	private slide(element: HTMLElement, from: Box, to: Box, over: boolean, timing: KeyframeAnimationOptions): void {
 		const dx = from.left - to.left;
 		const dy = from.top - to.top;
 		const right = Math.max(0, to.width - from.width);
@@ -329,7 +327,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 				{ transform: `translate(${dx}px, ${dy}px)`, clipPath: clipOf(inset, { right, bottom }) },
 				{ transform: 'none', clipPath: clipOf(inset) },
 			],
-			{ duration: MOVE_MS, easing: MOVE_EASE },
+			timing,
 		);
 		const stop = () => {
 			if (this.runs.get(element) !== stop) {
@@ -356,7 +354,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	 * two meet all the way. VS Code has taken the group out already, so its own element is shown
 	 * where it stood, above the editor, and removed when it is gone.
 	 */
-	private collapse(element: HTMLElement, box: Box, taker: Box | undefined, inset: Inset | undefined): void {
+	private collapse(element: HTMLElement, box: Box, taker: Box | undefined, inset: Inset | undefined, timing: KeyframeAnimationOptions): void {
 		if (!taker || box.width === 0 || box.height === 0) {
 			return;
 		}
@@ -380,7 +378,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		const gone = sideways
 			? clipOf(card, before ? { left: box.width - card.left - card.right } : { right: box.width - card.left - card.right })
 			: clipOf(card, before ? { top: box.height - card.top - card.bottom } : { bottom: box.height - card.top - card.bottom });
-		const run = holder.animate([{ clipPath: clipOf(card) }, { clipPath: gone }], { duration: MOVE_MS, easing: MOVE_EASE, fill: 'forwards' });
+		const run = holder.animate([{ clipPath: clipOf(card) }, { clipPath: gone }], { ...timing, fill: 'forwards' });
 		const done = () => holder.remove();
 		run.onfinish = done;
 		run.oncancel = done;

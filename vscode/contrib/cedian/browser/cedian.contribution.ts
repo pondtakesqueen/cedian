@@ -37,6 +37,7 @@ import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './ag
 import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
 import { CedianBlockMove } from './blockMove.js';
+import { MOTION_PROPERTIES } from './blocks/motion.js';
 import { CedianTabMove } from './tabMove.js';
 import { CedianToolStrip, openTool } from './toolStrip.js';
 import { CedianDropTarget } from './dropTarget.js';
@@ -606,7 +607,7 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 	private paint(): void {
 		const type = this.themeService.getColorTheme().type;
 		const appearance = type === ColorScheme.LIGHT || type === ColorScheme.HIGH_CONTRAST_LIGHT ? 'light' : 'dark';
-		const typography = Object.entries(paneTypography(this.desktop)).map(([k, v]) => `  ${k}: ${v};`).join('\n');
+		const typography = Object.entries({ ...paneTypography(this.desktop), ...MOTION_PROPERTIES }).map(([k, v]) => `  ${k}: ${v};`).join('\n');
 		this.style.textContent = `${cssText(appearance, '.monaco-workbench')}.monaco-workbench {\n${typography}\n}\n`;
 		const icon = appIconOf(this.desktop, appearance);
 		if (icon !== this.appIcon) {

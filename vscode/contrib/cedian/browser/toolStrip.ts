@@ -12,10 +12,8 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { TOOL_PICKS, type ToolPick } from './blocks/places.js';
+import { closing, moving, opening } from './blocks/motion.js';
 
-/** As the blocks move (blockMove.ts): set off at once and land softly. */
-const OPEN_MS = 320;
-const EASE = 'cubic-bezier(.2, .7, .3, 1)';
 /** How long the pointer rests on "+ Tool" before the strip opens, and is away before it shuts:
  * passing over it on the way somewhere else opens nothing. */
 const IN_MS = 150;
@@ -53,6 +51,8 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private pending: 'open' | 'close' | undefined;
 	private run: Animation | undefined;
+	/** The strip's clip at the chip: where it opens from and shuts into. */
+	private shut = '';
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
@@ -121,7 +121,7 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 	}
 
 	private moving(): boolean {
-		return this.layout.mainContainer.classList.contains('monaco-enable-motion');
+		return moving(this.layout.mainContainer);
 	}
 
 	private open(chip: HTMLElement | undefined, focus: boolean): void {
@@ -166,7 +166,8 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 		if (this.moving()) {
 			// Out of the chip: from the chip's width, at the chip's place in the strip, to its own.
 			const from = `inset(0px ${Math.max(0, left + width - at.right)}px 0px ${Math.max(0, at.left - left)}px round 999px)`;
-			this.run = strip.animate([{ clipPath: from }, { clipPath: 'inset(0px 0px 0px 0px round 999px)' }], { duration: OPEN_MS, easing: EASE, fill: 'both' });
+			this.shut = from;
+			this.run = strip.animate([{ clipPath: from }, { clipPath: 'inset(0px 0px 0px 0px round 999px)' }], { ...opening, fill: 'both' });
 		}
 		if (focus) {
 			this.buttons()[1]?.focus();
@@ -191,12 +192,14 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 			gone();
 			return;
 		}
-		// Back into the chip, the way it came.
-		const run = this.run;
+		// Back into the chip, on the closing timing, from wherever its opening has got to.
+		const now = mainWindow.getComputedStyle(strip).clipPath;
+		this.run.cancel();
 		this.run = undefined;
 		strip.style.pointerEvents = 'none';
+		const run = strip.animate([{ clipPath: now }, { clipPath: this.shut }], { ...closing, fill: 'forwards' });
 		run.onfinish = gone;
-		run.reverse();
+		run.oncancel = gone;
 	}
 
 	private buttons(): HTMLElement[] {

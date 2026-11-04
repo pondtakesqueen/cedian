@@ -165,12 +165,12 @@
 /* The drop target drawn while a tab or a block is held over a group: the whole card, its tab row
    too, or half of it from edge to edge (dropTarget.ts sizes it over the tab row), drawn as the card
    is, rounded at every corner and inset by the gaps between groups (`--cedian-inset-*`). It moves
-   between the whole block and its halves as the blocks move (blockMove.ts), not VS Code's 70ms. */
+   between the whole block and its halves on the blocks' opening timing (motion.ts), not VS Code's 70ms. */
 .monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) #monaco-workbench-editor-drop-overlay > .editor-group-overlay-indicator {
 	clip-path: inset(var(--cedian-inset-top) var(--cedian-inset-right) var(--cedian-inset-bottom) var(--cedian-inset-left) round var(--vscode-cornerRadius-large, 12px));
 }
 .monaco-workbench.monaco-enable-motion .part.editor #monaco-workbench-editor-drop-overlay > .editor-group-overlay-indicator.overlay-move-transition {
-	transition: top 320ms cubic-bezier(.2, .7, .3, 1), left 320ms cubic-bezier(.2, .7, .3, 1), width 320ms cubic-bezier(.2, .7, .3, 1), height 320ms cubic-bezier(.2, .7, .3, 1), opacity 150ms ease-out;
+	transition: top var(--cedian-motion-open) var(--cedian-ease-open), left var(--cedian-motion-open) var(--cedian-ease-open), width var(--cedian-motion-open) var(--cedian-ease-open), height var(--cedian-motion-open) var(--cedian-ease-open), opacity 150ms ease-out;
 }
 
 /* A closed tab while it collapses into its left edge (tabMove.ts): over the row where it stood,

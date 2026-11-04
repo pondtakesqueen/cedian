@@ -9,10 +9,7 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { isHorizontal, IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
-
-/** How long a side block takes to open and to close. Closing is quicker: what goes is out of the way. */
-const OPEN_MS = 320;
-const CLOSE_MS = 240;
+import { CLOSE_MS, easeClose, easeOpen, moving, OPEN_MS } from './blocks/motion.js';
 
 /** The side blocks that stretch, each with VS Code's commands that hide it. */
 const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
@@ -27,11 +24,6 @@ interface PartsOf { getPart?(part: Parts): Sized }
 
 /** The side blocks closing by stretching now: hiding them again is theirs. */
 const stretching = new Set<Parts>();
-
-/** Opening eases out (cubic): it comes at once and lands softly. */
-const easeOpen = (t: number) => 1 - Math.pow(1 - t, 3);
-/** Closing eases in and out (cubic): no jump on the first frame, gone briskly at the end. */
-const easeClose = (t: number) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 interface Run { stop(): void; size(): number; target: number; closing: boolean; held: readonly number[] }
 
@@ -93,7 +85,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 	}
 
 	private moving(): boolean {
-		return this.layout.mainContainer.classList.contains('monaco-enable-motion');
+		return moving(this.layout.mainContainer);
 	}
 
 	/** Whether the block moves in height (a bottom or top panel) rather than width. */

@@ -11,10 +11,8 @@ import { EditorsOrder } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { closing, moving, opening } from './blocks/motion.js';
 
-/** As the blocks move (blockMove.ts): set off at once and land softly. */
-const MOVE_MS = 320;
-const MOVE_EASE = 'cubic-bezier(.2, .7, .3, 1)';
 
 /** Where a tab was laid out in its row, and a copy of it to show if it closes. */
 interface Spot { editor: EditorInput; left: number; top: number; width: number; height: number; copy: HTMLElement; scrollLeft: number; scrollTop: number }
@@ -93,7 +91,7 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 		mainWindow.requestAnimationFrame(() => {
 			this.pending.delete(group);
 			try {
-				if (this.layout.mainContainer.classList.contains('monaco-enable-motion')) {
+				if (moving(this.layout.mainContainer)) {
 					this.move(group, this.spots.get(group) ?? []);
 				}
 			} finally {
@@ -109,26 +107,28 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 			return;
 		}
 		const was = new Map(before.map(s => [s.editor, s]));
+		// Only tabs closed: the row closes up on the closing timing, as a closing block does.
+		const now = new Set(editors);
+		const timing = editors.every(e => was.has(e)) && before.some(s => !now.has(s.editor)) ? closing : opening;
 		editors.forEach((editor, i) => {
 			const tab = tabs[i];
 			const spot = was.get(editor);
 			if (!spot) {
 				// Opened: uncovered from its left edge as the tabs after it make room.
-				tab.animate([{ clipPath: 'inset(0px 100% 0px 0px)' }, { clipPath: 'inset(0px 0px 0px 0px)' }], { duration: MOVE_MS, easing: MOVE_EASE });
+				tab.animate([{ clipPath: 'inset(0px 100% 0px 0px)' }, { clipPath: 'inset(0px 0px 0px 0px)' }], opening);
 				return;
 			}
 			const row = tab.parentElement;
 			const dx = (spot.left - spot.scrollLeft) - (tab.offsetLeft - (row?.scrollLeft ?? 0));
 			const dy = (spot.top - spot.scrollTop) - (tab.offsetTop - (row?.scrollTop ?? 0));
 			if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
-				tab.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: MOVE_MS, easing: MOVE_EASE });
+				tab.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], timing);
 			}
 		});
-		const now = new Set(editors);
 		const row = tabs[0]?.parentElement ?? this.rowOf(group);
 		for (const spot of before) {
 			if (!now.has(spot.editor) && row) {
-				this.collapse(row, spot);
+				this.collapse(row, spot, timing);
 			}
 		}
 	}
@@ -138,7 +138,7 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 	}
 
 	/** A closed tab's copy, where it stood, collapsing into its left edge as the tabs after it slide over. */
-	private collapse(row: HTMLElement, spot: Spot): void {
+	private collapse(row: HTMLElement, spot: Spot, timing: KeyframeAnimationOptions): void {
 		// Beside the row, not in it: VS Code finds its tabs by their place among the row's children.
 		const holder = row.parentElement;
 		if (!holder) {
@@ -155,7 +155,7 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 		copy.style.width = `${spot.width}px`;
 		copy.style.height = `${spot.height}px`;
 		holder.appendChild(copy);
-		const run = copy.animate([{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: 'inset(0px 100% 0px 0px)' }], { duration: MOVE_MS, easing: MOVE_EASE, fill: 'forwards' });
+		const run = copy.animate([{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: 'inset(0px 100% 0px 0px)' }], { ...timing, fill: 'forwards' });
 		const done = () => copy.remove();
 		run.onfinish = done;
 		run.oncancel = done;
