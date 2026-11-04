@@ -862,8 +862,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 ## 10. Evidence sources
 
 - `/Applications/Tern.app` (strings, otool) → `docs/specs/CLONE_SPEC_TERN.md`
-- `/Applications/Claude.app` (asar) → `docs/specs/CLONE_SPEC_CLAUDE.md`
-- `/Applications/Cursor.app` (bundle) → `docs/specs/CLONE_SPEC_CURSOR.md`
+- `/Applications/Claude.app` and `/Applications/Cursor.app` → notes kept outside this repo (the project's private folder, `research/clone-specs/`)
 - `https://code.claude.com/docs/en/claude-projects` → `docs/specs/PROJECTS_SPEC.md`
 - `https://code.claude.com/docs/en/desktop-changelog` → REA findings (§3.7)
 - `https://cursor.com/changelog` → REA findings (§3.7, §12 G4/G11: Agent SDK, canvases, Origin, remote-control, Rollouts/Security Review)
@@ -901,7 +900,7 @@ Cedian-specific setup carried from the earlier list: rename to "Cedian" and stri
 
 ## 12. Gap analysis vs Claude Desktop / Cursor / Tern (2026-10-26; G3/G12 resolved + §3.7 code-tab deltas 2026-10-27)
 
-Reviewed against `docs/specs/CLONE_SPEC_CLAUDE.md`, `CLONE_SPEC_CURSOR.md`, `CLONE_SPEC_TERN.md`, and `docs/specs/PROJECTS_SPEC.md`. Dispositions: **Include** (add to spec), **Defer** (phase later), **Exclude** (intentionally not replicated).
+Reviewed against the Claude Desktop and Cursor notes (kept outside this repo), `docs/specs/CLONE_SPEC_TERN.md`, and `docs/specs/PROJECTS_SPEC.md`. Dispositions: **Include** (add to spec), **Defer** (phase later), **Exclude** (intentionally not replicated).
 
 ### Parity summary (at a glance)
 
