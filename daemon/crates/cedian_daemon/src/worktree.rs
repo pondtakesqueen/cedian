@@ -22,7 +22,9 @@ pub fn name_from(text: &str, now_secs: u64) -> String {
         if word.is_empty() {
             continue;
         }
-        if name.len() + word.len() + 1 > NAME_LENGTH {
+        // The dash before it counts only when a word comes before.
+        let dash = usize::from(!name.is_empty());
+        if name.len() + dash + word.len() > NAME_LENGTH {
             break;
         }
         if !name.is_empty() {
@@ -188,6 +190,13 @@ mod tests {
         assert_eq!(name_from("ทดสอบ", 7), "thread-7");
         let long = name_from(&"word ".repeat(30), 7);
         assert!(long.len() <= NAME_LENGTH, "{long}");
+    }
+
+    #[test]
+    fn a_one_word_message_of_the_full_length_keeps_its_name() {
+        let word = "a".repeat(NAME_LENGTH);
+        assert_eq!(name_from(&word, 7), word);
+        assert_eq!(name_from(&"a".repeat(NAME_LENGTH + 1), 7), "thread-7");
     }
 
     #[test]
