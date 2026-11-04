@@ -34,6 +34,7 @@ use crate::{
 
 pub const COOKIE: &str = "cedian_remote";
 const MAX_HEAD: usize = 16 * 1024;
+const MAX_BODY: usize = 8 * 1024;
 
 pub struct RemoteConfig {
     /// cedia's home, for the projects the page offers (`desktop.remote.projects`).
@@ -41,6 +42,10 @@ pub struct RemoteConfig {
     pub port: u16,
     pub token: String,
     pub web: Option<PathBuf>,
+    /// Where push subscriptions are kept (web_push.rs).
+    pub state_dir: PathBuf,
+    /// The daemon's VAPID public key, which the page subscribes with.
+    pub push_key: String,
 }
 
 /// The remote's settings, or `None` when `desktop.remote.port` is not set.
@@ -66,6 +71,8 @@ pub fn remote_config(home: &Path, state_dir: &Path) -> anyhow::Result<Option<Rem
         port,
         token: token(state_dir)?,
         web: web.filter(|dir| dir.is_dir()),
+        state_dir: state_dir.to_path_buf(),
+        push_key: crate::web_push::public_key(&crate::web_push::vapid_key(state_dir)?),
     }))
 }
 
@@ -138,6 +145,8 @@ pub struct Head {
     pub method: String,
     pub target: String,
     pub headers: Vec<(String, String)>,
+    /// A POST's body, at most `MAX_BODY` bytes.
+    pub body: Vec<u8>,
 }
 
 impl Head {
@@ -176,6 +185,7 @@ pub fn parse_head(text: &str) -> Option<Head> {
         method,
         target,
         headers,
+        body: Vec::new(),
     })
 }
 
@@ -224,11 +234,18 @@ pub enum Reply {
     /// `/config.json`: the projects the page offers, read when asked.
     Config,
     File(PathBuf),
+    /// `POST /push/subscribe`: keep the browser's subscription.
+    Subscribe(crate::web_push::Subscription),
+    /// `POST /push/unsubscribe`: forget the one with this endpoint.
+    Unsubscribe(String),
 }
 
 pub fn route(head: &Head, token: &str, web: Option<&Path>) -> Reply {
     if !head.header("host").is_some_and(allowed_host) {
         return Reply::Status(421, "this host name is not served");
+    }
+    if head.method == "POST" && head.path().starts_with("/push/") {
+        return push_route(head, token);
     }
     if head.method != "GET" {
         return Reply::Status(405, "only GET here; the window speaks over /ws");
@@ -264,6 +281,42 @@ pub fn route(head: &Head, token: &str, web: Option<&Path>) -> Reply {
     }
 }
 
+/// The page's push subscription calls. Beside the strict cookie, a POST needs this page's
+/// Origin and a JSON body, which a form on another site cannot send.
+fn push_route(head: &Head, token: &str) -> Reply {
+    if !has_token(head, token) {
+        return Reply::Status(401, "no token");
+    }
+    if !head.header("origin").is_some_and(allowed_host) {
+        return Reply::Status(403, "only the remote page may change its subscription");
+    }
+    if !head
+        .header("content-type")
+        .is_some_and(|c| c.starts_with("application/json"))
+    {
+        return Reply::Status(415, "a JSON body is expected");
+    }
+    match head.path() {
+        "/push/subscribe" => {
+            match serde_json::from_slice::<crate::web_push::Subscription>(&head.body)
+                .ok()
+                .and_then(|s| s.checked().ok())
+            {
+                Some(subscription) => Reply::Subscribe(subscription),
+                None => Reply::Status(400, "not a subscription to a browser's push service"),
+            }
+        }
+        "/push/unsubscribe" => match serde_json::from_slice::<Value>(&head.body)
+            .ok()
+            .and_then(|v| v.get("endpoint")?.as_str().map(str::to_owned))
+        {
+            Some(endpoint) => Reply::Unsubscribe(endpoint),
+            None => Reply::Status(400, "an endpoint is expected"),
+        },
+        _ => Reply::Status(404, "not found"),
+    }
+}
+
 fn content_type(path: &Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {
         Some("html") => "text/html; charset=utf-8",
@@ -273,28 +326,30 @@ fn content_type(path: &Path) -> &'static str {
         Some("png") => "image/png",
         Some("woff2") => "font/woff2",
         Some("json") => "application/json",
+        Some("webmanifest") => "application/manifest+json",
         _ => "application/octet-stream",
     }
 }
 
 const SECURITY: &str = "Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nCache-Control: no-store\r\n";
 
-/// `{"projects": [...]}` from `desktop.remote.projects`: the folders the owner lets the page show.
-fn config_json(home: &Path) -> String {
+/// `{"projects": [...], "push_key": ...}`: the folders the owner lets the page show, from
+/// `desktop.remote.projects`, and the key the page subscribes to notifications with.
+fn config_json(home: &Path, push_key: &str) -> String {
     let projects =
         crate::desktop_settings::read_desktop(&crate::desktop_settings::settings_path(home))
             .ok()
             .and_then(|desktop| desktop.pointer("/remote/projects").cloned())
             .filter(Value::is_array)
             .unwrap_or_else(|| Value::Array(Vec::new()));
-    serde_json::json!({ "projects": projects }).to_string()
+    serde_json::json!({ "projects": projects, "push_key": push_key }).to_string()
 }
 
 fn respond(stream: &mut TcpStream, reply: Reply, config: &RemoteConfig) -> anyhow::Result<()> {
     let token = &config.token;
     match reply {
         Reply::Config => {
-            let body = config_json(&config.home);
+            let body = config_json(&config.home, &config.push_key);
             write!(
                 stream,
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{SECURITY}Connection: close\r\n\r\n{body}",
@@ -310,6 +365,20 @@ fn respond(stream: &mut TcpStream, reply: Reply, config: &RemoteConfig) -> anyho
             stream,
             "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {COOKIE}={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000\r\n{SECURITY}Content-Length: 0\r\nConnection: close\r\n\r\n"
         )?,
+        Reply::Subscribe(subscription) => {
+            crate::web_push::Subscriptions::new(&config.state_dir).add(subscription)?;
+            write!(
+                stream,
+                "HTTP/1.1 204 No Content\r\n{SECURITY}Content-Length: 0\r\nConnection: close\r\n\r\n"
+            )?;
+        }
+        Reply::Unsubscribe(endpoint) => {
+            crate::web_push::Subscriptions::new(&config.state_dir).remove(&endpoint)?;
+            write!(
+                stream,
+                "HTTP/1.1 204 No Content\r\n{SECURITY}Content-Length: 0\r\nConnection: close\r\n\r\n"
+            )?;
+        }
         Reply::File(path) => {
             let body = std::fs::read(&path)?;
             write!(
@@ -338,8 +407,20 @@ fn read_head(stream: &mut TcpStream) -> anyhow::Result<Option<Head>> {
             break;
         }
     }
-    // A GET has no body to leave unread; a request that would is refused before it matters.
-    Ok(parse_head(&text))
+    let Some(mut head) = parse_head(&text) else {
+        return Ok(None);
+    };
+    // Only the push calls have a body, and a small one; the rest are refused before it matters.
+    let length = head
+        .header("content-length")
+        .and_then(|n| n.parse::<usize>().ok())
+        .unwrap_or(0);
+    if length > MAX_BODY {
+        return Ok(None);
+    }
+    head.body = vec![0; length];
+    reader.read_exact(&mut head.body)?;
+    Ok(Some(head))
 }
 
 fn connection(
@@ -541,6 +622,60 @@ mod tests {
         assert!(matches!(
             get("GET /.env HTTP/1.1\r\nHost: localhost\r\nCookie: cedian_remote=t\r\n\r\n"),
             Reply::Status(404, _)
+        ));
+    }
+
+    #[test]
+    fn a_push_subscription_comes_from_the_page_alone() {
+        let body = r#"{"endpoint":"https://web.push.apple.com/QG","keys":{"p256dh":"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4","auth":"BTBZMqHH6r4Tts7J_aSIgg"}}"#;
+        let post = |path: &str, headers: &str, body: &str| {
+            let mut h = head(&format!(
+                "POST {path} HTTP/1.1\r\nHost: mac.tail1.ts.net\r\n{headers}\r\n"
+            ));
+            h.body = body.as_bytes().to_vec();
+            route(&h, "t", None)
+        };
+        let page = "Cookie: cedian_remote=t\r\nOrigin: https://mac.tail1.ts.net\r\nContent-Type: application/json\r\n";
+        assert!(matches!(
+            post("/push/subscribe", page, body),
+            Reply::Subscribe(_)
+        ));
+        assert!(matches!(
+            post("/push/unsubscribe", page, r#"{"endpoint":"https://web.push.apple.com/QG"}"#),
+            Reply::Unsubscribe(e) if e == "https://web.push.apple.com/QG"
+        ));
+        assert!(matches!(
+            post(
+                "/push/subscribe",
+                "Origin: https://mac.tail1.ts.net\r\nContent-Type: application/json\r\n",
+                body
+            ),
+            Reply::Status(401, _)
+        ));
+        assert!(matches!(
+            post(
+                "/push/subscribe",
+                "Cookie: cedian_remote=t\r\nOrigin: https://evil.example\r\nContent-Type: application/json\r\n",
+                body
+            ),
+            Reply::Status(403, _)
+        ));
+        assert!(matches!(
+            post(
+                "/push/subscribe",
+                "Cookie: cedian_remote=t\r\nOrigin: https://mac.tail1.ts.net\r\nContent-Type: text/plain\r\n",
+                body
+            ),
+            Reply::Status(415, _)
+        ));
+        let elsewhere = body.replace("web.push.apple.com", "127.0.0.1:9");
+        assert!(matches!(
+            post("/push/subscribe", page, &elsewhere),
+            Reply::Status(400, _)
+        ));
+        assert!(matches!(
+            post("/config.json", page, ""),
+            Reply::Status(405, _)
         ));
     }
 

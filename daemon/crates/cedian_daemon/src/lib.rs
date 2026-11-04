@@ -30,6 +30,7 @@ mod seen;
 mod server;
 mod shell_env;
 mod thread_watch;
+mod web_push;
 mod worktree;
 
 pub use cedia::Cedia;

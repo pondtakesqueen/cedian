@@ -5,3 +5,10 @@ html, body { margin: 0; height: 100%; background: var(--cedian-app); color: var(
 .remote-projects { margin: 8px 12px 0; padding: 6px 8px; background: var(--cedian-field); color: var(--cedian-text); border: 1px solid var(--cedian-line); border-radius: 6px; font: inherit; }
 .remote-status:empty { display: none; }
 .remote-status { margin: 8px 12px 0; padding: 6px 10px; border-radius: 6px; background: var(--cedian-raised); color: var(--cedian-warn); font-size: 13px; }
+.remote-bar { display: flex; gap: 8px; align-items: center; margin: 8px 12px 0; }
+.remote-bar:empty { display: none; }
+.remote-bar .remote-projects { margin: 0; flex: 1; min-width: 0; }
+.remote-notify { padding: 6px 10px; background: var(--cedian-field); color: var(--cedian-text); border: 1px solid var(--cedian-line); border-radius: 6px; font: inherit; font-size: 13px; white-space: nowrap; }
+.remote-notify[aria-pressed="true"] { color: var(--cedian-accent); }
+.remote-hint:empty { display: none; }
+.remote-hint { margin: 8px 12px 0; padding: 6px 10px; border-radius: 6px; background: var(--cedian-raised); color: var(--cedian-text-muted); font-size: 13px; }

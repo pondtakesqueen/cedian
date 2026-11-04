@@ -28,5 +28,6 @@ rmSync(config);
 const media = join(root, "vscode/contrib/cedian/browser/media");
 for (const css of ["agentPane.css", "threadList.css"]) copyFileSync(join(media, css), join(out, "css", css));
 copyFileSync(join(root, "src/remote/web/remote.css"), join(out, "css/remote.css"));
-copyFileSync(join(root, "src/remote/web/index.html"), join(out, "index.html"));
+for (const file of ["index.html", "sw.js", "manifest.webmanifest"]) copyFileSync(join(root, "src/remote/web", file), join(out, file));
+copyFileSync(join(root, "brand/app-icon/macos-1024.png"), join(out, "icon.png"));
 console.log(`remote web build in ${out}`);
