@@ -156,6 +156,10 @@
 - [x] Pin moved to cedia main 44ad1ba (protocol ff69b523e6156d26,
   2026-10-30, cedia-code #199 merged: `--browser-sites`). The new `retry`
   session event is folded with the others' ids
+- [x] Pin moved to cedia main 3a3e3e8 (protocol 981569e06135cba8,
+  2026-11-04, cedia-code #219 merged: the `creator` capability). The new
+  `satisfaction` thread event is indexed like `rate` and not shown; `usage`
+  gained `toolErrors` and `toolErrorBaselines`
 - [x] cedia: completion command (fill-in-the-middle on a fast cheap model):
   `cedia complete --file --at <line:col> [--stdin] --json` (cedia #180, merged
   2026-10-29, pinned at main b140712), on `roles.complete`, default the code model

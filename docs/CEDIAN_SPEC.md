@@ -535,7 +535,7 @@ DeepSeek Harness's Creator mode has its agent write plugins for the app it runs 
 - **Prefer an artifact** (§3.6) when nothing needs to stay in the app: most of DeepSeek's demos (a stats page, a viewer, a poster) are Website or Dashboard artifacts.
 - **Order:**
   - the switch (window side) now;
-  - the daemon's `--creator on` at the next cedia pin that carries the `creator` capability;
+  - the daemon's `--creator on` (done with the pin to cedia 3a3e3e8, which carries the `creator` capability);
   - the extension install card and badge after Phase A, once VS Code is vendored and can install extensions.
 
   The cedia-side command that asks for an extension install is a change in the cedia repo.

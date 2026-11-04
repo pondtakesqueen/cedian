@@ -263,6 +263,9 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
                 thread.rating = Some(*rating);
                 thread.updated_at = at.clone();
             }
+            // cedia's judge of whether a run helped, read from the follow-up; the window shows the
+            // person's own rating, not this.
+            ThreadEvent::Satisfaction { .. } => {}
             ThreadEvent::Turn {
                 cwd,
                 before,
@@ -340,6 +343,7 @@ fn rewound(events: &[ThreadEvent]) -> (Vec<&ThreadEvent>, Vec<&ThreadEvent>) {
             ThreadEvent::Message { .. }
                 | ThreadEvent::Unsend { .. }
                 | ThreadEvent::Rate { .. }
+                | ThreadEvent::Satisfaction { .. }
                 | ThreadEvent::Archived { .. }
                 | ThreadEvent::Title { .. }
         )
@@ -388,6 +392,7 @@ fn run_of(event: &ThreadEvent) -> Option<&str> {
         | ThreadEvent::Delivered { run, .. }
         | ThreadEvent::Unsend { run, .. }
         | ThreadEvent::Rate { run, .. }
+        | ThreadEvent::Satisfaction { run, .. }
         | ThreadEvent::Question { run, .. }
         | ThreadEvent::State { run, .. }
         | ThreadEvent::Turn { run, .. }
@@ -408,6 +413,7 @@ fn at_of(event: &ThreadEvent) -> &str {
         | ThreadEvent::Delivered { at, .. }
         | ThreadEvent::Unsend { at, .. }
         | ThreadEvent::Rate { at, .. }
+        | ThreadEvent::Satisfaction { at, .. }
         | ThreadEvent::Question { at, .. }
         | ThreadEvent::State { at, .. }
         | ThreadEvent::Turn { at, .. }

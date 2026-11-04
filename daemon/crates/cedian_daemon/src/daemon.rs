@@ -21,7 +21,7 @@ use cedian_wire::{Build, Notice, Request, Status, ThreadInfo};
 use crate::{
     Cedia, auto_archive,
     browser::Browser,
-    cedia::{Flags, browser_sites},
+    cedia::{Flags, browser_sites, creator_on},
     desktop_settings::{read_desktop, set_desktop_key, settings_path},
     flow::{Flow, Held},
     follow::{Offsets, follow},
@@ -1930,6 +1930,8 @@ impl Daemon {
         let with = Flags {
             ask: can(cedian_protocol::Capability::Ask),
             todo: can(cedian_protocol::Capability::Todo),
+            creator: can(cedian_protocol::Capability::Creator)
+                && read_desktop(&settings_path(&daemon.home)).is_ok_and(|d| creator_on(&d)),
             browser: page.as_ref().map(|p| p.socket.as_str()),
             sites: sites.as_deref(),
             cache_ttl: with

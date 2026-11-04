@@ -261,7 +261,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -282,6 +282,7 @@ export type Capability =
   | "worktree.newest-wins"
   | "spawn.best-of-n"
   | "todo"
+  | "creator"
   | "profiles"
   | "open_thread"
   | "schedules"
@@ -548,12 +549,12 @@ export type PermissionSetting = "read-only" | "workspace" | "auto" | "plan";
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "user", "repository", "plugin" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "user", "repository", "plugin", "builtin" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "CommandEntrySource".
  */
-export type CommandEntrySource = "user" | "repository" | "plugin";
+export type CommandEntrySource = "user" | "repository" | "plugin" | "builtin";
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTransport".
@@ -1835,7 +1836,7 @@ export interface PermissionEntry {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "description", "kind", "name", "source" ], "properties": { "argumentHint": { "type": "string" }, "description": { "type": "string" }, "kind": { "type": "string", "const": "skill" }, "name": { "type": "string" }, "source": { "type": "string", "enum": [ "user", "repository", "plugin" ] } } } ``` </details>
+ * ```json { "type": "object", "required": [ "description", "kind", "name", "source" ], "properties": { "argumentHint": { "type": "string" }, "description": { "type": "string" }, "kind": { "type": "string", "const": "skill" }, "name": { "type": "string" }, "source": { "type": "string", "enum": [ "user", "repository", "plugin", "builtin" ] } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "CommandEntry".
@@ -1902,7 +1903,7 @@ export interface Restored {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "blocked", "compactUsd", "costUsd", "days", "handoffs", "keepaliveUsd", "largest", "maxEffort", "misses", "models", "overPriceLine", "projects", "requests", "sessions", "slowStart", "sources", "threads", "tokens", "unpriced", "warnings" ], "properties": { "blocked": { "type": "array", "items": { "type": "object", "required": [ "count", "rule" ], "properties": { "count": { "type": "number" }, "rule": { "type": "string" } } } }, "compactUsd": { "type": "number" }, "costUsd": { "type": "number" }, "days": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "day" ], "properties": { "costUsd": { "type": "number" }, "day": { "type": "string" } } } }, "handoffs": { "type": "number" }, "keepaliveUsd": { "type": "number" }, "largest": { "type": "array", "items": { "type": "object", "required": [ "callId", "chars", "resent", "session", "tool" ], "properties": { "callId": { "type": "string" }, "chars": { "type": "number" }, "resent": { "type": "number" }, "session": { "type": "string" }, "tool": { "type": "string" } } } }, "maxEffort": { "type": "number" }, "misses": { "type": "array", "items": { "type": "object", "required": [ "cause", "count", "tokens" ], "properties": { "cause": { "type": "string" }, "count": { "type": "number" }, "tokens": { "type": "number" } } } }, "models": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "model", "requests" ], "properties": { "costUsd": { "type": "number" }, "model": { "type": "string" }, "requests": { "type": "number" } } } }, "overPriceLine": { "type": "number" }, "projects": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "project" ], "properties": { "costUsd": { "type": "number" }, "project": { "type": "string" } } } }, "requests": { "type": "number" }, "sessions": { "type": "number" }, "slowStart": { "type": "number" }, "sources": { "type": "array", "items": { "type": "object", "required": [ "chars", "share", "source" ], "properties": { "chars": { "type": "number" }, "share": { "type": "number" }, "source": { "type": "string" } } } }, "threads": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "thread", "title" ], "properties": { "costUsd": { "type": "number" }, "project": { "type": "string" }, "thread": { "type": "string" }, "title": { "type": "string" } } } }, "tokens": { "type": "object", "required": [ "cacheRead", "input", "output" ], "properties": { "cacheRead": { "type": "number" }, "input": { "type": "number" }, "output": { "type": "number" } } }, "unpriced": { "type": "number" }, "warnings": { "type": "array", "items": { "type": "string" } } } } ``` </details>
+ * ```json { "type": "object", "required": [ "blocked", "compactUsd", "costUsd", "days", "handoffs", "keepaliveUsd", "largest", "maxEffort", "misses", "models", "overPriceLine", "projects", "requests", "sessions", "slowStart", "sources", "threads", "tokens", "toolErrorBaselines", "toolErrors", "unpriced", "warnings" ], "properties": { "blocked": { "type": "array", "items": { "type": "object", "required": [ "count", "rule" ], "properties": { "count": { "type": "number" }, "rule": { "type": "string" } } } }, "compactUsd": { "type": "number" }, "costUsd": { "type": "number" }, "days": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "day" ], "properties": { "costUsd": { "type": "number" }, "day": { "type": "string" } } } }, "handoffs": { "type": "number" }, "keepaliveUsd": { "type": "number" }, "largest": { "type": "array", "items": { "type": "object", "required": [ "callId", "chars", "resent", "session", "tool" ], "properties": { "callId": { "type": "string" }, "chars": { "type": "number" }, "resent": { "type": "number" }, "session": { "type": "string" }, "tool": { "type": "string" } } } }, "maxEffort": { "type": "number" }, "misses": { "type": "array", "items": { "type": "object", "required": [ "cause", "count", "tokens" ], "properties": { "cause": { "type": "string" }, "count": { "type": "number" }, "tokens": { "type": "number" } } } }, "models": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "model", "requests" ], "properties": { "costUsd": { "type": "number" }, "model": { "type": "string" }, "requests": { "type": "number" } } } }, "overPriceLine": { "type": "number" }, "projects": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "project" ], "properties": { "costUsd": { "type": "number" }, "project": { "type": "string" } } } }, "requests": { "type": "number" }, "sessions": { "type": "number" }, "slowStart": { "type": "number" }, "sources": { "type": "array", "items": { "type": "object", "required": [ "chars", "share", "source" ], "properties": { "chars": { "type": "number" }, "share": { "type": "number" }, "source": { "type": "string" } } } }, "threads": { "type": "array", "items": { "type": "object", "required": [ "costUsd", "thread", "title" ], "properties": { "costUsd": { "type": "number" }, "project": { "type": "string" }, "thread": { "type": "string" }, "title": { "type": "string" } } } }, "tokens": { "type": "object", "required": [ "cacheRead", "input", "output" ], "properties": { "cacheRead": { "type": "number" }, "input": { "type": "number" }, "output": { "type": "number" } } }, "toolErrorBaselines": { "type": "array", "items": { "$ref": "#/definitions/ToolErrorBaseline" } }, "toolErrors": { "type": "array", "items": { "type": "object", "required": [ "category", "count", "tool" ], "properties": { "category": { "type": "string" }, "count": { "type": "number" }, "tool": { "type": "string" } } } }, "unpriced": { "type": "number" }, "warnings": { "type": "array", "items": { "type": "string" } } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "UsageReport".
@@ -1926,6 +1927,8 @@ export interface UsageReport {
   sources: UsageReportSourcesItem[];
   threads: UsageReportThreadsItem[];
   tokens: UsageReportTokens;
+  toolErrorBaselines: ToolErrorBaseline[];
+  toolErrors: UsageReportToolErrorsItem[];
   unpriced: number;
   warnings: string[];
 }
@@ -2063,6 +2066,57 @@ export interface UsageReportTokens {
   cacheRead: number;
   input: number;
   output: number;
+}
+/**
+ * `ToolErrorBaseline`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "byCategory", "calls", "errors", "model", "rate", "tool" ], "properties": { "byCategory": { "type": "object", "properties": { "InvalidArguments": { "type": "number" }, "ProviderError": { "type": "number" }, "Timeout": { "type": "number" }, "UnexpectedEnvironment": { "type": "number" }, "UserAborted": { "type": "number" }, "none": { "type": "number" } } }, "calls": { "type": "number" }, "errors": { "type": "number" }, "model": { "type": "string" }, "rate": { "type": "number" }, "tool": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "ToolErrorBaseline".
+ */
+export interface ToolErrorBaseline {
+  byCategory: ToolErrorBaselineByCategory;
+  calls: number;
+  errors: number;
+  model: string;
+  rate: number;
+  tool: string;
+}
+/**
+ * `ToolErrorBaselineByCategory`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "properties": { "InvalidArguments": { "type": "number" }, "ProviderError": { "type": "number" }, "Timeout": { "type": "number" }, "UnexpectedEnvironment": { "type": "number" }, "UserAborted": { "type": "number" }, "none": { "type": "number" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "ToolErrorBaselineByCategory".
+ */
+export interface ToolErrorBaselineByCategory {
+  InvalidArguments?: number | null;
+  ProviderError?: number | null;
+  Timeout?: number | null;
+  UnexpectedEnvironment?: number | null;
+  UserAborted?: number | null;
+  none?: number | null;
+}
+/**
+ * `UsageReportToolErrorsItem`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "category", "count", "tool" ], "properties": { "category": { "type": "string" }, "count": { "type": "number" }, "tool": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "UsageReportToolErrorsItem".
+ */
+export interface UsageReportToolErrorsItem {
+  category: string;
+  count: number;
+  tool: string;
 }
 /**
  * `PrPlan`
