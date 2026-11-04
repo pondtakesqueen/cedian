@@ -4,7 +4,8 @@
 // mouse drags it the way a person would. Checks: a floated block rests bottom right; a drag let go
 // still rests in the nearest corner; a fling carries it on; a fling at a side stashes it and its
 // tab brings it back; expand fills the frame and shrinks back; arrow keys step corners; a smaller
-// window keeps it inside; Reduce Motion stops the glide; Dock hands it back. Saves screenshots in
+// window keeps it inside; the fan shows every block, stashed ones too, and a card picked comes
+// back; Reduce Motion stops the glide; Dock hands it back. Saves screenshots in
 // <out> (default test/smoke/out/blocks).
 // Usage: node test/smoke/blocks.mjs [<out>]   (CEDIAN_CHROMIUM names a Chromium)
 import { execFileSync } from "node:child_process";
@@ -174,6 +175,24 @@ try {
   const a = await box("agent");
   ok("a second block in the corner stacks below the first", near(a.y, GAP + 300 + GAP) && near(a.x, W - GAP - 440), `${a.x},${a.y}`);
   await page.screenshot({ path: join(out, "4-stacked.png") });
+
+  // The fan: a third block stashed, then all three fanned out across the middle; a click on the
+  // stashed one's card brings it back.
+  await page.evaluate(() => window.float("side", "Stashed block", { corner: "bl", stash: "left" }));
+  await settled();
+  await page.evaluate(() => window.layer.fan());
+  await settled();
+  const cards = await Promise.all(["browser", "agent", "side"].map((k) => box(k)));
+  ok("fanned, every block is a card inside the frame, the stashed one too", cards.every((r) => r.x >= 0 && r.y >= 0 && r.x + r.width <= W + 1 && r.y + r.height <= H + 1), JSON.stringify(cards.map((r) => [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)])));
+  await page.screenshot({ path: join(out, "4b-fanned.png") });
+  const s = await box("side");
+  await page.mouse.click(s.x + s.width / 2, s.y + s.height / 2);
+  await settled();
+  const picked = await page.evaluate(() => ({ fanned: window.layer.isFanned, state: window.layer.stateOf("side") }));
+  const back = await box("side");
+  ok("a card clicked in the fan comes back out of its stash", !picked.fanned && picked.state === "focused" && near(back.x, GAP), JSON.stringify(picked));
+  await page.evaluate(() => window.layer.close("side"));
+  await settled();
 
   // A smaller window keeps both inside.
   await page.setViewportSize({ width: 700, height: 500 });

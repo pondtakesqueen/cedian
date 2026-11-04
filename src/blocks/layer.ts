@@ -6,7 +6,7 @@
 import { button, el } from "../dom/el.js";
 import { moveBlock, type Block, type BlockState } from "./block.js";
 import type { Floating } from "./layout.js";
-import { arrange, fit, GAP, place, PIP_SIZE, resized, settle, sideOf, step, velocityOf, type Point, type Rect, type Rest, type Size } from "./pip.js";
+import { arrange, fan, fit, GAP, place, PIP_SIZE, resized, settle, sideOf, step, velocityOf, type Point, type Rect, type Rest, type Size } from "./pip.js";
 
 /** The height of a floating block's header, where it is dragged from. */
 export const HEAD = 30;
@@ -46,9 +46,30 @@ export class BlockLayer {
   /** The z-index of the block brought forward last. */
   private top = 0;
   private readonly offs: (() => void)[] = [];
+  /** Fanned out (Tern's deck): every block a card across the middle, until one is picked. */
+  private fanned = false;
+  /** Behind the fan's cards: a click there folds it. */
+  private readonly scrim: HTMLElement;
 
   constructor(private readonly doc: Document, private readonly host: LayerHost) {
     this.root = el(doc, "div", "cedian-blocks");
+    this.scrim = el(doc, "div", "pip-scrim");
+    this.scrim.hidden = true;
+    this.scrim.setAttribute("aria-hidden", "true");
+    this.root.append(this.scrim);
+    const fold = () => this.fold();
+    const key = (e: KeyboardEvent) => {
+      if (this.fanned && e.key === "Escape") {
+        e.preventDefault();
+        this.fold();
+      }
+    };
+    this.scrim.addEventListener("pointerdown", fold);
+    this.root.addEventListener("keydown", key);
+    this.offs.push(() => {
+      this.scrim.removeEventListener("pointerdown", fold);
+      this.root.removeEventListener("keydown", key);
+    });
     if (typeof ResizeObserver !== "undefined") {
       const observer = new ResizeObserver(() => this.layout(this.root.clientWidth, this.root.clientHeight));
       observer.observe(this.root);
@@ -82,6 +103,7 @@ export class BlockLayer {
    * A block of the same kind already floating is closed first: one per kind.
    */
   float(block: Block, at?: Partial<Floating>, quiet = false): void {
+    if (this.fanned) this.fold();
     this.drop(block.kind);
     const d = this.doc;
     const node = el(d, "div", "cedian-pip");
@@ -135,16 +157,29 @@ export class BlockLayer {
     this.drag(pip, head);
     for (const grip of grips) this.resize(pip, grip);
     head.addEventListener("keydown", (e) => {
-      if (!ARROWS.includes(e.key) || e.target !== head) return;
+      if (this.fanned && (e.key === "Enter" || e.key === " ") && e.target === head) {
+        e.preventDefault();
+        return this.fold(block.kind);
+      }
+      if (this.fanned || !ARROWS.includes(e.key) || e.target !== head) return;
       e.preventDefault();
       if (e.shiftKey) this.resizeBy(block.kind, e.key as Arrow);
       else this.moveTo(block.kind, { corner: step(pip.rest.corner, e.key as Arrow) });
     });
     // The block in use comes forward, so its header and buttons are never under another's.
     const forward = () => this.raise(pip);
+    // Fanned, a press anywhere on a card picks it: nothing inside it takes the press.
+    const pick = (e: PointerEvent) => {
+      if (!this.fanned || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.fold(block.kind);
+    };
+    node.addEventListener("pointerdown", pick, true);
     node.addEventListener("pointerdown", forward, true);
     node.addEventListener("focusin", forward);
     pip.offs.push(() => {
+      node.removeEventListener("pointerdown", pick, true);
       node.removeEventListener("pointerdown", forward, true);
       node.removeEventListener("focusin", forward);
     });
@@ -233,6 +268,49 @@ export class BlockLayer {
     this.host.closed?.(kind);
   }
 
+  get isFanned(): boolean {
+    return this.fanned;
+  }
+
+  /**
+   * Fans the floating blocks out (Tern's deck of PiPs): each, stashed ones too, a card at its own
+   * shape across the middle of the frame, to see them all at once. A click on one (or Enter on its
+   * header) brings it back to its corner, out of a stash, in front; Escape or a click beside the
+   * cards folds them back as they were. Nothing about where they rest changes.
+   */
+  fan(): void {
+    if (this.fanned || this.pips.length === 0) return;
+    this.fanned = true;
+    this.root.classList.add("fanned");
+    this.scrim.hidden = false;
+    this.draw();
+    const last = this.pips.reduce((a, b) => (Number(b.node.style.zIndex) > Number(a.node.style.zIndex) ? b : a));
+    last.node.querySelector<HTMLElement>(".pip-head")?.focus();
+  }
+
+  /** Folds the fan back; `pick` comes out in front, focused, out of its stash or zoom. */
+  fold(pick?: string): void {
+    if (!this.fanned) return;
+    this.fanned = false;
+    this.root.classList.remove("fanned");
+    this.scrim.hidden = true;
+    for (const p of this.pips) {
+      p.node.style.zIndex = p.node.dataset.z ?? p.node.style.zIndex;
+      delete p.node.dataset.z;
+    }
+    const pip = pick ? this.find(pick) : undefined;
+    if (!pip) return this.draw();
+    if (pip.state === "parked" || pip.state === "zoomed") this.moveTo(pip.block.kind, { corner: pip.rest.corner });
+    else this.draw();
+    this.raise(pip);
+    pip.block.focus();
+  }
+
+  toggleFan(): void {
+    if (this.fanned) this.fold();
+    else this.fan();
+  }
+
   dispose(): void {
     for (const pip of [...this.pips]) this.drop(pip.block.kind);
     for (const off of this.offs) off();
@@ -257,6 +335,7 @@ export class BlockLayer {
     for (const off of pip.offs) off();
     pip.block.dispose();
     pip.node.remove();
+    if (this.fanned && this.pips.length === 0) this.fold();
     this.draw();
   }
 
@@ -294,11 +373,33 @@ export class BlockLayer {
 
   private draw(sized?: { pip: Pip; size: Size }): void {
     if (!this.frame.width || !this.frame.height) return;
+    if (this.fanned) return this.drawFan();
     for (const [pip, rect] of this.rects(sized)) this.put(pip, rect);
+  }
+
+  /** Each block a card at its own size, scaled and tilted into the fan, later ones in front. */
+  private drawFan(): void {
+    const sizes = this.pips.map((p) => fit(p.size, this.frame));
+    const cards = fan(sizes, this.frame);
+    this.pips.forEach((pip, i) => {
+      const { width, height } = sizes[i];
+      const card = cards[i];
+      const n = pip.node;
+      n.dataset.z ??= n.style.zIndex;
+      n.style.zIndex = String(this.top + 1 + i);
+      n.style.transform = `translate(${card.x}px, ${card.y}px) rotate(${card.angle}deg) scale(${card.scale.toFixed(4)})`;
+      n.style.width = `${Math.round(width)}px`;
+      n.style.height = `${Math.round(height)}px`;
+      n.classList.remove("zoomed", "stashed");
+      pip.tab.hidden = true;
+      pip.block.layout(Math.round(width), Math.max(0, Math.round(height) - HEAD));
+    });
   }
 
   /** Brings `pip` over the other floating blocks: the one in use, or the one just expanded. */
   private raise(pip: Pip): void {
+    // Fanned, the cards keep their order; the one picked comes forward when the fan folds.
+    if (this.fanned) return;
     if (pip.node.style.zIndex === String(this.top)) return;
     pip.node.style.zIndex = String(++this.top);
   }
@@ -331,7 +432,7 @@ export class BlockLayer {
     const axes = grip.dataset.axes as "x" | "y" | "xy";
     let grab: { from: Point; size: Size; id: number } | undefined;
     const down = (e: PointerEvent) => {
-      if (e.button !== 0 || pip.state !== "focused") return;
+      if (e.button !== 0 || this.fanned || pip.state !== "focused") return;
       e.preventDefault();
       e.stopPropagation();
       const shown = this.rectOf(pip);
@@ -371,7 +472,7 @@ export class BlockLayer {
     let grab: { from: Point; at: Rect; samples: (Point & { t: number })[]; id: number } | undefined;
     const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
     const down = (e: PointerEvent) => {
-      if (e.button !== 0 || (e.target as HTMLElement).closest("button") || pip.state === "zoomed") return;
+      if (e.button !== 0 || this.fanned || (e.target as HTMLElement).closest("button") || pip.state === "zoomed") return;
       e.preventDefault();
       const at = pip.state === "parked" ? place({ corner: pip.rest.corner }, pip.size, this.frame) : this.rectOf(pip);
       grab = { from: { x: e.clientX, y: e.clientY }, at, samples: [{ x: e.clientX, y: e.clientY, t: now() }], id: e.pointerId };

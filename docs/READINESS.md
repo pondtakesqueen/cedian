@@ -322,7 +322,14 @@
   lists leave it out. Closing it (×, or ⌘; from inside it) has the daemon stop
   and delete it, and a window that goes takes its side chats with it. Checked:
   `cargo test` (side chat tests in `tests/daemon.rs`), `vitest` (pane, layer,
-  floating). Still to do: try the side chat on the Mac; fan;
+  floating). Fan: ⌃⌥↑ (`Cedian: Fan Floating Blocks`) fans every floating
+  block out across the middle as a card at its own shape (stashed ones too),
+  scaled alike, side by side or overlapping when many, the outer ones tilted;
+  a click on a card (or Enter on its header) brings it back to its corner out
+  of a stash, in front and focused; Escape, a click beside the cards or ⌃⌥↑
+  again folds them; where they rest does not change. Checked: `vitest
+  src/blocks` and `node test/smoke/blocks.mjs` (17 checks with the fan). Still
+  to do: try the side chat and the fan on the Mac;
   tear-off out of the window; named layouts (the old app's
   `desktop.layout.blocks` is not read yet); more blocks than the Browser and a thread
 - [x] Tab completion (ghost text) with a measured latency budget (built

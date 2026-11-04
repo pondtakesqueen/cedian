@@ -36,6 +36,8 @@ export const KEYBINDINGS: Binding[] = [
   { command: "cedian.stop", mac: "cmd+.", label: "Stop" },
   { command: "cedian.focusComposer", mac: "cmd+l", label: "Focus the composer" },
   { command: "cedian.sideChat", mac: "cmd+;", label: "Side chat on the open thread" },
+  // ⌃⌥↑ is the overview of the old app's blocks (ARCHITECTURE "Overview"); here, the fan of them.
+  { command: "cedian.fanBlocks", mac: "ctrl+alt+up", label: "Fan the floating blocks out, or fold them back" },
 ];
 
 /** The table with the person's keys in place of Cedian's, by command id. */

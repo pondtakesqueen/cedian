@@ -100,7 +100,7 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     pipOf(layer).querySelector<HTMLButtonElement>(".pip-dock")!.click();
     expect(docked).toEqual(["browser"]);
     expect(a.disposed).toBe(true);
-    expect(layer.root.children.length).toBe(0);
+    expect(layer.root.querySelectorAll(".cedian-pip").length).toBe(0);
     expect(changes.at(-1)).toEqual([]);
     layer.float(new FakeBlock());
     pipOf(layer).querySelector<HTMLButtonElement>(".pip-close")!.click();
@@ -121,6 +121,66 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     expect(changes.at(-1)?.map((f) => f.kind)).toEqual(["browser"]);
     layer.close("side");
     expect(side.disposed).toBe(true);
+  });
+  test("fanned, every block is a card across the middle, stashed ones too; nothing is kept", () => {
+    const { layer, changes } = setup();
+    const a = new FakeBlock();
+    const b = new FakeBlock("agent");
+    layer.float(a);
+    layer.float(b, { corner: "tl", width: 400, height: 560 });
+    layer.stash("agent");
+    const kept = changes.length;
+    layer.fan();
+    expect(layer.isFanned).toBe(true);
+    expect(layer.root.classList.contains("fanned")).toBe(true);
+    expect(layer.root.querySelector<HTMLElement>(".pip-scrim")!.hidden).toBe(false);
+    for (const kind of ["browser", "agent"]) {
+      expect(pipOf(layer, kind).classList.contains("stashed")).toBe(false);
+      expect(translate(pipOf(layer, kind))).toMatch(/rotate\(.*scale\(/);
+    }
+    // Drawn at their own sizes inside the card.
+    expect(b.sizes.at(-1)).toEqual([400, 560 - HEAD]);
+    // The later card in front, and arrows do nothing while fanned.
+    expect(Number(pipOf(layer, "agent").style.zIndex)).toBeGreaterThan(Number(pipOf(layer, "browser").style.zIndex));
+    pipOf(layer, "browser").querySelector<HTMLElement>(".pip-head")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    expect(changes.length).toBe(kept);
+    layer.root.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(layer.isFanned).toBe(false);
+    expect(layer.stateOf("agent")).toBe("parked");
+    expect(pipOf(layer, "agent").classList.contains("stashed")).toBe(true);
+    expect(changes.length).toBe(kept);
+  });
+  test("a card picked from the fan comes back out of its stash, in front and focused", () => {
+    const { layer, changes } = setup();
+    const a = new FakeBlock();
+    const b = new FakeBlock("agent");
+    layer.float(a);
+    layer.float(b, { corner: "tl" });
+    layer.stash("agent");
+    layer.fan();
+    const focused = b.focused;
+    pointer(pipOf(layer, "agent").querySelector<HTMLElement>(".pip-body")!, "pointerdown", 10, 10);
+    expect(layer.isFanned).toBe(false);
+    expect(layer.stateOf("agent")).toBe("focused");
+    expect(changes.at(-1)!.find((f) => f.kind === "agent")!.stash).toBeUndefined();
+    expect(b.focused).toBe(focused + 1);
+    expect(Number(pipOf(layer, "agent").style.zIndex)).toBeGreaterThan(Number(pipOf(layer, "browser").style.zIndex));
+    // Enter on a card's header picks it too; a click beside the cards folds them.
+    layer.fan();
+    pipOf(layer).querySelector<HTMLElement>(".pip-head")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(layer.isFanned).toBe(false);
+    layer.toggleFan();
+    pointer(layer.root.querySelector<HTMLElement>(".pip-scrim")!, "pointerdown", 1, 1);
+    expect(layer.isFanned).toBe(false);
+  });
+  test("nothing floating, nothing fans; the last block closed folds the fan", () => {
+    const { layer } = setup();
+    layer.fan();
+    expect(layer.isFanned).toBe(false);
+    layer.float(new FakeBlock());
+    layer.fan();
+    layer.close("browser");
+    expect(layer.isFanned).toBe(false);
   });
   test("one block per kind; two kinds in one corner stack", () => {
     const { layer } = setup();

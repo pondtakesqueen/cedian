@@ -219,6 +219,20 @@ registerAction2(class extends Action2 {
 	}
 });
 
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.fanBlocks',
+			title: localize2('cedian.fanBlocks', "Fan Floating Blocks"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	run(): void {
+		CedianBlockLayer.current?.toggleFan();
+	}
+});
+
 function isSideSource(value: unknown): value is SideSource {
 	const v = value as SideSource | undefined;
 	return typeof v === 'object' && v !== null && typeof v.thread === 'string' && typeof v.title === 'string' && typeof v.cwd === 'string';

@@ -41,3 +41,12 @@
 .cedian-pip.resizing { transition: none; }
 .cedian-pip.resizing .pip-body { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }
+/* Fanned (Tern's deck of PiPs): every block a card across the middle over a dimmed frame; a click
+   on a card brings it back, a click beside them folds the fan. Cards scale from their top left. */
+.cedian-blocks > .pip-scrim { position: absolute; inset: 0; z-index: 0; pointer-events: auto; background: rgba(0, 0, 0, .22); }
+.cedian-blocks > .pip-scrim[hidden] { display: none; }
+.cedian-blocks.fanned .cedian-pip { transform-origin: 0 0; cursor: pointer; }
+.cedian-blocks.fanned .cedian-pip .pip-head { cursor: pointer; }
+.cedian-blocks.fanned .cedian-pip .pip-body { pointer-events: none; }
+.cedian-blocks.fanned .cedian-pip .pip-grip, .cedian-blocks.fanned .cedian-pip .ibtn { display: none; }
+.cedian-blocks.fanned .cedian-pip:hover, .cedian-blocks.fanned .cedian-pip:focus-within { box-shadow: 0 0 0 2px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }

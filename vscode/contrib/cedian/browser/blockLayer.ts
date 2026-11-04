@@ -161,6 +161,11 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		client.request({ op: 'side', cwd: folder.fsPath, thread: from.thread });
 	}
 
+	/** Fans the floating blocks out to see them all, or folds them back. */
+	toggleFan(): void {
+		this.layer.toggleFan();
+	}
+
 	/** Closes the side chat, throwing it away; false when none floats. */
 	closeSide(): boolean {
 		if (!this.layer.has('side')) {
