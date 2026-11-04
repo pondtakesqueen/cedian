@@ -4,38 +4,43 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { addDisposableListener } from '../../../../base/browser/dom.js';
-import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { CLOSE_MS, closing, easeClose, easeOpen, moving, OPEN_MS, opening } from './blocks/motion.js';
-
-
+import { closing, moving, opening } from './blocks/motion.js';
 
 interface Box { left: number; top: number; width: number; height: number }
 
 /** The inset a block's card is drawn at within its slot (workbench.css: the gaps between groups), and its corners. */
 interface Inset { top: number; right: number; bottom: number; left: number; radius: string }
 
+/** Each block's card as last read at rest: a block being uncovered has its clip animated, and that is not its card. */
+const cards = new WeakMap<HTMLElement, Inset>();
+
 function insetOf(element: HTMLElement): Inset {
-	const clip = mainWindow.getComputedStyle(element).clipPath;
-	const match = /^inset\(([^)]*?)(?:\s+round\s+([^)]*))?\)$/.exec(clip);
+	const known = cards.get(element);
+	if (known && element.getAnimations().length) {
+		return known;
+	}
+	const style = mainWindow.getComputedStyle(element);
+	const match = /^inset\(([^)]*?)(?:\s+round\s+([^)]*))?\)$/.exec(style.clipPath);
 	const sides = (match?.[1] ?? '').trim().split(/\s+/).map(v => parseFloat(v) || 0);
 	const [top = 0, right = top, bottom = top, left = right] = sides;
-	return { top, right, bottom, left, radius: match?.[2]?.trim() || mainWindow.getComputedStyle(element).borderTopLeftRadius || '0px' };
+	const inset = { top, right, bottom, left, radius: match?.[2]?.trim() || style.borderTopLeftRadius || '0px' };
+	cards.set(element, inset);
+	return inset;
 }
 
 /** A clip-path that draws the card at its inset with this much more taken off each side. */
 const clipOf = (inset: Inset, more: Partial<Omit<Inset, 'radius'>> = {}) =>
 	`inset(${inset.top + (more.top ?? 0)}px ${inset.right + (more.right ?? 0)}px ${inset.bottom + (more.bottom ?? 0)}px ${inset.left + (more.left ?? 0)}px round ${inset.radius})`;
 
-/** A group view as the grid sees it: its sizes and layout, which IEditorGroup does not say. */
-interface GroupView { element: HTMLElement; layout(width: number, height: number, top: number, left: number): void }
-const viewOf = (group: IEditorGroup): GroupView | undefined => {
-	const view = group as IEditorGroup & Partial<GroupView>;
-	return view.element instanceof HTMLElement && typeof view.layout === 'function' ? view as IEditorGroup & GroupView : undefined;
+/** A group's element, which IEditorGroup does not say it has. */
+const elementOf = (group: IEditorGroup): HTMLElement | undefined => {
+	const element = (group as IEditorGroup & { element?: unknown }).element;
+	return element instanceof HTMLElement ? element : undefined;
 };
 
 /** Where an element is laid out, leaving out any transform on it or above it (a block in flight). */
@@ -53,201 +58,86 @@ const overlap = (a: Box, b: Box) =>
 	Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left))
 	* Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
 
+/** Which of `box`'s sides faces `other`, a block beside it. */
+function facing(box: Box, other: Box): 'left' | 'right' | 'top' | 'bottom' {
+	const across = Math.abs(other.top - box.top) < 2 || Math.abs(other.height - box.height) < Math.abs(other.width - box.width);
+	return across ? (other.left < box.left ? 'left' : 'right') : (other.top < box.top ? 'top' : 'bottom');
+}
+
 /**
- * The editor's blocks tile as a tiling window manager's do: whatever changes the layout, they move
- * and never pop. A block opened beside another (a file opened to the side, a split, a new tool)
- * stretches open out of the block it split from, its real size moving frame by frame as a side
- * block's does, and the block it came from gives up the room as it grows. Its contents stay laid out
- * at their full size, held at the edge away from that block, and its moving edge uncovers them.
- * Every other block whose place changed (a block closed, moved, dropped somewhere else) slides from
- * where it stood: it is laid out in its new place at once, put back with a transform before the
- * frame is painted, and eased there, a block that grew uncovered as it goes rather than scaled, so
- * nothing is stretched. A group a drop makes slides from the block its editor came from.
- * Where the blocks stood is noted after each frame the editor lays out, and as a key or a pointer is
- * pressed and a drag starts or drops. Opening a file in a block that is there already moves nothing.
- * Off with the window's reduced motion.
+ * The editor's blocks move as a tiling window manager's do, on the compositor alone (owner,
+ * 2026-11-04: lean before smooth): VS Code lays a change out once, at once, and the blocks are
+ * drawn moving toward it with transform and clip-path, so nothing is laid out while they move.
+ * - A block opened beside another (a file opened to the side, a split, a tool) is uncovered from
+ *   the edge it shares with the block it split from.
+ * - A block closed folds into the edge away from the block that takes its room, over it (its own
+ *   element, which VS Code has taken out, shown where it stood).
+ * - A block moved, dropped somewhere else or put somewhere new by a layout slides from where it
+ *   stood; a group a drop makes, from the block its editor came from. A size is VS Code's, at once.
+ * Where the blocks stood is noted after each change, when a pointer is let go (a sash dragged), a
+ * drag drops and the window is resized; never per frame or per key. Opening a file in a block
+ * that is there already moves nothing. Off with the window's reduced motion.
  */
 export class CedianBlockMove extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.blockMove';
 
-	/** Where each block stood when last painted at rest. */
-	private boxes = new Map<HTMLElement, Box>();
-	/** The inset each block's card was drawn at then: a closed group's is gone with it. */
-	private insets = new Map<HTMLElement, Inset>();
+	/** Where each block stood, and the inset its card was drawn at (a closed group's is gone with it). */
+	private boxes = new Map<HTMLElement, Box & { inset: Inset }>();
 	/** From a drop: where each editor's block stood. */
 	private byEditor = new Map<unknown, Box>();
 	private readonly added = new Set<IEditorGroup>();
 	private pending = false;
 	private dropping = false;
-	private noting = false;
-	/** Running slides and stretches, by block, so a new change takes over from where each is. */
-	private readonly runs = new Map<HTMLElement, () => void>();
 	/** Ancestors whose clipping is lifted while blocks slide over each other, and what it was. */
 	private readonly lifted = new Map<HTMLElement, string>();
+	private sliding = 0;
+	private resizeTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
 		@IEditorGroupsService private readonly groups: IEditorGroupsService,
 	) {
 		super();
-		const note = () => { if (!this.pending && !this.runs.size) { this.note(); } };
-		for (const type of ['pointerdown', 'pointerup', 'keydown', 'dragstart']) {
-			this._register(addDisposableListener(mainWindow, type, note, true));
-		}
+		const note = () => { if (!this.pending && !this.sliding) { this.note(); } };
+		// The blocks move between changes only by hand (a sash let go) or with the window: a key
+		// changes nothing until it changes them, and then they are noted after that change.
+		this._register(addDisposableListener(mainWindow, 'pointerup', note, true));
+		this._register(addDisposableListener(mainWindow, 'resize', () => {
+			clearTimeout(this.resizeTimer);
+			this.resizeTimer = setTimeout(note, 150);
+		}));
+		this._register(toDisposable(() => clearTimeout(this.resizeTimer)));
 		// Capture: measured before VS Code's own drop handlers move anything.
 		this._register(addDisposableListener(mainWindow, 'drop', () => this.drop(), true));
 		const part = groups.mainPart;
 		this._register(part.onDidAddGroup(group => { this.added.add(group); this.changed(); }));
 		this._register(part.onDidRemoveGroup(() => this.changed()));
 		this._register(part.onDidMoveGroup(() => this.changed()));
-		// A side block shown or hidden without stretching (blockStretch.ts) goes at once: the editor's
-		// blocks slide into its room. One that stretches has already been set back to where it was.
-		this._register(layout.onDidChangePartVisibility(() => this.changed()));
-		// Where they stand now, once the frame the editor laid out in is drawn.
-		this._register(part.onDidLayout(() => {
-			if (this.noting || this.pending) {
-				return;
-			}
-			this.noting = true;
-			mainWindow.requestAnimationFrame(() => {
-				this.noting = false;
-				if (!this.pending && !this.runs.size) {
-					this.note();
-				}
-			});
-		}));
-		this._register(toDisposable(() => { for (const stop of [...this.runs.values()]) { stop(); } }));
+		// A side block shown or hidden moves the editor's blocks at once: noted again, nothing slides.
+		this._register(layout.onDidChangePartVisibility(() => mainWindow.requestAnimationFrame(note)));
 		this.note();
-		this.maximizes();
-	}
-
-	/**
-	 * Maximizing a block in the editor, and putting it back, stretches it as a side block's maximize
-	 * does (blockStretch.ts): its real size grows frame by frame to the whole editor while the others
-	 * give way to nothing (their minimums lifted meanwhile), then VS Code maximizes it with nothing
-	 * left to jump; putting it back, VS Code lays the others out again and the block shrinks from the
-	 * whole editor to its size. VS Code's own toggle is followed, so its command and a double click
-	 * on a tab both do it.
-	 */
-	private maximizes(): void {
-		type Toggle = { toggleMaximizeGroup(group?: IEditorGroup | number): void };
-		const part = this.groups.mainPart as unknown as Toggle & typeof this.groups.mainPart;
-		const own = part.toggleMaximizeGroup;
-		if (typeof own !== 'function') {
-			return;
-		}
-		part.toggleMaximizeGroup = (target?: IEditorGroup | number) => {
-			const group = typeof target === 'number' ? part.getGroup(target) : target ?? part.activeGroup;
-			const run = () => own.call(part, target);
-			if (!group || !moving(this.layout.mainContainer) || this.maximizing || part.groups.length < 2) {
-				return run();
-			}
-			const others = part.groups.filter(g => g !== group);
-			if (part.hasMaximizedGroup()) {
-				run();
-				const to = part.getSize(group);
-				const full = this.whole(group, others);
-				this.tween(group, others, full, to, CLOSE_MS, easeClose);
-				return;
-			}
-			const from = part.getSize(group);
-			const full = this.whole(group, others);
-			// VS Code keeps the sizes to go back to: they are given back before VS Code takes them.
-			this.tween(group, others, from, full, OPEN_MS, easeOpen, () => { part.setSize(group, from); run(); });
-		};
-		this._register(toDisposable(() => { delete (part as Partial<Toggle>).toggleMaximizeGroup; }));
-	}
-
-	/** The whole editor, as the size `group` would have with the others at nothing (measured, then put back). */
-	private whole(group: IEditorGroup, others: IEditorGroup[]): { width: number; height: number } {
-		const part = this.groups.mainPart;
-		const undo = this.lift(others);
-		const was = part.getSize(group);
-		part.setSize(group, { width: 1e6, height: 1e6 });
-		const full = part.getSize(group);
-		part.setSize(group, was);
-		undo();
-		return full;
-	}
-
-	/** Lets the groups go down to nothing; the returned function gives them their minimums back. */
-	private lift(groups: IEditorGroup[]): () => void {
-		const undo: (() => void)[] = [];
-		for (const group of groups) {
-			for (const key of ['minimumWidth', 'minimumHeight'] as const) {
-				const own = Object.getOwnPropertyDescriptor(group, key);
-				Object.defineProperty(group, key, { configurable: true, get: () => 0, set: () => { } });
-				undo.push(() => {
-					if (own) {
-						Object.defineProperty(group, key, own);
-					} else {
-						delete (group as unknown as Record<string, unknown>)[key];
-					}
-				});
-			}
-		}
-		return () => { for (const u of undo.reverse()) { u(); } };
-	}
-
-	private maximizing = false;
-
-	/** Moves `group`'s real size from `from` to `to` frame by frame, the others free to give way; `done` runs in the last frame. */
-	private tween(group: IEditorGroup, others: IEditorGroup[], from: { width: number; height: number }, to: { width: number; height: number }, ms: number, ease: (t: number) => number, done?: () => void): void {
-		const part = this.groups.mainPart;
-		this.maximizing = true;
-		const undo = this.lift(others);
-		const set = (t: number) => part.setSize(group, {
-			width: Math.round(from.width + (to.width - from.width) * ease(t)),
-			height: Math.round(from.height + (to.height - from.height) * ease(t)),
-		});
-		const end = () => { undo(); this.maximizing = false; };
-		const start = mainWindow.performance.now();
-		const frame = () => {
-			const t = Math.min(1, (mainWindow.performance.now() - start) / ms);
-			try {
-				set(t);
-			} catch (error) {
-				end();
-				onUnexpectedError(error);
-				return;
-			}
-			if (t < 1) {
-				mainWindow.requestAnimationFrame(frame);
-				return;
-			}
-			end();
-			done?.();
-		};
-		set(0);
-		mainWindow.requestAnimationFrame(frame);
-	}
-
-	private moving(): boolean {
-		return moving(this.layout.mainContainer);
 	}
 
 	private note(): void {
 		this.boxes = new Map();
-		this.insets = new Map();
 		for (const group of this.groups.mainPart.groups) {
-			const element = viewOf(group)?.element;
+			const element = elementOf(group);
 			if (element?.offsetParent) {
-				this.boxes.set(element, boxOf(element));
-				this.insets.set(element, insetOf(element));
+				this.boxes.set(element, { ...boxOf(element), inset: insetOf(element) });
 			}
 		}
 	}
 
 	private drop(): void {
-		if (!this.moving()) {
+		if (!moving(this.layout.mainContainer)) {
 			return;
 		}
-		if (!this.runs.size) {
+		if (!this.sliding) {
 			this.note();
 		}
 		this.byEditor = new Map();
 		for (const group of this.groups.mainPart.groups) {
-			const box = this.boxes.get(viewOf(group)?.element as HTMLElement);
+			const box = this.boxes.get(elementOf(group) as HTMLElement);
 			if (box) {
 				for (const editor of group.editors) {
 					this.byEditor.set(editor, box);
@@ -269,15 +159,13 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			const dropped = this.dropping;
 			this.dropping = false;
 			try {
-				if (this.moving()) {
+				if (moving(this.layout.mainContainer)) {
 					this.settle(dropped);
 				}
 			} finally {
 				this.added.clear();
 				this.byEditor = new Map();
-				if (!this.runs.size) {
-					this.note();
-				}
+				this.note();
 			}
 		});
 	}
@@ -285,161 +173,92 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	private settle(dropped: boolean): void {
 		const before = this.boxes;
 		const groups = this.groups.mainPart.groups;
-		const now = groups.map(g => viewOf(g)?.element).filter((e): e is HTMLElement => !!e?.offsetParent);
-		// A change that only took blocks away moves on the closing timing, the rest on the opening's.
-		const gone = !dropped && !this.added.size && [...before.keys()].some(e => !e.isConnected);
-		const timing = gone ? closing : opening;
-		// A group that closed collapses into the edge away from the block that takes its room. One a
-		// drop emptied has nothing to show: its editor slides into its new block.
+		const now = new Map<HTMLElement, Box>();
+		for (const group of groups) {
+			const element = elementOf(group);
+			if (element?.offsetParent) {
+				now.set(element, boxOf(element));
+			}
+		}
+		// A closed group folds into the edge away from the block that takes its room. One a drop
+		// emptied has nothing to show: its editor slides into its new block.
 		for (const [element, box] of dropped ? [] : before) {
-			if (!element.isConnected) {
-				let taker: Box | undefined;
-				let most = 0;
-				for (const other of now) {
-					const shared = overlap(box, boxOf(other));
-					if (shared > most) {
-						most = shared;
-						taker = boxOf(other);
-					}
+			if (element.isConnected) {
+				continue;
+			}
+			let taker: Box | undefined;
+			let most = 0;
+			for (const other of now.values()) {
+				const shared = overlap(box, other);
+				if (shared > most) {
+					most = shared;
+					taker = other;
 				}
-				this.collapse(element, box, taker, this.insets.get(element), timing);
+			}
+			if (taker) {
+				this.fold(element, box, facing(box, taker));
 			}
 		}
 		for (const group of groups) {
-			const view = viewOf(group);
-			if (!view || !view.element.offsetParent) {
+			const element = elementOf(group);
+			const to = element && now.get(element);
+			if (!element || !to) {
 				continue;
 			}
-			const element = view.element;
-			const to = boxOf(element);
 			const fromDrop = group.activeEditor ? this.byEditor.get(group.activeEditor) : undefined;
 			if (this.added.has(group) && !fromDrop) {
 				// Out of the block it split from: the one that stood where it stands now.
 				let source: Box | undefined;
 				let most = 0;
 				for (const other of groups) {
-					const box = !this.added.has(other) ? before.get(viewOf(other)?.element as HTMLElement) : undefined;
+					const box = !this.added.has(other) ? before.get(elementOf(other) as HTMLElement) : undefined;
 					const shared = box ? overlap(box, to) : 0;
 					if (box && shared > most) {
 						most = shared;
 						source = box;
 					}
 				}
-				const tall = !!source && Math.abs(source.left - to.left) < 2 && Math.abs(source.width - to.width) < 2;
-				const far = !!source && (tall ? to.top > source.top : to.left > source.left);
-				this.stretch(group, view, tall, far);
+				if (source) {
+					this.uncover(element, facing(to, source));
+				}
 				continue;
 			}
 			const from = before.get(element) ?? fromDrop;
 			if (from) {
-				this.slide(element, from, to, !before.has(element), timing);
+				this.slide(element, from, to, !before.has(element));
 			}
 		}
 	}
 
-	/** Opens a new block from nothing to its size, as a side block does, its neighbour giving way. */
-	private stretch(group: IEditorGroup, view: GroupView, tall: boolean, far: boolean): void {
-		const part = this.groups.mainPart;
-		const element = view.element;
-		const full = part.getSize(group);
-		const target = tall ? full.height : full.width;
-		if (target <= 0) {
-			return;
-		}
-		this.runs.get(element)?.();
-		const key = tall ? 'minimumHeight' : 'minimumWidth';
-		// Its minimum lifted while it opens, its contents laid out at full size the whole time.
-		Object.defineProperty(view, key, { configurable: true, get: () => 0 });
-		const own = Object.getPrototypeOf(view).layout as GroupView['layout'];
-		view.layout = (width, height, top, left) => own.call(view, tall ? width : Math.max(width, target), tall ? Math.max(height, target) : height, top, left);
+	/** Uncovers a new block from `edge`, the side it shares with the block it split from. */
+	private uncover(element: HTMLElement, edge: 'left' | 'right' | 'top' | 'bottom'): void {
 		element.style.animation = 'none';
-		element.style.overflow = 'hidden';
-		const inner = [...element.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
-		const set = (size: number) => {
-			part.setSize(group, tall ? { width: full.width, height: size } : { width: size, height: full.height });
-			for (const c of inner) {
-				c.style.transform = far ? `translate${tall ? 'Y' : 'X'}(${size - target}px)` : '';
-			}
-		};
-		let frame = 0;
-		let stopped = false;
-		const stop = () => {
-			if (stopped) {
-				return;
-			}
-			stopped = true;
-			mainWindow.cancelAnimationFrame(frame);
-			const record = view as unknown as Record<string, unknown>;
-			delete record[key];
-			delete record.layout;
-			element.style.overflow = '';
-			for (const c of inner) {
-				c.style.transform = '';
-			}
-			if (this.runs.get(element) === stop) {
-				this.runs.delete(element);
-			}
-			if (element.isConnected) {
-				part.setSize(group, full);
-			}
-		};
-		this.runs.set(element, stop);
-		const start = mainWindow.performance.now();
-		const step = () => {
-			if (stopped) {
-				return;
-			}
-			if (!element.isConnected) {
-				stop();
-				return;
-			}
-			const t = Math.min(1, (mainWindow.performance.now() - start) / OPEN_MS);
-			set(Math.round(target * easeOpen(t)));
-			if (t < 1) {
-				frame = mainWindow.requestAnimationFrame(step);
-				return;
-			}
-			stop();
-			this.note();
-		};
-		set(0);
-		frame = mainWindow.requestAnimationFrame(step);
+		const inset = insetOf(element);
+		const span = edge === 'left' || edge === 'right' ? element.offsetWidth : element.offsetHeight;
+		const far = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[edge] as keyof Omit<Inset, 'radius'>;
+		element.animate([{ clipPath: clipOf(inset, { [far]: span - inset[far] - inset[edge] }) }, { clipPath: clipOf(inset) }], opening);
 	}
 
-	/** Slides a block from where it stood to where it is laid out now; a side that grew is uncovered as it goes. */
-	private slide(element: HTMLElement, from: Box, to: Box, over: boolean, timing: KeyframeAnimationOptions): void {
-		const dx = from.left - to.left;
-		const dy = from.top - to.top;
-		const right = Math.max(0, to.width - from.width);
-		const bottom = Math.max(0, to.height - from.height);
+	/** Slides a block from where it stood to where it is laid out now: its place only, its size VS Code's. */
+	private slide(element: HTMLElement, from: Box, to: Box, over: boolean): void {
 		// Re-attached by a move, it would play an animation of its own again.
 		element.style.animation = 'none';
-		if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && right < 1 && bottom < 1) {
+		const dx = from.left - to.left;
+		const dy = from.top - to.top;
+		if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
 			return;
 		}
-		this.runs.get(element)?.();
-		// Its own card's inset (the gaps between groups) kept, and the side that grew taken off it.
-		const inset = insetOf(element);
+		element.getAnimations().forEach(a => a.cancel());
 		this.unclip(element);
 		// A block that crosses others passes over them.
 		if (over || Math.abs(dx) > to.width / 2 || Math.abs(dy) > to.height / 2) {
 			element.style.zIndex = '1';
 		}
-		const run = element.animate(
-			[
-				{ transform: `translate(${dx}px, ${dy}px)`, clipPath: clipOf(inset, { right, bottom }) },
-				{ transform: 'none', clipPath: clipOf(inset) },
-			],
-			timing,
-		);
-		const stop = () => {
-			if (this.runs.get(element) !== stop) {
-				return;
-			}
-			this.runs.delete(element);
-			run.cancel();
+		this.sliding++;
+		const run = element.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], opening);
+		const done = () => {
 			element.style.zIndex = '';
-			if (!this.runs.size) {
+			if (--this.sliding === 0) {
 				for (const [node, overflow] of this.lifted) {
 					node.style.overflow = overflow;
 				}
@@ -447,23 +266,16 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 				this.note();
 			}
 		};
-		this.runs.set(element, stop);
-		run.onfinish = stop;
+		run.onfinish = done;
+		run.oncancel = done;
 	}
 
 	/**
-	 * Shows a closed group collapsing into its edge, fully drawn, while the block that takes its room
-	 * slides over it: its edge moves on the same curve and in the same time as that block's, so the
-	 * two meet all the way. VS Code has taken the group out already, so its own element is shown
-	 * where it stood, above the editor, and removed when it is gone.
+	 * A closed group, its own element (VS Code has taken it out) shown where it stood over the block
+	 * that takes its room, taken off from `toward`, the side that block comes from, so it folds into
+	 * the side away from it.
 	 */
-	private collapse(element: HTMLElement, box: Box, taker: Box | undefined, inset: Inset | undefined, timing: KeyframeAnimationOptions): void {
-		if (!taker || box.width === 0 || box.height === 0) {
-			return;
-		}
-		// The taker is on one side of it: it grows over the group from that side.
-		const sideways = Math.abs(taker.top - box.top) < 2 || Math.abs(taker.height - box.height) > Math.abs(taker.width - box.width);
-		const before = sideways ? taker.left < box.left : taker.top < box.top;
+	private fold(element: HTMLElement, box: Box & { inset: Inset }, toward: 'left' | 'right' | 'top' | 'bottom'): void {
 		const holder = mainWindow.document.createElement('div');
 		holder.className = 'cedian-block-closing';
 		holder.setAttribute('aria-hidden', 'true');
@@ -472,19 +284,16 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		holder.style.width = `${box.width}px`;
 		holder.style.height = `${box.height}px`;
 		element.style.width = element.style.height = '100%';
-		element.style.animation = 'none';
+		element.style.animation = element.style.clipPath = 'none';
 		holder.appendChild(element);
 		this.layout.mainContainer.appendChild(holder);
-		// Its card drawn as it was, between the same gaps; the holder's own card goes.
-		const card = inset ?? { top: 0, right: 0, bottom: 0, left: 0, radius: '0px' };
-		element.style.clipPath = 'none';
-		const gone = sideways
-			? clipOf(card, before ? { left: box.width - card.left - card.right } : { right: box.width - card.left - card.right })
-			: clipOf(card, before ? { top: box.height - card.top - card.bottom } : { bottom: box.height - card.top - card.bottom });
-		const run = holder.animate([{ clipPath: clipOf(card) }, { clipPath: gone }], { ...timing, fill: 'forwards' });
-		const done = () => holder.remove();
-		run.onfinish = done;
-		run.oncancel = done;
+		const card = box.inset;
+		const span = toward === 'left' || toward === 'right' ? box.width - card.left - card.right : box.height - card.top - card.bottom;
+		// Taken off from the side the taker comes from, so it folds into the side away from it.
+		const run = holder.animate([{ clipPath: clipOf(card) }, { clipPath: clipOf(card, { [toward]: span }) }], { ...closing, fill: 'forwards' });
+		const gone = () => holder.remove();
+		run.onfinish = gone;
+		run.oncancel = gone;
 	}
 
 	/** Lets a block show outside its slot: the grid's views and the grid itself hide what overflows. */

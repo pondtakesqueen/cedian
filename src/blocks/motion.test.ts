@@ -14,6 +14,10 @@ function bezier(css: string, x: number): number {
 }
 
 describe("motion", () => {
+  it("closing is opening played backwards", () => {
+    for (const t of [0.1, 0.3, 0.5, 0.8]) expect(easeClose(t)).toBeCloseTo(1 - easeOpen(1 - t), 10);
+  });
+
   it("opens slower than it closes, both ending where they should", () => {
     expect(OPEN_MS).toBeGreaterThan(CLOSE_MS);
     for (const ease of [easeOpen, easeClose]) {
@@ -30,6 +34,6 @@ describe("motion", () => {
   });
 
   it("gives the CSS the same numbers", () => {
-    expect(MOTION_PROPERTIES).toEqual({ "--cedian-motion-open": "320ms", "--cedian-motion-close": "240ms", "--cedian-ease-open": EASE_OPEN, "--cedian-ease-close": EASE_CLOSE });
+    expect(MOTION_PROPERTIES).toEqual({ "--cedian-motion-open": "180ms", "--cedian-motion-close": "140ms", "--cedian-motion-press": "90ms", "--cedian-ease-open": EASE_OPEN, "--cedian-ease-close": EASE_CLOSE });
   });
 });

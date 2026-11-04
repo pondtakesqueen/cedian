@@ -92,13 +92,13 @@
 .monaco-workbench .monaco-sash.hover::before,
 .monaco-workbench .monaco-sash.active::before { background: var(--cedian-line-strong, var(--vscode-sash-hoverBorder)); border-radius: 2px; }
 
-/* Motion, as a tiling window manager's: blocks never scale or fade, they only stretch and slide.
-   A side block shown or hidden stretches open and shut, its real size moving frame by frame and
-   its neighbours with it (blockStretch.ts); an editor group opened stretches out of the block it
-   split from, one closed collapses into its edge, and the rest slide to their new places
-   (blockMove.ts). The focused block's top edge lights up. VS Code puts monaco-enable-motion on the
-   window unless the OS asks for reduced motion or `workbench.reduceMotion` is on, so both turn the
-   motion off. */
+/* Motion, as a tiling window manager's, on the compositor alone: blocks never scale or fade, and
+   nothing is laid out while they move (src/blocks/motion.ts). A side block shown or hidden comes
+   out of its edge and folds back into it (blockStretch.ts); an editor group opened is uncovered
+   from the block it split from, one closed folds into its edge, and the rest slide to their new
+   places (blockMove.ts). The focused block's top edge lights up. VS Code puts
+   monaco-enable-motion on the window unless the OS asks for reduced motion or
+   `workbench.reduceMotion` is on, so both turn the motion off. */
 .monaco-workbench {
 	--cedian-motion-focus: 120ms;
 	--cedian-ease-out: cubic-bezier(.2, .7, .3, 1);
@@ -143,7 +143,11 @@
 }
 .monaco-workbench.monaco-enable-motion .codicon-toolbar-more { transition: opacity var(--cedian-motion-focus, 120ms) var(--cedian-ease-out, ease-out); }
 
-/* An editor group that closed, while it collapses into its edge (blockMove.ts): where it stood,
+/* A side block hidden by its command, a copy of it where it stood while it folds into its edge
+   (blockStretch.ts), over the blocks that took its room, never in the pointer's way. */
+.monaco-workbench > .cedian-block-leaving { position: fixed; z-index: 30; pointer-events: none; animation: none; }
+
+/* An editor group that closed, while it folds into its edge (blockMove.ts): where it stood,
    never in the pointer's way. Out of the editor area it has lost its card's ground, so it gets it
    back; its corners and the gaps around it are drawn by the clip it collapses with. */
 .cedian-block-closing { position: fixed; z-index: 30; pointer-events: none; }
