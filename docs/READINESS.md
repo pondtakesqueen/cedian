@@ -240,9 +240,11 @@
   project's thread on one, Comment, Close as completed or not planned,
   Reopen, New issue, and Start a thread, which fills a new thread's message
   asking its PR to say "Fixes #N"
-- [ ] Pop-out panes; Help → Check for updates (built 2026-10-30, not yet
-  tried in the app; the contribution typechecks against VS Code 1.143.1's
-  `src/tsconfig.json` in the cloud, no errors but the missing Electron types).
+- [x] Pop-out panes; Help → Check for updates (built 2026-10-30; tried in
+  the app on the owner's Mac: pop-out by the owner, 2026-11-04; Check for
+  Updates through Playwright's Electron driver on main 958b12b, where Help
+  lists "Check for Updates..." and the dialog says "No Cedian release yet",
+  "You have 0.1.0", as the repository has no release).
   Pop-out: ⧉ in the agent pane's header, the Agent view's title bar or
   `Cedian: Open Thread in New Window` moves the open thread into an agent
   pane of its own window (an editor, `agentEditor.ts`, in VS Code's
