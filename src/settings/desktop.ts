@@ -59,12 +59,13 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "workbench.experimental.modernUIEditorTabStyle": "pill",
     "window.density.layout": desktop.density === "compact" ? "compact" : "default",
     // The prototype's window has no activity bar: Threads is on the left and the tools are
-    // tabs of one panel on the right (src/blocks/places.ts). "hidden" would also hide those tabs
-    // (VS Code draws a part's tabs only where its activity bar goes), so the bar goes on top of
-    // each part and hides where a part holds one container: Threads shows no tab strip, the tools
-    // panel shows its tabs.
-    "workbench.activityBar.location": "top",
-    "workbench.activityBar.autoHide": true,
+    // tabs of one panel on the right (src/blocks/places.ts), named, in the panel's one header row
+    // as every block's. VS Code puts a part's tabs where its activity bar goes, and only the
+    // default place gives the right panel named tabs in its title row ("top" draws an icon row
+    // above the title, "hidden" none), so the bar stays at its default place and the window hides
+    // the bar itself (windowPlaces.ts).
+    "workbench.activityBar.location": "default",
+    "workbench.secondarySideBar.showLabels": true,
     // Its title bar names the project and holds Cedian's own controls (+ Tool, the layout
     // picker), not VS Code's command center and side bar toggles.
     "window.title": "${rootName}",

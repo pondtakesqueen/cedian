@@ -67,3 +67,11 @@
 	font-size: 12px;
 }
 .monaco-workbench .part.titlebar .action-item.menu-entry > .keybinding { display: none; }
+/* The divider between blocks, as the prototype's: nothing drawn until the pointer is on it, then a
+   2px line in the gap. Modern UI's three grip dots go, so every gap looks the same (they marked
+   only the gaps beside the side bars, not between editor groups). */
+.monaco-workbench.modern-ui .monaco-sash::after { display: none; }
+/* Above the sash contribution's own rule (workbench.sash.size), which sets it on .monaco-workbench. */
+.monaco-workbench.modern-ui { --vscode-sash-hover-size: 2px; }
+.monaco-workbench .monaco-sash.hover::before,
+.monaco-workbench .monaco-sash.active::before { background: var(--cedian-line-strong, var(--vscode-sash-hoverBorder)); border-radius: 2px; }
