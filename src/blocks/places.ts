@@ -73,6 +73,18 @@ export function movesFor(where: (container: string) => Place | undefined): Move[
   return out;
 }
 
+/**
+ * The side blocks stay put, as the prototype's do: Threads alone in the left side bar, every tool on
+ * the right. Given where Threads is and what the left side bar holds now, the moves that undo a
+ * drag or a "Move to" that broke that. Sizes stay free: only places are kept.
+ */
+export function lockMoves(threadsAt: Place | undefined, inSidebar: readonly string[]): Move[] {
+  const out: Move[] = [];
+  if (threadsAt !== undefined && threadsAt !== "sidebar") out.push({ container: THREADS_CONTAINER, to: "sidebar" });
+  for (const c of inSidebar) if (c !== THREADS_CONTAINER) out.push({ container: c, to: "auxiliary" });
+  return out;
+}
+
 /** What "+ Tool" opens: a part's container, shown and focused, or a command. */
 export type ToolOpen = { container: string } | { command: string };
 

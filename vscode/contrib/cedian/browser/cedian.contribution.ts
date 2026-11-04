@@ -84,6 +84,8 @@ const threadsContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.Vie
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [THREADS_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: THREADS_CONTAINER_ID,
 	order: -1,
+	// Threads is a block of its own: no view can be dropped or moved into it.
+	rejectAddedViews: true,
 }, ViewContainerLocation.Sidebar, { isDefault: true });
 
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
@@ -92,7 +94,8 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 	containerIcon: threadsIcon,
 	ctorDescriptor: new SyncDescriptor(ThreadsView),
 	canToggleVisibility: false,
-	canMoveView: true,
+	// Threads stays on the left (windowPlaces.ts locks the side blocks).
+	canMoveView: false,
 }], threadsContainer);
 
 // ---- the settings window ----
