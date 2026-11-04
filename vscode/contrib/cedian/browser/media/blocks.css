@@ -1,0 +1,26 @@
+/* The block layer (src/blocks/layer.ts): blocks floating over the workbench as PiPs, after Tern's
+   (spec §3.3, §4.4). The layer covers the workbench and lets clicks through; each floating block
+   is a card with a header to drag it by. Moves glide unless Reduce Motion is on (spec §9 a11y). */
+.cedian-blocks { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; }
+.cedian-pip { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; pointer-events: auto; border-radius: 12px; overflow: hidden; background: var(--cedian-app); box-shadow: 0 0 0 1px var(--cedian-line-strong), 0 12px 32px rgba(0, 0, 0, .28); transition: transform .22s cubic-bezier(.2, .8, .2, 1), width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); }
+.cedian-pip.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 1px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }
+.cedian-pip [hidden] { display: none !important; }
+.cedian-pip .pip-head { flex: none; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 12px; background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); cursor: grab; user-select: none; touch-action: none; }
+.cedian-pip .pip-head:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+.cedian-pip .pip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 12px; }
+.cedian-pip .ibtn { flex: none; min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--cedian-text-muted); font: inherit; }
+.cedian-pip .ibtn:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-pip .ibtn[aria-pressed="true"] { background: var(--cedian-line-strong); color: var(--cedian-text); }
+.cedian-pip .ibtn:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+.cedian-pip .pip-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.cedian-pip.stashed .pip-body, .cedian-pip.stashed .pip-head { visibility: hidden; }
+/* Stashed: the strip left in the frame is a tab that brings the block back. */
+.cedian-pip .pip-tab { position: absolute; top: 0; bottom: 0; width: 28px; border: 0; padding: 0; cursor: pointer; background: var(--cedian-sheet); color: var(--cedian-text-muted); }
+.cedian-pip .pip-tab::after { content: ""; position: absolute; top: 50%; left: 12px; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: var(--cedian-line-strong); }
+.cedian-pip .pip-tab:hover::after, .cedian-pip .pip-tab:focus-visible::after { background: var(--cedian-accent); }
+.cedian-pip .pip-tab:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+.cedian-pip[data-stash="left"] .pip-tab { right: 0; }
+.cedian-pip[data-stash="right"] .pip-tab { left: 0; }
+/* The block inside fills the body; the Browser block keeps its own corners square here. */
+.cedian-pip .pip-body > * { position: absolute; inset: 0; }
+@media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }
