@@ -157,6 +157,10 @@
 	transition: top 320ms cubic-bezier(.2, .7, .3, 1), left 320ms cubic-bezier(.2, .7, .3, 1), width 320ms cubic-bezier(.2, .7, .3, 1), height 320ms cubic-bezier(.2, .7, .3, 1), opacity 150ms ease-out;
 }
 
+/* A closed tab while it collapses into its left edge (tabMove.ts): over the row where it stood,
+   never in the pointer's way. */
+.monaco-workbench .part.editor .tabs-and-actions-container .cedian-tab-closing { pointer-events: none; z-index: 1; }
+
 /* The project tabs (projectTabs.ts) at the start of the title bar's left side, as the prototype's
    .ptab row: quiet until hovered, this window's project filled. What needs the person is a badge in
    the accent colour, what is at work a dot and a count in the working colour. */
