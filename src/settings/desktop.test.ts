@@ -32,6 +32,7 @@ describe("VS Code settings from desktop", () => {
     // Thai: word moves by its dictionary, and prose wraps between words.
     expect(vscodeSettings({}, true)["editor.wordSegmenterLocales"]).toBe("th");
     expect(vscodeSettings({}, true)["git.detectWorktrees"]).toBe(true);
+    expect(vscodeSettings({}, true)["editor.minimap.maxColumn"]).toBe(40);
     expect(vscodeSettings({}, true)["[markdown]"]).toEqual({ "editor.wrappingStrategy": "advanced" });
     expect(vscodeSettings({ editor: { tab_completion: false } }, true)["editor.inlineSuggest.suppressSuggestions"]).toBe(false);
     expect(vscodeSettings({ theme: "system" }, false)["window.autoDetectColorScheme"]).toBe(true);

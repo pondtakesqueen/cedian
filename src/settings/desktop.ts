@@ -102,6 +102,10 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     // browser's line breaker says, between words, not at any character. Code files keep the
     // faster simple wrapping.
     "editor.wordSegmenterLocales": "th",
+    // The minimap is as wide as its 40 columns, not a share of a narrow editor's width: VS Code's
+    // own grows and shrinks with the editor (about a ninth of it below 120 columns' worth), so it
+    // stretched on every frame while a side block opened beside it (blockStretch.ts).
+    "editor.minimap.maxColumn": 40,
     "[markdown]": { "editor.wrappingStrategy": "advanced" },
     "[plaintext]": { "editor.wrappingStrategy": "advanced" },
     // The git pane lists each thread's worktree beside the project (they live under
