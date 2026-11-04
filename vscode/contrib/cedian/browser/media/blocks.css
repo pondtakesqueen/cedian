@@ -23,4 +23,18 @@
 .cedian-pip[data-stash="right"] .pip-tab { left: 0; }
 /* The block inside fills the body; the Browser block keeps its own corners square here. */
 .cedian-pip .pip-body > * { position: absolute; inset: 0; }
+/* Resize grips on the edges toward the frame's middle: the corner the block rests in stays put. */
+.cedian-pip .pip-grip { position: absolute; z-index: 2; touch-action: none; }
+.cedian-pip .g-x { top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cedian-pip .g-y { left: 0; right: 0; height: 6px; cursor: ns-resize; }
+.cedian-pip .g-xy { width: 14px; height: 14px; }
+.cedian-pip[data-corner$="r"] .g-x, .cedian-pip[data-corner$="r"] .g-xy { left: 0; }
+.cedian-pip[data-corner$="l"] .g-x, .cedian-pip[data-corner$="l"] .g-xy { right: 0; }
+.cedian-pip[data-corner^="b"] .g-y, .cedian-pip[data-corner^="b"] .g-xy { top: 0; }
+.cedian-pip[data-corner^="t"] .g-y, .cedian-pip[data-corner^="t"] .g-xy { bottom: 0; }
+.cedian-pip[data-corner="br"] .g-xy, .cedian-pip[data-corner="tl"] .g-xy { cursor: nwse-resize; }
+.cedian-pip[data-corner="bl"] .g-xy, .cedian-pip[data-corner="tr"] .g-xy { cursor: nesw-resize; }
+.cedian-pip.zoomed .pip-grip, .cedian-pip.stashed .pip-grip { display: none; }
+.cedian-pip.resizing { transition: none; }
+.cedian-pip.resizing .pip-body { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }

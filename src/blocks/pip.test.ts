@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { fit, GAP, nearest, place, PIP_MIN, settle, sideOf, STASH_TAB, step, velocityOf } from "./pip.js";
+import { fit, GAP, nearest, place, PIP_MIN, resized, settle, sideOf, STASH_TAB, step, velocityOf } from "./pip.js";
 
 const frame = { width: 1200, height: 800 };
 const size = { width: 400, height: 300 };
@@ -65,5 +65,21 @@ describe("keys", () => {
   test("a block stashes against its corner's side", () => {
     expect(sideOf("tr")).toBe("right");
     expect(sideOf("bl")).toBe("left");
+  });
+});
+
+describe("resizing by the free edges", () => {
+  test("the edges toward the middle move; the resting corner stays", () => {
+    // Bottom right: dragging left and up grows it.
+    expect(resized(size, "br", -100, -50, frame)).toEqual({ width: 500, height: 350 });
+    // Top left: dragging right and down grows it.
+    expect(resized(size, "tl", 100, 50, frame)).toEqual({ width: 500, height: 350 });
+    expect(resized(size, "tr", 60, 0, frame)).toEqual({ width: 340, height: 300 });
+  });
+  test("one edge moves one way only, and the size keeps to the least and the frame", () => {
+    expect(resized(size, "br", -100, -50, frame, "x")).toEqual({ width: 500, height: 300 });
+    expect(resized(size, "br", -100, -50, frame, "y")).toEqual({ width: 400, height: 350 });
+    expect(resized(size, "br", 1000, 1000, frame)).toEqual(PIP_MIN);
+    expect(resized(size, "br", -5000, -5000, frame)).toEqual({ width: 1200 - 2 * GAP, height: 800 - 2 * GAP });
   });
 });

@@ -4,9 +4,11 @@
 import { projectSlug, type Desktop } from "../settings/desktop.js";
 import { isCorner, type Rest, type Size } from "./pip.js";
 
-/** One floating block: its kind ("browser"), where it rests, and its size. */
+/** One floating block: its kind ("browser"), which one it shows (an agent's thread), where it
+ * rests, and its size. */
 export interface Floating extends Rest, Size {
   kind: string;
+  id?: string;
 }
 
 /** A project's entry in `desktop.layout`; keys other than `pip` are kept as they are. */
@@ -26,8 +28,10 @@ function floatingOf(value: unknown): Floating | undefined {
   const width = px(r.width);
   const height = px(r.height);
   if (width === undefined || height === undefined) return undefined;
-  const stash = r.stash === "left" || r.stash === "right" ? r.stash : undefined;
-  return stash ? { kind: r.kind, corner: r.corner, stash, width, height } : { kind: r.kind, corner: r.corner, width, height };
+  const f: Floating = { kind: r.kind, corner: r.corner, width, height };
+  if (r.stash === "left" || r.stash === "right") f.stash = r.stash;
+  if (typeof r.id === "string" && r.id) f.id = r.id;
+  return f;
 }
 
 /** The blocks floating in the project at `root`, one per kind; anything malformed is left out. */
@@ -62,6 +66,6 @@ export function withFloating(desktop: Desktop, root: string, pip: readonly Float
 export function sameFloating(a: readonly Floating[], b: readonly Floating[]): boolean {
   return a.length === b.length && a.every((f, i) => {
     const g = b[i];
-    return f.kind === g.kind && f.corner === g.corner && f.stash === g.stash && f.width === g.width && f.height === g.height;
+    return f.kind === g.kind && f.id === g.id && f.corner === g.corner && f.stash === g.stash && f.width === g.width && f.height === g.height;
   });
 }

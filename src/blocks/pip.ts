@@ -111,3 +111,21 @@ export function velocityOf(samples: readonly (Point & { t: number })[]): Point {
   if (recent.length < 2 || dt <= 0) return { x: 0, y: 0 };
   return { x: (last.x - first.x) / dt, y: (last.y - first.y) / dt };
 }
+
+/** Which way a size grows: the edges away from the corner the block rests in. */
+export function growth(corner: Corner): Point {
+  return { x: isRight(corner) ? -1 : 1, y: isBottom(corner) ? -1 : 1 };
+}
+
+/**
+ * The size after dragging the free edges of a block resting in `corner` by `dx`, `dy` from `from`:
+ * the edges toward the frame's middle move, the corner stays where it is.
+ */
+export function resized(from: Size, corner: Corner, dx: number, dy: number, frame: Size, axes: "x" | "y" | "xy" = "xy"): Size {
+  const g = growth(corner);
+  const want = {
+    width: axes === "y" ? from.width : from.width + g.x * dx,
+    height: axes === "x" ? from.height : from.height + g.y * dy,
+  };
+  return fit(want, frame);
+}

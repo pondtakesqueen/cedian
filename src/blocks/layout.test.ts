@@ -25,6 +25,11 @@ describe("floating blocks in desktop.layout (spec §5.5)", () => {
     const stashed = { ...browser, stash: "right" as const };
     expect(floatingIn({ layout: withFloating({}, "/r/main", [stashed]) }, "/r/main")).toEqual([stashed]);
   });
+  test("which one a block shows is kept", () => {
+    const agent = { kind: "agent", id: "t-42", corner: "tl" as const, width: 380, height: 520 };
+    expect(floatingIn({ layout: withFloating({}, "/r/main", [browser, agent]) }, "/r/main")).toEqual([browser, agent]);
+    expect(sameFloating([agent], [{ ...agent, id: "t-43" }])).toBe(false);
+  });
   test("same", () => {
     expect(sameFloating([browser], [{ ...browser }])).toBe(true);
     expect(sameFloating([browser], [{ ...browser, corner: "tl" }])).toBe(false);
