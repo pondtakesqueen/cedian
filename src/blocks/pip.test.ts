@@ -47,6 +47,14 @@ describe("letting go", () => {
     const narrow = { width: 786, height: 805 };
     expect(settle({ x: 400, y: 400, width: 600, height: 400 }, { x: 0, y: 0 }, narrow)).toEqual({ corner: "br" });
   });
+  test("with the pointer known, the pointer decides the stash: a wide block dragged far but let go inside rests", () => {
+    const narrow = { width: 786, height: 805 };
+    // Middle past the right side, pointer let go 140 px inside: rests bottom right.
+    expect(settle({ x: 587, y: 400, width: 600, height: 400 }, { x: 0, y: 0 }, narrow, { x: 646, y: 420 })).toEqual({ corner: "br" });
+    // The pointer let go past the side stashes; so does a fling that carries it past.
+    expect(settle({ x: 587, y: 400, width: 600, height: 400 }, { x: 0, y: 0 }, narrow, { x: 800, y: 420 })).toEqual({ corner: "br", stash: "right" });
+    expect(settle({ x: 300, y: 400, width: 600, height: 400 }, { x: 2000, y: 0 }, narrow, { x: 500, y: 420 })).toEqual({ corner: "br", stash: "right" });
+  });
   test("speed comes from the last 80 ms: a pause before letting go is a drop", () => {
     expect(velocityOf([{ x: 0, y: 0, t: 0 }, { x: 50, y: 0, t: 50 }])).toEqual({ x: 1000, y: 0 });
     expect(velocityOf([{ x: 0, y: 0, t: 0 }, { x: 50, y: 0, t: 50 }, { x: 50, y: 0, t: 400 }])).toEqual({ x: 0, y: 0 });

@@ -149,18 +149,21 @@ export function nearest(point: Point, frame: Size): Corner {
 
 /**
  * Where a block let go at `at` with `velocity` (px/s) comes to rest: it carries on for
- * `FLING_S` of its speed, and stashes against a side its middle would end past, else rests in the
- * corner nearest where its middle ends.
+ * `FLING_S` of its speed, and stashes against a side the pointer (else its middle) would end past,
+ * else rests in the corner nearest where its middle ends. `pointer` is where it was let go, in
+ * the frame.
  */
-export function settle(at: Rect, velocity: Point, frame: Size): Rest {
+export function settle(at: Rect, velocity: Point, frame: Size, pointer?: Point): Rest {
   const x = at.x + velocity.x * FLING_S;
   const y = at.y + velocity.y * FLING_S;
   const middle = { x: x + at.width / 2, y: y + at.height / 2 };
   const corner = nearest(middle, frame);
-  // Stashed only when more than half of it would end past the side: a wide block dropped near
-  // an edge rests in the corner.
-  if (middle.x < 0) return { corner: isBottom(corner) ? "bl" : "tl", stash: "left" };
-  if (middle.x > frame.width) return { corner: isBottom(corner) ? "br" : "tr", stash: "right" };
+  // Stashed only when it would end past a side: the pointer that let it go, carried on at its
+  // speed, when there is one (a long drag of a wide block let go inside the frame rests), else
+  // its middle.
+  const past = pointer ? pointer.x + velocity.x * FLING_S : middle.x;
+  if (past < 0) return { corner: isBottom(corner) ? "bl" : "tl", stash: "left" };
+  if (past > frame.width) return { corner: isBottom(corner) ? "br" : "tr", stash: "right" };
   return { corner };
 }
 

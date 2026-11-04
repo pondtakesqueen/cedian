@@ -402,8 +402,11 @@ export class BlockLayer {
         if (pip.state === "parked") this.unstash(pip.block.kind);
         return;
       }
-      const size = fit(pip.size, this.frame);
-      const rest = settle({ x: g.at.x + dx, y: g.at.y + dy, ...size }, velocityOf(g.samples), this.frame);
+      // At the size it was drawn at while dragged (it may be sharing the frame), and judged by
+      // where the pointer let it go.
+      const frameAt = this.root.getBoundingClientRect();
+      const pointer = { x: e.clientX - frameAt.left, y: e.clientY - frameAt.top };
+      const rest = settle({ x: g.at.x + dx, y: g.at.y + dy, width: g.at.width, height: g.at.height }, velocityOf(g.samples), this.frame, pointer);
       this.moveTo(pip.block.kind, rest);
     };
     head.addEventListener("pointerdown", down);
