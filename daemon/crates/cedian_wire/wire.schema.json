@@ -414,7 +414,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"creator\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -431,6 +431,7 @@
         "worktree.newest-wins",
         "spawn.best-of-n",
         "todo",
+        "creator",
         "profiles",
         "open_thread",
         "schedules",
@@ -629,7 +630,7 @@
       "type": "object"
     },
     "CommandEntry": {
-      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } } } ``` </details>",
+      "description": "`CommandEntry`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"description\", \"kind\", \"name\", \"source\" ], \"properties\": { \"argumentHint\": { \"type\": \"string\" }, \"description\": { \"type\": \"string\" }, \"kind\": { \"type\": \"string\", \"const\": \"skill\" }, \"name\": { \"type\": \"string\" }, \"source\": { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\", \"builtin\" ] } } } ``` </details>",
       "properties": {
         "argumentHint": {
           "type": [
@@ -659,11 +660,12 @@
       "type": "object"
     },
     "CommandEntrySource": {
-      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\" ] } ``` </details>",
+      "description": "`CommandEntrySource`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"user\", \"repository\", \"plugin\", \"builtin\" ] } ``` </details>",
       "enum": [
         "user",
         "repository",
-        "plugin"
+        "plugin",
+        "builtin"
       ],
       "type": "string"
     },
@@ -6354,8 +6356,91 @@
       ],
       "type": "string"
     },
+    "ToolErrorBaseline": {
+      "description": "`ToolErrorBaseline`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"byCategory\", \"calls\", \"errors\", \"model\", \"rate\", \"tool\" ], \"properties\": { \"byCategory\": { \"type\": \"object\", \"properties\": { \"InvalidArguments\": { \"type\": \"number\" }, \"ProviderError\": { \"type\": \"number\" }, \"Timeout\": { \"type\": \"number\" }, \"UnexpectedEnvironment\": { \"type\": \"number\" }, \"UserAborted\": { \"type\": \"number\" }, \"none\": { \"type\": \"number\" } } }, \"calls\": { \"type\": \"number\" }, \"errors\": { \"type\": \"number\" }, \"model\": { \"type\": \"string\" }, \"rate\": { \"type\": \"number\" }, \"tool\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "byCategory": {
+          "$ref": "#/definitions/ToolErrorBaselineByCategory"
+        },
+        "calls": {
+          "format": "double",
+          "type": "number"
+        },
+        "errors": {
+          "format": "double",
+          "type": "number"
+        },
+        "model": {
+          "type": "string"
+        },
+        "rate": {
+          "format": "double",
+          "type": "number"
+        },
+        "tool": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "byCategory",
+        "calls",
+        "errors",
+        "model",
+        "rate",
+        "tool"
+      ],
+      "type": "object"
+    },
+    "ToolErrorBaselineByCategory": {
+      "description": "`ToolErrorBaselineByCategory`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"properties\": { \"InvalidArguments\": { \"type\": \"number\" }, \"ProviderError\": { \"type\": \"number\" }, \"Timeout\": { \"type\": \"number\" }, \"UnexpectedEnvironment\": { \"type\": \"number\" }, \"UserAborted\": { \"type\": \"number\" }, \"none\": { \"type\": \"number\" } } } ``` </details>",
+      "properties": {
+        "InvalidArguments": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ProviderError": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "Timeout": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "UnexpectedEnvironment": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "UserAborted": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "none": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "UsageReport": {
-      "description": "`UsageReport`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"blocked\", \"compactUsd\", \"costUsd\", \"days\", \"handoffs\", \"keepaliveUsd\", \"largest\", \"maxEffort\", \"misses\", \"models\", \"overPriceLine\", \"projects\", \"requests\", \"sessions\", \"slowStart\", \"sources\", \"threads\", \"tokens\", \"unpriced\", \"warnings\" ], \"properties\": { \"blocked\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"count\", \"rule\" ], \"properties\": { \"count\": { \"type\": \"number\" }, \"rule\": { \"type\": \"string\" } } } }, \"compactUsd\": { \"type\": \"number\" }, \"costUsd\": { \"type\": \"number\" }, \"days\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"day\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"day\": { \"type\": \"string\" } } } }, \"handoffs\": { \"type\": \"number\" }, \"keepaliveUsd\": { \"type\": \"number\" }, \"largest\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"callId\", \"chars\", \"resent\", \"session\", \"tool\" ], \"properties\": { \"callId\": { \"type\": \"string\" }, \"chars\": { \"type\": \"number\" }, \"resent\": { \"type\": \"number\" }, \"session\": { \"type\": \"string\" }, \"tool\": { \"type\": \"string\" } } } }, \"maxEffort\": { \"type\": \"number\" }, \"misses\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"cause\", \"count\", \"tokens\" ], \"properties\": { \"cause\": { \"type\": \"string\" }, \"count\": { \"type\": \"number\" }, \"tokens\": { \"type\": \"number\" } } } }, \"models\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"model\", \"requests\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"model\": { \"type\": \"string\" }, \"requests\": { \"type\": \"number\" } } } }, \"overPriceLine\": { \"type\": \"number\" }, \"projects\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"project\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" } } } }, \"requests\": { \"type\": \"number\" }, \"sessions\": { \"type\": \"number\" }, \"slowStart\": { \"type\": \"number\" }, \"sources\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"chars\", \"share\", \"source\" ], \"properties\": { \"chars\": { \"type\": \"number\" }, \"share\": { \"type\": \"number\" }, \"source\": { \"type\": \"string\" } } } }, \"threads\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"thread\", \"title\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" }, \"title\": { \"type\": \"string\" } } } }, \"tokens\": { \"type\": \"object\", \"required\": [ \"cacheRead\", \"input\", \"output\" ], \"properties\": { \"cacheRead\": { \"type\": \"number\" }, \"input\": { \"type\": \"number\" }, \"output\": { \"type\": \"number\" } } }, \"unpriced\": { \"type\": \"number\" }, \"warnings\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } } ``` </details>",
+      "description": "`UsageReport`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"blocked\", \"compactUsd\", \"costUsd\", \"days\", \"handoffs\", \"keepaliveUsd\", \"largest\", \"maxEffort\", \"misses\", \"models\", \"overPriceLine\", \"projects\", \"requests\", \"sessions\", \"slowStart\", \"sources\", \"threads\", \"tokens\", \"toolErrorBaselines\", \"toolErrors\", \"unpriced\", \"warnings\" ], \"properties\": { \"blocked\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"count\", \"rule\" ], \"properties\": { \"count\": { \"type\": \"number\" }, \"rule\": { \"type\": \"string\" } } } }, \"compactUsd\": { \"type\": \"number\" }, \"costUsd\": { \"type\": \"number\" }, \"days\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"day\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"day\": { \"type\": \"string\" } } } }, \"handoffs\": { \"type\": \"number\" }, \"keepaliveUsd\": { \"type\": \"number\" }, \"largest\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"callId\", \"chars\", \"resent\", \"session\", \"tool\" ], \"properties\": { \"callId\": { \"type\": \"string\" }, \"chars\": { \"type\": \"number\" }, \"resent\": { \"type\": \"number\" }, \"session\": { \"type\": \"string\" }, \"tool\": { \"type\": \"string\" } } } }, \"maxEffort\": { \"type\": \"number\" }, \"misses\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"cause\", \"count\", \"tokens\" ], \"properties\": { \"cause\": { \"type\": \"string\" }, \"count\": { \"type\": \"number\" }, \"tokens\": { \"type\": \"number\" } } } }, \"models\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"model\", \"requests\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"model\": { \"type\": \"string\" }, \"requests\": { \"type\": \"number\" } } } }, \"overPriceLine\": { \"type\": \"number\" }, \"projects\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"project\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" } } } }, \"requests\": { \"type\": \"number\" }, \"sessions\": { \"type\": \"number\" }, \"slowStart\": { \"type\": \"number\" }, \"sources\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"chars\", \"share\", \"source\" ], \"properties\": { \"chars\": { \"type\": \"number\" }, \"share\": { \"type\": \"number\" }, \"source\": { \"type\": \"string\" } } } }, \"threads\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"costUsd\", \"thread\", \"title\" ], \"properties\": { \"costUsd\": { \"type\": \"number\" }, \"project\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" }, \"title\": { \"type\": \"string\" } } } }, \"tokens\": { \"type\": \"object\", \"required\": [ \"cacheRead\", \"input\", \"output\" ], \"properties\": { \"cacheRead\": { \"type\": \"number\" }, \"input\": { \"type\": \"number\" }, \"output\": { \"type\": \"number\" } } }, \"toolErrorBaselines\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/ToolErrorBaseline\" } }, \"toolErrors\": { \"type\": \"array\", \"items\": { \"type\": \"object\", \"required\": [ \"category\", \"count\", \"tool\" ], \"properties\": { \"category\": { \"type\": \"string\" }, \"count\": { \"type\": \"number\" }, \"tool\": { \"type\": \"string\" } } } }, \"unpriced\": { \"type\": \"number\" }, \"warnings\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } } ``` </details>",
       "properties": {
         "blocked": {
           "items": {
@@ -6444,6 +6529,18 @@
         "tokens": {
           "$ref": "#/definitions/UsageReportTokens"
         },
+        "toolErrorBaselines": {
+          "items": {
+            "$ref": "#/definitions/ToolErrorBaseline"
+          },
+          "type": "array"
+        },
+        "toolErrors": {
+          "items": {
+            "$ref": "#/definitions/UsageReportToolErrorsItem"
+          },
+          "type": "array"
+        },
         "unpriced": {
           "format": "double",
           "type": "number"
@@ -6474,6 +6571,8 @@
         "sources",
         "threads",
         "tokens",
+        "toolErrorBaselines",
+        "toolErrors",
         "unpriced",
         "warnings"
       ],
@@ -6673,6 +6772,27 @@
         "cacheRead",
         "input",
         "output"
+      ],
+      "type": "object"
+    },
+    "UsageReportToolErrorsItem": {
+      "description": "`UsageReportToolErrorsItem`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"category\", \"count\", \"tool\" ], \"properties\": { \"category\": { \"type\": \"string\" }, \"count\": { \"type\": \"number\" }, \"tool\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "count": {
+          "format": "double",
+          "type": "number"
+        },
+        "tool": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "count",
+        "tool"
       ],
       "type": "object"
     },

@@ -28,6 +28,9 @@ pub struct Flags<'a> {
     pub ask: bool,
     /// The writer keeps a todo list, when this cedia can.
     pub todo: bool,
+    /// Creator mode (spec §3.10): the writer may install a plugin it wrote (`--creator on`), when
+    /// the owner turned it on and this cedia can.
+    pub creator: bool,
     /// The project's page in the shared browser (`--browser`), when it runs and this cedia can
     /// drive it.
     pub browser: Option<&'a str>,
@@ -38,6 +41,15 @@ pub struct Flags<'a> {
     pub images: &'a [PathBuf],
     /// How long the writer's cached prompt lasts (`--cache-ttl`), when this cedia can set it.
     pub cache_ttl: Option<&'a str>,
+}
+
+/// Whether the owner turned creator mode on: `desktop.creator.enabled` is `true` (spec §3.10).
+pub fn creator_on(desktop: &serde_json::Value) -> bool {
+    desktop
+        .get("creator")
+        .and_then(|c| c.get("enabled"))
+        .and_then(serde_json::Value::as_bool)
+        == Some(true)
 }
 
 /// A project's site allowlist, from `desktop.browser_sites` (project slug → hosts): the sites
@@ -455,6 +467,9 @@ impl Cedia {
         // The writer's todo list is the thread's progress in the window.
         if flags.todo {
             command.args(["--todo", "on"]);
+        }
+        if flags.creator {
+            command.args(["--creator", "on"]);
         }
         // The page the person sees in the Browser block (core/tools/browser.ts in cedia).
         if let Some(page) = flags.browser {

@@ -18,6 +18,9 @@ export interface Desktop {
   keymap?: Record<string, string>;
   roots?: Record<string, string[]>;
   editor?: { auto_save?: boolean; format_on_save?: boolean; tab_completion?: boolean };
+  /** Creator mode (spec §3.10): cedia's runs get `--creator on`, so the agent may write and install
+   * plugins of its own. Off unless the owner turns it on. */
+  creator?: { enabled?: boolean };
   [key: string]: unknown;
 }
 
@@ -161,3 +164,6 @@ export function removeRoot(desktop: Desktop, primary: string, path: string, thre
   else delete roots[projectSlug(primary)];
   return { roots };
 }
+
+/** Whether the owner turned creator mode on (spec §3.10); anything but `true` is off. */
+export const creatorOn = (desktop: Desktop): boolean => desktop.creator?.enabled === true;

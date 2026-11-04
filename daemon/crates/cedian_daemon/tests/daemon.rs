@@ -2365,3 +2365,37 @@ fn a_run_drives_the_active_tab_and_keeps_to_the_project_s_sites() {
         .arg(harness._dir.path().join("state").display().to_string())
         .status();
 }
+
+#[test]
+fn creator_mode_gives_a_run_creator_on_only_when_the_owner_turned_it_on_and_cedia_can() {
+    let run = |caps: &str, enabled: bool| -> Vec<String> {
+        let harness = start_with("edit-and-check", caps);
+        std::fs::create_dir_all(&harness.home).expect("home");
+        std::fs::write(
+            harness.home.join("settings.json"),
+            serde_json::json!({ "desktop": { "creator": { "enabled": enabled } } }).to_string(),
+        )
+        .expect("settings");
+        let mut window = Window::connect(&harness);
+        window.ask(Request::Prompt {
+            cwd: harness.cwd.clone(),
+            text: "make a release skill".into(),
+            thread: None,
+            worktree: false,
+            profile: None,
+            model: None,
+            permission: None,
+            effort: None,
+            helpers: Default::default(),
+            images: Vec::new(),
+        });
+        window.until(status_is(Status::Done));
+        let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
+        args.lines().map(str::to_owned).collect()
+    };
+    let on = |args: &[String]| args.windows(2).any(|w| w == ["--creator", "on"]);
+    // Spec §3.10: desktop.creator.enabled, and a cedia that lists `creator`.
+    assert!(on(&run("\"creator\"", true)));
+    assert!(!on(&run("\"creator\"", false)));
+    assert!(!on(&run("\"todo\"", true)));
+}

@@ -171,6 +171,9 @@
         },
         {
           "$ref": "#/definitions/CompactionBlock"
+        },
+        {
+          "$ref": "#/definitions/FallbackBlock"
         }
       ]
     },
@@ -387,6 +390,7 @@
         "worktree.newest-wins",
         "spawn.best-of-n",
         "todo",
+        "creator",
         "profiles",
         "open_thread",
         "schedules",
@@ -677,7 +681,8 @@
           "enum": [
             "user",
             "repository",
-            "plugin"
+            "plugin",
+            "builtin"
           ]
         },
         "argumentHint": {
@@ -1124,6 +1129,9 @@
         },
         "status": {
           "type": "number"
+        },
+        "category": {
+          "type": "string"
         }
       },
       "required": [
@@ -1139,6 +1147,34 @@
         "refusal",
         "empty_reply"
       ]
+    },
+    "FallbackBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fallback"
+        },
+        "to": {
+          "type": "string"
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "raw": {
+          "$ref": "#/definitions/JsonObject"
+        }
+      },
+      "required": [
+        "type",
+        "to",
+        "category",
+        "raw"
+      ],
+      "additionalProperties": false
     },
     "ForkOf": {
       "type": "object",
@@ -1310,6 +1346,39 @@
             "verdict",
             "via"
           ]
+        },
+        "satisfaction": {
+          "type": "object",
+          "properties": {
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "satisfied",
+                "not_satisfied",
+                "impossible"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "judge": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "costUsd": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "verdict",
+            "reason",
+            "judge",
+            "sessionId",
+            "costUsd"
+          ],
+          "additionalProperties": false
         },
         "goal": {
           "type": "object",
@@ -2135,6 +2204,24 @@
       ],
       "additionalProperties": false
     },
+    "Refusal": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "explanation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "category"
+      ],
+      "additionalProperties": false
+    },
     "Restored": {
       "type": "object",
       "properties": {
@@ -2717,6 +2804,12 @@
             },
             "costUsd": {
               "type": "number"
+            },
+            "refusal": {
+              "$ref": "#/definitions/Refusal"
+            },
+            "servedBy": {
+              "type": "string"
             },
             "id": {
               "$ref": "#/definitions/EventId"
@@ -3700,6 +3793,12 @@
             },
             "usage": {
               "$ref": "#/definitions/Usage"
+            },
+            "refusal": {
+              "$ref": "#/definitions/Refusal"
+            },
+            "served": {
+              "type": "string"
             }
           },
           "required": [
@@ -4174,6 +4273,43 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "satisfaction"
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "satisfied",
+                "not_satisfied",
+                "impossible"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "at": {
+              "type": "string"
+            },
+            "run": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "at",
+            "kind",
+            "reason",
+            "sessionId",
+            "verdict"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "archived"
             },
             "archived": {
@@ -4392,6 +4528,59 @@
       ],
       "additionalProperties": false
     },
+    "ToolErrorBaseline": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "calls": {
+          "type": "number"
+        },
+        "errors": {
+          "type": "number"
+        },
+        "rate": {
+          "type": "number"
+        },
+        "byCategory": {
+          "type": "object",
+          "properties": {
+            "InvalidArguments": {
+              "type": "number"
+            },
+            "UnexpectedEnvironment": {
+              "type": "number"
+            },
+            "ProviderError": {
+              "type": "number"
+            },
+            "Timeout": {
+              "type": "number"
+            },
+            "UserAborted": {
+              "type": "number"
+            },
+            "none": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "tool",
+        "model",
+        "calls",
+        "errors",
+        "rate",
+        "byCategory"
+      ],
+      "additionalProperties": false
+    },
     "ToolOutput": {
       "type": "object",
       "properties": {
@@ -4600,6 +4789,35 @@
             "additionalProperties": false
           }
         },
+        "toolErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "count": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "tool",
+              "category",
+              "count"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "toolErrorBaselines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ToolErrorBaseline"
+          }
+        },
         "overPriceLine": {
           "type": "number"
         },
@@ -4720,6 +4938,8 @@
         "largest",
         "misses",
         "blocked",
+        "toolErrors",
+        "toolErrorBaselines",
         "overPriceLine",
         "maxEffort",
         "slowStart",

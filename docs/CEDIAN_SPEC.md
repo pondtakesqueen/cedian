@@ -521,6 +521,25 @@ it); Luau plugins (cedian has no plugin system beyond VS Code extensions,
 §9). For the cedia repo, not cedian: the TUI could speak TSP when it runs
 inside Tern; that is the owner's call there.
 
+### 3.10 Creator mode (from DeepSeek Harness; proposed 2026-11-04)
+
+DeepSeek Harness's Creator mode has its agent write plugins for the app it runs in and install them into the running app after one approval. cedian keeps its one plugin system, VS Code extensions (§9), and adds the agent side through cedia (cedia is the only agent):
+
+- **Switch:** `desktop.creator.enabled` (default false), in Settings → Models as "Creator mode". When it is on and `cedia --version --json` lists the `creator` capability, the daemon adds `--creator on` to every run it starts. cedia then gives its writer the `plugin` tool, which installs a Claude Code-layout plugin (skills and commands) that the writer wrote in the thread's worktree, plus the `/make-plugin` procedure. The plugin's skills are usable in the same run. cedian writes only its own key; the setting is never copied into cedia's top-level `creator`.
+- **Extensions cedia writes:** a local VS Code extension that cedia writes for the owner is not a Cedian-specific extension (§9). It lives with the owner's other extensions and is installed only after the owner presses **Install** on a card that shows:
+  - its name;
+  - what it contributes (commands, views, webviews);
+  - its files.
+
+  Installed ones carry a "made by cedia" badge and an Uninstall button. An extension host runs with the owner's full rights, outside cedia's sandbox, so nothing activates without that click. Webview-only extensions with a strict CSP are the default that cedia's skill steers to.
+- **Prefer an artifact** (§3.6) when nothing needs to stay in the app: most of DeepSeek's demos (a stats page, a viewer, a poster) are Website or Dashboard artifacts.
+- **Order:**
+  - the switch (window side) now;
+  - the daemon's `--creator on` (done with the pin to cedia 3a3e3e8, which carries the `creator` capability);
+  - the extension install card and badge after Phase A, once VS Code is vendored and can install extensions.
+
+  The cedia-side command that asks for an extension install is a change in the cedia repo.
+
 ## 4. State machines
 
 ### 4.1 Thread states (from cedia, unchanged)
@@ -624,7 +643,8 @@ draft → open → (edited | fixing | forked) → pinned → closed
     "roots": { /* per project slug: string[] */ },
     "browser": { "keep_cookies": false },
     "editor": { "auto_save": true },
-    "artifacts": { "enabled": true }
+    "artifacts": { "enabled": true },
+    "creator": { "enabled": false }
   }
 }
 ```
@@ -680,7 +700,8 @@ draft → open → (edited | fixing | forked) → pinned → closed
 - Browser: keep cookies, external sites allowlist (localhost by default; revocable)
 - Editor: auto-save, format on save
 - Keybindings: VS Code keybindings + Cedian additions
-- Extensions: VS Code built-ins ship (git, debugger, LSP client, markdown, JSON, etc.); third-party via Open VSX. No Cedian-specific extensions.
+- Extensions: VS Code built-ins ship (git, debugger, LSP client, markdown, JSON, etc.); third-party via Open VSX. No Cedian-specific extensions; local extensions cedia writes for the owner are installed only from the creator-mode card (§3.10).
+- Creator mode (shown with Models): `desktop.creator.enabled`, off by default (§3.10).
 - About: dialog (Help → About) showing Cedian version, cedia rev/protocol hash, license, credits. (Version info from `cedia --version --json`.)
 
 ### 7.2 Keybindings (from Claude Desktop / VS Code)
@@ -772,7 +793,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
 - **Platform**: macOS 26 (Tahoe) only for v1 (Windows/Linux later); daemon uses macOS-specific APIs (caffeinate, launchd, Keychain, APFS clonefile). Assumes macOS 26+; Cua Spaces/locked-use features available only on this baseline.
 - **Base**: VS Code latest stable (MIT). Pin latest stable; merge upstream rarely, only when needed (e.g. a security fix); owner decides each merge (2026-10-28). Blocks stay a layer over the workbench and CI counts upstream files Cedian patches, so a needed merge stays possible.
 - **License**: Proprietary (Cursor-style) for Cedian-specific additions; VS Code portions retain MIT notice (LICENSE/NOTICE). Legal review before ship.
-- **Extension system**: VS Code built-ins + Open VSX (not Microsoft Marketplace, ToS forbids non-Microsoft products). No Cedian-specific extensions.
+- **Extension system**: VS Code built-ins + Open VSX (not Microsoft Marketplace, ToS forbids non-Microsoft products). No Cedian-specific extensions. Local extensions cedia writes for the owner in creator mode (§3.10, 2026-11-04) are the owner's, installed one by one from a card; they are not a second plugin system.
 
 ### Agent / browser / tools
 - **Agent integration**: Full Cursor-style (chat panel, composer, agent mode, rules, @mentions, MCP), plus inline edit (Cmd+K) and tab completion in v1 (2026-10-28), both through cedia commands (cedia is the only agent).
