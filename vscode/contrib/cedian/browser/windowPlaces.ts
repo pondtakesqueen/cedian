@@ -8,6 +8,8 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IViewDescriptorService, ViewContainerLocation } from '../../../common/views.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { movesFor, PLACES_VERSION, THREADS_CONTAINER, TOOLS, type Place } from './blocks/places.js';
@@ -44,8 +46,25 @@ export class CedianWindowPlaces extends Disposable implements IWorkbenchContribu
 		@IStorageService storage: IStorageService,
 		@IEditorService editorService: IEditorService,
 		@IEditorGroupsService editorGroups: IEditorGroupsService,
+		@IWorkbenchLayoutService layout: IWorkbenchLayoutService,
+		@IConfigurationService configuration: IConfigurationService,
 	) {
 		super();
+		// No activity bar, as in the prototype, while it stays at its default place so the right
+		// panel's tabs are named in its title row (src/settings/desktop.ts). Hidden at each start
+		// (VS Code keeps it as runtime state) and again when its place changes, which shows it.
+		const hideActivityBar = () => {
+			if (layout.isVisible(Parts.ACTIVITYBAR_PART)) {
+				layout.setPartHidden(true, Parts.ACTIVITYBAR_PART);
+			}
+		};
+		hideActivityBar();
+		this._register(configuration.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('workbench.activityBar.location')) {
+				// After the layout's own listener has shown it.
+				setTimeout(hideActivityBar, 0);
+			}
+		}));
 		// The agent in the middle, once per project: a person who closes it has it closed there.
 		if (!storage.getBoolean(CENTER_KEY, StorageScope.WORKSPACE, false)) {
 			storage.store(CENTER_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
