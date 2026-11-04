@@ -889,6 +889,82 @@ fn a_cedia_that_cannot_fork_says_so() {
 }
 
 #[test]
+fn a_side_chat_forks_the_thread_as_it_stands_and_runs_nothing() {
+    let harness = start_with("edit-and-check", "\"threads.side\"");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Side {
+        cwd: harness.cwd.clone(),
+        thread: "t-00000001".into(),
+    });
+    let (_, seen) = window.until(|n| matches!(n, Notice::SideChat { .. }));
+    assert!(
+        matches!(seen.last(), Some(Notice::SideChat { from, thread, .. })
+            if from == "t-00000001" && thread == "t-0000side"),
+        "{seen:?}"
+    );
+    assert!(harness.threads.join("t-0000side.jsonl").exists());
+    // The list leaves it out: only the window that asked shows it.
+    window.ask(Request::Threads {
+        cwd: harness.cwd.clone(),
+    });
+    let (_, seen) = window.until(|n| matches!(n, Notice::Threads { .. }));
+    assert!(
+        matches!(seen.last(), Some(Notice::Threads { threads, .. })
+            if threads.iter().all(|t| t.thread.id != "t-0000side")),
+        "{seen:?}"
+    );
+    // Nothing ran: the person sends to it.
+    assert!(!harness.threads.join("../args").exists());
+}
+
+#[test]
+fn a_side_chat_goes_when_its_window_closes_it_or_goes() {
+    let harness = start_with("edit-and-check", "\"threads.side\"");
+    let side = harness.threads.join("t-0000side.jsonl");
+    let gone = |path: &Path| {
+        for _ in 0..100 {
+            if !path.exists() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        false
+    };
+    let mut window = Window::connect(&harness);
+    let ask = |window: &mut Window| {
+        window.ask(Request::Side {
+            cwd: harness.cwd.clone(),
+            thread: "t-00000001".into(),
+        });
+        window.until(|n| matches!(n, Notice::SideChat { .. }));
+    };
+    ask(&mut window);
+    window.ask(Request::Delete {
+        cwd: harness.cwd.clone(),
+        thread: "t-0000side".into(),
+    });
+    assert!(gone(&side), "closed, the side chat is deleted");
+    ask(&mut window);
+    assert!(side.exists());
+    drop(window);
+    assert!(
+        gone(&side),
+        "with its window gone, the side chat is deleted"
+    );
+}
+
+#[test]
+fn a_cedia_without_side_chats_says_so() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::Side {
+        cwd: harness.cwd.clone(),
+        thread: "t-00000001".into(),
+    });
+    assert!(matches!(window.next(), Notice::Error { .. }));
+}
+
+#[test]
 fn a_cedia_without_commands_is_not_asked() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);

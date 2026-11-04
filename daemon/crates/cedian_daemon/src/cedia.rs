@@ -643,6 +643,11 @@ impl Cedia {
         self.threads(cwd, &["delete", thread])
     }
 
+    /// `cedia threads delete <id> --force`: a side chat thrown away, even while its run ends.
+    pub fn discard(&self, cwd: &Path, thread: &str) -> anyhow::Result<()> {
+        self.threads(cwd, &["delete", thread, "--force"])
+    }
+
     /// `cedia threads rate <id> up|down`.
     pub fn rate(&self, cwd: &Path, thread: &str, rating: Rating) -> anyhow::Result<()> {
         let word = match rating {
@@ -680,6 +685,19 @@ impl Cedia {
             .map(|image| PathBuf::from(format!("sha256:{}", image.sha256)))
             .collect();
         Ok((forked.thread, images))
+    }
+
+    /// `cedia threads fork <id> end --side --json`: a side chat on `thread` as it stands now. Its
+    /// id.
+    pub fn side(&self, cwd: &Path, thread: &str) -> anyhow::Result<String> {
+        #[derive(serde::Deserialize)]
+        struct Forked {
+            thread: String,
+        }
+        let output = self.threads_output(cwd, &["fork", thread, "end", "--side", "--json"])?;
+        let forked: Forked =
+            serde_json::from_slice(&output).context("reading cedia threads fork --side --json")?;
+        Ok(forked.thread)
     }
 
     /// `cedia threads undo|redo <id> --json [--force]`: the files of the thread's last turn that

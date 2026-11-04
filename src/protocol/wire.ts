@@ -118,6 +118,12 @@ export type Notice =
       thread: string;
     }
   | {
+      cwd: string;
+      from: string;
+      kind: "side_chat";
+      thread: string;
+    }
+  | {
       commands: CommandEntry[];
       cwd: string;
       kind: "commands";
@@ -921,6 +927,11 @@ export type Request =
     }
   | {
       cwd: string;
+      op: "side";
+      thread: string;
+    }
+  | {
+      cwd: string;
       images?: string[];
       op: "send";
       text: string;
@@ -1420,6 +1431,10 @@ export interface ThreadInfo {
    */
   runs?: RunRef[];
   sessions: SessionRef[];
+  /**
+   * A side chat (`cedia threads fork <id> end --side`): the window that asked shows it and throws it away, so a thread list leaves it out.
+   */
+  side?: boolean;
   /**
    * cedia's last state. A run that died leaves `working`.
    */

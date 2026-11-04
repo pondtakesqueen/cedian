@@ -13,13 +13,14 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorsOrder } from '../../../common/editor.js';
-import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { EditorGroupLayout, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { BlockLayer } from './blocks/layer.js';
 import { floatingIn, sameFloating, withFloating, type Floating } from './blocks/layout.js';
+import { layoutName, layoutsIn, withCurrent, withLayout, withoutLayout, type NamedLayout } from './blocks/layouts.js';
 import { AgentBlock } from './agent-pane/floating.js';
-import { AgentPane } from './agent-pane/pane.js';
+import { AgentPane, type SideSource } from './agent-pane/pane.js';
 import { CedianAgentInput } from './agentEditor.js';
 import { browserServices, CedianBrowserInput, createBrowserPanel, openBrowser } from './browserEditor.js';
 import { ICedianDaemonService } from './daemonService.js';
@@ -63,6 +64,8 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 				}
 			},
 			changed: floating => this.keep(floating),
+			// Torn off (↗, or let go outside the window): an editor of its own in a new window there.
+			tearOff: (kind, id, bounds) => { void this.tearOff(kind, id, bounds); },
 		});
 		// Blocks float over the editor area, the frame Tern's PiPs float in: the side pane and its
 		// composer stay clear, as do the activity bar and the title bar. Without an editor part
@@ -132,6 +135,77 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		this.floatAgentAt(thread, saved ? { ...saved, id: thread } : { corner: 'tr', width: 400, height: 560 }, false);
 	}
 
+	/**
+	 * A side chat on `from` (⌘;, `/btw`): the daemon copies the thread as it stands, and the copy
+	 * floats beside it, read-only, asked `text` first when given. Closing it throws it away; the
+	 * daemon does too when the window goes. One at a time: a new one replaces the last.
+	 */
+	sideChat(from: SideSource, text?: string): void {
+		const folder = this.folder();
+		if (!folder) {
+			return;
+		}
+		const client = this.daemon.client;
+		const offs: (() => void)[] = [];
+		const done = () => { for (const off of offs.splice(0)) { off(); } };
+		offs.push(client.on('side_chat', notice => {
+			if (notice.from === from.thread) {
+				done();
+				this.floatSide(folder, notice.thread, from, text);
+			}
+		}));
+		// A cedia that cannot, or a fork that failed, says so on the thread; the pane shows it there.
+		offs.push(client.on('error', notice => {
+			if (notice.thread === from.thread) {
+				done();
+				this.notifications.warn(`Couldn't open a side chat: ${notice.message}`);
+			}
+		}));
+		client.request({ op: 'side', cwd: folder.fsPath, thread: from.thread });
+	}
+
+	/** Fans the floating blocks out to see them all, or folds them back. */
+	toggleFan(): void {
+		this.layer.toggleFan();
+	}
+
+	/** Closes the side chat, throwing it away; false when none floats. */
+	closeSide(): boolean {
+		if (!this.layer.has('side')) {
+			return false;
+		}
+		this.layer.close('side');
+		return true;
+	}
+
+	private floatSide(folder: URI, thread: string, from: SideSource, text: string | undefined): void {
+		const host = this.instantiation.invokeFunction(accessor => createPaneHost(accessor, this.workspace.getWorkspace().folders[0], {
+			reviewGroup: () => this.editorGroups.mainPart.activeGroup,
+		}));
+		const wire = CedianPanes.wire(this.daemon.client);
+		const pane = new AgentPane(mainWindow.document, wire, host);
+		const scoped = this.contextKeyService.createScoped(pane.root);
+		const listed = CedianPanes.add(pane, scoped);
+		const bar = connectionBar(pane.root, this.daemon.client);
+		const block = new AgentBlock({
+			pane,
+			onAny: listener => wire.onAny(listener),
+			side: true,
+			release: () => {
+				bar.dispose();
+				listed.dispose();
+				scoped.dispose();
+				wire.dispose();
+				// Thrown away: the daemon stops it if it works and deletes it.
+				this.daemon.client.request({ op: 'delete', cwd: folder.fsPath, thread });
+			},
+		});
+		pane.side(thread, from, text);
+		// Bottom left: the Browser block rests bottom right and a floating thread top right.
+		this.layer.float(block, { corner: 'bl', width: 400, height: 480 });
+		block.focus();
+	}
+
 	private floatAgentAt(thread: string | undefined, at: Partial<Floating>, quiet: boolean): void {
 		const folder = this.workspace.getWorkspace().folders[0];
 		if (!folder) {
@@ -161,6 +235,98 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		}
 	}
 
+	/** A block torn off: its editor in a window of its own at `bounds` (screen pixels). */
+	private async tearOff(kind: string, id: string | undefined, bounds: { x: number; y: number; width: number; height: number }): Promise<void> {
+		const options = { pinned: true, auxiliary: { bounds, compact: true } };
+		try {
+			if (kind === 'browser') {
+				await this.editorService.openEditor(new CedianBrowserInput(), options, AUX_WINDOW_GROUP);
+			} else if (kind === 'agent') {
+				await this.editorService.openEditor(new CedianAgentInput(id), options, AUX_WINDOW_GROUP);
+			}
+		} catch (e) {
+			this.notifications.warn(`Couldn't open a new window: ${e instanceof Error ? e.message : e}`);
+		}
+	}
+
+	// ---- named layouts ----
+
+	/** The project's layouts and the current one's name (the starters until it saves its own). */
+	layouts(): { layouts: NamedLayout[]; current?: string } {
+		const folder = this.folder();
+		return folder ? layoutsIn(this.desktop, folder.fsPath) : { layouts: [] };
+	}
+
+	/** Saves what is open where now (the editor area's split and what floats) as `name`, current. */
+	saveLayout(name: string): void {
+		const folder = this.folder();
+		const kept = layoutName(name);
+		if (!folder || !kept) {
+			return;
+		}
+		this.write(withLayout(this.desktop, folder.fsPath, { name: kept, pip: this.layer.floating(), groups: this.editorGroups.getLayout() }));
+	}
+
+	deleteLayout(name: string): void {
+		const folder = this.folder();
+		if (folder) {
+			this.write(withoutLayout(this.desktop, folder.fsPath, name));
+		}
+	}
+
+	/** Switches to the layout `name`: the editor area splits as it did, and its blocks float. */
+	switchLayout(name: string): void {
+		const folder = this.folder();
+		const layout = this.layouts().layouts.find(l => l.name === name);
+		if (!folder || !layout) {
+			return;
+		}
+		if (layout.groups) {
+			try {
+				this.editorGroups.applyLayout(layout.groups as EditorGroupLayout);
+			} catch (e) {
+				this.notifications.warn(`Couldn't arrange the editors as ${name}: ${e instanceof Error ? e.message : e}`);
+			}
+		}
+		this.applyFloating(folder, layout.pip);
+		this.write(withCurrent(this.desktop, folder.fsPath, name));
+	}
+
+	/** The `n`th layout (from 0), for ⌘⌥1–9. */
+	switchLayoutAt(n: number): void {
+		const layout = this.layouts().layouts[n];
+		if (layout) {
+			this.switchLayout(layout.name);
+		}
+	}
+
+	/** Floats what `pip` lists where it lists it, and closes what floats that it does not list. */
+	private applyFloating(folder: URI, pip: Floating[]): void {
+		for (const now of this.layer.floating()) {
+			const want = pip.find(f => f.kind === now.kind);
+			if (!want || want.id !== now.id) {
+				this.layer.close(now.kind);
+			}
+		}
+		for (const f of pip) {
+			if (this.layer.has(f.kind)) {
+				// The size first: a size takes a block out of its stash, and the rest puts it back.
+				this.layer.resizeTo(f.kind, { width: f.width, height: f.height });
+				this.layer.moveTo(f.kind, f);
+			} else if (f.kind === 'browser') {
+				this.floatBrowserAt(folder, f, false);
+			} else if (f.kind === 'agent') {
+				this.floatAgentAt(f.id, f, false);
+			}
+		}
+	}
+
+	/** Asks the daemon to keep `layout` as `desktop.layout`; until its notice, it is what is kept. */
+	private write(layout: Record<string, unknown>): void {
+		this.desktop = { ...this.desktop, layout };
+		this.daemon.client.request({ op: 'set_desktop', key: 'layout', value: layout });
+	}
+
 	/** Opens what floated in this project when the last window closed. */
 	private restore(): void {
 		const folder = this.folder();
@@ -182,9 +348,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		if (!folder || sameFloating(floating, floatingIn(this.desktop, folder.fsPath))) {
 			return;
 		}
-		const layout = withFloating(this.desktop, folder.fsPath, floating);
 		// The daemon's notice follows; until then, what was asked is what floats.
-		this.desktop = { ...this.desktop, layout };
-		this.daemon.client.request({ op: 'set_desktop', key: 'layout', value: layout });
+		this.write(withFloating(this.desktop, folder.fsPath, floating));
 	}
 }

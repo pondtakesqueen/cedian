@@ -8,6 +8,8 @@
 .cedian-pip [hidden] { display: none !important; }
 .cedian-pip .pip-head { flex: none; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 12px; background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); cursor: grab; user-select: none; touch-action: none; }
 .cedian-pip .pip-head:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+/* A side chat reads as a margin note: dashed, so it is not taken for the thread itself. */
+.cedian-pip[data-kind="side"] { outline: 1px dashed var(--cedian-line); outline-offset: -1px; }
 .cedian-pip .pip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 12px; }
 .cedian-pip .ibtn { flex: none; min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--cedian-text-muted); font: inherit; }
 .cedian-pip .ibtn:hover { background: var(--cedian-hover); color: var(--cedian-text); }
@@ -39,3 +41,12 @@
 .cedian-pip.resizing { transition: none; }
 .cedian-pip.resizing .pip-body { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }
+/* Fanned (Tern's deck of PiPs): every block a card across the middle over a dimmed frame; a click
+   on a card brings it back, a click beside them folds the fan. Cards scale from their top left. */
+.cedian-blocks > .pip-scrim { position: absolute; inset: 0; z-index: 0; pointer-events: auto; background: rgba(0, 0, 0, .22); }
+.cedian-blocks > .pip-scrim[hidden] { display: none; }
+.cedian-blocks.fanned .cedian-pip { transform-origin: 0 0; cursor: pointer; }
+.cedian-blocks.fanned .cedian-pip .pip-head { cursor: pointer; }
+.cedian-blocks.fanned .cedian-pip .pip-body { pointer-events: none; }
+.cedian-blocks.fanned .cedian-pip .pip-grip, .cedian-blocks.fanned .cedian-pip .ibtn { display: none; }
+.cedian-blocks.fanned .cedian-pip:hover, .cedian-blocks.fanned .cedian-pip:focus-within { box-shadow: 0 0 0 2px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }

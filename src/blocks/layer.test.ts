@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from "vitest";
 import type { Block } from "./block.js";
-import { BlockLayer, HEAD } from "./layer.js";
+import { BlockLayer, HEAD, outside } from "./layer.js";
 import type { Floating } from "./layout.js";
-import { GAP, STASH_TAB } from "./pip.js";
+import { GAP, STASH_TAB, type Rect } from "./pip.js";
 
 class FakeBlock implements Block {
   readonly root = document.createElement("div");
@@ -100,12 +100,114 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     pipOf(layer).querySelector<HTMLButtonElement>(".pip-dock")!.click();
     expect(docked).toEqual(["browser"]);
     expect(a.disposed).toBe(true);
-    expect(layer.root.children.length).toBe(0);
+    expect(layer.root.querySelectorAll(".cedian-pip").length).toBe(0);
     expect(changes.at(-1)).toEqual([]);
     layer.float(new FakeBlock());
     pipOf(layer).querySelector<HTMLButtonElement>(".pip-close")!.click();
     expect(closed).toEqual(["browser"]);
     expect(docked).toEqual(["browser"]);
+  });
+  test("a throwaway block (a side chat) has no dock, docks nowhere, and is not kept", () => {
+    const { layer, docked, changes } = setup();
+    layer.float(new FakeBlock());
+    const side = Object.assign(new FakeBlock("side"), { throwaway: true });
+    layer.float(side);
+    expect(pipOf(layer, "side").querySelector(".pip-dock")).toBeNull();
+    expect(pipOf(layer, "side").querySelector(".pip-close")).not.toBeNull();
+    layer.dock("side");
+    expect(docked).toEqual([]);
+    expect(side.disposed).toBe(false);
+    expect(layer.floating().map((f) => f.kind)).toEqual(["browser"]);
+    expect(changes.at(-1)?.map((f) => f.kind)).toEqual(["browser"]);
+    layer.close("side");
+    expect(side.disposed).toBe(true);
+  });
+  test("fanned, every block is a card across the middle, stashed ones too; nothing is kept", () => {
+    const { layer, changes } = setup();
+    const a = new FakeBlock();
+    const b = new FakeBlock("agent");
+    layer.float(a);
+    layer.float(b, { corner: "tl", width: 400, height: 560 });
+    layer.stash("agent");
+    const kept = changes.length;
+    layer.fan();
+    expect(layer.isFanned).toBe(true);
+    expect(layer.root.classList.contains("fanned")).toBe(true);
+    expect(layer.root.querySelector<HTMLElement>(".pip-scrim")!.hidden).toBe(false);
+    for (const kind of ["browser", "agent"]) {
+      expect(pipOf(layer, kind).classList.contains("stashed")).toBe(false);
+      expect(translate(pipOf(layer, kind))).toMatch(/rotate\(.*scale\(/);
+    }
+    // Drawn at their own sizes inside the card.
+    expect(b.sizes.at(-1)).toEqual([400, 560 - HEAD]);
+    // The later card in front, and arrows do nothing while fanned.
+    expect(Number(pipOf(layer, "agent").style.zIndex)).toBeGreaterThan(Number(pipOf(layer, "browser").style.zIndex));
+    pipOf(layer, "browser").querySelector<HTMLElement>(".pip-head")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    expect(changes.length).toBe(kept);
+    layer.root.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(layer.isFanned).toBe(false);
+    expect(layer.stateOf("agent")).toBe("parked");
+    expect(pipOf(layer, "agent").classList.contains("stashed")).toBe(true);
+    expect(changes.length).toBe(kept);
+  });
+  test("a card picked from the fan comes back out of its stash, in front and focused", () => {
+    const { layer, changes } = setup();
+    const a = new FakeBlock();
+    const b = new FakeBlock("agent");
+    layer.float(a);
+    layer.float(b, { corner: "tl" });
+    layer.stash("agent");
+    layer.fan();
+    const focused = b.focused;
+    pointer(pipOf(layer, "agent").querySelector<HTMLElement>(".pip-body")!, "pointerdown", 10, 10);
+    expect(layer.isFanned).toBe(false);
+    expect(layer.stateOf("agent")).toBe("focused");
+    expect(changes.at(-1)!.find((f) => f.kind === "agent")!.stash).toBeUndefined();
+    expect(b.focused).toBe(focused + 1);
+    expect(Number(pipOf(layer, "agent").style.zIndex)).toBeGreaterThan(Number(pipOf(layer, "browser").style.zIndex));
+    // Enter on a card's header picks it too; a click beside the cards folds them.
+    layer.fan();
+    pipOf(layer).querySelector<HTMLElement>(".pip-head")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(layer.isFanned).toBe(false);
+    layer.toggleFan();
+    pointer(layer.root.querySelector<HTMLElement>(".pip-scrim")!, "pointerdown", 1, 1);
+    expect(layer.isFanned).toBe(false);
+  });
+  test("nothing floating, nothing fans; the last block closed folds the fan", () => {
+    const { layer } = setup();
+    layer.fan();
+    expect(layer.isFanned).toBe(false);
+    layer.float(new FakeBlock());
+    layer.fan();
+    layer.close("browser");
+    expect(layer.isFanned).toBe(false);
+  });
+  test("torn off by ↗, a block closes here and opens in a window of its own where it was", () => {
+    const torn: [string, string | undefined, Rect][] = [];
+    const changes: Floating[][] = [];
+    const layer = new BlockLayer(document, { dock: () => {}, changed: (f) => changes.push(f), tearOff: (k, id, at) => torn.push([k, id, at]) });
+    document.body.append(layer.root);
+    layer.layout(1200, 800);
+    const a = Object.assign(new FakeBlock("agent"), { id: "t-1" });
+    layer.float(a, { corner: "tl", width: 400, height: 560 });
+    layer.float(Object.assign(new FakeBlock("side"), { throwaway: true }));
+    expect(pipOf(layer, "side").querySelector(".pip-tear")).toBeNull();
+    pipOf(layer, "agent").querySelector<HTMLButtonElement>(".pip-tear")!.click();
+    expect(torn).toEqual([["agent", "t-1", expect.objectContaining({ width: 400, height: 560 })]]);
+    expect(a.disposed).toBe(true);
+    expect(changes.at(-1)).toEqual([]);
+    layer.tearOff("side");
+    expect(layer.has("side")).toBe(true);
+  });
+  test("without a host that tears off, no block offers it", () => {
+    const { layer } = setup();
+    layer.float(new FakeBlock());
+    expect(pipOf(layer).querySelector(".pip-tear")).toBeNull();
+  });
+  test("a point outside the window is any side past its edge", () => {
+    const view = { width: 1200, height: 800 };
+    expect(outside({ x: 10, y: 10 }, view)).toBe(false);
+    for (const p of [{ x: -1, y: 10 }, { x: 10, y: -1 }, { x: 1200, y: 10 }, { x: 10, y: 800 }]) expect(outside(p, view)).toBe(true);
   });
   test("one block per kind; two kinds in one corner stack", () => {
     const { layer } = setup();
@@ -134,6 +236,26 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     performance.now = realNow;
     expect(changes.at(-1)![0]).toMatchObject({ corner: "tl" });
     expect(translate(pipOf(layer))).toBe(`translate(${GAP}px, ${GAP}px)`);
+  });
+  test("let go outside the window, it is torn off there, the side chat is not", () => {
+    const torn: string[] = [];
+    const layer = new BlockLayer(document, { dock: () => {}, changed: () => {}, tearOff: (k) => torn.push(k) });
+    document.body.append(layer.root);
+    layer.layout(1200, 800);
+    layer.float(new FakeBlock());
+    const head = pipOf(layer).querySelector<HTMLElement>(".pip-head")!;
+    pointer(head, "pointerdown", 1000, 500);
+    pointer(head, "pointermove", 600, 300);
+    pointer(head, "pointerup", -30, 300);
+    expect(torn).toEqual(["browser"]);
+    expect(layer.has("browser")).toBe(false);
+    layer.float(Object.assign(new FakeBlock("side"), { throwaway: true }));
+    const side = pipOf(layer, "side").querySelector<HTMLElement>(".pip-head")!;
+    pointer(side, "pointerdown", 1000, 500);
+    pointer(side, "pointermove", 600, 300);
+    pointer(side, "pointerup", -30, 300);
+    expect(torn).toEqual(["browser"]);
+    expect(layer.has("side")).toBe(true);
   });
   test("flung at a side, it stashes there", () => {
     const { layer, changes } = setup();

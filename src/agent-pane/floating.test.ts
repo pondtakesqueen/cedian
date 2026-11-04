@@ -4,7 +4,7 @@ import type { Notice } from "../protocol/wire.js";
 import { AgentBlock } from "./floating.js";
 import type { AgentPane } from "./pane.js";
 
-function fake() {
+function fake(side?: boolean) {
   const listeners = new Set<(n: Notice) => void>();
   const pane = {
     root: document.createElement("div"),
@@ -21,6 +21,7 @@ function fake() {
     pane: pane as unknown as AgentPane,
     onAny: (l) => { listeners.add(l); return () => listeners.delete(l); },
     release: () => { released = true; },
+    ...(side ? { side } : {}),
   });
   const notice = () => { for (const l of listeners) l({ kind: "settings", desktop: {}, path: "" } as Notice); };
   return { pane, block, notice, listeners, released: () => released };
@@ -44,6 +45,12 @@ describe("the agent pane as a floating block", () => {
     pane.thread = "t-2";
     notice();
     expect(heard).toEqual(["Fix the build", "Fix the build"]);
+  });
+  test("a side chat is its own kind, thrown away when it closes", () => {
+    expect(fake().block.throwaway).toBe(false);
+    const { block } = fake(true);
+    expect(block.kind).toBe("side");
+    expect(block.throwaway).toBe(true);
   });
   test("laid out at the height it is given; focus goes to the composer", () => {
     const { pane, block } = fake();

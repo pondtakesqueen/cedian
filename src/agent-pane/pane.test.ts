@@ -721,6 +721,50 @@ describe("agent pane, from the Mac gate", () => {
     expect(pane.title()).toBe("Project chat");
   });
 
+  it("/btw asks the host for a side chat on the open thread, with the question after it", () => {
+    const asked: [string, string | undefined][] = [];
+    const { pane, emit, sent } = setup({ sideChat: (from, text) => asked.push([from.thread, text]) });
+    type(pane, "/btw why");
+    enter(pane);
+    expect(asked).toEqual([]);
+    expect(pane.root.textContent).toContain("Open a thread first");
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    type(pane, "/b");
+    expect(pane.root.querySelector(".popup")?.textContent).toContain("btw");
+    const before = sent.length;
+    type(pane, "/btw why is sum off by one?");
+    enter(pane);
+    expect(asked).toEqual([["t-1", "why is sum off by one?"]]);
+    expect(sent.slice(before).filter((r) => r.op === "prompt" || r.op === "send")).toEqual([]);
+    expect(pane.composer.value).toBe("");
+    expect(pane.thread).toBe("t-1");
+  });
+
+  it("as a side chat it stays on its copy, runs read-only, and offers no way elsewhere", () => {
+    const { pane, emit, sent, last } = setup({ float: () => {}, popOut: () => {}, sideChat: () => {} });
+    emit({ kind: "choices", permissions: { default: "workspace", modes: [{ mode: "read-only", label: "Read only", description: "" }, { mode: "workspace", label: "Edit", description: "" }] } });
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    expect(pane.sideSource()).toEqual({ thread: "t-1", title: "Fix sum", cwd: "/r/.cedian/worktrees/a" });
+    const side = setup({ float: () => {}, popOut: () => {}, sideChat: () => {} });
+    side.emit({ kind: "choices", permissions: { default: "workspace", modes: [{ mode: "read-only", label: "Read only", description: "" }] } });
+    side.pane.side("t-side", pane.sideSource()!, "why?");
+    expect(side.sent).toContainEqual({ op: "open", cwd: "/r", thread: "t-side" });
+    expect(side.last()).toEqual({ op: "prompt", cwd: "/r/.cedian/worktrees/a", text: "why?", thread: "t-side", worktree: false, permission: "read-only" });
+    expect(side.pane.title()).toBe("Side chat · Fix sum");
+    expect(side.pane.root.querySelector(".head .side-label")?.textContent).toBe("Side chat · Fix sum");
+    for (const gone of [".head select.threads", ".head .pop", ".head .float", 'select[data-chip="permission"]']) expect(side.pane.root.querySelector(gone)).toBeNull();
+    expect(side.pane.composer.placeholder).toContain("read-only");
+    side.pane.newThread();
+    side.pane.stepThread(1);
+    side.pane.projectChat();
+    side.pane.float();
+    expect(side.pane.thread).toBe("t-side");
+    expect(side.pane.sideSource()).toBeUndefined();
+    void sent; void last;
+  });
+
   it("offers no pop-out where the host has none, as in a pane already popped out", () => {
     const { pane, emit } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });

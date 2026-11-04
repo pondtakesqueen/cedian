@@ -314,10 +314,36 @@
   Thread`) floats the open thread in an agent pane of its own, top right, and
   the side pane goes on to a new thread; the thread is kept with where it
   floats, and Dock opens it as an agent editor. `node test/smoke/blocks.mjs`
-  has 14 checks with resize. Still to do: try it in the app on the Mac; fan;
-  tear-off out of the window; named layouts (the old app's
-  `desktop.layout.blocks` is not read yet); side chat (⌘;, a read-only
-  thread discarded on close); more blocks than the Browser and a thread
+  has 14 checks with resize, tried in the app on the Mac (#47, #48). Side
+  chat: ⌘; (or `/btw <question>` in the composer, or `Cedian: Side Chat`)
+  asks the daemon for a copy of the open thread as it stands (`cedia threads
+  fork <id> end --side`) and floats it bottom left as a side chat block: no
+  thread picker, pop-out, float or dock, every run read-only, and the thread
+  lists leave it out. Closing it (×, or ⌘; from inside it) has the daemon stop
+  and delete it, and a window that goes takes its side chats with it. Checked:
+  `cargo test` (side chat tests in `tests/daemon.rs`), `vitest` (pane, layer,
+  floating). Fan: ⌃⌥↑ (`Cedian: Fan Floating Blocks`) fans every floating
+  block out across the middle as a card at its own shape (stashed ones too),
+  scaled alike, side by side or overlapping when many, the outer ones tilted;
+  a click on a card (or Enter on its header) brings it back to its corner out
+  of a stash, in front and focused; Escape, a click beside the cards or ⌃⌥↑
+  again folds them; where they rest does not change. Checked: `vitest
+  src/blocks` and `node test/smoke/blocks.mjs` (17 checks with the fan).
+  Tear-off: ↗ in a floating block's header, or letting it go outside the
+  window, closes it here and opens it as an editor in a window of its own
+  where it was (or under the pointer), at its size (`auxiliary.bounds`): the
+  Browser block, or an agent editor on the thread it showed. A side chat
+  stays. Checked: `vitest src/blocks`. Named layouts: a project keeps its
+  arrangements by name in `desktop.layout` (slug → `layouts`, `current`),
+  each the editor area's split (`EditorGroupLayout`) and the blocks floating
+  over it; โฟกัส, เขียนโค้ด, พรีวิว and รีวิว until it saves its own.
+  `Cedian: Switch Layout` (⌘⌥0) lists them with their keys and the current
+  one, and saves or deletes one; ⌘⌥1–9 switch to the first nine; switching
+  splits the editors as saved, closes what floats that the layout does not
+  list and floats what it does where it rests. Checked: `vitest
+  src/blocks/layouts.test.ts`. Still to do: try the side chat, the fan,
+  tear-off and named layouts on the Mac; the old app's
+  `desktop.layout.blocks` is not read; more blocks than the Browser and a thread
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions
   provider for project files asks the daemon's `complete` 250 ms after typing

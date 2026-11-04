@@ -35,6 +35,12 @@ export const KEYBINDINGS: Binding[] = [
   { command: "cedian.settings", mac: "cmd+,", label: "Settings" },
   { command: "cedian.stop", mac: "cmd+.", label: "Stop" },
   { command: "cedian.focusComposer", mac: "cmd+l", label: "Focus the composer" },
+  { command: "cedian.sideChat", mac: "cmd+;", label: "Side chat on the open thread" },
+  // ⌃⌥↑ is the overview of the old app's blocks (ARCHITECTURE "Overview"); here, the fan of them.
+  { command: "cedian.fanBlocks", mac: "ctrl+alt+up", label: "Fan the floating blocks out, or fold them back" },
+  { command: "cedian.switchLayout", mac: "cmd+alt+0", label: "Switch layout" },
+  // ⌘⌥1–9: the project's layouts in order (ARCHITECTURE "Named layouts").
+  ...Array.from({ length: 9 }, (_, i): Binding => ({ command: `cedian.layout${i + 1}`, mac: `cmd+alt+${i + 1}`, label: `Layout ${i + 1}` })),
 ];
 
 /** The table with the person's keys in place of Cedian's, by command id. */

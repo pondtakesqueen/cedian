@@ -2661,6 +2661,34 @@
         },
         {
           "additionalProperties": false,
+          "description": "`thread` is a side chat on `from`, asked for by this client (`Request::Side`).",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "from": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "side_chat"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "from",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The project's `/` commands: its skills and the person's.",
           "properties": {
             "commands": {
@@ -4456,6 +4484,30 @@
         },
         {
           "additionalProperties": false,
+          "description": "A side chat on `thread` (`cedia threads fork <id> end --side`), when cedia lists `threads.side`: a new thread whose conversation is `thread`'s as it stands now, even while it works, for asking about it without adding to it. Nothing runs until the person sends to it. The client is sent `SideChat`; it deletes the side chat when it closes it.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "side"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "A message the running thread sees at its next turn, with its images (`cedia threads send --image`), when cedia lists `threads.send-images`.",
           "properties": {
             "cwd": {
@@ -6236,6 +6288,11 @@
             "$ref": "#/definitions/SessionRef"
           },
           "type": "array"
+        },
+        "side": {
+          "default": false,
+          "description": "A side chat (`cedia threads fork <id> end --side`): the window that asked shows it and throws it away, so a thread list leaves it out.",
+          "type": "boolean"
         },
         "state": {
           "$ref": "#/definitions/ThreadState",

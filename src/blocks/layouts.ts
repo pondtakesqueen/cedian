@@ -1,0 +1,121 @@
+// Named layouts (spec §3.3, ARCHITECTURE "Named layouts"): each project keeps several arrangements
+// of the window by name, and the person switches between them (⌘⌥1–9, or Switch Layout). A layout
+// is what is open where, not a look: the editor area's split (VS Code's `EditorGroupLayout`, kept
+// as the workbench gives it) and the blocks floating over it. Kept in `desktop.layout` beside
+// `pip`, per project slug: `layouts` and the `current` one's name. The daemon writes it; the window
+// reads it and asks for a write.
+import { projectSlug, type Desktop } from "../settings/desktop.js";
+import { floatingOf, type Floating, type ProjectLayout } from "./layout.js";
+
+export interface NamedLayout {
+  name: string;
+  /** The blocks floating over the editor area, as `pip` keeps them. */
+  pip: Floating[];
+  /** The editor area's split as the workbench gives it (`IEditorGroupsService.getLayout()`); none
+   * leaves the split as it is. */
+  groups?: unknown;
+}
+
+/** At most this many layouts per project; ⌘⌥1–9 reach the first nine. */
+export const MAX_LAYOUTS = 20;
+
+const row = (size = 1) => ({ size });
+/** VS Code's `EditorGroupLayout`: one group, or two side by side. */
+const ONE = { orientation: 0, groups: [row()] };
+const TWO = { orientation: 0, groups: [row(0.5), row(0.5)] };
+
+/**
+ * What a project starts with, before it saves its own (the old app's four, in Thai as there):
+ * โฟกัส one editor and nothing floating; เขียนโค้ด two editors side by side; พรีวิว one editor
+ * with the Browser block floating bottom right; รีวิว two editors with the Browser stashed.
+ */
+export const STARTERS: readonly NamedLayout[] = [
+  { name: "โฟกัส", pip: [], groups: ONE },
+  { name: "เขียนโค้ด", pip: [], groups: TWO },
+  { name: "พรีวิว", pip: [{ kind: "browser", corner: "br", width: 480, height: 360 }], groups: ONE },
+  { name: "รีวิว", pip: [{ kind: "browser", corner: "br", stash: "right", width: 480, height: 360 }], groups: TWO },
+];
+
+const record = (value: unknown): Record<string, unknown> | undefined =>
+  typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+
+/** A name as kept: trimmed, one line, at most 40 characters; empty when nothing is left. */
+export function layoutName(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, 40);
+}
+
+function layoutOf(value: unknown): NamedLayout | undefined {
+  const r = record(value);
+  const name = typeof r?.name === "string" ? layoutName(r.name) : "";
+  if (!r || !name) return undefined;
+  const seen = new Set<string>();
+  const pip: Floating[] = [];
+  for (const item of Array.isArray(r.pip) ? r.pip : []) {
+    const f = floatingOf(item);
+    if (f && !seen.has(f.kind)) {
+      seen.add(f.kind);
+      pip.push(f);
+    }
+  }
+  return { name, pip, ...(record(r.groups) ? { groups: r.groups } : {}) };
+}
+
+function projectOf(desktop: Desktop, root: string): ProjectLayout {
+  return { ...(record(record(desktop.layout)?.[projectSlug(root)]) ?? {}) };
+}
+
+/**
+ * The project's layouts in order, and the current one's name; the starters while it has saved
+ * none. Anything malformed, and a second layout of one name, is left out.
+ */
+export function layoutsIn(desktop: Desktop, root: string): { layouts: NamedLayout[]; current?: string } {
+  const project = projectOf(desktop, root);
+  const saved = Array.isArray(project.layouts) ? project.layouts : undefined;
+  const layouts: NamedLayout[] = [];
+  for (const item of saved ?? STARTERS) {
+    const l = layoutOf(item);
+    if (l && !layouts.some((k) => k.name === l.name) && layouts.length < MAX_LAYOUTS) layouts.push(l);
+  }
+  const current = typeof project.current === "string" && layouts.some((l) => l.name === project.current) ? project.current : undefined;
+  return { layouts, ...(current ? { current } : {}) };
+}
+
+function withProject(desktop: Desktop, root: string, change: (project: ProjectLayout) => void): Record<string, unknown> {
+  const all = { ...(record(desktop.layout) ?? {}) };
+  const project = projectOf(desktop, root);
+  change(project);
+  all[projectSlug(root)] = project;
+  return all;
+}
+
+/**
+ * `desktop.layout` with `layout` saved in the project (in place of one of its name, else last)
+ * and made current. Saving over the starters keeps them, so the first save does not lose them.
+ */
+export function withLayout(desktop: Desktop, root: string, layout: NamedLayout): Record<string, unknown> {
+  const name = layoutName(layout.name);
+  const { layouts } = layoutsIn(desktop, root);
+  const kept: NamedLayout = { name, pip: layout.pip.map((f) => ({ ...f })), ...(layout.groups !== undefined ? { groups: layout.groups } : {}) };
+  const at = layouts.findIndex((l) => l.name === name);
+  const next = at >= 0 ? layouts.map((l, i) => (i === at ? kept : l)) : [...layouts, kept].slice(-MAX_LAYOUTS);
+  return withProject(desktop, root, (p) => {
+    p.layouts = next;
+    p.current = name;
+  });
+}
+
+/** `desktop.layout` with the layout `name` gone from the project (the current one no longer). */
+export function withoutLayout(desktop: Desktop, root: string, name: string): Record<string, unknown> {
+  const { layouts, current } = layoutsIn(desktop, root);
+  return withProject(desktop, root, (p) => {
+    p.layouts = layouts.filter((l) => l.name !== name);
+    if (current === name || p.current === name) delete p.current;
+  });
+}
+
+/** `desktop.layout` with `name` the project's current layout. */
+export function withCurrent(desktop: Desktop, root: string, name: string): Record<string, unknown> {
+  return withProject(desktop, root, (p) => {
+    p.current = name;
+  });
+}

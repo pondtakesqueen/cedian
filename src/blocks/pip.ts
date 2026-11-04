@@ -208,3 +208,61 @@ export function resized(from: Size, corner: Corner, dx: number, dy: number, fram
   };
   return fit(want, frame);
 }
+
+/** A block's card in the fan: where its top left goes, how much it is scaled, and its tilt. */
+export interface Card {
+  x: number;
+  y: number;
+  scale: number;
+  /** Degrees, clockwise. */
+  angle: number;
+}
+
+/** The fan's cards stand this tall at most, as a share of the frame's height. */
+export const FAN_HEIGHT = 0.5;
+/** How much of each card the next one leaves showing, at least, when they must overlap. */
+export const FAN_SHOWN = 0.55;
+/** The outermost cards' tilt, in degrees; the ones between share it evenly. */
+export const FAN_TILT = 6;
+
+/**
+ * The fan (Tern's deck of PiPs): every floating block, stashed ones too, as a card at its own
+ * shape, scaled alike so the tallest stands `FAN_HEIGHT` of the frame, side by side across the
+ * middle, overlapping only when the row is wider than the frame (each still `FAN_SHOWN` showing),
+ * the outer ones tilted and lowered a little like cards held in a hand. `sizes` are the blocks'
+ * drawn sizes, in order.
+ */
+export function fan(sizes: readonly Size[], frame: Size): Card[] {
+  const n = sizes.length;
+  if (n === 0 || frame.width <= 0 || frame.height <= 0) return [];
+  const tallest = Math.max(...sizes.map((s) => s.height));
+  let scale = Math.min(1, (frame.height * FAN_HEIGHT) / tallest);
+  const widths = () => sizes.map((s) => s.width * scale);
+  const room = frame.width - 2 * GAP;
+  // Side by side with gaps when they fit; else overlapping, down to FAN_SHOWN of each showing;
+  // else smaller.
+  const span = (w: number[], step: (i: number) => number) => w.slice(0, -1).reduce((sum, _, i) => sum + step(i), 0) + w[n - 1];
+  let w = widths();
+  let stepOf = (i: number) => w[i] + GAP;
+  if (span(w, stepOf) > room) {
+    const least = span(w, (i) => w[i] * FAN_SHOWN);
+    if (least > room) {
+      scale *= room / least;
+      w = widths();
+    }
+    const plain = span(w, (i) => w[i]);
+    // The overlap that just fits, the same share of each card.
+    const share = n > 1 ? Math.max(FAN_SHOWN, Math.min(1, (room - w[n - 1]) / (plain - w[n - 1]))) : 1;
+    stepOf = (i: number) => w[i] * share;
+  }
+  const total = span(w, stepOf);
+  let x = (frame.width - total) / 2;
+  const middle = (n - 1) / 2;
+  return sizes.map((s, i) => {
+    const off = n > 1 ? (i - middle) / middle : 0;
+    const h = s.height * scale;
+    const card = { x: Math.round(x), y: Math.round((frame.height - h) / 2 + Math.abs(off) * GAP * 2), scale, angle: Math.round(off * FAN_TILT * 10) / 10 };
+    x += stepOf(i);
+    return card;
+  });
+}

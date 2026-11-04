@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { arrange, fit, GAP, nearest, place, PIP_MIN, resized, settle, sideOf, STASH_TAB, step, velocityOf } from "./pip.js";
+import { arrange, fan, FAN_HEIGHT, FAN_SHOWN, FAN_TILT, fit, GAP, nearest, place, PIP_MIN, resized, settle, sideOf, STASH_TAB, step, velocityOf, type Card } from "./pip.js";
 
 const frame = { width: 1200, height: 800 };
 const size = { width: 400, height: 300 };
@@ -134,5 +134,41 @@ describe("sharing a small frame", () => {
     const [a, b] = arrange([{ rest: { corner: "tl" }, size: { width: 300, height: 200 } }, { rest: { corner: "tl" }, size: { width: 300, height: 300 } }], frame);
     expect(a.y).toBe(GAP);
     expect(b.y).toBe(GAP + 200 + GAP);
+  });
+});
+
+describe("the fan (a deck of the floating blocks)", () => {
+  const box = (c: Card, s: { width: number; height: number }) => ({ left: c.x, right: c.x + s.width * c.scale, top: c.y, bottom: c.y + s.height * c.scale });
+  test("nothing floating, no cards", () => {
+    expect(fan([], frame)).toEqual([]);
+  });
+  test("one card stands upright in the middle, half the frame tall at most", () => {
+    const [c] = fan([size], frame);
+    expect(c.angle).toBe(0);
+    expect(c.scale).toBe(1);
+    expect(c.x).toBe((1200 - 400) / 2);
+    const [big] = fan([{ width: 1000, height: 700 }], frame);
+    expect(big.scale).toBeCloseTo((800 * FAN_HEIGHT) / 700);
+  });
+  test("a few cards sit side by side a gap apart, the outer ones tilted out and lower", () => {
+    const sizes = [size, size, size];
+    const cards = fan(sizes, { width: 1600, height: 800 });
+    const boxes = cards.map((c, i) => box(c, sizes[i]));
+    expect(boxes[1].left - boxes[0].right).toBeCloseTo(GAP, 0);
+    expect(boxes[0].left).toBeCloseTo(1600 - boxes[2].right, 0);
+    expect(cards.map((c) => c.angle)).toEqual([-FAN_TILT, 0, FAN_TILT]);
+    expect(cards[0].y).toBeGreaterThan(cards[1].y);
+    expect(cards[0].y).toBe(cards[2].y);
+  });
+  test("many cards overlap to fit, each still showing, and stay inside the frame", () => {
+    const sizes = Array.from({ length: 9 }, () => ({ width: 440, height: 300 }));
+    const cards = fan(sizes, { width: 900, height: 600 });
+    const boxes = cards.map((c, i) => box(c, sizes[i]));
+    expect(boxes[0].left).toBeGreaterThanOrEqual(GAP - 1);
+    expect(boxes.at(-1)!.right).toBeLessThanOrEqual(900 - GAP + 1);
+    for (let i = 1; i < boxes.length; i++) {
+      const shown = boxes[i].left - boxes[i - 1].left;
+      expect(shown).toBeGreaterThanOrEqual(440 * cards[i].scale * FAN_SHOWN - 1);
+    }
   });
 });

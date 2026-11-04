@@ -119,6 +119,11 @@ pub enum Request {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         images: Option<Vec<PathBuf>>,
     },
+    /// A side chat on `thread` (`cedia threads fork <id> end --side`), when cedia lists
+    /// `threads.side`: a new thread whose conversation is `thread`'s as it stands now, even while
+    /// it works, for asking about it without adding to it. Nothing runs until the person sends to
+    /// it. The client is sent `SideChat`; it deletes the side chat when it closes it.
+    Side { cwd: PathBuf, thread: String },
     /// A message the running thread sees at its next turn, with its images (`cedia threads send
     /// --image`), when cedia lists `threads.send-images`.
     Send {
@@ -509,6 +514,12 @@ pub enum Notice {
     },
     /// `thread` was forked from `from` and its run is starting.
     Forked {
+        cwd: PathBuf,
+        from: String,
+        thread: String,
+    },
+    /// `thread` is a side chat on `from`, asked for by this client (`Request::Side`).
+    SideChat {
         cwd: PathBuf,
         from: String,
         thread: String,
