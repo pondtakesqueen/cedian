@@ -152,6 +152,9 @@
    .ptab row: quiet until hovered, this window's project filled. What needs the person is a badge in
    the accent colour, what is at work a dot and a count in the working colour. */
 .monaco-workbench .part.titlebar .cedian-project-tabs { display: flex; align-items: center; gap: 2px; height: 100%; min-width: 0; padding: 0 6px; -webkit-app-region: no-drag; }
+/* On the Mac VS Code leaves the traffic lights no container of their own (titlebarPart.ts), so the
+   row steps past them itself: the 70px VS Code gives them elsewhere. Full screen hides them. */
+.monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar .cedian-project-tabs { margin-left: 70px; }
 .cedian-project-tabs .cedian-project-tab {
 	display: inline-flex; align-items: center; gap: 8px; height: 26px; max-width: 220px; min-width: 64px; padding: 0 10px;
 	border: 0; border-radius: 8px; background: transparent; cursor: pointer;
