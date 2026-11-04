@@ -893,7 +893,7 @@ This section is the roadmap; `docs/ARCHITECTURE.md` keeps the GPUI-era phases as
 
 Biggest risk: blocks at full Tern parity make Phase C the longest phase. Upstream merges are rare (§9), so the fork's drift cost is low, but blocks stay a layer over the workbench so a needed merge stays possible.
 
-Cedian-specific setup carried from the earlier list: rename to "Cedian" and strip Copilot/Cursor AI features; Open VSX; VS Code settings UI and MCP client disabled; Roots UI per `docs/specs/ROOTS_SETTINGS_DRAFT.md`; multi-repo per `docs/specs/PROJECTS_SPEC.md`; MIT notice for VS Code portions before ship.
+Cedian-specific setup carried from the earlier list: rename to "Cedian" and strip Copilot/Cursor AI features; Open VSX; VS Code settings UI and MCP client disabled; Roots UI in Cedian Settings (`src/settings/settings-view.ts`); multi-repo per `docs/specs/PROJECTS_SPEC.md`; MIT notice for VS Code portions before ship.
 
 ---
 

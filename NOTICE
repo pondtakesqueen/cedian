@@ -11,8 +11,6 @@ Cedian uses third-party work under its own licenses.
 - Fonts: Geist and Geist Mono 1.9.0 (vercel/geist-font), SIL OFL 1.1,
   bundled unmodified as variable fonts in
   vscode/contrib/cedian/browser/media/fonts/ with their license (OFL.txt).
-  The code font setting can also name Lilex (SIL OFL 1.1), used only when
-  installed on the machine.
 
 Visual Studio Code license:
 

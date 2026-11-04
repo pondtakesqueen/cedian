@@ -3,5 +3,5 @@
 - `CEDIAN_SPEC.md` — design source of truth (supersedes `ARCHITECTURE.md`)
 - `ARCHITECTURE.md` — historical GPUI architecture detail
 - `VENDORING.md` — pinned VS Code base + fork steps (Phase A)
-- `specs/` — evidence specs (Projects, roots settings) + `COMPUTER_USE_SPEC.md`
+- `specs/` — evidence specs (Projects) + `COMPUTER_USE_SPEC.md`
 - protocol schema: the one copy is `daemon/crates/cedian_protocol/cedia/protocol.schema.json`, pinned by `script/pin-cedia`
