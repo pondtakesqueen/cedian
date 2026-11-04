@@ -14,7 +14,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { BlockLayer } from './blocks/layer.js';
 import { floatingIn, sameFloating, withFloating, type Floating } from './blocks/layout.js';
@@ -63,6 +63,8 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 				}
 			},
 			changed: floating => this.keep(floating),
+			// Torn off (↗, or let go outside the window): an editor of its own in a new window there.
+			tearOff: (kind, id, bounds) => { void this.tearOff(kind, id, bounds); },
 		});
 		// Blocks float over the editor area, the frame Tern's PiPs float in: the side pane and its
 		// composer stay clear, as do the activity bar and the title bar. Without an editor part
@@ -229,6 +231,20 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 			this.layer.float(block, at, quiet);
 		} catch (e) {
 			this.notifications.warn(`Couldn't float the thread: ${e instanceof Error ? e.message : e}`);
+		}
+	}
+
+	/** A block torn off: its editor in a window of its own at `bounds` (screen pixels). */
+	private async tearOff(kind: string, id: string | undefined, bounds: { x: number; y: number; width: number; height: number }): Promise<void> {
+		const options = { pinned: true, auxiliary: { bounds, compact: true } };
+		try {
+			if (kind === 'browser') {
+				await this.editorService.openEditor(new CedianBrowserInput(), options, AUX_WINDOW_GROUP);
+			} else if (kind === 'agent') {
+				await this.editorService.openEditor(new CedianAgentInput(id), options, AUX_WINDOW_GROUP);
+			}
+		} catch (e) {
+			this.notifications.warn(`Couldn't open a new window: ${e instanceof Error ? e.message : e}`);
 		}
 	}
 

@@ -328,9 +328,13 @@
   a click on a card (or Enter on its header) brings it back to its corner out
   of a stash, in front and focused; Escape, a click beside the cards or ⌃⌥↑
   again folds them; where they rest does not change. Checked: `vitest
-  src/blocks` and `node test/smoke/blocks.mjs` (17 checks with the fan). Still
-  to do: try the side chat and the fan on the Mac;
-  tear-off out of the window; named layouts (the old app's
+  src/blocks` and `node test/smoke/blocks.mjs` (17 checks with the fan).
+  Tear-off: ↗ in a floating block's header, or letting it go outside the
+  window, closes it here and opens it as an editor in a window of its own
+  where it was (or under the pointer), at its size (`auxiliary.bounds`): the
+  Browser block, or an agent editor on the thread it showed. A side chat
+  stays. Checked: `vitest src/blocks`. Still
+  to do: try the side chat, the fan and tear-off on the Mac; named layouts (the old app's
   `desktop.layout.blocks` is not read yet); more blocks than the Browser and a thread
 - [x] Tab completion (ghost text) with a measured latency budget (built
   2026-10-29, tried in the app on the owner's Mac): an inline-completions

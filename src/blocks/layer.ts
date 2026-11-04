@@ -20,6 +20,17 @@ export interface LayerHost {
   changed(floating: Floating[]): void;
   /** A block of `kind` was closed from its header. */
   closed?(kind: string): void;
+  /**
+   * Opens a block of `kind` (showing `id`) in a window of its own at `bounds`, in screen pixels:
+   * torn off, by its header's ↗ or let go outside the window. The layer has already closed its
+   * own. Without it, blocks are not torn off.
+   */
+  tearOff?(kind: string, id: string | undefined, bounds: Rect): void;
+}
+
+/** Whether `point` (in the window's CSS pixels) is outside a window of `view`'s size. */
+export function outside(point: Point, view: Size): boolean {
+  return point.x < 0 || point.y < 0 || point.x >= view.width || point.y >= view.height;
 }
 
 interface Pip {
@@ -121,10 +132,14 @@ export class BlockLayer {
     const dock = button(d, "⧉", () => this.dock(block.kind), "ibtn pip-dock");
     dock.setAttribute("aria-label", "Back into the editor");
     dock.title = "Back into the editor";
+    const tearable = !!this.host.tearOff && !block.throwaway;
+    const tear = button(d, "↗", () => this.tearOff(block.kind), "ibtn pip-tear");
+    tear.setAttribute("aria-label", "Open in a new window");
+    tear.title = "Open in a new window (or drag it out of the window)";
     const close = button(d, "×", () => this.close(block.kind), "ibtn pip-close");
     close.setAttribute("aria-label", "Close");
     close.title = "Close";
-    head.append(title, stash, expand, ...(block.throwaway ? [] : [dock]), close);
+    head.append(title, stash, expand, ...(block.throwaway ? [] : [dock]), ...(tearable ? [tear] : []), close);
     const body = el(d, "div", "pip-body");
     body.append(block.root);
     const tab = button(d, "", () => this.unstash(block.kind), "pip-tab");
@@ -259,6 +274,28 @@ export class BlockLayer {
     this.drop(kind);
     this.changed();
     this.host.dock(kind, id);
+  }
+
+  /**
+   * Tears the block of `kind` off into a window of its own: at `bounds` (screen pixels) when
+   * given, else where it is drawn now. A throwaway block (a side chat) stays.
+   */
+  tearOff(kind: string, bounds?: Rect): void {
+    const pip = this.find(kind);
+    if (!pip || pip.block.throwaway || !this.host.tearOff) return;
+    const id = pip.block.id;
+    const at = bounds ?? this.onScreen(pip);
+    this.drop(kind);
+    this.changed();
+    this.host.tearOff(kind, id, at);
+  }
+
+  /** Where `pip` is drawn, in screen pixels. */
+  private onScreen(pip: Pip): Rect {
+    const view = this.doc.defaultView;
+    const r = pip.node.getBoundingClientRect();
+    const shown = this.rectOf(pip);
+    return { x: Math.round((view?.screenX ?? 0) + r.left), y: Math.round((view?.screenY ?? 0) + r.top), width: Math.round(shown.width), height: Math.round(shown.height) };
   }
 
   close(kind: string): void {
@@ -502,6 +539,14 @@ export class BlockLayer {
         this.draw();
         if (pip.state === "parked") this.unstash(pip.block.kind);
         return;
+      }
+      // Let go outside the window: torn off into one of its own there, its header under the pointer.
+      const view = this.doc.defaultView;
+      if (view && this.host.tearOff && !pip.block.throwaway && outside({ x: e.clientX, y: e.clientY }, { width: view.innerWidth, height: view.innerHeight })) {
+        const frameAt = this.root.getBoundingClientRect();
+        const grabX = g.from.x - frameAt.left - g.at.x;
+        const grabY = g.from.y - frameAt.top - g.at.y;
+        return this.tearOff(pip.block.kind, { x: Math.round(e.screenX - grabX), y: Math.round(e.screenY - grabY), width: Math.round(g.at.width), height: Math.round(g.at.height) });
       }
       // At the size it was drawn at while dragged (it may be sharing the frame), and judged by
       // where the pointer let it go.
