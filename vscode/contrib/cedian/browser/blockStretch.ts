@@ -33,7 +33,7 @@ const easeOpen = (t: number) => 1 - Math.pow(1 - t, 3);
 /** Closing eases in and out (cubic): no jump on the first frame, gone briskly at the end. */
 const easeClose = (t: number) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-interface Run { stop(): void; size(): number; target: number; closing: boolean }
+interface Run { stop(): void; size(): number; target: number; closing: boolean; held: readonly number[] }
 
 /**
  * A side block (Threads, the right panel, the bottom panel) stretches open from nothing to its
@@ -135,7 +135,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		if (!this.moving() || this.still(part) || target <= 0) {
 			return;
 		}
-		this.animate(part, running?.size() ?? 0, target, OPEN_MS, target);
+		this.animate(part, running?.size() ?? 0, target, OPEN_MS, target, running?.held);
 	}
 
 	/** Shrinks the block, then hides it; false when it is not to move, so it hides at once. */
@@ -146,9 +146,10 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		const running = this.runs.get(part);
 		const target = running?.target ?? this.size(part);
 		const from = running?.size() ?? this.size(part);
+		const held = running?.held;
 		running?.stop();
 		stretching.add(part);
-		this.animate(part, from, 0, CLOSE_MS, target, () => {
+		this.animate(part, from, 0, CLOSE_MS, target, held, () => {
 			// Its width back and hidden in one frame: the layout keeps the width for the next opening.
 			// Giving it its width back takes room from the other side blocks, so theirs are put back.
 			const others = SIDES.filter(s => s.part !== part && this.layout.isVisible(s.part, mainWindow)).map(s => ({ part: s.part, size: this.size(s.part) }));
@@ -167,7 +168,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		return true;
 	}
 
-	private animate(part: Parts, from: number, to: number, ms: number, target: number, done?: () => void): void {
+	private animate(part: Parts, from: number, to: number, ms: number, target: number, measured: readonly number[] | undefined, done?: () => void): void {
 		const element = this.layout.getContainer(mainWindow, part);
 		const sized = (this.layout as unknown as PartsOf).getPart?.(part);
 		if (!element || !sized) {
@@ -184,6 +185,11 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		const tall = this.tall(part);
 		const far = this.far(part);
 		const inner = [...element.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
+		// Each child held at the size it has at the block's full size, as measured there: the block's
+		// size is not its children's (its card margins, its border), and holding them at the block's
+		// size would have them jump by the difference when the run ends.
+		const held = measured?.length === inner.length ? measured
+			: inner.map(c => this.size(part) === target ? (tall ? c.offsetHeight : c.offsetWidth) : target);
 		element.style.overflow = 'hidden';
 		// What is inside lays out at the full size the whole time: only the block's box moves.
 		const own = sized.layout;
@@ -194,10 +200,10 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		};
 		const hold = (size: number) => {
 			element.style.opacity = String(Math.min(1, size / Math.max(1, target) * 1.6));
-			for (const c of inner) {
-				c.style[tall ? 'minHeight' : 'minWidth'] = `${target}px`;
+			inner.forEach((c, i) => {
+				c.style[tall ? 'minHeight' : 'minWidth'] = `${held[i]}px`;
 				c.style.transform = far ? `translate${tall ? 'Y' : 'X'}(${size - target}px)` : '';
-			}
+			});
 		};
 		hold(from);
 		const start = mainWindow.performance.now();
@@ -239,6 +245,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		};
 		const run: Run = {
 			target,
+			held,
 			closing: !!done,
 			size: () => current,
 			stop: () => {
