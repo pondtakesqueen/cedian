@@ -11,6 +11,7 @@ import { IContextMenuService } from '../../../../platform/contextview/browser/co
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -51,6 +52,7 @@ export class AgentPaneView extends ViewPane {
 		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
 		@IEditorService private readonly editorService: IEditorService,
 		@INotificationService private readonly notifications: INotificationService,
+		@ICommandService private readonly commands: ICommandService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -65,6 +67,8 @@ export class AgentPaneView extends ViewPane {
 		}
 		const host = this.instantiationService.invokeFunction(accessor => createPaneHost(accessor, folder, {
 			popOut: thread => { popOutThread(this.editorService, thread).catch(e => this.notifications.warn(`Couldn't open a new window: ${e instanceof Error ? e.message : e}`)); },
+			// null, not undefined: a new thread, not the palette's "float the side pane's thread".
+			float: thread => { this.commands.executeCommand('cedian.floatThread', thread ?? null); },
 		}));
 		const wire = CedianPanes.wire(this.daemon.client);
 		const pane = new AgentPane(parent.ownerDocument, wire, host);

@@ -139,6 +139,28 @@ try {
   b = await box();
   ok("and shrinks back to its corner", near(b.width, 440) && near(b.height, 300));
 
+  // Resize by the free corner: bottom right grows up and left; the corner stays put.
+  b = await box();
+  await page.mouse.move(b.x + 4, b.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 4 - 60, b.y + 4 - 40, { steps: 6 });
+  await page.mouse.move(b.x + 4 - 120, b.y + 4 - 80, { steps: 6 });
+  await page.mouse.up();
+  await settled();
+  b = await box();
+  const grown = (await last())[0];
+  ok("resized by its free corner, the resting corner stays", near(b.width, 560) && near(b.height, 380) && near(b.x + b.width, W - GAP) && near(b.y + b.height, H - GAP) && grown.width === 560 && grown.height === 380, `${b.x},${b.y} ${b.width}x${b.height}`);
+  await page.screenshot({ path: join(out, "3b-resized.png") });
+  await head.focus();
+  await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Shift+ArrowDown");
+  await settled();
+  b = await box();
+  ok("Shift+arrows resize it from the keyboard", near(b.width, 480) && near(b.height, 420), `${b.width}x${b.height}`);
+  await page.evaluate(() => window.layer.resizeTo("browser", { width: 440, height: 300 }));
+  await settled();
+
   // Arrow keys on the header step corners.
   await head.focus();
   await page.keyboard.press("ArrowUp");
@@ -157,6 +179,13 @@ try {
   await page.setViewportSize({ width: 700, height: 500 });
   await settled();
   const small = [await box(), await box("agent")];
+  const reachable = await page.evaluate(() =>
+    ["browser", "agent"].every((kind) => {
+      const b = document.querySelector(`.cedian-pip[data-kind="${kind}"] .pip-expand`).getBoundingClientRect();
+      return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2)?.closest(".cedian-pip")?.dataset.kind === kind;
+    }),
+  );
+  ok("in a smaller window neither block covers the other's buttons", reachable);
   ok("a smaller window keeps them inside", small.every((r) => r.x >= 0 && r.y >= 0 && r.x + r.width <= 700 + 1 && r.y + r.height <= 500 + 1), JSON.stringify(small.map((r) => [r.x, r.y, r.width, r.height])));
   await page.setViewportSize({ width: W, height: H });
   await settled();

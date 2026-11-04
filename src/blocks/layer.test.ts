@@ -7,6 +7,7 @@ import { GAP, STASH_TAB } from "./pip.js";
 
 class FakeBlock implements Block {
   readonly root = document.createElement("div");
+  id: string | undefined;
   sizes: [number, number][] = [];
   disposed = false;
   focused = 0;
@@ -177,6 +178,78 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     layer.layout(600, 400);
     expect(block.sizes.at(-1)).toEqual([600 - 2 * GAP, 400 - 2 * GAP - HEAD]);
     expect(translate(pipOf(layer))).toBe(`translate(${GAP}px, ${GAP}px)`);
+  });
+  test("resized by the free edge, the resting corner stays and the size is kept", () => {
+    const { layer, changes } = setup();
+    const block = new FakeBlock();
+    layer.float(block);
+    const node = pipOf(layer);
+    // Bottom right: the grips are on the left and top edges.
+    const grip = node.querySelector<HTMLElement>(".pip-grip.g-xy")!;
+    pointer(grip, "pointerdown", 748, 488);
+    pointer(grip, "pointermove", 648, 438);
+    expect(block.sizes.at(-1)).toEqual([540, 350 - HEAD]);
+    pointer(grip, "pointerup", 648, 438);
+    expect(changes.at(-1)![0]).toMatchObject({ corner: "br", width: 540, height: 350 });
+    expect(translate(node)).toBe(`translate(${1200 - GAP - 540}px, ${800 - GAP - 350}px)`);
+    const x = node.querySelector<HTMLElement>(".pip-grip.g-x")!;
+    pointer(x, "pointerdown", 648, 600);
+    pointer(x, "pointerup", 548, 500);
+    expect(changes.at(-1)![0]).toMatchObject({ width: 640, height: 350 });
+  });
+  test("a grip does nothing while zoomed", () => {
+    const { layer, changes } = setup();
+    layer.float(new FakeBlock());
+    layer.expand("browser");
+    const n = changes.length;
+    const grip = pipOf(layer).querySelector<HTMLElement>(".pip-grip.g-xy")!;
+    pointer(grip, "pointerdown", 100, 100);
+    pointer(grip, "pointerup", 50, 50);
+    expect(changes.length).toBe(n);
+  });
+  test("Shift+arrows on the header resize it", () => {
+    const { layer, changes } = setup();
+    layer.float(new FakeBlock());
+    const head = pipOf(layer).querySelector<HTMLElement>(".pip-head")!;
+    head.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true }));
+    expect(changes.at(-1)![0]).toMatchObject({ corner: "br", width: 480, height: 300 });
+    head.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true, bubbles: true }));
+    expect(changes.at(-1)![0]).toMatchObject({ width: 480, height: 260 });
+  });
+  test("a block showing one of many keeps which, and says when it shows another", () => {
+    const { layer, changes } = setup();
+    const block = new FakeBlock("agent");
+    block.id = "t-1";
+    layer.float(block);
+    expect(changes.at(-1)![0]).toMatchObject({ kind: "agent", id: "t-1" });
+    block.id = "t-2";
+    block.rename("Fix the build");
+    expect(changes.at(-1)![0]).toMatchObject({ id: "t-2" });
+  });
+  test("the block in use comes forward; an expanded block is over the others", () => {
+    const { layer } = setup();
+    layer.float(new FakeBlock());
+    layer.float(new FakeBlock("agent"), { corner: "tr" });
+    const z = (kind: string) => Number(pipOf(layer, kind).style.zIndex);
+    expect(z("agent")).toBeGreaterThan(z("browser"));
+    pipOf(layer).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    expect(z("browser")).toBeGreaterThan(z("agent"));
+    pipOf(layer, "agent").querySelector<HTMLElement>(".pip-head")!.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(z("agent")).toBeGreaterThan(z("browser"));
+    layer.expand("browser");
+    expect(z("browser")).toBeGreaterThan(z("agent"));
+  });
+  test("in a small frame, blocks in neighbouring corners share it instead of overlapping, keeping their own sizes", () => {
+    const { layer } = setup();
+    layer.layout(786, 805);
+    const browser = new FakeBlock();
+    const agent = new FakeBlock("agent");
+    layer.float(browser, { corner: "tl", width: 600, height: 400 });
+    layer.float(agent, { corner: "tr", width: 400, height: 560 });
+    const [bw] = browser.sizes.at(-1)!;
+    const [aw] = agent.sizes.at(-1)!;
+    expect(bw + aw).toBe(786 - 3 * GAP);
+    expect(layer.floating().map((f) => f.width)).toEqual([600, 400]);
   });
   test("dispose closes every block", () => {
     const { layer } = setup();

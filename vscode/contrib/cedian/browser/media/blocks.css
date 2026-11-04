@@ -1,6 +1,7 @@
-/* The block layer (src/blocks/layer.ts): blocks floating over the workbench as PiPs, after Tern's
-   (spec §3.3, §4.4). The layer covers the workbench and lets clicks through; each floating block
+/* The block layer (src/blocks/layer.ts): blocks floating over the editor area as PiPs, after Tern's
+   (spec §3.3, §4.4). The layer covers the editor area and lets clicks through; each floating block
    is a card with a header to drag it by. Moves glide unless Reduce Motion is on (spec §9 a11y). */
+.cedian-block-frame { position: relative; }
 .cedian-blocks { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; }
 .cedian-pip { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; pointer-events: auto; border-radius: 12px; overflow: hidden; background: var(--cedian-app); box-shadow: 0 0 0 1px var(--cedian-line-strong), 0 12px 32px rgba(0, 0, 0, .28); transition: transform .22s cubic-bezier(.2, .8, .2, 1), width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); }
 .cedian-pip.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 1px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }
@@ -23,4 +24,18 @@
 .cedian-pip[data-stash="right"] .pip-tab { left: 0; }
 /* The block inside fills the body; the Browser block keeps its own corners square here. */
 .cedian-pip .pip-body > * { position: absolute; inset: 0; }
+/* Resize grips on the edges toward the frame's middle: the corner the block rests in stays put. */
+.cedian-pip .pip-grip { position: absolute; z-index: 2; touch-action: none; }
+.cedian-pip .g-x { top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cedian-pip .g-y { left: 0; right: 0; height: 6px; cursor: ns-resize; }
+.cedian-pip .g-xy { width: 14px; height: 14px; }
+.cedian-pip[data-corner$="r"] .g-x, .cedian-pip[data-corner$="r"] .g-xy { left: 0; }
+.cedian-pip[data-corner$="l"] .g-x, .cedian-pip[data-corner$="l"] .g-xy { right: 0; }
+.cedian-pip[data-corner^="b"] .g-y, .cedian-pip[data-corner^="b"] .g-xy { top: 0; }
+.cedian-pip[data-corner^="t"] .g-y, .cedian-pip[data-corner^="t"] .g-xy { bottom: 0; }
+.cedian-pip[data-corner="br"] .g-xy, .cedian-pip[data-corner="tl"] .g-xy { cursor: nwse-resize; }
+.cedian-pip[data-corner="bl"] .g-xy, .cedian-pip[data-corner="tr"] .g-xy { cursor: nesw-resize; }
+.cedian-pip.zoomed .pip-grip, .cedian-pip.stashed .pip-grip { display: none; }
+.cedian-pip.resizing { transition: none; }
+.cedian-pip.resizing .pip-body { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }

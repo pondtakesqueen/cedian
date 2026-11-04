@@ -170,6 +170,25 @@ registerAction2(class extends Action2 {
 	}
 });
 
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.floatThread',
+			title: localize2('cedian.floatThread', "Float Thread"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	run(accessor: ServicesAccessor, thread?: unknown): Promise<void> {
+		// From the palette: the side pane's thread floats, and the pane goes on to a new one.
+		if (typeof thread === 'string' || thread === null) {
+			CedianBlockLayer.current?.floatThread(thread ?? undefined);
+			return Promise.resolve();
+		}
+		return withPane(accessor, p => p.float());
+	}
+});
+
 registerAction2(CheckForUpdatesAction);
 
 // ---- commands and the keybinding layer (spec §7.2) ----

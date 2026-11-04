@@ -6,15 +6,16 @@
 import { button, el } from "../dom/el.js";
 import { moveBlock, type Block, type BlockState } from "./block.js";
 import type { Floating } from "./layout.js";
-import { fit, GAP, place, PIP_SIZE, settle, sideOf, step, velocityOf, type Point, type Rect, type Rest, type Size } from "./pip.js";
+import { arrange, fit, GAP, place, PIP_SIZE, resized, settle, sideOf, step, velocityOf, type Point, type Rect, type Rest, type Size } from "./pip.js";
 
 /** The height of a floating block's header, where it is dragged from. */
 export const HEAD = 30;
 
 /** What the layer needs from the window around it. */
 export interface LayerHost {
-  /** Puts a block of `kind` back in the editor area. The layer has already closed its own. */
-  dock(kind: string): void;
+  /** Puts a block of `kind` back in the editor area, showing `id` when it showed one (an agent's
+   * thread). The layer has already closed its own. */
+  dock(kind: string, id?: string): void;
   /** What floats, or where, changed: the host asks the daemon to keep `floating`. */
   changed(floating: Floating[]): void;
   /** A block of `kind` was closed from its header. */
@@ -35,11 +36,15 @@ interface Pip {
 
 type Arrow = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 const ARROWS: readonly string[] = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+/** How much Shift+arrow grows or shrinks a floating block. */
+export const KEY_RESIZE = 40;
 
 export class BlockLayer {
   readonly root: HTMLElement;
   private readonly pips: Pip[] = [];
   private frame: Size = { width: 0, height: 0 };
+  /** The z-index of the block brought forward last. */
+  private top = 0;
   private readonly offs: (() => void)[] = [];
 
   constructor(private readonly doc: Document, private readonly host: LayerHost) {
@@ -60,7 +65,7 @@ export class BlockLayer {
 
   /** The blocks floating now, in the order they were floated, as `desktop.layout` keeps them. */
   floating(): Floating[] {
-    return this.pips.map((p) => ({ kind: p.block.kind, ...p.rest, width: p.size.width, height: p.size.height }));
+    return this.pips.map((p) => ({ kind: p.block.kind, ...(p.block.id ? { id: p.block.id } : {}), ...p.rest, width: p.size.width, height: p.size.height }));
   }
 
   has(kind: string): boolean {
@@ -84,7 +89,7 @@ export class BlockLayer {
     node.setAttribute("role", "group");
     const head = el(d, "div", "pip-head");
     head.tabIndex = 0;
-    head.title = "Drag to a corner, or fling it at a side to stash it. Arrow keys move it.";
+    head.title = "Drag to a corner, or fling it at a side to stash it. Arrow keys move it; Shift+arrows resize it.";
     const title = el(d, "span", "pip-title");
     const stash = button(d, "⇥", () => this.stash(block.kind), "ibtn pip-stash");
     stash.setAttribute("aria-label", "Stash against the side");
@@ -101,7 +106,13 @@ export class BlockLayer {
     const body = el(d, "div", "pip-body");
     body.append(block.root);
     const tab = button(d, "", () => this.unstash(block.kind), "pip-tab");
-    node.append(head, body, tab);
+    const grips = (["x", "y", "xy"] as const).map((axes) => {
+      const grip = el(d, "div", `pip-grip g-${axes}`);
+      grip.dataset.axes = axes;
+      grip.setAttribute("aria-hidden", "true");
+      return grip;
+    });
+    node.append(head, body, tab, ...grips);
     const pip: Pip = {
       block,
       rest: { corner: at?.corner ?? "br", ...(at?.stash ? { stash: at.stash } : {}) },
@@ -114,16 +125,32 @@ export class BlockLayer {
       offs: [],
     };
     if (pip.rest.stash) pip.state = moveBlock(pip.state, "park");
-    pip.offs.push(block.onTitle(() => this.drawTitle(pip)));
+    pip.offs.push(
+      block.onTitle(() => {
+        this.drawTitle(pip);
+        // A block that shows one of many (an agent's thread) may show another now.
+        if (block.id !== undefined) this.changed();
+      }),
+    );
     this.drag(pip, head);
+    for (const grip of grips) this.resize(pip, grip);
     head.addEventListener("keydown", (e) => {
-      if (ARROWS.includes(e.key) && e.target === head) {
-        e.preventDefault();
-        this.moveTo(block.kind, { corner: step(pip.rest.corner, e.key as Arrow) });
-      }
+      if (!ARROWS.includes(e.key) || e.target !== head) return;
+      e.preventDefault();
+      if (e.shiftKey) this.resizeBy(block.kind, e.key as Arrow);
+      else this.moveTo(block.kind, { corner: step(pip.rest.corner, e.key as Arrow) });
+    });
+    // The block in use comes forward, so its header and buttons are never under another's.
+    const forward = () => this.raise(pip);
+    node.addEventListener("pointerdown", forward, true);
+    node.addEventListener("focusin", forward);
+    pip.offs.push(() => {
+      node.removeEventListener("pointerdown", forward, true);
+      node.removeEventListener("focusin", forward);
     });
     this.pips.push(pip);
     this.root.append(node);
+    this.raise(pip);
     this.drawTitle(pip);
     this.draw();
     if (!quiet) this.changed();
@@ -137,6 +164,28 @@ export class BlockLayer {
     pip.state = rest.stash ? moveBlock(this.restored(pip), "park") : this.restored(pip);
     this.draw();
     this.changed();
+  }
+
+  /** Sets the size of the block of `kind`, fitted to the frame, out of a zoom or a stash. */
+  resizeTo(kind: string, size: Size): void {
+    const pip = this.find(kind);
+    if (!pip) return;
+    const fitted = this.frame.width && this.frame.height ? fit(size, this.frame) : size;
+    pip.size = { width: Math.round(fitted.width), height: Math.round(fitted.height) };
+    if (pip.rest.stash) pip.rest = { corner: pip.rest.corner };
+    pip.state = this.restored(pip);
+    this.draw();
+    this.changed();
+  }
+
+  /** Shift+arrow: right and down grow the block, left and up shrink it. */
+  private resizeBy(kind: string, key: Arrow): void {
+    const pip = this.find(kind);
+    if (!pip) return;
+    const d = key === "ArrowRight" || key === "ArrowDown" ? KEY_RESIZE : -KEY_RESIZE;
+    const across = key === "ArrowLeft" || key === "ArrowRight";
+    const now = this.frame.width ? fit(pip.size, this.frame) : pip.size;
+    this.resizeTo(kind, { width: now.width + (across ? d : 0), height: now.height + (across ? 0 : d) });
   }
 
   /** Stashes the block of `kind` against its corner's side, a tab left showing. */
@@ -160,6 +209,7 @@ export class BlockLayer {
     else {
       if (pip.rest.stash) pip.rest = { corner: pip.rest.corner };
       pip.state = moveBlock(this.restored(pip), "zoom");
+      this.raise(pip);
     }
     this.draw();
     this.changed();
@@ -168,10 +218,12 @@ export class BlockLayer {
 
   /** Closes the block of `kind` here and puts it back in the editor area. */
   dock(kind: string): void {
-    if (!this.find(kind)) return;
+    const pip = this.find(kind);
+    if (!pip) return;
+    const id = pip.block.id;
     this.drop(kind);
     this.changed();
-    this.host.dock(kind);
+    this.host.dock(kind, id);
   }
 
   close(kind: string): void {
@@ -220,16 +272,35 @@ export class BlockLayer {
     pip.tab.title = `Bring back ${title}`;
   }
 
-  /** The place of each block: zoomed fills the frame, else its corner and its place in the stack. */
-  private rectOf(pip: Pip): Rect {
-    if (pip.state === "zoomed") return { x: GAP, y: GAP, width: Math.max(0, this.frame.width - 2 * GAP), height: Math.max(0, this.frame.height - 2 * GAP) };
-    const same = this.pips.filter((p) => p.state !== "zoomed" && p.rest.corner === pip.rest.corner && p.rest.stash === pip.rest.stash);
-    return place(pip.rest, pip.size, this.frame, same.indexOf(pip));
+  /**
+   * The place of each block: zoomed fills the frame, else its corner, stacked after the ones before
+   * it there, sharing the frame with blocks in other corners (`arrange`). `sized` draws one block
+   * at another size, as while its grip is held.
+   */
+  private rects(sized?: { pip: Pip; size: Size }): Map<Pip, Rect> {
+    const out = new Map<Pip, Rect>();
+    const resting = this.pips.filter((p) => p.state !== "zoomed");
+    const placed = arrange(resting.map((p) => ({ rest: p.rest, size: sized?.pip === p ? sized.size : p.size })), this.frame);
+    resting.forEach((p, i) => out.set(p, placed[i]));
+    for (const p of this.pips) {
+      if (p.state === "zoomed") out.set(p, { x: GAP, y: GAP, width: Math.max(0, this.frame.width - 2 * GAP), height: Math.max(0, this.frame.height - 2 * GAP) });
+    }
+    return out;
   }
 
-  private draw(): void {
+  private rectOf(pip: Pip): Rect {
+    return this.rects().get(pip)!;
+  }
+
+  private draw(sized?: { pip: Pip; size: Size }): void {
     if (!this.frame.width || !this.frame.height) return;
-    for (const pip of this.pips) this.put(pip, this.rectOf(pip));
+    for (const [pip, rect] of this.rects(sized)) this.put(pip, rect);
+  }
+
+  /** Brings `pip` over the other floating blocks: the one in use, or the one just expanded. */
+  private raise(pip: Pip): void {
+    if (pip.node.style.zIndex === String(this.top)) return;
+    pip.node.style.zIndex = String(++this.top);
   }
 
   private put(pip: Pip, rect: Rect): void {
@@ -248,6 +319,49 @@ export class BlockLayer {
     pip.expand.setAttribute("aria-label", label);
     pip.expand.title = label;
     pip.block.layout(Math.round(rect.width), Math.max(0, Math.round(rect.height) - HEAD));
+  }
+
+  // ---- resizing ----
+
+  /**
+   * Resizes by a grip on the edges toward the frame's middle; the corner it rests in stays put.
+   * Live while held, kept when let go.
+   */
+  private resize(pip: Pip, grip: HTMLElement): void {
+    const axes = grip.dataset.axes as "x" | "y" | "xy";
+    let grab: { from: Point; size: Size; id: number } | undefined;
+    const down = (e: PointerEvent) => {
+      if (e.button !== 0 || pip.state !== "focused") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const shown = this.rectOf(pip);
+      grab = { from: { x: e.clientX, y: e.clientY }, size: { width: shown.width, height: shown.height }, id: e.pointerId };
+      grip.setPointerCapture?.(e.pointerId);
+      pip.node.classList.add("resizing");
+    };
+    const sizeAt = (e: PointerEvent, g: NonNullable<typeof grab>) => resized(g.size, pip.rest.corner, e.clientX - g.from.x, e.clientY - g.from.y, this.frame, axes);
+    const move = (e: PointerEvent) => {
+      if (!grab || e.pointerId !== grab.id) return;
+      this.draw({ pip, size: sizeAt(e, grab) });
+    };
+    const up = (e: PointerEvent) => {
+      if (!grab || e.pointerId !== grab.id) return;
+      const g = grab;
+      grab = undefined;
+      grip.releasePointerCapture?.(e.pointerId);
+      pip.node.classList.remove("resizing");
+      this.resizeTo(pip.block.kind, sizeAt(e, g));
+    };
+    grip.addEventListener("pointerdown", down);
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+    pip.offs.push(() => {
+      grip.removeEventListener("pointerdown", down);
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+    });
   }
 
   // ---- dragging ----
@@ -288,8 +402,11 @@ export class BlockLayer {
         if (pip.state === "parked") this.unstash(pip.block.kind);
         return;
       }
-      const size = fit(pip.size, this.frame);
-      const rest = settle({ x: g.at.x + dx, y: g.at.y + dy, ...size }, velocityOf(g.samples), this.frame);
+      // At the size it was drawn at while dragged (it may be sharing the frame), and judged by
+      // where the pointer let it go.
+      const frameAt = this.root.getBoundingClientRect();
+      const pointer = { x: e.clientX - frameAt.left, y: e.clientY - frameAt.top };
+      const rest = settle({ x: g.at.x + dx, y: g.at.y + dy, width: g.at.width, height: g.at.height }, velocityOf(g.samples), this.frame, pointer);
       this.moveTo(pip.block.kind, rest);
     };
     head.addEventListener("pointerdown", down);

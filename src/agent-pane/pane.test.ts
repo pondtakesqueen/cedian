@@ -705,12 +705,29 @@ describe("agent pane, from the Mac gate", () => {
     expect(popped).toEqual(["t-1", undefined]);
   });
 
+  it("floats the open thread over the window and goes on with a new thread here; its title says which", () => {
+    const floated: (string | undefined)[] = [];
+    const { pane, emit } = setup({ float: (t) => floated.push(t) });
+    expect(pane.title()).toBe("New thread");
+    emit({ kind: "threads", cwd: "/r", threads: [info({})] });
+    pane.openThread("t-1");
+    expect(pane.title()).toBe(info({}).title || info({}).task);
+    const float = pane.root.querySelector<HTMLButtonElement>(".head .float")!;
+    expect(float.getAttribute("aria-label")).toBe("Float over the window");
+    float.click();
+    expect(floated).toEqual(["t-1"]);
+    expect(pane.thread).toBeUndefined();
+    pane.projectChat();
+    expect(pane.title()).toBe("Project chat");
+  });
+
   it("offers no pop-out where the host has none, as in a pane already popped out", () => {
     const { pane, emit } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({})] });
     pane.openThread("t-1");
     emit({ kind: "review", thread: "t-1", review: { files: [{ path: "src/a.ts", added: 1, removed: 0, binary: false, hunks: [] }] } });
     expect(pane.root.querySelector(".head .pop")).toBeNull();
+    expect(pane.root.querySelector(".head .float")).toBeNull();
     expect(buttons(pane.root, "New window")).toEqual([]);
   });
 });

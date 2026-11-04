@@ -31,8 +31,11 @@ export function moveBlock(state: BlockState, move: BlockMove): BlockState {
 
 /** What the window's layer needs of a block. */
 export interface Block {
-  /** The block's kind, one per surface: "browser". */
+  /** The block's kind, one per surface: "browser", "agent". */
   readonly kind: string;
+  /** Which one it shows, when a kind shows one of many (an agent block's thread); kept with
+   * where it floats so a new window opens the same one. */
+  readonly id?: string;
   readonly root: HTMLElement;
   /** What the block's header says now: the page's title, the thread's. */
   title(): string;
