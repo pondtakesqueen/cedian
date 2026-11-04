@@ -16,3 +16,31 @@
    set from `desktop`) rounds them only by its small corner radius, so the tab strip takes a full
    one. Scoped to the strip, so nothing else changes its corners. */
 .monaco-workbench.modern-ui-tabs:not(.modern-ui-connected-editor-tabs) .part.editor .tabs-container { --vscode-cornerRadius-small: 999px; }
+/* Each editor group a block of its own, as the prototype's blocks: Modern UI draws the whole editor
+   area as one card, so the agent in the middle and a file beside it read as one block. The area's
+   card goes, and each group takes the card's ground, corners and border, inset by half the gap
+   between cards on every side, so two groups stand one gap apart. The inset is drawn (clip-path),
+   not laid out: VS Code's grid keeps sizing the groups. Compact density keeps one card, as it keeps
+   the cards edge to edge. */
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) {
+	--cedian-group-inset: calc(var(--modern-ui-floating-card-margin, 8px) / 2);
+}
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part),
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) > .content {
+	background: transparent !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) .editor-group-container {
+	background-color: var(--vscode-editor-background);
+	clip-path: inset(var(--cedian-group-inset) round var(--vscode-cornerRadius-large, 12px));
+}
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) .editor-group-container::after {
+	content: '';
+	position: absolute;
+	inset: var(--cedian-group-inset);
+	border: 1px solid var(--modern-ui-editor-border-color, var(--vscode-editor-border, var(--vscode-surface-border, var(--vscode-widget-border, transparent))));
+	border-radius: var(--vscode-cornerRadius-large, 12px);
+	pointer-events: none;
+	z-index: 40;
+}
