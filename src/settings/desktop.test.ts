@@ -15,6 +15,9 @@ describe("VS Code settings from desktop", () => {
     expect(s["workbench.experimental.modernUIEditorTabStyle"]).toBe("pill");
     expect(s["workbench.activityBar.location"]).toBe("hidden");
     expect(s["workbench.secondarySideBar.showLabels"]).toBe(true);
+    expect(s["window.title"]).toBe("${rootName}");
+    expect(s["window.commandCenter"]).toBe(false);
+    expect(s["workbench.layoutControl.enabled"]).toBe(false);
     expect(s["window.density.layout"]).toBe("default");
     expect(vscodeSettings({ density: "compact" }, true)["window.density.layout"]).toBe("compact");
   });

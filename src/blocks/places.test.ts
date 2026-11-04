@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { AGENT_CONTAINER, movesFor, PLACES, THREADS_CONTAINER, TOOLS, type Place } from "./places.js";
+import { AGENT_CONTAINER, movesFor, PLACES, THREADS_CONTAINER, TOOL_PICKS, TOOLS, type Place } from "./places.js";
 
 describe("where the window's parts go (the prototype's layout)", () => {
   test("from VS Code's own places: Threads to the left, the tools then the agent to one panel on the right, in order", () => {
@@ -23,5 +23,13 @@ describe("where the window's parts go (the prototype's layout)", () => {
   });
   test("the tools are Files, Search, Git and Terminal", () => {
     expect(TOOLS.map((t) => t.container)).toEqual(["workbench.view.explorer", "workbench.view.search", "workbench.view.scm", "terminal"]);
+  });
+});
+
+describe("the title bar's + Tool menu", () => {
+  test("opens every tool of the right panel, the Browser, then the agent and Threads", () => {
+    expect(TOOL_PICKS.map((t) => t.label)).toEqual(["Files", "Search", "Git", "Terminal", "Browser", "Agent", "Threads"]);
+    const containers = TOOL_PICKS.flatMap((t) => ("container" in t.open ? [t.open.container] : []));
+    for (const p of PLACES) expect(containers).toContain(p.container);
   });
 });

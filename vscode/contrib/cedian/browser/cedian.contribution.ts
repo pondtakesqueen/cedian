@@ -18,7 +18,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
@@ -36,6 +36,7 @@ import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, 
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
+import { TOOL_PICKS } from './blocks/places.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { runInlineEdit } from './inlineEdit.js';
@@ -326,13 +327,72 @@ for (const [id, title, run] of [
 ] as const) {
 	registerAction2(class extends Action2 {
 		constructor() {
-			super({ id, title, category: localize2('cedian.category', "Cedian"), f1: true });
+			super({
+				id, title, category: localize2('cedian.category', "Cedian"), f1: true,
+				// The prototype's layout picker, at the title bar's right end.
+				...(id === 'cedian.switchLayout' ? { icon: Codicon.layout, menu: [{ id: MenuId.TitleBar, group: 'navigation', order: 2 }] } : {}),
+			});
 		}
 		run(accessor: ServicesAccessor): Promise<void> {
 			return run(accessor);
 		}
 	});
 }
+// ---- the title bar, as in the prototype: Threads' toggle, the project's name, + Tool, layouts ----
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.addTool',
+			title: localize2('cedian.addTool', "Open a Tool"),
+			category: localize2('cedian.category', "Cedian"),
+			icon: Codicon.add,
+			f1: true,
+			menu: [{ id: MenuId.TitleBar, group: 'navigation', order: 1 }],
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quick = accessor.get(IQuickInputService);
+		const views = accessor.get(IViewsService);
+		const commands = accessor.get(ICommandService);
+		const heading = { tools: localize('cedian.addTool.tools', "Tools"), project: localize('cedian.addTool.project', "Project") };
+		const items: (IQuickPickItem | IQuickPickSeparator)[] = [];
+		for (const [i, t] of TOOL_PICKS.entries()) {
+			if (TOOL_PICKS[i - 1]?.group !== t.group) {
+				items.push({ type: 'separator', label: heading[t.group] });
+			}
+			items.push({ label: t.label, id: String(i) });
+		}
+		const picked = await quick.pick(items, { placeHolder: localize('cedian.addTool.pick', "Open a tool") });
+		const tool = picked?.id === undefined ? undefined : TOOL_PICKS[Number(picked.id)];
+		if (!tool) {
+			return;
+		}
+		if ('container' in tool.open) {
+			await views.openViewContainer(tool.open.container, true);
+		} else {
+			await commands.executeCommand(tool.open.command);
+		}
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.toggleThreads',
+			title: localize2('cedian.toggleThreads', "Show or Hide Threads"),
+			category: localize2('cedian.category', "Cedian"),
+			icon: Codicon.listUnordered,
+			f1: true,
+			// VS Code's TitleBarLeadingActionsGroup: before the rest, at the title bar's left.
+			menu: [{ id: MenuId.TitleBar, group: '0_leading', order: 0 }],
+		});
+	}
+	run(accessor: ServicesAccessor): Promise<unknown> {
+		return accessor.get(ICommandService).executeCommand('workbench.action.toggleSidebarVisibility');
+	}
+});
+
 for (let n = 1; n <= 9; n++) {
 	CommandsRegistry.registerCommand({ id: `cedian.layout${n}`, handler: () => CedianBlockLayer.current?.switchLayoutAt(n - 1), metadata: { description: `Layout ${n}` } });
 }

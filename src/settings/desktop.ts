@@ -58,10 +58,15 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "workbench.experimental.modernUI": true,
     "workbench.experimental.modernUIEditorTabStyle": "pill",
     "window.density.layout": desktop.density === "compact" ? "compact" : "default",
-    // The prototype's window has no activity bar: the agent is on the left and the tools are
+    // The prototype's window has no activity bar: Threads is on the left and the tools are
     // tabs of one panel on the right (src/blocks/places.ts), each tab named, not an icon.
     "workbench.activityBar.location": "hidden",
     "workbench.secondarySideBar.showLabels": true,
+    // Its title bar names the project and holds Cedian's own controls (+ Tool, the layout
+    // picker), not VS Code's command center and side bar toggles.
+    "window.title": "${rootName}",
+    "window.commandCenter": false,
+    "workbench.layoutControl.enabled": false,
     "workbench.colorCustomizations": {
       // Unkeyed, the appearance showing now: VS Code paints a placeholder theme of its own
       // until the base theme loads, and only these reach it (the keyed ones name a theme it

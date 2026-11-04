@@ -55,3 +55,24 @@ export function movesFor(where: (container: string) => Place | undefined): Move[
   }
   return out;
 }
+
+/** What "+ Tool" opens: a part's container, shown and focused, or a command. */
+export type ToolOpen = { container: string } | { command: string };
+
+export interface ToolPick {
+  label: string;
+  /** Under which heading of the picker, as in the prototype's menu. */
+  group: "tools" | "project";
+  open: ToolOpen;
+}
+
+/** The title bar's "+ Tool" menu: the tools, the Browser, then the project's own blocks. */
+export const TOOL_PICKS: readonly ToolPick[] = [
+  { label: "Files", group: "tools", open: { container: "workbench.view.explorer" } },
+  { label: "Search", group: "tools", open: { container: "workbench.view.search" } },
+  { label: "Git", group: "tools", open: { container: "workbench.view.scm" } },
+  { label: "Terminal", group: "tools", open: { container: "terminal" } },
+  { label: "Browser", group: "tools", open: { command: "cedian.openBrowser" } },
+  { label: "Agent", group: "project", open: { container: AGENT_CONTAINER } },
+  { label: "Threads", group: "project", open: { container: THREADS_CONTAINER } },
+];
