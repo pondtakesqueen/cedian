@@ -6,7 +6,7 @@
 import { button, el } from "../dom/el.js";
 import { moveBlock, type Block, type BlockState } from "./block.js";
 import type { Floating } from "./layout.js";
-import { fit, GAP, place, PIP_SIZE, resized, settle, sideOf, step, velocityOf, type Point, type Rect, type Rest, type Size } from "./pip.js";
+import { arrange, fit, GAP, place, PIP_SIZE, resized, settle, sideOf, step, velocityOf, type Point, type Rect, type Rest, type Size } from "./pip.js";
 
 /** The height of a floating block's header, where it is dragged from. */
 export const HEAD = 30;
@@ -43,6 +43,8 @@ export class BlockLayer {
   readonly root: HTMLElement;
   private readonly pips: Pip[] = [];
   private frame: Size = { width: 0, height: 0 };
+  /** The z-index of the block brought forward last. */
+  private top = 0;
   private readonly offs: (() => void)[] = [];
 
   constructor(private readonly doc: Document, private readonly host: LayerHost) {
@@ -138,8 +140,17 @@ export class BlockLayer {
       if (e.shiftKey) this.resizeBy(block.kind, e.key as Arrow);
       else this.moveTo(block.kind, { corner: step(pip.rest.corner, e.key as Arrow) });
     });
+    // The block in use comes forward, so its header and buttons are never under another's.
+    const forward = () => this.raise(pip);
+    node.addEventListener("pointerdown", forward, true);
+    node.addEventListener("focusin", forward);
+    pip.offs.push(() => {
+      node.removeEventListener("pointerdown", forward, true);
+      node.removeEventListener("focusin", forward);
+    });
     this.pips.push(pip);
     this.root.append(node);
+    this.raise(pip);
     this.drawTitle(pip);
     this.draw();
     if (!quiet) this.changed();
@@ -198,6 +209,7 @@ export class BlockLayer {
     else {
       if (pip.rest.stash) pip.rest = { corner: pip.rest.corner };
       pip.state = moveBlock(this.restored(pip), "zoom");
+      this.raise(pip);
     }
     this.draw();
     this.changed();
@@ -260,16 +272,35 @@ export class BlockLayer {
     pip.tab.title = `Bring back ${title}`;
   }
 
-  /** The place of each block: zoomed fills the frame, else its corner and its place in the stack. */
-  private rectOf(pip: Pip): Rect {
-    if (pip.state === "zoomed") return { x: GAP, y: GAP, width: Math.max(0, this.frame.width - 2 * GAP), height: Math.max(0, this.frame.height - 2 * GAP) };
-    const same = this.pips.filter((p) => p.state !== "zoomed" && p.rest.corner === pip.rest.corner && p.rest.stash === pip.rest.stash);
-    return place(pip.rest, pip.size, this.frame, same.indexOf(pip));
+  /**
+   * The place of each block: zoomed fills the frame, else its corner, stacked after the ones before
+   * it there, sharing the frame with blocks in other corners (`arrange`). `sized` draws one block
+   * at another size, as while its grip is held.
+   */
+  private rects(sized?: { pip: Pip; size: Size }): Map<Pip, Rect> {
+    const out = new Map<Pip, Rect>();
+    const resting = this.pips.filter((p) => p.state !== "zoomed");
+    const placed = arrange(resting.map((p) => ({ rest: p.rest, size: sized?.pip === p ? sized.size : p.size })), this.frame);
+    resting.forEach((p, i) => out.set(p, placed[i]));
+    for (const p of this.pips) {
+      if (p.state === "zoomed") out.set(p, { x: GAP, y: GAP, width: Math.max(0, this.frame.width - 2 * GAP), height: Math.max(0, this.frame.height - 2 * GAP) });
+    }
+    return out;
   }
 
-  private draw(): void {
+  private rectOf(pip: Pip): Rect {
+    return this.rects().get(pip)!;
+  }
+
+  private draw(sized?: { pip: Pip; size: Size }): void {
     if (!this.frame.width || !this.frame.height) return;
-    for (const pip of this.pips) this.put(pip, this.rectOf(pip));
+    for (const [pip, rect] of this.rects(sized)) this.put(pip, rect);
+  }
+
+  /** Brings `pip` over the other floating blocks: the one in use, or the one just expanded. */
+  private raise(pip: Pip): void {
+    if (pip.node.style.zIndex === String(this.top)) return;
+    pip.node.style.zIndex = String(++this.top);
   }
 
   private put(pip: Pip, rect: Rect): void {
@@ -303,16 +334,15 @@ export class BlockLayer {
       if (e.button !== 0 || pip.state !== "focused") return;
       e.preventDefault();
       e.stopPropagation();
-      grab = { from: { x: e.clientX, y: e.clientY }, size: fit(pip.size, this.frame), id: e.pointerId };
+      const shown = this.rectOf(pip);
+      grab = { from: { x: e.clientX, y: e.clientY }, size: { width: shown.width, height: shown.height }, id: e.pointerId };
       grip.setPointerCapture?.(e.pointerId);
       pip.node.classList.add("resizing");
     };
     const sizeAt = (e: PointerEvent, g: NonNullable<typeof grab>) => resized(g.size, pip.rest.corner, e.clientX - g.from.x, e.clientY - g.from.y, this.frame, axes);
     const move = (e: PointerEvent) => {
       if (!grab || e.pointerId !== grab.id) return;
-      const size = sizeAt(e, grab);
-      const same = this.pips.filter((p) => p.state !== "zoomed" && p.rest.corner === pip.rest.corner && p.rest.stash === pip.rest.stash);
-      this.put(pip, place(pip.rest, size, this.frame, same.indexOf(pip)));
+      this.draw({ pip, size: sizeAt(e, grab) });
     };
     const up = (e: PointerEvent) => {
       if (!grab || e.pointerId !== grab.id) return;

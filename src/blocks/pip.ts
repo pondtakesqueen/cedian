@@ -33,8 +33,6 @@ export const PIP_SIZE: Size = { width: 440, height: 300 };
 export const PIP_MIN: Size = { width: 280, height: 180 };
 /** How far a fling carries the block on after it is let go, in seconds of its speed. */
 export const FLING_S = 0.18;
-/** Past this far beyond a side (a share of the block's width), a let-go block stashes there. */
-const STASH_PAST = 0.4;
 
 export const CORNERS: readonly Corner[] = ["tl", "tr", "bl", "br"];
 
@@ -52,18 +50,94 @@ export function fit(size: Size, frame: Size): Size {
 }
 
 /**
- * The block's place resting in `corner`, `nth` from the corner (0 nearest) as a stack grows
- * toward the frame's middle; stashed, all but the tab is past `stash`'s side.
+ * The block's place resting in `corner`, `before` px from the corner as a stack grows toward the
+ * frame's middle (the blocks nearer the corner and their gaps); stashed, all but the tab is past
+ * `stash`'s side.
  */
-export function place(rest: Rest, size: Size, frame: Size, nth = 0): Rect {
+export function place(rest: Rest, size: Size, frame: Size, before = 0): Rect {
   const { width, height } = fit(size, frame);
-  const step = nth * (height + GAP);
-  const top = isBottom(rest.corner) ? frame.height - GAP - height - step : GAP + step;
+  const top = isBottom(rest.corner) ? frame.height - GAP - height - before : GAP + before;
   const y = Math.max(GAP, Math.min(top, frame.height - GAP - height));
   let x = isRight(rest.corner) ? frame.width - GAP - width : GAP;
   if (rest.stash === "left") x = STASH_TAB - width;
   else if (rest.stash === "right") x = frame.width - STASH_TAB;
   return { x, y, width, height };
+}
+
+/** A floating block to arrange: where it rests and the size it was given. */
+export interface Resting {
+  rest: Rest;
+  size: Size;
+}
+
+const overlap = (a: Rect, b: Rect): Size => ({
+  width: Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x),
+  height: Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y),
+});
+
+/**
+ * Where each block goes, in order: in its corner, stacked after the ones before it there (a
+ * stack taller than the frame shares its height). Blocks
+ * in different corners that would overlap give up size along the axis that needs less, half each
+ * (down to the least size), so a small frame shows them side by side instead of one over the
+ * other's header. The sizes they were given stay theirs; this is only how they are drawn now.
+ * Stashed blocks are left out of the sharing: only their tab is in the frame.
+ */
+export function arrange(items: readonly Resting[], frame: Size): Rect[] {
+  const sizes = items.map((i) => fit(i.size, frame));
+  // A stack taller than the frame shares its height, each block in proportion.
+  const stacks = new Map<string, number[]>();
+  items.forEach((item, i) => {
+    if (item.rest.stash) return;
+    const list = stacks.get(item.rest.corner) ?? [];
+    list.push(i);
+    stacks.set(item.rest.corner, list);
+  });
+  for (const list of stacks.values()) {
+    const room = frame.height - (list.length + 1) * GAP;
+    const tall = list.reduce((sum, i) => sum + sizes[i].height, 0);
+    if (list.length < 2 || tall <= room) continue;
+    for (const i of list) sizes[i] = { ...sizes[i], height: Math.max(Math.min(PIP_MIN.height, sizes[i].height), Math.floor((sizes[i].height * room) / tall)) };
+  }
+  const layout = () => {
+    const used = new Map<string, number>();
+    return items.map((item, i) => {
+      const key = `${item.rest.corner}:${item.rest.stash ?? ""}`;
+      const before = used.get(key) ?? 0;
+      const rect = place(item.rest, sizes[i], frame, before);
+      used.set(key, before + rect.height + GAP);
+      return rect;
+    });
+  };
+  let rects = layout();
+  for (let round = 0; round < 8; round++) {
+    let moved = false;
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+        if (a.rest.stash || b.rest.stash || a.rest.corner === b.rest.corner) continue;
+        const o = overlap(rects[i], rects[j]);
+        if (o.width <= 0 || o.height <= 0) continue;
+        const axis = o.width <= o.height ? "width" : "height";
+        const least = axis === "width" ? PIP_MIN.width : PIP_MIN.height;
+        // What each gives, so the two end a gap apart: half each, the rest from whichever can.
+        const need = o[axis] + GAP;
+        const roomA = Math.max(0, sizes[i][axis] - least);
+        const roomB = Math.max(0, sizes[j][axis] - least);
+        let giveA = Math.min(roomA, Math.ceil(need / 2));
+        const giveB = Math.min(roomB, need - giveA);
+        giveA = Math.min(roomA, need - giveB);
+        if (giveA + giveB <= 0) continue;
+        sizes[i] = { ...sizes[i], [axis]: sizes[i][axis] - giveA };
+        sizes[j] = { ...sizes[j], [axis]: sizes[j][axis] - giveB };
+        moved = true;
+      }
+    }
+    if (!moved) break;
+    rects = layout();
+  }
+  return rects;
 }
 
 /** The corner nearest `point`. */
@@ -75,7 +149,7 @@ export function nearest(point: Point, frame: Size): Corner {
 
 /**
  * Where a block let go at `at` with `velocity` (px/s) comes to rest: it carries on for
- * `FLING_S` of its speed, and stashes against a side it would end well past, else rests in the
+ * `FLING_S` of its speed, and stashes against a side its middle would end past, else rests in the
  * corner nearest where its middle ends.
  */
 export function settle(at: Rect, velocity: Point, frame: Size): Rest {
@@ -83,8 +157,10 @@ export function settle(at: Rect, velocity: Point, frame: Size): Rest {
   const y = at.y + velocity.y * FLING_S;
   const middle = { x: x + at.width / 2, y: y + at.height / 2 };
   const corner = nearest(middle, frame);
-  if (x < -at.width * STASH_PAST) return { corner: isBottom(corner) ? "bl" : "tl", stash: "left" };
-  if (x + at.width > frame.width + at.width * STASH_PAST) return { corner: isBottom(corner) ? "br" : "tr", stash: "right" };
+  // Stashed only when more than half of it would end past the side: a wide block dropped near
+  // an edge rests in the corner.
+  if (middle.x < 0) return { corner: isBottom(corner) ? "bl" : "tl", stash: "left" };
+  if (middle.x > frame.width) return { corner: isBottom(corner) ? "br" : "tr", stash: "right" };
   return { corner };
 }
 

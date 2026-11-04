@@ -226,6 +226,31 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     block.rename("Fix the build");
     expect(changes.at(-1)![0]).toMatchObject({ id: "t-2" });
   });
+  test("the block in use comes forward; an expanded block is over the others", () => {
+    const { layer } = setup();
+    layer.float(new FakeBlock());
+    layer.float(new FakeBlock("agent"), { corner: "tr" });
+    const z = (kind: string) => Number(pipOf(layer, kind).style.zIndex);
+    expect(z("agent")).toBeGreaterThan(z("browser"));
+    pipOf(layer).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    expect(z("browser")).toBeGreaterThan(z("agent"));
+    pipOf(layer, "agent").querySelector<HTMLElement>(".pip-head")!.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(z("agent")).toBeGreaterThan(z("browser"));
+    layer.expand("browser");
+    expect(z("browser")).toBeGreaterThan(z("agent"));
+  });
+  test("in a small frame, blocks in neighbouring corners share it instead of overlapping, keeping their own sizes", () => {
+    const { layer } = setup();
+    layer.layout(786, 805);
+    const browser = new FakeBlock();
+    const agent = new FakeBlock("agent");
+    layer.float(browser, { corner: "tl", width: 600, height: 400 });
+    layer.float(agent, { corner: "tr", width: 400, height: 560 });
+    const [bw] = browser.sizes.at(-1)!;
+    const [aw] = agent.sizes.at(-1)!;
+    expect(bw + aw).toBe(786 - 3 * GAP);
+    expect(layer.floating().map((f) => f.width)).toEqual([600, 400]);
+  });
   test("dispose closes every block", () => {
     const { layer } = setup();
     const a = new FakeBlock();
