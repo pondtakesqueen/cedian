@@ -44,3 +44,14 @@
 	pointer-events: none;
 	z-index: 40;
 }
+/* The title bar's text entries (+ Tool, the layout picker) as the prototype's chips: a rounded
+   outline around the words, its key left to the hover. Icon entries keep VS Code's look. */
+.monaco-workbench .part.titlebar .action-item.menu-entry > .action-label:not(.codicon) {
+	height: 22px;
+	padding: 0 10px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-contrast-border, rgba(128, 128, 128, 0.35)));
+	border-radius: 8px;
+	line-height: 22px;
+	font-size: 12px;
+}
+.monaco-workbench .part.titlebar .action-item.menu-entry > .keybinding { display: none; }

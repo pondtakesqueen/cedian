@@ -10,7 +10,7 @@ import { Disposable, DisposableStore, IDisposable } from '../../../../base/commo
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Extensions as ConfigurationExtensions, IConfigurationDefaults, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -329,8 +329,7 @@ for (const [id, title, run] of [
 		constructor() {
 			super({
 				id, title, category: localize2('cedian.category', "Cedian"), f1: true,
-				// The prototype's layout picker, at the title bar's right end.
-				...(id === 'cedian.switchLayout' ? { icon: Codicon.layout, menu: [{ id: MenuId.TitleBar, group: 'navigation', order: 2 }] } : {}),
+				// The title bar's layout picker is named for the current layout (CedianBlockLayer).
 			});
 		}
 		run(accessor: ServicesAccessor): Promise<void> {
@@ -346,9 +345,7 @@ registerAction2(class extends Action2 {
 			id: 'cedian.addTool',
 			title: localize2('cedian.addTool', "Open a Tool"),
 			category: localize2('cedian.category', "Cedian"),
-			icon: Codicon.add,
 			f1: true,
-			menu: [{ id: MenuId.TitleBar, group: 'navigation', order: 1 }],
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {
@@ -375,6 +372,10 @@ registerAction2(class extends Action2 {
 		}
 	}
 });
+
+// The prototype's "+ Tool" chip: text, not an icon, so the menu item names it apart from the
+// command's palette title.
+MenuRegistry.appendMenuItem(MenuId.TitleBar, { command: { id: 'cedian.addTool', title: localize('cedian.addTool.chip', "+ Tool") }, group: 'navigation', order: 1 });
 
 registerAction2(class extends Action2 {
 	constructor() {

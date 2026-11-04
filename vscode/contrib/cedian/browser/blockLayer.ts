@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/blocks.css';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -76,6 +77,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		this._register({ dispose: () => this.layer.dispose() });
 		const off = daemon.client.on('settings', notice => {
 			this.desktop = desktopOf(notice.desktop);
+			this.showLayoutName();
 			if (!this.restored) {
 				this.restored = true;
 				this.restore();
@@ -251,6 +253,24 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 
 	// ---- named layouts ----
 
+	private readonly layoutMenu = this._register(new MutableDisposable());
+	private shownLayout: string | undefined;
+
+	/** The title bar's layout picker, named for the layout the window is in (the prototype's chip). */
+	private showLayoutName(): void {
+		const { layouts, current } = this.layouts();
+		const name = current ?? layouts[0]?.name ?? 'Layout';
+		if (name === this.shownLayout) {
+			return;
+		}
+		this.shownLayout = name;
+		this.layoutMenu.value = MenuRegistry.appendMenuItem(MenuId.TitleBar, {
+			command: { id: 'cedian.switchLayout', title: `${name} ▾` },
+			group: 'navigation',
+			order: 2,
+		});
+	}
+
 	/** The project's layouts and the current one's name (the starters until it saves its own). */
 	layouts(): { layouts: NamedLayout[]; current?: string } {
 		const folder = this.folder();
@@ -324,6 +344,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 	/** Asks the daemon to keep `layout` as `desktop.layout`; until its notice, it is what is kept. */
 	private write(layout: Record<string, unknown>): void {
 		this.desktop = { ...this.desktop, layout };
+		this.showLayoutName();
 		this.daemon.client.request({ op: 'set_desktop', key: 'layout', value: layout });
 	}
 
