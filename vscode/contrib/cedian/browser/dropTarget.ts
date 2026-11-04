@@ -3,6 +3,7 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
+import { addDisposableListener } from '../../../../base/browser/dom.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
@@ -66,7 +67,23 @@ export class CedianDropTarget extends Disposable implements IWorkbenchContributi
 				}
 			}
 		});
-		observer.observe(part, { childList: true, subtree: true });
-		this._register(toDisposable(() => observer.disconnect()));
+		// Watched only while something is dragged: the editor's own changes (typing) are none of its business.
+		let observing = false;
+		const watch = () => {
+			if (!observing) {
+				observing = true;
+				observer.observe(part, { childList: true, subtree: true });
+			}
+		};
+		const stop = () => {
+			if (observing) {
+				observing = false;
+				observer.disconnect();
+			}
+		};
+		this._register(addDisposableListener(mainWindow, 'dragenter', watch, true));
+		this._register(addDisposableListener(mainWindow, 'dragend', stop, true));
+		this._register(addDisposableListener(mainWindow, 'drop', () => setTimeout(stop, 0), true));
+		this._register(toDisposable(stop));
 	}
 }

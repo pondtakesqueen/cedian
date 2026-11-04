@@ -63,6 +63,11 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		}, () => { });
 		this._register(workspaces.onDidChangeRecentlyOpened(load));
 		void load();
+		// A working project's dot pulses only while the window has the focus: no work for a window
+		// in the background.
+		const focus = (on: boolean) => this.layout.mainContainer.classList.toggle('cedian-window-blurred', !on);
+		this._register(host.onDidChangeFocus(focus));
+		focus(host.hasFocus);
 	}
 
 	private current(): string | undefined {

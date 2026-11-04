@@ -264,5 +264,7 @@
 .cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; text-align: center; background: var(--cedian-accent, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }
 .cedian-project-tabs .count.working { display: inline-flex; align-items: center; gap: 4px; color: var(--cedian-working, var(--vscode-progressBar-background)); }
 .cedian-project-tabs .count.working::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.monaco-workbench.monaco-enable-motion .cedian-project-tabs .count.working::before { animation: cedian-pulse 1.4s ease-in-out infinite; }
+.monaco-workbench.monaco-enable-motion .cedian-project-tabs .count.working::before { animation: cedian-pulse 1.4s ease-in-out infinite; will-change: opacity; }
+/* Still while the window is in the background (projectTabs.ts): a pulse nobody sees is work for nothing. */
+.monaco-workbench.cedian-window-blurred .cedian-project-tabs .count.working::before { animation-play-state: paused; }
 @keyframes cedian-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }

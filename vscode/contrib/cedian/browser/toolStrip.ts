@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { addDisposableListener } from '../../../../base/browser/dom.js';
-import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { TOOL_PICKS, type ToolPick } from './blocks/places.js';
 import { closing, moving, opening } from './blocks/motion.js';
@@ -37,9 +37,10 @@ function chipOf(target: EventTarget | null): HTMLElement | null {
 
 /**
  * "+ Tool" opens a strip of the tools under it: a raised pill with a close button and each tool's
- * icon, named in its tooltip. It opens when the pointer rests on the chip or the chip is clicked or
- * takes focus by key, and shuts when the pointer has left both a moment, on Escape or on its close
- * button. It stretches open out of the chip, its edge uncovering the icons, and shuts back into it,
+ * icon, named in its tooltip. It opens when the pointer rests on the chip, the chip is clicked, or
+ * Enter, Space or ↓ is pressed on it (not on focus alone: VS Code gives the chip the focus back
+ * after a palette closes, which would open it with nobody there), and shuts when the pointer has
+ * left both a moment, on Escape or on its close button. It stretches open out of the chip, its edge uncovering the icons, and shuts back into it,
  * never scaled or faded; off with the window's reduced motion. The arrow keys move between its
  * buttons. A tool opens as "Open a Tool" opens it, which stays in the command palette.
  */
@@ -51,6 +52,8 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private pending: 'open' | 'close' | undefined;
 	private run: Animation | undefined;
+	/** Escape, listened for anywhere only while the strip is up: it may have opened under the pointer alone. */
+	private readonly escape = this._register(new MutableDisposable());
 	/** The strip's clip at the chip: where it opens from and shuts into. */
 	private shut = '';
 
@@ -60,24 +63,26 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 		@ICommandService private readonly commands: ICommandService,
 	) {
 		super();
-		const doc = mainWindow.document;
-		this._register(addDisposableListener(doc, 'mouseover', e => {
+		// Listened for on the title bar alone, and the strip while it is up: the rest of the window's
+		// pointer and keys are none of its business.
+		const bar = layout.getContainer(mainWindow, Parts.TITLEBAR_PART);
+		if (!bar) {
+			return;
+		}
+		this._register(addDisposableListener(bar, 'mouseover', e => {
 			const chip = chipOf(e.target);
-			if (chip || this.strip?.contains(e.target as Node)) {
-				if (this.pending === 'close') {
-					this.later(undefined, 0);
-				}
-				if (!this.strip && chip && this.pending !== 'open') {
+			if (chip) {
+				this.hover();
+				if (!this.strip && this.pending !== 'open') {
 					this.later(() => this.open(chip, false), IN_MS, 'open');
 				}
-			} else if (this.pending === 'open') {
-				this.later(undefined, 0);
-			} else if (this.strip && this.pending !== 'close') {
-				this.later(() => this.close(false), OUT_MS, 'close');
+			} else {
+				this.away();
 			}
 		}));
+		this._register(addDisposableListener(bar, 'mouseleave', () => this.away()));
 		// The chip's own click would run the Quick Pick: it opens the strip instead.
-		this._register(addDisposableListener(doc, 'click', e => {
+		this._register(addDisposableListener(bar, 'click', e => {
 			const chip = chipOf(e.target);
 			if (chip) {
 				e.preventDefault();
@@ -85,14 +90,7 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 				this.later(() => this.open(chip, e.detail === 0), 0);
 			}
 		}, true));
-		this._register(addDisposableListener(doc, 'keydown', e => {
-			// Escape shuts it wherever the focus is: it may have opened under the pointer alone.
-			if (e.key === 'Escape' && this.strip && !this.strip.contains(e.target as Node)) {
-				e.preventDefault();
-				e.stopPropagation();
-				this.close(false);
-				return;
-			}
+		this._register(addDisposableListener(bar, 'keydown', e => {
 			const chip = chipOf(e.target);
 			if (chip && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown')) {
 				e.preventDefault();
@@ -100,13 +98,23 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 				this.later(() => this.open(chip, true), 0);
 			}
 		}, true));
-		this._register(addDisposableListener(doc, 'focusin', e => {
-			const chip = chipOf(e.target);
-			if (chip && !this.strip) {
-				this.later(() => this.open(chip, false), IN_MS, 'open');
-			}
-		}));
 		this._register(toDisposable(() => { this.later(undefined, 0); this.strip?.remove(); }));
+	}
+
+	/** The pointer is on the chip or the strip: a shutting waits no longer. */
+	private hover(): void {
+		if (this.pending === 'close') {
+			this.later(undefined, 0);
+		}
+	}
+
+	/** The pointer left the chip and the strip: an opening waits no longer, and an open strip shuts in a moment. */
+	private away(): void {
+		if (this.pending === 'open') {
+			this.later(undefined, 0);
+		} else if (this.strip && this.pending !== 'close') {
+			this.later(() => this.close(false), OUT_MS, 'close');
+		}
 	}
 
 	private later(then: (() => void) | undefined, ms: number, kind?: 'open' | 'close'): void {
@@ -149,6 +157,15 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 			}));
 		}
 		strip.addEventListener('keydown', e => this.key(e));
+		strip.addEventListener('mouseenter', () => this.hover());
+		strip.addEventListener('mouseleave', () => this.away());
+		this.escape.value = addDisposableListener(mainWindow.document, 'keydown', e => {
+			if (e.key === 'Escape' && !strip.contains(e.target as Node)) {
+				e.preventDefault();
+				e.stopPropagation();
+				this.close(false);
+			}
+		}, true);
 		// Tabbing out of it shuts it.
 		strip.addEventListener('focusout', e => {
 			const to = e.relatedTarget as Node | null;
@@ -185,6 +202,7 @@ export class CedianToolStrip extends Disposable implements IWorkbenchContributio
 			chip?.querySelector<HTMLElement>('.action-label')?.focus();
 		}
 		this.strip = undefined;
+		this.escape.clear();
 		this.chip = undefined;
 		this.later(undefined, 0);
 		const gone = () => strip.remove();
