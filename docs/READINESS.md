@@ -336,7 +336,7 @@
   stays. Checked: `vitest src/blocks`. Named layouts: a project keeps its
   arrangements by name in `desktop.layout` (slug → `layouts`, `current`),
   each the editor area's split (`EditorGroupLayout`) and the blocks floating
-  over it; โฟกัส, เขียนโค้ด, พรีวิว and รีวิว until it saves its own.
+  over it; Focus, Code, Preview and Review until it saves its own.
   `Cedian: Switch Layout` (⌘⌥0) lists them with their keys and the current
   one, and saves or deletes one; ⌘⌥1–9 switch to the first nine; switching
   splits the editors as saved, closes what floats that the layout does not

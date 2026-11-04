@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { AGENT_CONTAINER, ASIDE, movesFor, PLACES, THREADS_CONTAINER, TOOL_PICKS, TOOLS, VSCODE_CHAT, type Place } from "./places.js";
+import { describe, expect, it, test } from "vitest";
+import { AGENT_CONTAINER, ASIDE, lockMoves, movesFor, PLACES, THREADS_CONTAINER, TOOL_PICKS, TOOLS, VSCODE_CHAT, type Place } from "./places.js";
 
 describe("where the window's parts go (the prototype's layout)", () => {
   test("from VS Code's own places: Threads to the left, the tools then the agent to one panel on the right, in order", () => {
@@ -37,5 +37,20 @@ describe("the title bar's + Tool menu", () => {
     expect(TOOL_PICKS.map((t) => t.label)).toEqual(["Files", "Search", "Git", "Terminal", "Browser", "Run and Debug", "Extensions", "Agent", "Threads"]);
     const containers = TOOL_PICKS.flatMap((t) => ("container" in t.open ? [t.open.container] : []));
     for (const p of PLACES) if (p.container !== VSCODE_CHAT) expect(containers).toContain(p.container);
+  });
+});
+
+describe("lockMoves", () => {
+  it("leaves a window that keeps the side blocks in place", () => {
+    expect(lockMoves("sidebar", [THREADS_CONTAINER])).toEqual([]);
+  });
+  it("sends Threads back to the left and anything else there to the right", () => {
+    expect(lockMoves("auxiliary", ["workbench.view.explorer"])).toEqual([
+      { container: THREADS_CONTAINER, to: "sidebar" },
+      { container: "workbench.view.explorer", to: "auxiliary" },
+    ]);
+  });
+  it("leaves Threads alone when this build has none", () => {
+    expect(lockMoves(undefined, [])).toEqual([]);
   });
 });

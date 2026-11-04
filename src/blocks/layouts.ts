@@ -25,16 +25,28 @@ const ONE = { orientation: 0, groups: [row()] };
 const TWO = { orientation: 0, groups: [row(0.5), row(0.5)] };
 
 /**
- * What a project starts with, before it saves its own (the old app's four, in Thai as there):
- * โฟกัส one editor and nothing floating; เขียนโค้ด two editors side by side; พรีวิว one editor
- * with the Browser block floating bottom right; รีวิว two editors with the Browser stashed.
+ * What a project starts with, before it saves its own (the old app's four): Focus, one editor and
+ * nothing floating; Code, two editors side by side; Preview, one editor with the Browser block
+ * floating bottom right; Review, two editors with the Browser stashed.
  */
 export const STARTERS: readonly NamedLayout[] = [
-  { name: "โฟกัส", pip: [], groups: ONE },
-  { name: "เขียนโค้ด", pip: [], groups: TWO },
-  { name: "พรีวิว", pip: [{ kind: "browser", corner: "br", width: 480, height: 360 }], groups: ONE },
-  { name: "รีวิว", pip: [{ kind: "browser", corner: "br", stash: "right", width: 480, height: 360 }], groups: TWO },
+  { name: "Focus", pip: [], groups: ONE },
+  { name: "Code", pip: [], groups: TWO },
+  { name: "Preview", pip: [{ kind: "browser", corner: "br", width: 480, height: 360 }], groups: ONE },
+  { name: "Review", pip: [{ kind: "browser", corner: "br", stash: "right", width: 480, height: 360 }], groups: TWO },
 ];
+
+/**
+ * The starters' names before the app went all English. A project that saved a layout kept the
+ * starters under these names; they read back as the English ones. A name the person chose stays.
+ */
+const OLD_STARTER_NAMES: Readonly<Record<string, string>> = {
+  "\u0e42\u0e1f\u0e01\u0e31\u0e2a": "Focus",
+  "\u0e40\u0e02\u0e35\u0e22\u0e19\u0e42\u0e04\u0e49\u0e14": "Code",
+  "\u0e1e\u0e23\u0e35\u0e27\u0e34\u0e27": "Preview",
+  "\u0e23\u0e35\u0e27\u0e34\u0e27": "Review",
+};
+const renamed = (name: string): string => OLD_STARTER_NAMES[name] ?? name;
 
 const record = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
@@ -46,7 +58,7 @@ export function layoutName(text: string): string {
 
 function layoutOf(value: unknown): NamedLayout | undefined {
   const r = record(value);
-  const name = typeof r?.name === "string" ? layoutName(r.name) : "";
+  const name = typeof r?.name === "string" ? renamed(layoutName(r.name)) : "";
   if (!r || !name) return undefined;
   const seen = new Set<string>();
   const pip: Floating[] = [];
@@ -76,7 +88,8 @@ export function layoutsIn(desktop: Desktop, root: string): { layouts: NamedLayou
     const l = layoutOf(item);
     if (l && !layouts.some((k) => k.name === l.name) && layouts.length < MAX_LAYOUTS) layouts.push(l);
   }
-  const current = typeof project.current === "string" && layouts.some((l) => l.name === project.current) ? project.current : undefined;
+  const named = typeof project.current === "string" ? renamed(project.current) : undefined;
+  const current = named !== undefined && layouts.some((l) => l.name === named) ? named : undefined;
   return { layouts, ...(current ? { current } : {}) };
 }
 

@@ -12,8 +12,8 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { movesFor, PLACES_VERSION, THREADS_CONTAINER, TOOLS, type Place } from './blocks/places.js';
-import { ensureCenter } from './threadsView.js';
+import { lockMoves, movesFor, PLACES_VERSION, THREADS_CONTAINER, TOOLS, type Place } from './blocks/places.js';
+import { ensureCenter, THREADS_VIEW_ID } from './threadsView.js';
 
 const PLACE_OF: Record<ViewContainerLocation, Place> = {
 	[ViewContainerLocation.Sidebar]: 'sidebar',
@@ -70,9 +70,14 @@ export class CedianWindowPlaces extends Disposable implements IWorkbenchContribu
 			storage.store(CENTER_KEY, true, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 			ensureCenter(editorService, editorGroups).catch(() => { });
 		}
-		if (storage.getNumber(PLACES_KEY, StorageScope.PROFILE, 0) >= PLACES_VERSION) {
-			return;
+		if (storage.getNumber(PLACES_KEY, StorageScope.PROFILE, 0) < PLACES_VERSION) {
+			this.place(views, viewsService, storage);
 		}
+		this.lock(views, configuration);
+	}
+
+	/** Moves each part to where PLACES says, once per profile and PLACES_VERSION. */
+	private place(views: IViewDescriptorService, viewsService: IViewsService, storage: IStorageService): void {
 		const where = (id: string): Place | undefined => {
 			const container = views.getViewContainerById(id);
 			const location = container ? views.getViewContainerLocation(container) : null;
@@ -88,5 +93,53 @@ export class CedianWindowPlaces extends Disposable implements IWorkbenchContribu
 		// Both sides showing, Threads and the first tool.
 		void viewsService.openViewContainer(THREADS_CONTAINER, false);
 		void viewsService.openViewContainer(TOOLS[0].container, false);
+	}
+
+	/**
+	 * Keeps the side blocks where they are (lockMoves): Threads alone on the left, the tools on the
+	 * right, the side bar on the left. A drag or a "Move to" that breaks that is undone as soon as it
+	 * lands, as is a container an extension registers on the left. Widths stay the person's.
+	 */
+	private lock(views: IViewDescriptorService, configuration: IConfigurationService): void {
+		let pending = false;
+		const enforce = () => {
+			pending = false;
+			const threads = views.getViewContainerById(THREADS_CONTAINER);
+			const location = threads ? views.getViewContainerLocation(threads) : null;
+			const inSidebar = views.getViewContainersByLocation(ViewContainerLocation.Sidebar).map(c => c.id);
+			for (const move of lockMoves(location === null ? undefined : PLACE_OF[location], inSidebar)) {
+				const container = views.getViewContainerById(move.container);
+				if (container) {
+					views.moveViewContainerToLocation(container, LOCATION_OF[move.to], undefined, 'cedian.lock');
+				}
+			}
+			// A view moved in beside Threads before it refused them goes back where it came from.
+			const foreign = threads ? views.getViewContainerModel(threads).allViewDescriptors.filter(v => v.id !== THREADS_VIEW_ID) : [];
+			for (const view of foreign) {
+				const home = views.getDefaultContainerById(view.id);
+				if (home && home.id !== THREADS_CONTAINER) {
+					views.moveViewsToContainer([view], home, undefined, 'cedian.lock');
+				}
+			}
+			if (configuration.getValue('workbench.sideBar.location') !== 'left') {
+				void configuration.updateValue('workbench.sideBar.location', 'left');
+			}
+		};
+		// After the move or registration that changed things has finished.
+		const later = () => {
+			if (!pending) {
+				pending = true;
+				setTimeout(enforce, 0);
+			}
+		};
+		this._register(views.onDidChangeContainerLocation(later));
+		this._register(views.onDidChangeViewContainers(later));
+		this._register(views.onDidChangeContainer(later));
+		this._register(configuration.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('workbench.sideBar.location')) {
+				later();
+			}
+		}));
+		enforce();
 	}
 }
