@@ -9,6 +9,7 @@ import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { dropping } from './blockMove.js';
 import { stretching } from './blockStretch.js';
 
 /** The side blocks whose leaving is shown. The editor groups are followed one by one. */
@@ -66,6 +67,10 @@ export class CedianBlockExit extends Disposable implements IWorkbenchContributio
 		}));
 		// The group's element is the one noted that is no longer in the window.
 		this._register(groups.onDidRemoveGroup(() => {
+			// A group a drop emptied: its editor slides from there into its new block (blockMove.ts).
+			if (dropping.now) {
+				return;
+			}
 			for (const element of [...this.rects.keys()]) {
 				if (!element.isConnected && element.classList.contains('editor-group-container')) {
 					this.leave(element, false);

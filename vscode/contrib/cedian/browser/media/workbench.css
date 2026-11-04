@@ -85,7 +85,8 @@
    `workbench.reduceMotion` is on, so both turn this off. A hidden block takes display: none, which
    restarts the animation when it shows again. blockExit.ts runs the same growth backwards when a
    block goes. A side block shown or hidden after the first paint stretches instead (blockStretch.ts):
-   its real size moves frame by frame and its neighbours with it, and it turns this growth off. */
+   its real size moves frame by frame and its neighbours with it, and it turns this growth off. A
+   block dragged to another place slides there from where it stood instead (blockMove.ts). */
 .monaco-workbench {
 	--cedian-motion-in: 320ms;
 	--cedian-motion-focus: 120ms;
