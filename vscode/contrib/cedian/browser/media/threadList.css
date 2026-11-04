@@ -1,0 +1,22 @@
+/* The Threads list (src/agent-pane/thread-list.ts): the prototype's left column. Search and the two
+   starts on top, then the threads by what they need, each a row with its state's dot. */
+.cedian-thread-list { display: flex; flex-direction: column; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); color: var(--cedian-text); }
+.cedian-thread-list .top { flex: none; display: flex; flex-direction: column; gap: 2px; padding: 8px 8px 4px; }
+.cedian-thread-list .search { height: 28px; padding: 0 10px; border: 1px solid var(--cedian-line); border-radius: 8px; background: var(--cedian-sheet); color: inherit; font: inherit; margin-bottom: 6px; }
+.cedian-thread-list .search:focus { outline: 2px solid var(--cedian-accent); outline-offset: -1px; }
+.cedian-thread-list .row-btn, .cedian-thread-list .thread-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cedian-thread-list .row-btn:hover, .cedian-thread-list .thread-row:hover { background: var(--cedian-raised); }
+.cedian-thread-list .row-btn:focus-visible, .cedian-thread-list .thread-row:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+.cedian-thread-list .sections { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 8px 8px; }
+.cedian-thread-list .group-head { display: flex; justify-content: space-between; padding: 12px 8px 4px; color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-thread-list .thread-row.on { background: var(--cedian-sel); }
+.cedian-thread-list .thread-row .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cedian-thread-list .thread-row .note { flex: none; color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-thread-list .thread-row .note.n-asking { color: var(--cedian-accent); }
+.cedian-thread-list .thread-row .note.n-failed { color: var(--cedian-failed); }
+.cedian-thread-list .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--cedian-text-muted); }
+.cedian-thread-list .dot.st-working, .cedian-thread-list .dot.st-queued { background: var(--cedian-working); }
+.cedian-thread-list .dot.st-asking { background: transparent; box-shadow: inset 0 0 0 2px var(--cedian-accent); }
+.cedian-thread-list .dot.st-failed { background: var(--cedian-failed); }
+.cedian-thread-list .dot.st-done, .cedian-thread-list .dot.st-stopped { background: transparent; box-shadow: inset 0 0 0 1.5px var(--cedian-text-muted); }
+.cedian-thread-list .empty { padding: 24px 16px; color: var(--cedian-text-muted); text-align: center; }

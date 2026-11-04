@@ -18,7 +18,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
@@ -35,6 +35,8 @@ import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from 
 import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, openBrowser } from './browserEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CedianBlockLayer } from './blockLayer.js';
+import { CedianWindowPlaces } from './windowPlaces.js';
+import { TOOL_PICKS } from './blocks/places.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { runInlineEdit } from './inlineEdit.js';
@@ -44,6 +46,7 @@ import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
 import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
+import { THREADS_CONTAINER_ID, THREADS_VIEW_ID, ThreadsView } from './threadsView.js';
 import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
 import type { AgentPane, SideSource } from './agent-pane/pane.js';
@@ -69,6 +72,28 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 	canToggleVisibility: false,
 	canMoveView: true,
 }], container);
+
+// ---- the Threads list: the prototype's left column ----
+
+const threadsIcon = registerIcon('cedian-threads-view-icon', Codicon.listUnordered, localize('cedianThreadsIcon', 'View icon of the Cedian threads list.'));
+
+const threadsContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
+	id: THREADS_CONTAINER_ID,
+	title: localize2('cedian.threads.container', "Threads"),
+	icon: threadsIcon,
+	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [THREADS_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
+	storageId: THREADS_CONTAINER_ID,
+	order: -1,
+}, ViewContainerLocation.Sidebar, { isDefault: true });
+
+Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
+	id: THREADS_VIEW_ID,
+	name: localize2('cedian.threads.view', "Threads"),
+	containerIcon: threadsIcon,
+	ctorDescriptor: new SyncDescriptor(ThreadsView),
+	canToggleVisibility: false,
+	canMoveView: true,
+}], threadsContainer);
 
 // ---- the settings window ----
 
@@ -142,6 +167,7 @@ registerAction2(class extends Action2 {
 // ---- the block layer: blocks floating over the window as PiPs (spec §3.3, §4.4) ----
 
 registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianWindowPlaces.ID, CedianWindowPlaces, WorkbenchPhase.AfterRestored);
 
 registerAction2(class extends Action2 {
 	constructor() {
@@ -301,13 +327,72 @@ for (const [id, title, run] of [
 ] as const) {
 	registerAction2(class extends Action2 {
 		constructor() {
-			super({ id, title, category: localize2('cedian.category', "Cedian"), f1: true });
+			super({
+				id, title, category: localize2('cedian.category', "Cedian"), f1: true,
+				// The prototype's layout picker, at the title bar's right end.
+				...(id === 'cedian.switchLayout' ? { icon: Codicon.layout, menu: [{ id: MenuId.TitleBar, group: 'navigation', order: 2 }] } : {}),
+			});
 		}
 		run(accessor: ServicesAccessor): Promise<void> {
 			return run(accessor);
 		}
 	});
 }
+// ---- the title bar, as in the prototype: Threads' toggle, the project's name, + Tool, layouts ----
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.addTool',
+			title: localize2('cedian.addTool', "Open a Tool"),
+			category: localize2('cedian.category', "Cedian"),
+			icon: Codicon.add,
+			f1: true,
+			menu: [{ id: MenuId.TitleBar, group: 'navigation', order: 1 }],
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quick = accessor.get(IQuickInputService);
+		const views = accessor.get(IViewsService);
+		const commands = accessor.get(ICommandService);
+		const heading = { tools: localize('cedian.addTool.tools', "Tools"), project: localize('cedian.addTool.project', "Project") };
+		const items: (IQuickPickItem | IQuickPickSeparator)[] = [];
+		for (const [i, t] of TOOL_PICKS.entries()) {
+			if (TOOL_PICKS[i - 1]?.group !== t.group) {
+				items.push({ type: 'separator', label: heading[t.group] });
+			}
+			items.push({ label: t.label, id: String(i) });
+		}
+		const picked = await quick.pick(items, { placeHolder: localize('cedian.addTool.pick', "Open a tool") });
+		const tool = picked?.id === undefined ? undefined : TOOL_PICKS[Number(picked.id)];
+		if (!tool) {
+			return;
+		}
+		if ('container' in tool.open) {
+			await views.openViewContainer(tool.open.container, true);
+		} else {
+			await commands.executeCommand(tool.open.command);
+		}
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.toggleThreads',
+			title: localize2('cedian.toggleThreads', "Show or Hide Threads"),
+			category: localize2('cedian.category', "Cedian"),
+			icon: Codicon.listUnordered,
+			f1: true,
+			// VS Code's TitleBarLeadingActionsGroup: before the rest, at the title bar's left.
+			menu: [{ id: MenuId.TitleBar, group: '0_leading', order: 0 }],
+		});
+	}
+	run(accessor: ServicesAccessor): Promise<unknown> {
+		return accessor.get(ICommandService).executeCommand('workbench.action.toggleSidebarVisibility');
+	}
+});
+
 for (let n = 1; n <= 9; n++) {
 	CommandsRegistry.registerCommand({ id: `cedian.layout${n}`, handler: () => CedianBlockLayer.current?.switchLayoutAt(n - 1), metadata: { description: `Layout ${n}` } });
 }
