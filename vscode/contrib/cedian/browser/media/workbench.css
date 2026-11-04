@@ -135,3 +135,15 @@
 	opacity: 1;
 }
 .monaco-workbench.monaco-enable-motion .codicon-toolbar-more { transition: opacity var(--cedian-motion-focus, 120ms) var(--cedian-ease-out, ease-out); }
+
+/* What is left of a block that went, while it fades (blockExit.ts): where it stood, above the
+   blocks that took its room, never in the pointer's way. An editor group out of the editor area
+   has lost its card, so it gets one back. */
+.cedian-block-exit { position: fixed; z-index: 30; pointer-events: none; transform-origin: center; }
+.cedian-block-exit > .editor-group-container {
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--modern-ui-editor-border-color, var(--vscode-editor-border, var(--vscode-widget-border, transparent)));
+	border-radius: var(--vscode-cornerRadius-large, 12px);
+	box-sizing: border-box;
+	overflow: hidden;
+}
