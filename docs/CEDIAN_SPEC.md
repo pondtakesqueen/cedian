@@ -686,7 +686,17 @@ draft → open → (edited | fixing | forked) → pinned → closed
 
 - SSH sessions (Claude Desktop pattern)
 - WSL (Windows)
-- Remote Control (phone → desktop)
+- Remote Control (phone → desktop): taken now, see §6.5
+
+### 6.5 Remote Control in a browser (decided 2026-11-04)
+
+The agent pane in a phone's browser, so the owner can follow threads, answer their questions and send prompts while away from the Mac. The pane is plain DOM over `DaemonClient` and a line `Transport`, so the browser is one more window: no second UI and no second protocol.
+
+- **Daemon** (`cedian_daemon/src/remote.rs`): on when `desktop.remote.port` is set. It listens on 127.0.0.1 only. `/ws` carries `cedian_wire` requests and notices, one JSON message per text frame, the same messages `daemon.sock` carries. Other paths are files of the web build (`CEDIAN_REMOTE_WEB`, else `remote-web` beside the binary).
+- **Reach**: `tailscale serve --bg <port>` keeps it inside the owner's tailnet with HTTPS. Nothing is exposed to the internet, and there is no cloud relay.
+- **Auth**: a 32-byte token in the state dir's `remote-token` (0600). `cedian-daemon remote-url` prints the link; `/?token=` sets it as an http-only, SameSite=Strict cookie. Every page and the socket need it.
+- **Origin rules**: a Host, or a socket's Origin, that is not localhost or a `*.ts.net` name is refused (421). This blocks DNS rebinding and cross-site sockets. Pages carry a CSP of `default-src 'self'`.
+- **Scope**: a remote window can do what a desktop window can, since the token is the owner's. Features that need the workbench (the diff editor, terminals, the browser panel) are absent in the web build and its `PaneHost` says so.
 
 ## 7. Settings / keymap
 
@@ -980,7 +990,7 @@ Reviewed against the Claude Desktop, Cursor and Tern notes (kept outside this re
   the public artifacts article; rules in `cedian_artifact` + `src/artifacts/`
   with tests; cloud/shared/publish/connect-apps/use-Claude deferred or
   excluded per §3.6.3.
-- **G13. Cloud execution + remote surfaces** (cloud sessions while laptop closed incl. multi-repo/cloud-environment scale, SSH incl. port-forward, WSL, Remote Control/phone incl. iOS + keep-awake) — defer to post-v1 "remote execution" phase; local-first for v1 (daemon keep-awake covers local). Protocol ready.
+- **G13. Cloud execution + remote surfaces** (cloud sessions while laptop closed incl. multi-repo/cloud-environment scale, SSH incl. port-forward, WSL, Remote Control/phone incl. iOS + keep-awake) — defer to post-v1 "remote execution" phase; local-first for v1 (daemon keep-awake covers local). Protocol ready. Exception, decided by the owner 2026-11-04: Remote Control from a phone's browser is taken now as §6.5, served by the daemon on the owner's tailnet; cloud execution, SSH, WSL and a native mobile app stay deferred.
 - **G14. Cloud connectors** (claude.ai connectors) — defer; local MCP (cedia mcp) covers v1.
 
 ### Exclude (intentionally not replicated)

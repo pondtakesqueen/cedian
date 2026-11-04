@@ -22,6 +22,7 @@ mod notes;
 mod pr_view;
 mod pr_watch;
 mod record;
+mod remote;
 mod review;
 mod run;
 mod seen;
@@ -32,5 +33,6 @@ mod worktree;
 
 pub use cedia::Cedia;
 pub use environment::login_environment;
+pub use remote::token as remote_token;
 pub use server::{Config, serve};
 pub use shell_env::print_env;
