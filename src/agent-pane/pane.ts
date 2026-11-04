@@ -149,6 +149,8 @@ export class AgentPane {
   private viewMode: ViewMode = "answers";
   private viewModeChosen = false;
   private images: string[] = [];
+  /** What a chip says for an image saved under a made-up name (an element the Browser block picked). */
+  private readonly labels = new Map<string, string>();
   private then?: Request;
   private token?: Token;
   private completions: Completion[] = [];
@@ -361,15 +363,18 @@ export class AgentPane {
 
   /**
    * Puts context from elsewhere in the composer: text (an element the Browser block picked, a
-   * console line) after what is typed, and its picture when given, saved through `saveImage`.
+   * console line) after what is typed, and its picture when given, saved through `saveImage`;
+   * its chip says `name` rather than the saved file's name.
    */
-  async addContext(text: string, png?: Uint8Array): Promise<void> {
+  async addContext(text: string, png?: Uint8Array, name?: string): Promise<void> {
     const typed = this.input.value.trimEnd();
     this.input.value = typed ? `${typed}\n\n${text}\n` : `${text}\n`;
     this.typed();
     if (png && this.host.saveImage) {
       try {
-        this.attach([await this.host.saveImage(png, "image/png")]);
+        const path = await this.host.saveImage(png, "image/png");
+        if (name) this.labels.set(path, name);
+        this.attach([path]);
       } catch (e) {
         this.state = { ...this.state, error: `Couldn't attach the element's picture: ${(e as Error).message}` };
         this.render();
@@ -1302,7 +1307,8 @@ export class AgentPane {
     this.attachments.replaceChildren(
       ...this.images.map((path) => {
         const chip = el(d, "span", "tag");
-        chip.append(el(d, "span", "ell", path.split("/").pop() ?? path), button(d, "×", () => {
+        chip.title = path;
+        chip.append(el(d, "span", "ell", this.labels.get(path) ?? path.split("/").pop() ?? path), button(d, "×", () => {
           this.images = this.images.filter((p) => p !== path);
           this.renderComposer();
         }, "x"));

@@ -9,7 +9,7 @@ import type { BrowserPage, Notice, Request } from "../protocol/wire.js";
 import { desktopOf, type Desktop } from "../settings/desktop.js";
 import { Cdp, type Socket } from "./cdp.js";
 import type { DevServer } from "./launch.js";
-import { elementContext, modifiersOf, PageSession, type ConsoleLine, type PageView } from "./session.js";
+import { elementContext, imageName, modifiersOf, PageSession, type ConsoleLine, type PageView } from "./session.js";
 import { addressOf, allowSite, hostOf, isLocal, revokeSite, sitesOf, TOOLS_OFF, toolsOn } from "./sites.js";
 
 /** What the block needs from the window around it. */
@@ -23,7 +23,8 @@ export interface BrowserHost {
   /** A transient failure, as a notification (spec §8.4). */
   notify(message: string): void;
   /** Puts text, and a PNG when given, in the agent pane's composer. */
-  attach(text: string, png?: Uint8Array): void;
+  /** `name` is what the composer calls the picture. */
+  attach(text: string, png?: Uint8Array, name?: string): void;
   /** The project's dev servers (`.cedia/launch.json`, else `.claude/launch.json`). */
   devServers(): Promise<DevServer[]>;
   /** Starts a dev server in a terminal. */
@@ -266,7 +267,7 @@ export class BrowserPanel implements Block {
     });
     session.onNotice((message) => this.host.notify(message));
     session.onPicked((picked) => {
-      this.host.attach(elementContext(picked), picked.image ? bytes(picked.image) : undefined);
+      this.host.attach(elementContext(picked), picked.image ? bytes(picked.image) : undefined, imageName(picked));
       this.say(`<${picked.tag}> added to the composer`);
     });
     session.onClose((beforeLoad) => {

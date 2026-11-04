@@ -150,7 +150,7 @@ export class CedianBrowserEditor extends EditorPane {
 			connect: url => new mainWindow.WebSocket(url) as unknown as Socket,
 			// Spec §8.4: the browser's transient errors are notifications.
 			notify: message => this.notifications.warn(message),
-			attach: (text, png) => { this.attach(text, png).catch(e => this.notifications.warn(`Couldn't add the element to the composer: ${e instanceof Error ? e.message : e}`)); },
+			attach: (text, png, name) => { this.attach(text, png, name).catch(e => this.notifications.warn(`Couldn't add the element to the composer: ${e instanceof Error ? e.message : e}`)); },
 			devServers: () => this.devServers(folderUri),
 			runDevServer: server => { this.runDevServer(folderUri, server).catch(e => this.notifications.warn(`Couldn't start ${server.name}: ${e instanceof Error ? e.message : e}`)); },
 			openSettings: () => { this.commands.executeCommand('cedian.settings'); },
@@ -163,7 +163,7 @@ export class CedianBrowserEditor extends EditorPane {
 	}
 
 	/** Into the agent pane's composer, showing the pane first. */
-	private async attach(text: string, png: Uint8Array | undefined): Promise<void> {
+	private async attach(text: string, png: Uint8Array | undefined, name: string | undefined): Promise<void> {
 		if (!CedianPanes.current) {
 			await this.viewsService.openView(AGENT_PANE_VIEW_ID, true);
 		}
@@ -171,7 +171,7 @@ export class CedianBrowserEditor extends EditorPane {
 		if (!pane) {
 			throw new Error('the agent pane did not open');
 		}
-		await pane.addContext(text, png);
+		await pane.addContext(text, png, name);
 	}
 
 	private async devServers(folder: URI): Promise<DevServer[]> {

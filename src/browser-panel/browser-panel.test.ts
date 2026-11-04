@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { devServers } from "./launch.js";
-import { keyParams, loadError, modifiersOf } from "./session.js";
+import { imageName, keyParams, loadError, modifiersOf, type PickedElement } from "./session.js";
 import { addressOf, allowSite, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
 
 describe("the site allowlist (spec §6.3)", () => {
@@ -85,5 +85,15 @@ describe("input and errors", () => {
     expect(loadError("net::ERR_CONNECTION_TIMED_OUT")).toEqual({ message: "the connection timed out", transient: true });
     expect(loadError("net::ERR_ABORTED")).toBeUndefined();
     expect(loadError("net::ERR_NAME_NOT_RESOLVED")).toEqual({ message: "This page didn't load (net::ERR_NAME_NOT_RESOLVED)", transient: false });
+  });
+});
+
+describe("the picked element's picture", () => {
+  const picked = (selector: string, tag = "div"): PickedElement => ({ url: "http://localhost:3000/", selector, tag, text: "", html: "", styles: {}, box: { x: 0, y: 0, width: 1, height: 1 } });
+  test("is named after what was picked, not a random file name", () => {
+    expect(imageName(picked("main > button#add", "button"))).toBe("button#add.png");
+    expect(imageName(picked("body > div.card.wide:nth-of-type(2)"))).toBe("div.card.wide.png");
+    expect(imageName(picked("div#a\\:b"))).toBe("div#a-b.png");
+    expect(imageName(picked("", "span"))).toBe("span.png");
   });
 });
