@@ -53,4 +53,10 @@ describe("lockMoves", () => {
   it("leaves Threads alone when this build has none", () => {
     expect(lockMoves(undefined, [])).toEqual([]);
   });
+  it("gives every tool its own codicon for the tool strip", () => {
+    const icons = TOOL_PICKS.map((t) => t.icon);
+    for (const icon of icons) expect(icon).toMatch(/^[a-z][a-z0-9-]*$/);
+    expect(new Set(icons).size).toBe(icons.length);
+    expect(Object.fromEntries(TOOL_PICKS.map((t) => [t.label, t.icon]))).toMatchObject({ Files: "files", Git: "source-control", Terminal: "terminal", Browser: "globe" });
+  });
 });

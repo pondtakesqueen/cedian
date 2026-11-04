@@ -38,6 +38,7 @@ import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
 import { CedianBlockMove } from './blockMove.js';
 import { CedianTabMove } from './tabMove.js';
+import { CedianToolStrip, openTool } from './toolStrip.js';
 import { CedianDropTarget } from './dropTarget.js';
 import { CedianBlockStretch } from './blockStretch.js';
 import { CedianProjectTabs } from './projectTabs.js';
@@ -179,6 +180,7 @@ registerWorkbenchContribution2(CedianWindowPlaces.ID, CedianWindowPlaces, Workbe
 registerWorkbenchContribution2(CedianBlockStretch.ID, CedianBlockStretch, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianBlockMove.ID, CedianBlockMove, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianTabMove.ID, CedianTabMove, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianToolStrip.ID, CedianToolStrip, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianDropTarget.ID, CedianDropTarget, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianProjectTabs.ID, CedianProjectTabs, WorkbenchPhase.AfterRestored);
 
@@ -375,19 +377,15 @@ registerAction2(class extends Action2 {
 		}
 		const picked = await quick.pick(items, { placeHolder: localize('cedian.addTool.pick', "Open a tool") });
 		const tool = picked?.id === undefined ? undefined : TOOL_PICKS[Number(picked.id)];
-		if (!tool) {
-			return;
-		}
-		if ('container' in tool.open) {
-			await views.openViewContainer(tool.open.container, true);
-		} else {
-			await commands.executeCommand(tool.open.command);
+		if (tool) {
+			await openTool(tool, views, commands);
 		}
 	}
 });
 
 // The prototype's "+ Tool" chip: text, not an icon, so the menu item names it apart from the
-// command's palette title.
+// command's palette title. Resting on it or clicking it opens the tool strip (toolStrip.ts); the
+// palette's "Open a Tool" keeps the picker.
 MenuRegistry.appendMenuItem(MenuId.TitleBar, { command: { id: 'cedian.addTool', title: localize('cedian.addTool.chip', "+ Tool") }, group: 'navigation', order: 1 });
 
 registerAction2(class extends Action2 {

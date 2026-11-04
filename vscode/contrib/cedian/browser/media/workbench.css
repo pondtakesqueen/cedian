@@ -177,6 +177,42 @@
    never in the pointer's way. */
 .monaco-workbench .part.editor .tabs-and-actions-container .cedian-tab-closing { pointer-events: none; z-index: 1; }
 
+/* The tool strip under "+ Tool" (toolStrip.ts): a raised pill of the tools' icons, a close
+   button first, above the blocks; each icon lights in the accent under the pointer or focus. */
+.monaco-workbench .cedian-tool-strip {
+	position: fixed;
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 4px;
+	background: var(--cedian-raised, var(--vscode-editorWidget-background));
+	border: 1px solid var(--cedian-line-strong, var(--vscode-widget-border));
+	border-radius: 999px;
+	box-shadow: 0 10px 28px rgba(0, 0, 0, .28), 0 1px 3px rgba(0, 0, 0, .18);
+}
+.monaco-workbench .cedian-tool-strip-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--cedian-text-muted, var(--vscode-foreground));
+	font-size: 16px;
+	cursor: pointer;
+}
+.monaco-workbench .cedian-tool-strip-item.close { color: var(--cedian-text-faint, var(--vscode-descriptionForeground)); }
+.monaco-workbench .cedian-tool-strip-item:hover,
+.monaco-workbench .cedian-tool-strip-item:focus-visible {
+	background: var(--cedian-accent, var(--vscode-focusBorder));
+	color: var(--cedian-frame, #151412);
+	outline: none;
+}
+
 /* The project tabs (projectTabs.ts) at the start of the title bar's left side, as the prototype's
    .ptab row: quiet until hovered, this window's project filled. What needs the person is a badge in
    the accent colour, what is at work a dot and a count in the working colour. */
