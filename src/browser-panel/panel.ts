@@ -72,6 +72,8 @@ export class BrowserPanel implements Block {
   private readonly offs: (() => void)[] = [];
   private devServerList: DevServer[] = [];
   private waiting: { url: string; until: number } | undefined;
+  /** An address typed before the tab's session was there, opened once it is. */
+  private pending: string | undefined;
   private disposed = false;
 
   constructor(private readonly doc: Document, private readonly wire: Wire<Request, Notice>, private readonly host: BrowserHost) {
@@ -200,9 +202,15 @@ export class BrowserPanel implements Block {
       this.say(to.error);
       return;
     }
-    this.say("");
     this.stage.focus();
-    this.session?.navigate(to.url).catch((e: Error) => this.host.notify(e.message));
+    if (!this.session) {
+      // The browser is still starting: open it once the tab is there.
+      this.pending = to.url;
+      this.say(`Opening ${to.url} once the browser is ready…`);
+      return;
+    }
+    this.say("");
+    this.session.navigate(to.url).catch((e: Error) => this.host.notify(e.message));
   }
 
   /** A new tab, on `url` when given. */
@@ -270,9 +278,19 @@ export class BrowserPanel implements Block {
       this.wire.request({ op: "browser", cwd: this.host.cwd });
     });
     const { width, height } = this.size();
-    session.start(width, height, this.scale()).catch((e: Error) => {
-      if (this.session === session) this.host.notify(e.message);
-    });
+    session.start(width, height, this.scale()).then(
+      () => {
+        const url = this.pending;
+        this.pending = undefined;
+        if (url && this.session === session) {
+          this.say("");
+          session.navigate(url).catch((e: Error) => this.host.notify(e.message));
+        }
+      },
+      (e: Error) => {
+        if (this.session === session) this.host.notify(e.message);
+      },
+    );
     this.drawConsole(undefined);
     this.draw();
   }
@@ -300,7 +318,7 @@ export class BrowserPanel implements Block {
       this.titles.set(active.id, title);
       this.drawTabs();
     }
-    if (this.doc.activeElement !== this.address) this.address.value = this.shownUrl(view.url);
+    if (this.doc.activeElement !== this.address) this.address.value = this.pending ?? this.shownUrl(view.url);
     if (view.load === "error" && this.waiting && /Nothing answers there/.test(view.error ?? "") && Date.now() < this.waiting.until) {
       // A dev server just started: try again until it answers.
       const url = this.waiting.url;
@@ -323,7 +341,8 @@ export class BrowserPanel implements Block {
     this.reload.setAttribute("aria-label", view?.load === "loading" ? "Stop" : "Reload");
     this.dot.className = `dot ${view?.load ?? "idle"}`;
     this.picker.setAttribute("aria-pressed", String(view?.pick === "inspecting"));
-    this.picker.disabled = !this.session;
+    // A blank tab has nothing to pick but its empty body.
+    this.picker.disabled = !this.session || !view?.url || view.url === "about:blank";
     this.stage.classList.toggle("picking", view?.pick === "inspecting");
     this.overlay.replaceChildren();
     if (this.failure) {

@@ -128,11 +128,8 @@ const shot = (name) => page.screenshot({ path: join(out, `${name}.png`) });
 const text = (sel) => page.locator(`.cedian-browser ${sel}`).first().textContent();
 
 try {
-  await until(() => page.locator(".cedian-browser .empty .big").count(), "the empty state");
-  ok("the block opens on its empty state", (await text(".empty .big")) === "Open a page");
-  await shot("1-empty");
-
-  // Address bar → the page, screencast into the block.
+  // Address bar → the page, screencast into the block. Typed at once, while the block still says
+  // "Starting the browser…": it opens once the tab is there.
   await page.fill(".cedian-browser .url input", siteUrl.replace("http://", ""));
   await page.press(".cedian-browser .url input", "Enter");
   await until(async () => (await page.locator(".cedian-browser .screen").getAttribute("src"))?.startsWith("data:image/jpeg"), "a screencast frame");
@@ -175,6 +172,9 @@ try {
   await page.click(".cedian-browser .tabs .add");
   await until(async () => (await page.locator(".cedian-browser .tab").count()) === 2, "a second tab");
   ok("a new tab opens through the daemon and is the active one", (await page.locator(".cedian-browser .tab.on .tt").textContent()) !== "Basket");
+  await until(async () => (await page.locator(".cedian-browser .empty .big").count()) && (await text(".empty .big")) === "Open a page", "the empty state");
+  ok("a blank tab shows the empty state, and nothing to pick", await page.locator(".cedian-browser .pick").isDisabled());
+  await shot("1-empty");
 
   // A site not on the list: the agent's tools are off there until it is added.
   await page.fill(".cedian-browser .url input", "example.com");
@@ -219,6 +219,19 @@ try {
   daemonSocket.destroy();
   site.close();
   windowPage.close();
+  // The daemon's Chromium outlives the daemon by design; close it through its own DevTools port,
+  // which works whatever the platform names its processes, then pkill what is left.
+  try {
+    const port = readFileSync(join(tmp, "state/browser/DevToolsActivePort"), "utf8").split("\n")[0];
+    const { webSocketDebuggerUrl } = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
+    const ws = new WebSocket(webSocketDebuggerUrl);
+    await new Promise((resolve) => {
+      ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: "Browser.close" }));
+      ws.onclose = resolve;
+      ws.onerror = resolve;
+      setTimeout(resolve, 3_000);
+    });
+  } catch {}
   try {
     execFileSync("pkill", ["-f", join(tmp, "state")]);
   } catch {}
