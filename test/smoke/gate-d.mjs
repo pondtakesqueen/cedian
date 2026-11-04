@@ -13,7 +13,7 @@
 // Prints what it saw and a JSON summary (also to --out); exits 1 on any failure.
 // Usage: node test/smoke/gate-d.mjs <Cedian.app> [--model <ref>] [--shots <dir>] [--out file.json]
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -77,7 +77,8 @@ git("add", ".");
 git("-c", "user.name=gate", "-c", "user.email=gate@cedian.invalid", "commit", "-q", "-m", "init");
 
 const { chromium } = await import("playwright-core").catch(() => import("playwright"));
-const browserOpts = process.env.CEDIAN_CHROMIUM ? { executablePath: process.env.CEDIAN_CHROMIUM } : {};
+const chromiumBin = process.env.CEDIAN_CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
+const browserOpts = chromiumBin ? { executablePath: chromiumBin } : {};
 
 /**
  * The counter after `adds` clicks on the page in `dir`. With `video`, the screen is filmed at 10

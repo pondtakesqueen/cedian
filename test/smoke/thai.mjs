@@ -7,9 +7,10 @@
 // Needs a Thai font (macOS has one; on Linux, fonts-thai-tlwg). Prints JSON; exits 1 on a
 // mid-word break or a short line.
 // Usage: node test/smoke/thai.mjs [--out file.json]
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+const chromiumBin = process.env.CEDIAN_CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const css = readFileSync(join(root, "vscode/contrib/cedian/browser/media/agentPane.css"), "utf8");
@@ -23,7 +24,7 @@ export const FIXTURES = [
 const WIDTHS = [220, 300, 420, 560];
 
 const { chromium } = await import("playwright-core").catch(() => import("playwright"));
-const browser = await chromium.launch(process.env.CEDIAN_CHROMIUM ? { executablePath: process.env.CEDIAN_CHROMIUM } : {});
+const browser = await chromium.launch(chromiumBin ? { executablePath: chromiumBin } : {});
 const page = await browser.newPage();
 await page.setContent(`<!doctype html><meta charset="utf-8"><style>${css}
   :root { --cedian-font-ui: -apple-system, "Sukhumvit Set", "Thonburi", "Loma", "Garuda", sans-serif; }
