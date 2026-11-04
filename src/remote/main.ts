@@ -198,6 +198,11 @@ async function notifications(doc: Document, bar: HTMLElement, hint: HTMLElement,
   draw();
 }
 
+/** The thread a notification's link names (`?thread=`), opened once the pane is up. */
+export function pickThread(search: string): string | undefined {
+  return new URLSearchParams(search).get("thread") || undefined;
+}
+
 const REMEMBER = "cedian.remote.cwd";
 
 async function main(): Promise<void> {
@@ -249,6 +254,9 @@ async function main(): Promise<void> {
   app.append(status);
   const pane = new AgentPane(doc, new ThreadShare(client).view(), webHost(cwd, window));
   app.append(pane.root);
+  const thread = pickThread(location.search);
+  // The open is kept as a watch, so it reaches the daemon once the socket connects.
+  if (thread) pane.openThread(thread);
   transport.start();
 }
 
