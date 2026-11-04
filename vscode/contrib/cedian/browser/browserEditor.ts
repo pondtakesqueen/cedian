@@ -13,6 +13,7 @@ import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
@@ -98,6 +99,78 @@ function shellLine(command: string, args: string[]): string {
 	return [command, ...args].map(quote).join(' ');
 }
 
+/** The services a Browser block draws with, wherever it is: an editor or a floating block. */
+export interface BrowserServices {
+	readonly daemon: ICedianDaemonService;
+	readonly notifications: INotificationService;
+	readonly fileService: IFileService;
+	readonly terminalService: ITerminalService;
+	readonly viewsService: IViewsService;
+	readonly commands: ICommandService;
+}
+
+/** The services a Browser block draws with, read from `accessor` while it is valid. */
+export function browserServices(accessor: ServicesAccessor): BrowserServices {
+	return {
+		daemon: accessor.get(ICedianDaemonService),
+		notifications: accessor.get(INotificationService),
+		fileService: accessor.get(IFileService),
+		terminalService: accessor.get(ITerminalService),
+		viewsService: accessor.get(IViewsService),
+		commands: accessor.get(ICommandService),
+	};
+}
+
+/** A Browser block for the project at `folder`; `float` puts a Float button in its bar. */
+export function createBrowserPanel(services: BrowserServices, folder: URI, float?: () => void): BrowserPanel {
+	const { daemon, notifications } = services;
+	return new BrowserPanel(mainWindow.document, daemon.client, {
+		cwd: folder.fsPath,
+		mac: isMacintosh,
+		// The page's DevTools socket on 127.0.0.1 (the workbench's CSP allows ws:).
+		connect: url => new mainWindow.WebSocket(url) as unknown as Socket,
+		// Spec §8.4: the browser's transient errors are notifications.
+		notify: message => notifications.warn(message),
+		attach: (text, png, name) => { attach(services, text, png, name).catch(e => notifications.warn(`Couldn't add the element to the composer: ${e instanceof Error ? e.message : e}`)); },
+		devServers: () => devServersIn(services, folder),
+		runDevServer: server => { runDevServer(services, folder, server).catch(e => notifications.warn(`Couldn't start ${server.name}: ${e instanceof Error ? e.message : e}`)); },
+		openSettings: () => { services.commands.executeCommand('cedian.settings'); },
+		float,
+	});
+}
+
+/** Into the agent pane's composer, showing the pane first. */
+async function attach(services: BrowserServices, text: string, png: Uint8Array | undefined, name: string | undefined): Promise<void> {
+	if (!CedianPanes.current) {
+		await services.viewsService.openView(AGENT_PANE_VIEW_ID, true);
+	}
+	const pane = CedianPanes.current;
+	if (!pane) {
+		throw new Error('the agent pane did not open');
+	}
+	await pane.addContext(text, png, name);
+}
+
+async function devServersIn(services: BrowserServices, folder: URI): Promise<DevServer[]> {
+	for (const name of LAUNCH_FILES) {
+		const file = joinPath(folder, name);
+		if (await services.fileService.exists(file)) {
+			return devServers((await services.fileService.readFile(file)).value.toString());
+		}
+	}
+	return [];
+}
+
+/** In a terminal of its own, named after the server, so its output and Ctrl+C are the person's. */
+async function runDevServer(services: BrowserServices, folder: URI, server: DevServer): Promise<void> {
+	const terminal = await services.terminalService.createTerminal({
+		config: { name: server.name, env: server.env },
+		cwd: server.cwd ? joinPath(folder, server.cwd) : folder,
+	});
+	await terminal.sendText(shellLine(server.command, server.args), true);
+	await services.terminalService.revealTerminal(terminal, true);
+}
+
 export class CedianBrowserEditor extends EditorPane {
 	static readonly ID = 'workbench.editor.cedian.browser';
 
@@ -110,13 +183,8 @@ export class CedianBrowserEditor extends EditorPane {
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IStorageService storageService: IStorageService,
-		@ICedianDaemonService private readonly daemon: ICedianDaemonService,
 		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
-		@INotificationService private readonly notifications: INotificationService,
-		@IFileService private readonly fileService: IFileService,
-		@ITerminalService private readonly terminalService: ITerminalService,
-		@IViewsService private readonly viewsService: IViewsService,
-		@ICommandService private readonly commands: ICommandService,
+		@IInstantiationService private readonly instantiation: IInstantiationService,
 	) {
 		super(CedianBrowserEditor.ID, group, telemetryService, themeService, storageService);
 	}
@@ -142,56 +210,14 @@ export class CedianBrowserEditor extends EditorPane {
 			this.drawn.add({ dispose: () => empty.remove() });
 			return;
 		}
-		const folderUri = folder.uri;
-		const panel = new BrowserPanel(mainWindow.document, this.daemon.client, {
-			cwd: folderUri.fsPath,
-			mac: isMacintosh,
-			// The page's DevTools socket on 127.0.0.1 (the workbench's CSP allows ws:).
-			connect: url => new mainWindow.WebSocket(url) as unknown as Socket,
-			// Spec §8.4: the browser's transient errors are notifications.
-			notify: message => this.notifications.warn(message),
-			attach: (text, png, name) => { this.attach(text, png, name).catch(e => this.notifications.warn(`Couldn't add the element to the composer: ${e instanceof Error ? e.message : e}`)); },
-			devServers: () => this.devServers(folderUri),
-			runDevServer: server => { this.runDevServer(folderUri, server).catch(e => this.notifications.warn(`Couldn't start ${server.name}: ${e instanceof Error ? e.message : e}`)); },
-			openSettings: () => { this.commands.executeCommand('cedian.settings'); },
-		});
+		const services = this.instantiation.invokeFunction(browserServices);
+		// Float hands the block to the window's layer; this editor closes, as the block moved.
+		const panel = createBrowserPanel(services, folder.uri, () => { services.commands.executeCommand('cedian.floatBrowser'); });
 		this.panel = panel;
 		this.drawn.add({ dispose: () => { panel.dispose(); this.panel = undefined; } });
 		this.drawn.add({ dispose: panel.onTitle(title => (this.input as CedianBrowserInput | undefined)?.setTitle(title)) });
 		container.append(panel.root);
-		this.drawn.add(connectionBar(panel.root, this.daemon.client));
-	}
-
-	/** Into the agent pane's composer, showing the pane first. */
-	private async attach(text: string, png: Uint8Array | undefined, name: string | undefined): Promise<void> {
-		if (!CedianPanes.current) {
-			await this.viewsService.openView(AGENT_PANE_VIEW_ID, true);
-		}
-		const pane = CedianPanes.current;
-		if (!pane) {
-			throw new Error('the agent pane did not open');
-		}
-		await pane.addContext(text, png, name);
-	}
-
-	private async devServers(folder: URI): Promise<DevServer[]> {
-		for (const name of LAUNCH_FILES) {
-			const file = joinPath(folder, name);
-			if (await this.fileService.exists(file)) {
-				return devServers((await this.fileService.readFile(file)).value.toString());
-			}
-		}
-		return [];
-	}
-
-	/** In a terminal of its own, named after the server, so its output and Ctrl+C are the person's. */
-	private async runDevServer(folder: URI, server: DevServer): Promise<void> {
-		const terminal = await this.terminalService.createTerminal({
-			config: { name: server.name, env: server.env },
-			cwd: server.cwd ? joinPath(folder, server.cwd) : folder,
-		});
-		await terminal.sendText(shellLine(server.command, server.args), true);
-		await this.terminalService.revealTerminal(terminal, true);
+		this.drawn.add(connectionBar(panel.root, services.daemon.client));
 	}
 
 	override clearInput(): void {
