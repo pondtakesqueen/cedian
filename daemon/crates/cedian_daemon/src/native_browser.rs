@@ -1,6 +1,6 @@
-//! The CDP bridge to native browser pages (native Browser block plan, step 3). A window shows a
-//! project's page in VS Code's own browser, a view Electron draws, so the page lives in that
-//! window, not in the daemon's Chromium. cedia's browser tool still wants one page's DevTools
+//! The CDP bridge to native browser pages (spec §6.3). A window shows a project's page in VS
+//! Code's own browser, a view Electron draws, so the page lives in that window; the daemon runs
+//! no browser of its own. cedia's browser tool wants one page's DevTools
 //! WebSocket (`--browser ws://…/devtools/page/<id>`), so the daemon serves one per page and
 //! passes each message through to the window that holds it, which speaks to the page
 //! (`src/browser-panel/relay.ts`). The daemon reads none of it; the window keeps to the page.

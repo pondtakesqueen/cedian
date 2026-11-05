@@ -4,7 +4,6 @@
 
 mod anchor;
 mod auto_archive;
-mod browser;
 mod cedia;
 mod clone_ignored;
 mod daemon;

@@ -14,9 +14,8 @@ use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    BrowserPage, BrowserTabAction, Build, GitAction, GitState, IssueAction, IssueFilter,
-    IssueSummary, IssueView, LineComment, McpAdd, McpServer, NewIssue, Notes, PrAction, PrList,
-    PrView, Status, ThreadInfo,
+    Build, GitAction, GitState, IssueAction, IssueFilter, IssueSummary, IssueView, LineComment,
+    McpAdd, McpServer, NewIssue, Notes, PrAction, PrList, PrView, Status, ThreadInfo,
 };
 
 /// From the window to the daemon.
@@ -306,18 +305,6 @@ pub enum Request {
         thread: String,
         run: String,
     },
-    /// The project's tabs in the shared Chromium, which the daemon starts when none runs, after
-    /// `tab` when given. Every window gets `Notice::Browser`; from then on the project's runs
-    /// get the active tab.
-    Browser {
-        cwd: PathBuf,
-        #[serde(default)]
-        tab: Option<BrowserTabAction>,
-    },
-    /// Browser block `id` (the window's own name for it) opened (`open`) or closed; saying it
-    /// twice is harmless. With none open in any window and no run going for a while, the daemon
-    /// quits the shared Chromium; the next block starts it again. Unanswered.
-    BrowserBlock { id: String, open: bool },
     /// The window holds the project in `cwd`'s page in its native browser (`open`), or no longer
     /// does. While it does, the project's runs drive that page through the daemon's CDP bridge
     /// (`Notice::BrowserCdpOpen`). Unanswered.
@@ -629,12 +616,6 @@ pub enum Notice {
     /// The answer to `Request::McpCheck`.
     McpChecked {
         check: McpCheck,
-    },
-    /// The answer to `Request::Browser`: the project's page, or why there is none (no
-    /// Chromium found, or it did not start).
-    Browser {
-        cwd: PathBuf,
-        page: Result<BrowserPage, String>,
     },
     /// A run opened bridge socket `conn` to the native page of the project in `cwd` that this
     /// window holds: the window speaks to the page for it (`Request::BrowserCdp`).

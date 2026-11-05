@@ -1,7 +1,6 @@
 //! What the window and the daemon say to each other over the daemon's Unix socket: one JSON
 //! object per line, requests one way and notices the other.
 
-mod browser;
 mod build;
 mod git;
 mod issue;
@@ -15,7 +14,6 @@ mod schema;
 mod socket;
 mod status;
 
-pub use browser::{BrowserPage, BrowserTab, BrowserTabAction};
 pub use build::Build;
 pub use cedian_review::{FileReview, Hunk, HunkState, Review};
 pub use git::{GitAction, GitState};

@@ -59,7 +59,7 @@ pub fn remote_config(home: &Path, state_dir: &Path) -> anyhow::Result<Option<Rem
     let web = std::env::var_os("CEDIAN_REMOTE_WEB")
         .map(PathBuf::from)
         .or_else(|| {
-            // In the app: Contents/Resources/remote-web, as Chromium sits beside the daemon.
+            // In the app: Contents/Resources/remote-web, beside the daemon's Contents/MacOS.
             let exe = std::env::current_exe().ok()?;
             let dir = exe.parent()?;
             [dir.join("../Resources/remote-web"), dir.join("remote-web")]

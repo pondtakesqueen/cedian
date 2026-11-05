@@ -198,11 +198,6 @@ export type Notice =
       kind: "mcp_checked";
     }
   | {
-      cwd: string;
-      kind: "browser";
-      page: ResultOf_BrowserPageOr_String;
-    }
-  | {
       conn: number;
       cwd: string;
       kind: "browser_cdp_open";
@@ -870,17 +865,6 @@ export type McpCheck =
       ok: boolean;
     };
 /**
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "Result_of_BrowserPage_or_String".
- */
-export type ResultOf_BrowserPageOr_String =
-  | {
-      Ok: BrowserPage;
-    }
-  | {
-      Err: string;
-    };
-/**
  * What the Git menu asks of a thread's folder. Each runs git with hooks off.
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
@@ -1253,16 +1237,6 @@ export type Request =
     }
   | {
       cwd: string;
-      op: "browser";
-      tab?: BrowserTabAction | null;
-    }
-  | {
-      id: string;
-      op: "browser_block";
-      open: boolean;
-    }
-  | {
-      cwd: string;
       op: "browser_native";
       open: boolean;
     }
@@ -1429,25 +1403,6 @@ export type IssueAction =
  * via the `definition` "CloseReason".
  */
 export type CloseReason = "completed" | "not_planned";
-/**
- * What the Browser block asks of a project's tabs.
- *
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "BrowserTabAction".
- */
-export type BrowserTabAction =
-  | {
-      action: "open";
-      url?: string | null;
-    }
-  | {
-      action: "select";
-      id: string;
-    }
-  | {
-      action: "close";
-      id: string;
-    };
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "McpTarget".
@@ -2513,42 +2468,6 @@ export interface McpCheckTool {
   name: string;
   readOnlyHint?: boolean | null;
   rule?: McpToolRule | null;
-}
-/**
- * A project's pages in the shared Chromium the daemon runs: the tabs the Browser block shows, and the active one, which the project's runs get with cedia's `--browser`.
- *
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "BrowserPage".
- */
-export interface BrowserPage {
-  /**
-   * The browser's DevTools endpoint, `http://127.0.0.1:<port>`.
-   */
-  endpoint: string;
-  /**
-   * The active tab's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.
-   */
-  socket: string;
-  /**
-   * The project's tabs in the order they opened; the active one among them.
-   */
-  tabs?: BrowserTab[];
-}
-/**
- * One tab of a project: a page target in the shared Chromium.
- *
- * This interface was referenced by `WireRoots`'s JSON-Schema
- * via the `definition` "BrowserTab".
- */
-export interface BrowserTab {
-  /**
-   * Chromium's target id.
-   */
-  id: string;
-  /**
-   * The tab's DevTools WebSocket.
-   */
-  socket: string;
 }
 /**
  * Where a thread's folder (its worktree, else the project) stands in git, for the branch chip and the Git menu (spec §11 Phase D, the git pane).
