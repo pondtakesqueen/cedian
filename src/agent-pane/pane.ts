@@ -1085,31 +1085,58 @@ export class AgentPane {
     return box;
   }
 
+  /** The thread's plan: how far it is, as a count and a bar, and each step with its mark. */
   private todoCard(todo: NonNullable<ReturnType<typeof todoCard>>): HTMLElement {
     const d = this.doc;
     const card = el(d, "div", "card todo");
-    card.append(el(d, "div", "small", `Steps ${todo.progress}`));
+    const head = el(d, "div", "ch");
+    head.append(el(d, "span", "t", "Steps"), el(d, "span", "n m", todo.progress));
+    head.setAttribute("aria-label", `Steps ${todo.progress}`);
+    const bar = el(d, "div", "bar");
+    bar.setAttribute("aria-hidden", "true");
+    const fill = el(d, "i");
+    fill.style.width = `${Math.round((todo.done / todo.steps.length) * 100)}%`;
+    bar.append(fill);
     const list = el(d, "ul", "steps");
     for (const step of todo.steps) {
       const li = el(d, "li", `step ${step.state}`);
-      li.append(el(d, "span", "mark", step.state === "done" ? "✓" : step.state === "doing" ? "✱" : "○"), el(d, "span", "", step.text));
+      const mark = el(d, "span", "mark");
+      mark.append(icon(d, step.state === "done" ? "check" : step.state === "doing" ? "spinner" : "pending"), el(d, "span", "vh", step.state === "done" ? "done: " : step.state === "doing" ? "doing: " : "to do: "));
+      li.append(mark, el(d, "span", "t", step.text));
       list.append(li);
     }
-    card.append(list);
+    card.append(head, bar, list);
     return card;
   }
 
+  /**
+   * cedia's question: the choices it offered, the recommended first (marked so), each a button
+   * that answers with its text; or a free answer typed in the composer.
+   */
   private askCard(ask: NonNullable<ReturnType<typeof askCard>>): HTMLElement {
     const d = this.doc;
     const card = el(d, "div", "card ask");
-    card.append(el(d, "div", "q", ask.question));
+    const label = el(d, "div", "lab");
+    label.append(icon(d, "question"), el(d, "span", "", "cedia asks"));
+    card.append(label, el(d, "div", "q", ask.question));
     const reply = (text: string) => {
       const r = answer(this.cwd, this.state.thread!, text, this.runChoices());
       if (r) this.wire.request(r);
     };
-    const row = el(d, "div", "row");
-    ask.options.forEach((option, i) => row.append(button(d, option, () => reply(option), i === 0 ? "btn primary" : "btn")));
-    card.append(row, el(d, "div", "small", ask.options.length ? "Or type your own answer below" : "Type your answer below"));
+    const options = el(d, "div", "opts");
+    ask.options.forEach((option, i) => {
+      const b = button(d, option, () => reply(option), i === 0 ? "opt rec" : "opt");
+      // The label is the answer sent; the tag beside it is only for the eye.
+      if (i === 0) {
+        const tag = el(d, "span", "rtag", "Recommended");
+        tag.setAttribute("aria-hidden", "true");
+        b.append(tag);
+        b.setAttribute("aria-label", `${option} (recommended)`);
+      }
+      options.append(b);
+    });
+    if (ask.options.length) card.append(options);
+    card.append(el(d, "div", "small", ask.options.length ? "Or type your own answer below" : "Type your answer below"));
     return card;
   }
 

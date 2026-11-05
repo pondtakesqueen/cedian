@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { isBlock, type Block } from "./block";
 import { items, shownText } from "./items";
-import { itemLabel, renderItems, verdictLine } from "./render";
+import { duration, itemLabel, renderItems, verdictLine } from "./render";
 import { applyBlocks, applyText, emptyView } from "./view";
 
 // node:path, not URL: happy-dom puts its own URL in the test's globals.
@@ -92,6 +92,19 @@ describe("agent pane", () => {
   it("shows the person's message without the plan note cedia adds for the model", () => {
     expect(shownText('fix the bug\n\n<plan-pending by="claude-code:opus@medium">\nA plan is being written now.\n</plan-pending>')).toBe("fix the bug");
     expect(shownText("a <b> stays")).toBe("a <b> stays");
+  });
+
+
+  it("says how a run of tools went: running, failed with its exit code, or how long it took", () => {
+    const row = (over: object) => ({ name: "bash", detail: "npm test", failed: false, running: false, ms: 1200, exitCode: 0, ...over });
+    const draw = (calls: object[], running = false, failure: string | null = null) => renderItems(document, [{ k: "tools", calls: calls as never, running, failure }]);
+    expect(draw([row({}), row({ ms: 40 })]).querySelector(".tline .side")?.textContent).toBe("1.2s");
+    const failed = draw([row({ failed: true, exitCode: 1 })], false, "1 test failed");
+    expect(failed.querySelector(".tline .side")?.textContent).toBe("1 failed");
+    expect(failed.querySelector(".ti.bad .k")?.textContent).toBe("exit 1");
+    expect(failed.querySelector("details.tools.fail")?.hasAttribute("open")).toBe(true);
+    expect(draw([row({ running: true, ms: null })], true).querySelector(".tline .side")?.textContent).toBe("running");
+    expect([duration(40), duration(1200), duration(12_400), duration(125_000)]).toEqual(["40ms", "1.2s", "12s", "2m 5s"]);
   });
 
   it("labels each item for a screen reader: who said it, or what it is and how it went", () => {

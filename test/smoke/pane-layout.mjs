@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The agent pane's layout across widths: draws the live pane (its own code, bundled, with
 // agentPane.css and the theme's --cedian-* properties) on a thread with a branch, a PR, a context
-// reading, a run cost and cedia's recorded blocks, then sweeps it from 280 to 720 px and fails on
+// reading, a run cost, a question, a plan and cedia's recorded blocks, then sweeps it from 280 to 720 px and fails on
 // anything that leaves the pane, on clipped content that is not an ellipsis, on overlapping
 // controls in the header and composer rows, and on any of those rows changing height (the layout
 // jumping while a divider is dragged). With --shots <dir> it also writes light and dark pictures.
@@ -43,7 +43,10 @@ function bundle() {
       const info = { id: "t-1", title: "แก้ปุ่ม export บน Safari ที่ไม่ยอมดาวน์โหลดไฟล์", task: "fix", archived: false, messages: [], pending: [], sessions: [], state: "done", status: "done", updated_at: "2026-11-05T10:00:00Z", cwd: "/r/.cedian/worktrees/a",
         pr: { number: 128, url: "https://github.com/o/r/pull/128", state: "open", ci: "passing", conflict: false, review: null, fixing: false } };
       listener({ kind: "choices", models: { default: model, models: [{ ref: model, label: "Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true, effortLevels: ["low", "medium", "high"] }], modes: [] }, permissions: { default: "workspace", modes: [{ mode: "read-only", label: "Read-only", description: "" }, { mode: "workspace", label: "Workspace", description: "" }] } });
-      listener({ kind: "threads", cwd: "/r", threads: [info, { ...info, id: "t-2", title: "ย้าย daemon reconnect ไปใช้ backoff", status: "asking", state: "asking", needs_you: true, pr: undefined }] });
+      // The open thread asks a question and has a plan, so both cards are drawn too.
+      const asking = { ...info, status: "asking", state: "asking", question: { question: "ควรจำกัดจำนวนครั้งที่ลองต่อใหม่ไหม หรือลองไปเรื่อยๆ?", options: ["ลองไปเรื่อยๆ ห่างสุด 30 วินาที", "หยุดหลัง 10 ครั้ง แล้วให้กด Reconnect เอง"] },
+        todo: [{ state: "done", text: "หาว่าทำไม reconnect ค้างหลัง sleep" }, { state: "doing", text: "ใส่ exponential backoff" }, { state: "pending", text: "เขียน test กรณีตื่นจาก sleep" }] };
+      listener({ kind: "threads", cwd: "/r", threads: [asking, { ...info, id: "t-2", title: "ย้าย daemon reconnect ไปใช้ backoff", status: "asking", state: "asking", needs_you: true, pr: undefined }] });
       pane.openThread("t-1");
       listener({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix/safari-export", base: "origin/main", ahead: 2, behind: 0, upstream: "origin/fix/safari-export", unpushed: 0, changed: 0 } } });
       const thai = [{ kind: "user", text: "ปุ่ม export ไม่ทำอะไรเลยบน Safari ช่วยดูหน่อย แล้วใส่ test ด้วย", images: [] }, { kind: "thinking", text: "ดูก่อนว่า revoke ทำตอนไหน", streaming: false, ms: 6000 }];
@@ -59,7 +62,7 @@ function bundle() {
       const vis = (e) => { const s = getComputedStyle(e); return s.display !== "none" && s.visibility !== "hidden" && e.getClientRects().length > 0; };
       const name = (e) => e.tagName.toLowerCase() + "." + String(e.className.baseVal ?? e.className).trim().replace(/\\s+/g, ".");
       const issues = [];
-      for (const e of pane.querySelectorAll(":scope > .head *, .composer *")) {
+      for (const e of pane.querySelectorAll(":scope > .head *, .composer *, .log *")) {
         if (!vis(e) || e.closest(".vh, option, optgroup")) continue;
         const s = getComputedStyle(e);
         const r = e.getBoundingClientRect();
@@ -69,7 +72,7 @@ function bundle() {
       }
       // A clipped .chips row hides a control; it must fit.
       for (const chips of pane.querySelectorAll(".composer .chips")) if (chips.scrollWidth > chips.clientWidth + 1) issues.push("composer controls do not fit: " + chips.scrollWidth + " > " + chips.clientWidth);
-      for (const row of pane.querySelectorAll(":scope > .head .r1, :scope > .head .r2, .composer > .row, .composer .chips")) {
+      for (const row of pane.querySelectorAll(":scope > .head .r1, :scope > .head .r2, .composer > .row, .composer .chips, .tline, .ti, .rhead, .check, .card .ch, .opt")) {
         const kids = [...row.children].filter(vis).map((k) => [k, k.getBoundingClientRect()]);
         for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
           const [a, ar] = kids[i], [b, br] = kids[j];

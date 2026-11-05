@@ -8,6 +8,12 @@ export interface ToolRow {
   /** What the call acted on: its command, path or pattern. */
   detail: string;
   failed: boolean;
+  /** Still running, or asked for and not started. */
+  running: boolean;
+  /** How long it ran, once done. */
+  ms: number | null;
+  /** A command's exit code, when it had one. */
+  exitCode: number | null;
 }
 
 export interface Check {
@@ -64,7 +70,7 @@ export function items(blocks: Block[]): Item[] {
           last?.k === "tools" ? last : { k: "tools" as const, calls: [], running: false, failure: null };
         if (group !== last) out.push(group);
         const failed = toolFailed(block);
-        group.calls.push({ name: block.name, detail: detail(block), failed });
+        group.calls.push({ name: block.name, detail: detail(block), failed, running: block.state !== "done", ms: block.ms, exitCode: block.exit_code });
         group.running ||= block.state !== "done";
         if (failed && group.failure === null) group.failure = failure(block);
         break;
