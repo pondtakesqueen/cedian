@@ -113,6 +113,8 @@
 .cedian-settings .body { flex: 1 1 auto; overflow-y: auto; padding: 16px 24px; }
 .cedian-settings .section { max-width: 640px; display: flex; flex-direction: column; gap: 10px; }
 .cedian-settings h2 { font-size: 18px; margin: 0 0 8px; }
+.cedian-settings h3 { font-size: 13px; font-weight: 600; margin: 12px 0 0; color: var(--cedian-text-muted); }
+.cedian-settings .combo .input { width: 260px; }
 .cedian-settings .row { display: flex; gap: 12px; align-items: center; }
 .cedian-settings .row .label { min-width: 160px; }
 .cedian-settings .small { color: var(--cedian-text-muted); font-size: 12px; }

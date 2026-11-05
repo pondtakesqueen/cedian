@@ -1388,6 +1388,70 @@ impl Daemon {
                     Err(error) => lock(shared).settings_error(client, error),
                 }
             }
+            Request::CediaSettings | Request::SetCedia { .. } => {
+                let (cedia, can) = {
+                    let daemon = lock(shared);
+                    let can = daemon.version.as_ref().is_ok_and(|v| {
+                        v.capabilities
+                            .contains(&cedian_protocol::Capability::SettingsEdit)
+                    });
+                    (daemon.cedia.clone(), can)
+                };
+                if !can {
+                    let refused = Some("this cedia does not edit its model settings yet".into());
+                    lock(shared).send(
+                        client,
+                        Notice::CediaSettings {
+                            settings: None,
+                            refused,
+                        },
+                    );
+                    return;
+                }
+                let (refused, changed) = match &request {
+                    Request::SetCedia { key, value } => {
+                        match cedia.settings_set(key, value.as_deref()) {
+                            Ok(()) => (None, true),
+                            Err(error) => (Some(error), false),
+                        }
+                    }
+                    _ => (None, false),
+                };
+                let settings = match cedia.settings_get() {
+                    Ok(settings) => settings,
+                    Err(error) => {
+                        let notice = Notice::CediaSettings {
+                            settings: None,
+                            refused: Some(error),
+                        };
+                        lock(shared).send(client, notice);
+                        return;
+                    }
+                };
+                // A change reaches every window, and the model picker's default may have moved
+                // with roles.code; a refusal only the window that asked.
+                let fresh = changed.then(|| {
+                    let version = lock(shared).version.clone();
+                    choices(&cedia, &version)
+                });
+                let mut daemon = lock(shared);
+                if let Some(fresh) = fresh {
+                    daemon.choices = fresh;
+                    let clients: Vec<ClientId> = daemon.clients.keys().copied().collect();
+                    for id in clients {
+                        let notice = Notice::CediaSettings {
+                            settings: Some(settings.clone()),
+                            refused: None,
+                        };
+                        daemon.send(id, notice);
+                        let choices = daemon.choices.clone();
+                        daemon.send(id, choices);
+                    }
+                } else {
+                    let settings = Some(settings);
+                    daemon.send(client, Notice::CediaSettings { settings, refused });
+                }
+            }
             Request::Settings => lock(shared).settings(client),
             Request::SetDesktop { key, value } => lock(shared).set_desktop(client, &key, value),
             Request::Review { cwd, thread } => {

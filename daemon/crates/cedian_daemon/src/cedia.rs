@@ -9,9 +9,9 @@ use anyhow::Context as _;
 
 use crate::desktop_settings::{read_desktop, settings_path};
 use cedian_protocol::{
-    Capability, CodeReview, CommandList, CommitDraft, Committed, McpCheck, McpList, ModelList,
-    PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport,
-    VersionInfo,
+    Capability, CodeReview, CommandList, CommitDraft, Committed, EditableSettings, McpCheck,
+    McpList, ModelList, PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule,
+    UsageReport, VersionInfo,
 };
 
 /// A run's flags beyond its text: cedia's `--profile`, `--model`, `--permission`, `--effort`,
@@ -353,17 +353,33 @@ impl Cedia {
         if server.read_only {
             run.arg("--read-only");
         }
-        self.mcp_change(run.arg("--").arg(name), "add")
+        self.change(run.arg("--").arg(name), "mcp add")
     }
 
     /// `cedia mcp remove <name>`.
     pub fn mcp_remove(&self, name: &str) -> Result<(), String> {
         let mut run = self.command(Path::new("/"));
-        self.mcp_change(run.args(["mcp", "remove", "--", name]), "remove")
+        self.change(run.args(["mcp", "remove", "--", name]), "mcp remove")
     }
 
-    /// Runs a change to `mcpServers`; cedia's refusal is its last line on stderr.
-    fn mcp_change(&self, run: &mut Command, verb: &str) -> Result<(), String> {
+    /// `cedia settings get --json`: the model settings a settings page edits.
+    pub fn settings_get(&self) -> Result<EditableSettings, String> {
+        self.list_with(None, "settings", &["get"])
+    }
+
+    /// `cedia settings set <key> <value>`, or `unset <key>` with no value. cedia checks the
+    /// value as a run would read it; its refusal is the error.
+    pub fn settings_set(&self, key: &str, value: Option<&str>) -> Result<(), String> {
+        let mut run = self.command(Path::new("/"));
+        match value {
+            Some(value) => run.args(["settings", "set", "--", key, value]),
+            None => run.args(["settings", "unset", "--", key]),
+        };
+        self.change(&mut run, "settings")
+    }
+
+    /// Runs a change to cedia's settings; cedia's refusal is its last line on stderr.
+    fn change(&self, run: &mut Command, verb: &str) -> Result<(), String> {
         let output = run
             .output()
             .map_err(|e| format!("running {}: {e}", self.bin.display()))?;
@@ -374,7 +390,7 @@ impl Cedia {
         let line = stderr.trim().lines().last().unwrap_or_default();
         Err(match line.strip_prefix("cedia: ") {
             Some(reason) => reason.to_owned(),
-            None => format!("cedia mcp {verb} exited with {}: {line}", output.status),
+            None => format!("cedia {verb} exited with {}: {line}", output.status),
         })
     }
 

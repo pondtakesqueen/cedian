@@ -2,11 +2,12 @@
 // is one `set_desktop` (the daemon writes the key atomically and answers with the whole
 // `desktop`), or a `cedia mcp` request; nothing is kept here that the daemon does not send back.
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { McpEntry, ModelList, Notice, PermissionList, Request, ThreadInfo } from "../protocol/wire.js";
+import type { EditableSettings, McpEntry, ModelList, Notice, PermissionList, Request, ThreadInfo } from "../protocol/wire.js";
 import { VIEW_MODES } from "../agent-pane/view-modes.js";
 import { KEYBINDINGS } from "../keybindings/keybindings.js";
 import { addRoot, creatorOn, desktopOf, removeRoot, rootsOf, type Desktop } from "./desktop.js";
 import { addressOf, allowSite, hostOf, revokeSite, sitesOf } from "../browser-panel/sites.js";
+import { changeOf, EFFORTS, fallbackRows, quotaOptions, ROLE_ROWS, roleDefault, roleSuggestions } from "./cedia-settings.js";
 
 export type Section = "appearance" | "models" | "mcp" | "roots" | "browser" | "editor" | "keys";
 
@@ -81,6 +82,9 @@ export class SettingsView {
   private permissions?: PermissionList;
   private mcp: McpEntry[] = [];
   private mcpNote?: string;
+  /** cedia's model settings (`cedia settings get`), and why the last change was refused. */
+  private cedia?: EditableSettings;
+  private cediaNote?: string;
   private checks = new Map<string, string>();
   private rootError?: string;
   /** The project's threads, so a root one works in is not removed. */
@@ -98,6 +102,7 @@ export class SettingsView {
     this.off = wire.onAny((n) => this.notice(n));
     wire.request({ op: "settings" });
     wire.request({ op: "mcp_list" });
+    wire.request({ op: "cedia_settings" });
     if (host.primary) wire.request({ op: "threads", cwd: host.primary });
     this.render();
   }
@@ -137,6 +142,10 @@ export class SettingsView {
       case "error":
         if (!n.settings) return;
         this.mcpNote = n.message;
+        break;
+      case "cedia_settings":
+        if (n.settings) this.cedia = n.settings;
+        this.cediaNote = n.refused ?? undefined;
         break;
       case "mcp_checked": {
         const c = n.check;
@@ -237,6 +246,7 @@ export class SettingsView {
     );
     if (!this.models) {
       p.append(el(d, "div", "small", "This cedia does not list its models (cedia models)"));
+      this.cediaModels(p, this.cedia?.roles.code ?? this.cedia?.defaults.code ?? "");
       return;
     }
     const chosen = typeof this.desktop.model === "string" ? this.desktop.model : this.models.default;
@@ -257,7 +267,58 @@ export class SettingsView {
       li.append(el(d, "span", "small", m.available ? `${Math.round(m.contextWindow / 1000)}k` : m.reason ?? "No key"));
       list.append(li);
     }
-    p.append(list, el(d, "div", "small", "Each provider's key lives in the environment or in cedia's Keychain; roles are set in ~/.cedia/settings.json"));
+    p.append(list, el(d, "div", "small", "Each provider's key lives in the environment or in cedia's Keychain"));
+    this.cediaModels(p, chosen);
+  }
+
+  /** cedia's own model settings: each change goes to `cedia settings set|unset`, which checks it. */
+  private cediaModels(p: HTMLElement, codeModel: string): void {
+    const d = this.doc;
+    if (this.cediaNote) p.append(el(d, "div", "small bad", this.cediaNote));
+    const s = this.cedia;
+    if (!s) return;
+    const models = this.models?.models.map((m) => m.ref) ?? [];
+    const set = (key: string, text: string) => this.wire.request(changeOf(key, text));
+    // A box that suggests values and takes any: a ref, an alias, ref@effort or claude-code:…
+    const combo = (id: string, value: string | null | undefined, placeholder: string, options: string[], key: string) => {
+      const input = this.text(value ?? undefined, placeholder, (v) => set(key, v));
+      input.classList.add("m");
+      const list = el(d, "datalist");
+      list.id = `cedian-settings-${id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+      for (const o of options) {
+        const opt = el(d, "option");
+        opt.value = o;
+        list.append(opt);
+      }
+      input.setAttribute("list", list.id);
+      const wrap = el(d, "span", "combo");
+      wrap.append(input, list);
+      return wrap;
+    };
+
+    p.append(el(d, "h3", "", "Roles"));
+    for (const row of ROLE_ROWS) {
+      this.row(p, row.label, combo(`role-${row.role}`, s.roles[row.role], `Default: ${roleDefault(s, row.role)}`, roleSuggestions(row, models), `roles.${row.role}`), row.hint);
+    }
+
+    p.append(el(d, "h3", "", "Effort"));
+    const effort = (key: "maxEffort" | "subthreadEffort", unset: string): HTMLSelectElement =>
+      select(d, [{ value: "", label: unset }, ...EFFORTS.map((e) => ({ value: e, label: e }))], s[key] ?? "", (v) => set(key, v));
+    this.row(p, "Highest effort", effort("maxEffort", "No ceiling"), "Every effort a run sets resolves down to this one");
+    this.row(p, "Sub-thread effort", effort("subthreadEffort", "The model's own"), "The effort a sub-thread spawned with none runs at");
+
+    p.append(el(d, "h3", "", "Quota and images"));
+    for (const f of fallbackRows(s, codeModel)) {
+      const label = f.model === codeModel ? "Fallback" : `Fallback for ${f.model}`;
+      this.row(p, label, combo(`fallback-${f.model}`, f.value, `Default: ${f.fallbackDefault ?? "none"}`, [...models, "none"], `fallback.${f.model}`), `The model ${f.model} continues on when its quota runs out`);
+    }
+    this.row(p, "On a spent quota", select(d, quotaOptions(s.onQuota), s.onQuota ?? "", (v) => set("onQuota", v)));
+    this.row(p, "Image model", combo("media", s.media, `Default: ${s.defaults.media}`, [...models, "none"], "media"), "Where a run with images goes when the code model reads text only; none keeps the code model");
+
+    p.append(el(d, "h3", "", "Planning"));
+    const when = [{ value: "", label: "Auto: triage decides (default)" }, { value: "always", label: "Always" }, { value: "never", label: "Never" }];
+    this.row(p, "Plan when", select(d, when, s.planWhen === "auto" ? "" : s.planWhen ?? "", (v) => set("planWhen", v)), "With a plan role set");
+    this.row(p, "Read while planning", this.check(s.planOverlap !== "off", (v) => set("planOverlap", v ? "" : "off")), "The writer starts reading while the plan is written");
   }
 
   private mcpSection(p: HTMLElement): void {

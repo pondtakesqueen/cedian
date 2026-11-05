@@ -446,6 +446,94 @@ fn mcp_servers_are_listed_checked_added_and_removed_through_cedia() {
 }
 
 #[test]
+fn model_settings_are_read_set_and_unset_through_cedia() {
+    let harness = start_with("edit-and-check", "\"settings.edit\"");
+    let mut window = Window::connect(&harness);
+    let calls = harness.threads.join("../settings-calls");
+    window.ask(Request::CediaSettings);
+    match window.next() {
+        Notice::CediaSettings { settings, refused } => {
+            let settings = settings.expect("settings");
+            assert!(settings.roles.plan.is_none() && refused.is_none());
+            assert_eq!(settings.defaults.code, "opencode-go/claude-haiku-5-5");
+        }
+        other => panic!("{other:?}"),
+    }
+    window.ask(Request::SetCedia {
+        key: "roles.plan".into(),
+        value: Some("opus@high".into()),
+    });
+    match window.next() {
+        Notice::CediaSettings { settings, refused } => {
+            assert_eq!(refused, None);
+            assert_eq!(
+                settings.expect("settings").roles.plan.as_deref(),
+                Some("opus@high")
+            );
+        }
+        other => panic!("{other:?}"),
+    }
+    // A change also sends the model picker again: roles.code may have moved its default.
+    match window.next() {
+        Notice::Choices { .. } => {}
+        other => panic!("{other:?}"),
+    }
+    window.ask(Request::SetCedia {
+        key: "roles.plan".into(),
+        value: Some("bad-model".into()),
+    });
+    match window.next() {
+        Notice::CediaSettings { settings, refused } => {
+            assert_eq!(
+                refused.as_deref(),
+                Some("roles.plan: unknown model \"bad-model\"")
+            );
+            assert_eq!(
+                settings.expect("settings").roles.plan.as_deref(),
+                Some("opus@high")
+            );
+        }
+        other => panic!("{other:?}"),
+    }
+    window.ask(Request::SetCedia {
+        key: "roles.plan".into(),
+        value: None,
+    });
+    match window.next() {
+        Notice::CediaSettings { settings, .. } => {
+            assert!(settings.expect("settings").roles.plan.is_none())
+        }
+        other => panic!("{other:?}"),
+    }
+    let calls = std::fs::read_to_string(calls).expect("calls");
+    assert_eq!(
+        calls.lines().collect::<Vec<_>>(),
+        [
+            "settings --json get",
+            "settings set -- roles.plan opus@high",
+            "settings --json get",
+            "settings set -- roles.plan bad-model",
+            "settings --json get",
+            "settings unset -- roles.plan",
+            "settings --json get",
+        ]
+    );
+}
+
+#[test]
+fn a_cedia_without_settings_edit_says_so() {
+    let harness = start_with("edit-and-check", "");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::CediaSettings);
+    match window.next() {
+        Notice::CediaSettings { settings, refused } => {
+            assert!(settings.is_none() && refused.is_some_and(|r| r.contains("model settings")))
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
 fn a_commit_is_drafted_then_made_and_a_pr_is_checked_then_opened_through_cedia() {
     let harness = start_with("edit-and-check", "\"commit\",\"pr\"");
     let mut window = Window::connect(&harness);
