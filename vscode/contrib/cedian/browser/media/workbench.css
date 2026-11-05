@@ -181,8 +181,11 @@
 /* A block header's action with a label (the terminal's own title, "Test dev server") stays inside
    its slot. A side block's toolbar lets every action shrink to 22px so that no button is pushed off
    (auxiliaryBarPart.ts, toolbar.css `responsive-all`), but the label kept drawing past its slot,
-   over the +, split and trash after it. The label now ends in an ellipsis where its room ends; the
-   whole title stays in its hover. test/smoke/block-header.mjs measures it across widths. */
+   over the +, split and trash after it. The label now stops where its room ends, and a cut title
+   fades out over its last 20px rather than ending in an ellipsis (the block header mockup's B,
+   owner 2026-11-05); the whole title stays in its hover. The fade shows only while the title is cut:
+   it rides a scroll timeline of the label itself, which is inactive while nothing overflows.
+   blockTitle.ts cross-fades a title that changes. test/smoke/block-header.mjs measures it. */
 .monaco-workbench .part > .title > .title-actions .monaco-toolbar.responsive .actions-container > .action-item:has(> .action-label:not(.codicon)) {
 	overflow: hidden;
 }
@@ -192,7 +195,19 @@
 	box-sizing: border-box;
 	overflow: hidden;
 	white-space: nowrap;
-	text-overflow: ellipsis;
+	text-overflow: clip;
+	animation: cedian-title-cut linear both;
+	animation-timeline: scroll(self inline);
+}
+@keyframes cedian-title-cut {
+	from, to {
+		-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+		mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+	}
+}
+.monaco-workbench .part > .title > .title-actions .monaco-action-bar .action-item .action-label.single-terminal-tab.cedian-title-leaving {
+	position: absolute;
+	pointer-events: none;
 }
 .monaco-workbench .part > .title > .title-actions .monaco-action-bar .action-item .action-label.single-terminal-tab > .codicon {
 	display: inline-flex;

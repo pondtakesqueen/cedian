@@ -4,7 +4,8 @@
 // +, split and trash, at block widths from narrow to wide. VS Code's side-block toolbar lets every
 // action shrink to 22px (auxiliaryBarPart.ts, `responsive-all`); before workbench.css clipped it, the
 // title kept drawing past its slot, over the buttons after it. Fails when any title's ink reaches
-// the next button, or a button leaves the header.
+// the next button, or a button leaves the header, or a title's end fades while it is whole (or stays
+// sharp while it is cut: workbench.css fades a cut title's last 20px instead of an ellipsis).
 // Needs a VS Code source tree at the pinned tag (script/vscode/prepare <dir>, or a checkout of the
 // tag in vscode/UPSTREAM). Prints JSON. Usage: node test/smoke/block-header.mjs <vscode-src> [shot.png]
 import { existsSync, readFileSync } from "node:fs";
@@ -80,17 +81,21 @@ const rows = await page.evaluate(() => [...document.querySelectorAll(".part")].m
   const box = label.getBoundingClientRect();
   const inkRight = clips(label) || clips(slot) ? Math.min(box.right, slot.getBoundingClientRect().right) : box.left + label.scrollWidth;
   const buttons = [...part.querySelectorAll(".title-actions .codicon.action-label, .global-actions .action-label")].map(b => b.getBoundingClientRect());
+  const cut = label.scrollWidth > label.clientWidth + 1;
+  const faded = getComputedStyle(label).maskImage !== "none";
   return {
     width: part.offsetWidth,
     title: label.textContent,
     slot: Math.round(slot.getBoundingClientRect().width),
     overlap: Math.max(0, Math.round(inkRight - next.left)),
+    cut,
+    faded,
     offHeader: buttons.some(b => b.right > head.right + 0.5 || b.left < head.left - 0.5),
   };
 }));
 if (shot) await page.screenshot({ path: shot, fullPage: true });
 await browser.close();
 
-const failed = rows.filter(r => r.overlap > 0 || r.offHeader);
+const failed = rows.filter(r => r.overlap > 0 || r.offHeader || r.cut !== r.faded);
 console.log(JSON.stringify({ ok: failed.length === 0, rows }, null, 1));
 process.exit(failed.length ? 1 : 0);
