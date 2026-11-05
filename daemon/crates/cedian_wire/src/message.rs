@@ -611,7 +611,7 @@ pub enum Notice {
     /// for last was refused (or why there are none), if it was.
     CediaSettings {
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        settings: Option<EditableSettings>,
+        settings: Option<Box<EditableSettings>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         refused: Option<String>,
     },
