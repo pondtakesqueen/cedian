@@ -296,6 +296,13 @@ export class BrowserPanel implements Block {
     next.src = `data:image/jpeg;base64,${f.data}`;
     if (typeof next.decode === "function") await next.decode().catch(() => {});
     if (this.session !== session || n !== this.frames) return;
+    // Right after a resize Chromium can report the new page size on a frame still encoded at the
+    // old size's bounds; laid out by its pixels, the picture is never stretched to the other.
+    const scale = this.scale();
+    if (next.naturalWidth > 0 && next.naturalHeight > 0) {
+      next.style.width = `${next.naturalWidth / scale}px`;
+      next.style.height = `${next.naturalHeight / scale}px`;
+    }
     this.screen.replaceWith(next);
     this.screen = next;
   }

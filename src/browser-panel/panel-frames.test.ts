@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import type { Notice, Request } from "../protocol/wire.js";
 import type { Socket } from "./cdp.js";
 import { BrowserPanel, type BrowserHost } from "./panel.js";
@@ -20,6 +20,31 @@ class FakeSocket implements Socket {
     for (const l of this.onMessage) l({ data: JSON.stringify(message) });
   }
 }
+
+function open() {
+  const socket = new FakeSocket();
+  let notify: (n: Notice) => void = () => {};
+  const wire = { request: (_: Request) => {}, onAny: (l: (n: Notice) => void) => ((notify = l), () => {}) };
+  const host = { cwd: "/p", mac: true, connect: () => socket, notify: () => {}, attach: () => {}, devServers: async () => [], runDevServer: () => {} } as unknown as BrowserHost;
+  const panel = new BrowserPanel(document, wire, host);
+  notify({ kind: "browser", cwd: "/p", page: { Ok: { endpoint: "http://127.0.0.1:1", socket: "ws://t", tabs: [], active: 0 } } } as unknown as Notice);
+  return { panel, socket };
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+test("a frame whose pixels disagree with its reported size is laid out by its pixels", async () => {
+  // Just after a resize Chromium reports the new width on a JPEG still bounded by the old one.
+  vi.spyOn(window, "devicePixelRatio", "get").mockReturnValue(2);
+  vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(1490);
+  vi.spyOn(HTMLImageElement.prototype, "naturalHeight", "get").mockReturnValue(1672);
+  const { panel, socket } = open();
+  socket.emit({ method: "Page.screencastFrame", params: { sessionId: 1, data: "AA==", metadata: { deviceWidth: 775, deviceHeight: 836 } } });
+  await new Promise((r) => setTimeout(r, 20));
+  const shown = panel.root.querySelector<HTMLImageElement>("img.screen")!;
+  expect([shown.style.width, shown.style.height]).toEqual(["745px", "836px"]);
+  panel.dispose();
+});
 
 test("a screencast frame is shown at its own size, swapped in whole once decoded", async () => {
   const socket = new FakeSocket();
