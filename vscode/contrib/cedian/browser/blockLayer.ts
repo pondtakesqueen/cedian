@@ -11,6 +11,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorsOrder } from '../../../common/editor.js';
@@ -54,12 +55,13 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IEditorGroupsService private readonly editorGroups: IEditorGroupsService,
 		@INotificationService private readonly notifications: INotificationService,
+		@ICommandService private readonly commands: ICommandService,
 	) {
 		super();
 		this.layer = new BlockLayer(mainWindow.document, {
 			dock: (kind, id) => {
 				if (kind === 'browser') {
-					void openBrowser(this.editorService);
+					void openBrowser(this.editorService, this.commands);
 				} else if (kind === 'agent') {
 					// Into the editor area beside the code, as a popped-out pane is in its own window.
 					void this.editorService.openEditor(new CedianAgentInput(id), { pinned: true });
@@ -121,7 +123,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		if (this.layer.has('browser')) {
 			this.layer.dock('browser');
 		} else {
-			void openBrowser(this.editorService);
+			void openBrowser(this.editorService, this.commands);
 		}
 	}
 
