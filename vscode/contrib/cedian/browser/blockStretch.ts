@@ -11,7 +11,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
 import { moving, stretching } from './blocks/motion.js';
 import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
-import { edgeBox, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
+import { edgeBox, holdScroll, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
 
 /** The side blocks, each with VS Code's commands that hide it. */
 const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
@@ -57,8 +57,10 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		this._register({ dispose: () => this.scrolls.dispose() });
 		this._register(layout.onDidChangePartVisibility(e => {
 			const side = SIDES.find(s => s.part === e.partId);
+			// Told from within the change, before the grid lays the window out; it has by the end of
+			// this task, before anything is painted.
 			if (side && e.visible) {
-				this.open(side.part);
+				queueMicrotask(() => this.open(side.part));
 			}
 		}));
 		for (const side of SIDES) {
@@ -110,7 +112,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 			return;
 		}
 		const box = boxOf(element);
-		element.animate(stretchFrames(box, edgeBox(box, this.edge(part)), box, cardOf(element)), stretching);
+		holdScroll(element, this.layout.mainContainer, element.animate(stretchFrames(box, edgeBox(box, this.edge(part)), box, cardOf(element)), stretching));
 	}
 
 	/** A copy of a block where it stands, to fold away over the window once VS Code has hidden it. */

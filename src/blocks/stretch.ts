@@ -115,3 +115,29 @@ export function ground(at: Box, from: Box, to: Box, card: Card): Ground | undefi
 export function moved(a: Box, b: Box): boolean {
   return Math.abs(a.left - b.left) >= 1 || Math.abs(a.top - b.top) >= 1 || Math.abs(a.width - b.width) >= 1 || Math.abs(a.height - b.height) >= 1;
 }
+
+/**
+ * Keeps the boxes around a block from scrolling while `run` draws it outside the box it is laid out
+ * in. A focus that lands in it meanwhile (the panel's input, as the panel opens) has the browser
+ * scroll them to bring it into view, even where they hide what overflows, and the whole window
+ * would jump by the block's height. Each box from the block's parent up to `stop` is put back
+ * where it was.
+ */
+export function holdScroll(element: HTMLElement, stop: HTMLElement, run: Animation): void {
+  const was = new Map<Element, { top: number; left: number }>();
+  for (let node = element.parentElement; node && stop.contains(node); node = node.parentElement) {
+    was.set(node, { top: node.scrollTop, left: node.scrollLeft });
+  }
+  const doc = element.ownerDocument;
+  const keep = (e: Event) => {
+    const at = was.get(e.target as Element);
+    if (at) {
+      (e.target as Element).scrollTop = at.top;
+      (e.target as Element).scrollLeft = at.left;
+    }
+  };
+  doc.addEventListener("scroll", keep, true);
+  const done = () => doc.removeEventListener("scroll", keep, true);
+  run.addEventListener("finish", done);
+  run.addEventListener("cancel", done);
+}
