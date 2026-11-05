@@ -726,7 +726,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
 | `Cmd+W` | Close session |
 | `Ctrl+Tab` | Next/previous session |
 | `Cmd+Shift+D` | Toggle diff pane |
-| `Cmd+Shift+B` | Toggle Browser pane |
+| `Cmd+Shift+B` | Open the Browser (the native view; shows it if open) |
 | `Cmd+Shift+S` | Select element in Browser |
 | `Ctrl+`` ` | Toggle terminal |
 | `Cmd+\` | Close focused pane |

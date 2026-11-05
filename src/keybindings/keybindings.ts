@@ -25,6 +25,7 @@ export const KEYBINDINGS: Binding[] = [
   { command: "cedian.nextThread", mac: "ctrl+tab", label: "Next thread", when: PANE_FOCUS },
   { command: "cedian.previousThread", mac: "ctrl+shift+tab", label: "Previous thread", when: PANE_FOCUS },
   { command: "cedian.toggleReview", mac: "cmd+shift+d", label: "Toggle review" },
+  { command: "cedian.openBrowser", mac: "cmd+shift+b", label: "Open the Browser" },
   { command: "cedian.cycleViewMode", mac: "ctrl+o", label: "Switch view (Answers / + Thinking / All tools)" },
   { command: "cedian.permissionMenu", mac: "cmd+shift+m", label: "Permission menu" },
   { command: "cedian.modelMenu", mac: "cmd+shift+i", label: "Model menu" },
