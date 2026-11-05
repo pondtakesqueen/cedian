@@ -9,7 +9,7 @@ import type { BrowserPage, Notice, Request } from "../protocol/wire.js";
 import { desktopOf, type Desktop } from "../settings/desktop.js";
 import { Cdp, type Socket } from "./cdp.js";
 import type { DevServer } from "./launch.js";
-import { elementContext, imageName, modifiersOf, PageSession, type ConsoleLine, type PageView } from "./session.js";
+import { elementContext, imageName, modifiersOf, PageSession, type ConsoleLine, type Frame, type PageView } from "./session.js";
 import { addressOf, allowSite, hostOf, isLocal, revokeSite, sitesOf, TOOLS_OFF, toolsOn } from "./sites.js";
 
 /** What the block needs from the window around it. */
@@ -57,7 +57,9 @@ export class BrowserPanel implements Block {
   private readonly servers: HTMLSelectElement;
   private readonly banner: HTMLElement;
   private readonly stage: HTMLElement;
-  private readonly screen: HTMLImageElement;
+  private screen: HTMLImageElement;
+  /** The newest frame handed to the screen; an older one that decodes after it is dropped. */
+  private frames = 0;
   private readonly overlay: HTMLElement;
   private readonly status: HTMLElement;
   private readonly consoleBox: HTMLElement;
@@ -286,6 +288,18 @@ export class BrowserPanel implements Block {
     this.learnTitles();
   }
 
+  private async drawFrame(session: PageSession, f: Frame): Promise<void> {
+    const n = ++this.frames;
+    const next = this.screen.cloneNode(false) as HTMLImageElement;
+    next.style.width = `${f.width}px`;
+    next.style.height = `${f.height}px`;
+    next.src = `data:image/jpeg;base64,${f.data}`;
+    if (typeof next.decode === "function") await next.decode().catch(() => {});
+    if (this.session !== session || n !== this.frames) return;
+    this.screen.replaceWith(next);
+    this.screen = next;
+  }
+
   /** Draws the tab at `socket`: a page session on it, screencast at the block's size. */
   private show(socket: string): void {
     this.session?.dispose();
@@ -297,10 +311,10 @@ export class BrowserPanel implements Block {
       if (this.session !== session) return;
       // At the size it was taken at, from the top left: while the block is resized, the last
       // frame stays as it was (cut off, or with the stage beside it) until one at the new size
-      // comes, never stretched to the new size and then snapped back.
-      this.screen.style.width = `${f.width}px`;
-      this.screen.style.height = `${f.height}px`;
-      this.screen.src = `data:image/jpeg;base64,${f.data}`;
+      // comes, never stretched to the new size and then snapped back. Each frame is decoded off
+      // screen and swapped in whole, with its size already set: changing the src of the shown
+      // image paints the old picture once at the new size before the new one is decoded.
+      void this.drawFrame(session, f);
     });
     session.onChange((view) => {
       if (this.session !== session) return;
