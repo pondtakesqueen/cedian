@@ -3531,6 +3531,80 @@
         },
         {
           "additionalProperties": false,
+          "description": "A run opened bridge socket `conn` to the native page of the project in `cwd` that this window holds: the window speaks to the page for it (`Request::BrowserCdp`).",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "browser_cdp_open"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "cwd",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A DevTools message from a run for the page on bridge socket `conn`.",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "data": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "browser_cdp"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "data",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The run closed bridge socket `conn`.",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "browser_cdp_close"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why there is none (not a git repository).",
           "properties": {
             "after": {
@@ -5921,6 +5995,59 @@
             "id",
             "op",
             "open"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The window holds the project in `cwd`'s page in its native browser (`open`), or no longer does. While it does, the project's runs drive that page through the daemon's CDP bridge (`Notice::BrowserCdpOpen`). Unanswered.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "browser_native"
+              ],
+              "type": "string"
+            },
+            "open": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "open"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A DevTools message from the native page to bridge socket `conn`, or none when the page went and the socket should close. Unanswered.",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "data": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "browser_cdp"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "op"
           ],
           "type": "object"
         },

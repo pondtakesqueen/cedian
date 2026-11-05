@@ -203,6 +203,20 @@ export type Notice =
       page: ResultOf_BrowserPageOr_String;
     }
   | {
+      conn: number;
+      cwd: string;
+      kind: "browser_cdp_open";
+    }
+  | {
+      conn: number;
+      data: string;
+      kind: "browser_cdp";
+    }
+  | {
+      conn: number;
+      kind: "browser_cdp_close";
+    }
+  | {
       /**
        * The action this answers, once it has finished; none for a plain read.
        */
@@ -1246,6 +1260,16 @@ export type Request =
       id: string;
       op: "browser_block";
       open: boolean;
+    }
+  | {
+      cwd: string;
+      op: "browser_native";
+      open: boolean;
+    }
+  | {
+      conn: number;
+      data?: string | null;
+      op: "browser_cdp";
     }
   | {
       cwd: string;

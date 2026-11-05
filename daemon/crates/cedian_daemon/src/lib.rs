@@ -18,6 +18,7 @@ mod issues;
 mod keep_awake;
 pub mod launch_agent;
 mod ledger;
+mod native_browser;
 mod notes;
 mod pr_view;
 mod pr_watch;

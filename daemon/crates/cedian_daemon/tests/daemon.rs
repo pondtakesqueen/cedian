@@ -2531,6 +2531,72 @@ fn a_run_drives_the_active_tab_and_keeps_to_the_project_s_sites() {
 }
 
 #[test]
+fn a_run_drives_the_native_page_a_window_holds_through_the_bridge() {
+    let harness = start_with("edit-and-check", "\"browser\"");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::BrowserNative {
+        cwd: harness.cwd.clone(),
+        open: true,
+    });
+    window.ask(Request::Prompt {
+        cwd: harness.cwd.clone(),
+        text: "look at the page".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+    });
+    window.until(status_is(Status::Done));
+    let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
+    let url = args
+        .lines()
+        .skip_while(|line| *line != "--browser")
+        .nth(1)
+        .expect("--browser")
+        .to_owned();
+    assert!(url.starts_with("ws://127.0.0.1:"), "{url}");
+    // cedia's side: what it sends reaches the window, and the window's answer reaches it.
+    let (mut cedia, _) = tungstenite::connect(url.as_str()).expect("bridge");
+    cedia
+        .send(tungstenite::Message::Text(
+            r#"{"id":1,"method":"Page.enable"}"#.into(),
+        ))
+        .expect("send");
+    let (_, seen) = window.until(|n| matches!(n, Notice::BrowserCdp { .. }));
+    let conn = seen
+        .iter()
+        .find_map(|n| match n {
+            Notice::BrowserCdpOpen { conn, cwd } if *cwd == harness.cwd => Some(*conn),
+            _ => None,
+        })
+        .expect("opened");
+    assert!(seen.iter().any(|n| matches!(n,
+        Notice::BrowserCdp { conn: c, data } if *c == conn && data.contains("Page.enable"))));
+    window.ask(Request::BrowserCdp {
+        conn,
+        data: Some(r#"{"id":1,"result":{}}"#.into()),
+    });
+    assert_eq!(
+        cedia.read().expect("answer"),
+        tungstenite::Message::Text(r#"{"id":1,"result":{}}"#.into())
+    );
+    // The page goes: cedia's socket closes. A wrong path is refused.
+    window.ask(Request::BrowserCdp { conn, data: None });
+    assert!(matches!(
+        cedia.read(),
+        Ok(tungstenite::Message::Close(_)) | Err(_)
+    ));
+    let wrong = url
+        .rsplit_once('/')
+        .map(|(base, _)| format!("{base}/{}", "0".repeat(32)));
+    assert!(tungstenite::connect(wrong.expect("base").as_str()).is_err());
+}
+
+#[test]
 fn creator_mode_gives_a_run_creator_on_only_when_the_owner_turned_it_on_and_cedia_can() {
     let run = |caps: &str, enabled: bool| -> Vec<String> {
         let harness = start_with("edit-and-check", caps);

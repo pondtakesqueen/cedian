@@ -91,6 +91,8 @@ pub struct Daemon {
     /// Bumped each time the last Browser block closes or one opens, so an older idle timer
     /// knows it is stale.
     browser_idle: u64,
+    /// The native pages windows hold and the CDP bridge to them (`native_browser`).
+    pub(crate) native: crate::native_browser::NativePages,
     /// The pull requests followed, by thread (`pr_watch`).
     prs: HashMap<String, crate::pr_watch::Watch>,
     gh: crate::pr_watch::Gh,
@@ -168,6 +170,7 @@ impl Daemon {
             browser,
             browser_blocks: HashMap::new(),
             browser_idle: 0,
+            native: Default::default(),
             prs: HashMap::new(),
             gh,
             gh_login: None,
@@ -319,6 +322,7 @@ impl Daemon {
         let sides = {
             let mut daemon = lock(shared);
             daemon.disconnect(id);
+            daemon.native.gone(id);
             if daemon
                 .browser_blocks
                 .remove(&id)
@@ -421,6 +425,11 @@ impl Daemon {
                 run.requester = None;
             }
         }
+    }
+
+    /// Sends `notice` to window `id`, for the daemon's other modules.
+    pub(crate) fn send_to(&mut self, id: ClientId, notice: Notice) {
+        self.send(id, notice);
     }
 
     fn send(&mut self, id: ClientId, notice: Notice) {
@@ -1297,6 +1306,17 @@ impl Daemon {
                     daemon.browser_closed(shared);
                 }
             }
+            Request::BrowserNative { cwd, open } => {
+                if open {
+                    crate::native_browser::listen(shared);
+                }
+                lock(shared)
+                    .native
+                    .set(&project_key(&cwd), &cwd, client, open);
+            }
+            Request::BrowserCdp { conn, data } => {
+                lock(shared).native.forward(client, conn, data);
+            }
             Request::CommitDraft { .. }
             | Request::Commit { .. }
             | Request::PrCheck { .. }
@@ -2142,13 +2162,17 @@ impl Daemon {
                 .is_ok_and(|v| v.capabilities.contains(&capability))
         };
         // The project's page, when the shared browser runs: a run never starts it.
+        // A window's native page wins over the shared Chromium's: the person sees that one.
         let page = can(cedian_protocol::Capability::Browser)
             .then(|| {
-                daemon
-                    .browser
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .running_page(&slug)
+                daemon.native.url(&slug).or_else(|| {
+                    daemon
+                        .browser
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .running_page(&slug)
+                        .map(|page| page.socket)
+                })
             })
             .flatten();
         let shows_images = can(cedian_protocol::Capability::Images);
@@ -2163,7 +2187,7 @@ impl Daemon {
             todo: can(cedian_protocol::Capability::Todo),
             creator: can(cedian_protocol::Capability::Creator)
                 && read_desktop(&settings_path(&daemon.home)).is_ok_and(|d| creator_on(&d)),
-            browser: page.as_ref().map(|p| p.socket.as_str()),
+            browser: page.as_deref(),
             sites: sites.as_deref(),
             cache_ttl: with
                 .cache_ttl
