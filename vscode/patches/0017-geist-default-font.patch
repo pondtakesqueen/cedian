@@ -1,0 +1,16 @@
+diff --git a/src/vs/base/browser/fonts.ts b/src/vs/base/browser/fonts.ts
+index 33f6a7af..5cf044f9 100644
+--- a/src/vs/base/browser/fonts.ts
++++ b/src/vs/base/browser/fonts.ts
+@@ -15,7 +15,10 @@ import { isElectron, isMacintosh, isWindows } from '../common/platform.js';
+  *
+  * Note: this currently does not adjust for different locales.
+  */
+-export const DEFAULT_FONT_FAMILY = isWindows ? '"Segoe WPC", "Segoe UI", sans-serif' : isMacintosh ? '-apple-system, BlinkMacSystemFont, sans-serif' : 'system-ui, "Ubuntu", "Droid Sans", sans-serif';
++// Cedian: Geist, the interface's bundled face (cedian/browser/media/workbench.css), before the
++// platform's, and the Mac's Thai faces for the Thai it lacks. VS Code sets this face in code, not
++// CSS: the search boxes (suggestEnabledInput), the SCM input's default, webviews' font.
++export const DEFAULT_FONT_FAMILY = `'Geist', ${isWindows ? '"Segoe WPC", "Segoe UI", sans-serif' : isMacintosh ? '-apple-system, BlinkMacSystemFont, "Sukhumvit Set", "Thonburi", sans-serif' : 'system-ui, "Ubuntu", "Droid Sans", sans-serif'}`;
+ 
+ interface FontData {
+ 	readonly family: string;

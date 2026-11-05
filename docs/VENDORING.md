@@ -28,6 +28,10 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
   #317841), their source changes only, without their tests. Drop one when
   the pin moves past the release that merged it; one that no longer
   applies is rebased or dropped, never forced.
+  `0017` puts Geist first in VS Code's `DEFAULT_FONT_FAMILY`, the face it
+  sets in code rather than CSS (the search boxes of Extensions, Settings,
+  Keybindings and Testing, the SCM input's default, webviews' font), with
+  the Mac's Thai faces after the platform's.
 - `vscode/product.json`: keys merged over VS Code's (`null` removes one):
   the Cedian names, bundle id `dev.cedian.app`, URL protocol `cedian`, Open
   VSX as the gallery, no voice or agents telemetry endpoints.
