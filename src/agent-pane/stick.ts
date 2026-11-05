@@ -23,3 +23,26 @@ export function stickToBottom(log: HTMLElement, Observer: typeof ResizeObserver 
     log.removeEventListener("scroll", onScroll);
   };
 }
+
+/**
+ * Lets the log run under a floating dock (the queue and composer): `--dock-h` on `root` follows the
+ * dock's height for the log's bottom padding, so its last message still ends above the dock, and a
+ * log that was at its end stays there as the dock grows (a longer draft, an attachment).
+ */
+export function dockUnder(root: HTMLElement, log: HTMLElement, dock: HTMLElement, Observer: typeof ResizeObserver | undefined = globalThis.ResizeObserver): () => void {
+  if (!Observer) return () => {};
+  let atBottom = true;
+  const onScroll = () => {
+    atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < NEAR_BOTTOM;
+  };
+  log.addEventListener("scroll", onScroll, { passive: true });
+  const observer = new Observer(() => {
+    root.style.setProperty("--dock-h", `${dock.offsetHeight}px`);
+    if (atBottom) log.scrollTop = log.scrollHeight;
+  });
+  observer.observe(dock);
+  return () => {
+    observer.disconnect();
+    log.removeEventListener("scroll", onScroll);
+  };
+}
