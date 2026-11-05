@@ -9,8 +9,9 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
-import { closing, moving, opening } from './blocks/motion.js';
+import { moving, stretching } from './blocks/motion.js';
 import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
+import { edgeBox, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
 
 /** The side blocks, each with VS Code's commands that hide it. */
 const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
@@ -19,26 +20,26 @@ const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
 	{ part: Parts.PANEL_PART, hide: ['workbench.action.togglePanel', 'workbench.action.closePanel'] },
 ];
 
-/** The edge a block hangs from: it comes out of it and goes back into it. */
-type Edge = 'left' | 'right' | 'top' | 'bottom';
-
-/** All of a block shown, and none of it, folded into `edge`: the clip-paths it moves between. */
-const SHOWN = 'inset(0px 0px 0px 0px)';
-const folded = (edge: Edge) => ({
-	left: 'inset(0px 100% 0px 0px)',
-	right: 'inset(0px 0px 0px 100%)',
-	top: 'inset(0px 0px 100% 0px)',
-	bottom: 'inset(100% 0px 0px 0px)',
-})[edge];
+/** Where an element is on screen, and its card: a side block is its own card, rounded, with no inset. */
+function boxOf(element: HTMLElement): Box {
+	const r = element.getBoundingClientRect();
+	return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+function cardOf(element: HTMLElement): Card {
+	return { top: 0, right: 0, bottom: 0, left: 0, radius: parseFloat(mainWindow.getComputedStyle(element).borderTopLeftRadius) || 0 };
+}
 
 /**
- * A side block (Threads, the right panel, the bottom panel) comes out of the window's edge it hangs
- * from and goes back into it, as a drawer: VS Code lays the window out once, at once, and only the
- * block's clip moves (the compositor's work, nothing laid out meanwhile; owner, 2026-11-04: lean
- * before smooth). Shown any way, it is uncovered from that edge. Hidden by VS Code's commands, a
- * copy of it where it stood folds into the edge over the blocks that took its room; hidden any
- * other way, it goes at once. Maximizing is VS Code's, at once. Never scaled, never faded; off with
- * the window's reduced motion.
+ * A side block (Threads, the right panel, the bottom panel) grows out of the window's edge it hangs
+ * from and shrinks back into it, while the blocks beside it shrink to make room and stretch back
+ * (blockMove.ts): the window divides its room (owner, 2026-11-05, the open/close mockup's E). VS
+ * Code lays the window out once, at once, and the block is drawn at the box it is passing through
+ * (stretch.ts: transform and clip-path, nothing laid out meanwhile), its content held at its start
+ * corner, so a block on the right or at the bottom comes in with its moving edge. Shown any way, it
+ * grows; hidden by VS Code's commands, a copy of it where it stood shrinks into the edge over the
+ * blocks that take its room; hidden any other way, it goes at once. Opening and closing take the
+ * same time and curve. Maximizing is VS Code's, at once. Never scaled, never faded; off with the
+ * window's reduced motion.
  */
 export class CedianBlockStretch extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.blockStretch';
@@ -108,11 +109,12 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		if (!element || !this.moving()) {
 			return;
 		}
-		element.animate([{ clipPath: folded(this.edge(part)) }, { clipPath: SHOWN }], opening);
+		const box = boxOf(element);
+		element.animate(stretchFrames(box, edgeBox(box, this.edge(part)), box, cardOf(element)), stretching);
 	}
 
 	/** A copy of a block where it stands, to fold away over the window once VS Code has hidden it. */
-	private copy(part: Parts): (StillCopy & { from: string }) | undefined {
+	private copy(part: Parts): (StillCopy & { box: Box; card: Card }) | undefined {
 		const element = this.layout.getContainer(mainWindow, part);
 		if (!element || !this.moving()) {
 			return undefined;
@@ -121,8 +123,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		if (rect.width === 0 || rect.height === 0) {
 			return undefined;
 		}
-		// Hidden while still coming out, it folds from as far as it had come, not from all of it.
-		const from = element.getAnimations().length ? mainWindow.getComputedStyle(element).clipPath : SHOWN;
+		const card = cardOf(element);
 		const still = stillCopy(element, this.scrolls);
 		const copy = still.copy;
 		copy.classList.add('cedian-block-leaving');
@@ -138,16 +139,17 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		copy.style.setProperty('display', 'block', 'important');
 		copy.style.setProperty('visibility', 'visible', 'important');
 		copy.style.setProperty('margin', '0', 'important');
-		return { ...still, from: from && from !== 'none' ? from : SHOWN };
+		return { ...still, box: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }, card };
 	}
 
-	private fold(part: Parts, leaving: StillCopy & { from: string }, edge: Edge): void {
+	private fold(part: Parts, leaving: StillCopy & { box: Box; card: Card }, edge: Edge): void {
 		const copy = leaving.copy;
 		this.leaving.get(part)?.remove();
 		this.leaving.set(part, copy);
 		this.layout.mainContainer.appendChild(copy);
 		leaving.settle();
-		const run = copy.animate([{ clipPath: leaving.from }, { clipPath: folded(edge) }], { ...closing, fill: 'forwards' });
+		// From its whole box into its edge, as the blocks beside it stretch back into the room.
+		const run = copy.animate(stretchFrames(leaving.box, leaving.box, edgeBox(leaving.box, edge), leaving.card), { ...stretching, fill: 'forwards' });
 		const gone = () => {
 			copy.remove();
 			if (this.leaving.get(part) === copy) {
