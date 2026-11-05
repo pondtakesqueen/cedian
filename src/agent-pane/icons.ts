@@ -17,6 +17,11 @@ const ICONS = {
   shield: [["path", "M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"]],
   model: [["path", "M8 2v3M8 11v3M2 8h3M11 8h3M4 4l1.8 1.8M10.2 10.2L12 12M12 4l-1.8 1.8M5.8 10.2L4 12"]],
   close: [["path", "M4.5 4.5l7 7M11.5 4.5l-7 7"]],
+  check: [["path", "M3.5 8.5l3 3 6-7"]],
+  spinner: [["path", "M8 2.5a5.5 5.5 0 1 0 5.5 5.5"]],
+  pending: [["circle", 8, 8, 4.5]],
+  question: [["circle", 8, 8, 6], ["path", "M6.3 6.3a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1V9.6M8 11.6v.1"]],
+  chevronRight: [["path", "M6 4l4 4-4 4"]],
 } satisfies Record<string, Shape[]>;
 
 export type IconName = keyof typeof ICONS;

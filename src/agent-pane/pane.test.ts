@@ -350,9 +350,15 @@ describe("agent pane", () => {
     emit({ kind: "threads", cwd: "/r", threads: [info({ status: "asking", state: "asking", question: { question: "ลบไฟล์เก่าด้วยไหม", options: ["ลบ", "เก็บไว้"] }, todo: [{ state: "done", text: "อ่าน" }, { state: "doing", text: "แก้" }] })] });
     pane.openThread("t-1");
     expect(pane.root.querySelector(".ask .q")?.textContent).toBe("ลบไฟล์เก่าด้วยไหม");
-    expect(pane.root.querySelector(".todo")?.textContent).toContain("Steps 1/2");
+    expect(pane.root.querySelector(".todo .ch")?.getAttribute("aria-label")).toBe("Steps 1/2");
+    expect(pane.root.querySelector<HTMLElement>(".todo .bar i")?.style.width).toBe("50%");
     buttons(pane.root, "เก็บไว้")[0]!.click();
     expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "เก็บไว้", thread: "t-1", worktree: false });
+    // The first choice is cedia's recommendation: marked, yet it answers with its own text only.
+    const rec = pane.root.querySelector<HTMLButtonElement>(".ask .opt.rec")!;
+    expect(rec.getAttribute("aria-label")).toBe("ลบ (recommended)");
+    rec.click();
+    expect(last()).toMatchObject({ op: "prompt", text: "ลบ" });
     emit({ kind: "blocks", thread: "t-1", from: 0, blocks: [{ kind: "thinking", text: "hmm", streaming: false, ms: 1000 }, { kind: "text", text: "ok", streaming: false }], run_cost: 0 });
     expect(pane.root.querySelector(".think")).toBeNull();
     pane.cycleViewMode();

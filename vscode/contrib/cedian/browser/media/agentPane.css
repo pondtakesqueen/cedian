@@ -7,32 +7,17 @@
 .cedian-agent-pane .empty { padding: 24px 16px; color: var(--cedian-text-muted); text-align: center; }
 .cedian-agent-pane .conv { padding: 8px 16px 12px; }
 .cedian-agent-pane .col { display: flex; flex-direction: column; gap: var(--cedian-gap, 12px); max-width: 680px; margin: 0 auto; }
-.cedian-agent-pane .ubub { align-self: flex-end; max-width: 82%; background: var(--cedian-raised); border-radius: 18px; padding: 8px 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
 .cedian-agent-pane .ans { overflow-wrap: anywhere; white-space: pre-wrap; }
 .cedian-agent-pane .ans.streaming::after { content: '▍'; color: var(--cedian-accent); }
 .cedian-agent-pane .sdiv { text-align: center; color: var(--cedian-text-faint); font-size: 11px; }
 .cedian-agent-pane .m { font-family: var(--cedian-font-code); font-size: var(--cedian-code-size, 12px); }
 .cedian-agent-pane .small { color: var(--cedian-text-muted); font-size: 12px; }
 .cedian-agent-pane .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.cedian-agent-pane .tools summary, .cedian-agent-pane .think summary { cursor: pointer; color: var(--cedian-text-muted); }
-.cedian-agent-pane .tlist { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0 16px; }
-.cedian-agent-pane .ti { display: flex; gap: 8px; }
 .cedian-agent-pane .ti.bad, .cedian-agent-pane .bad { color: var(--cedian-failed); }
 .cedian-agent-pane .warn { color: var(--cedian-warn); }
 .cedian-agent-pane .ok { color: var(--cedian-diff-add); }
-.cedian-agent-pane .fail-out { white-space: pre-wrap; color: var(--cedian-failed); }
-.cedian-agent-pane .thinkbody { white-space: pre-wrap; color: var(--cedian-text-muted); border-left: 1px dashed var(--cedian-line-strong); padding-left: 8px; }
-.cedian-agent-pane .receipt { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--cedian-accent); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
 .cedian-agent-pane .row { display: flex; gap: 8px; align-items: center; min-width: 0; }
-/* One line of verdict between badge and stats; the stats wrap below once the pane is too narrow. */
-.cedian-agent-pane .receipt .head { flex-wrap: wrap; }
-.cedian-agent-pane .receipt .verdict { flex: 1 1 120px; }
-.cedian-agent-pane .receipt .num, .cedian-agent-pane .receipt .vbadge, .cedian-agent-pane .receipt .ubadge { flex: none; white-space: nowrap; }
-.cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--cedian-accent); color: var(--cedian-accent-text); }
-.cedian-agent-pane .ubadge { border-style: dashed; border-color: var(--cedian-line-strong); color: var(--cedian-text-muted); }
 .cedian-agent-pane .card { max-width: 680px; margin: 8px auto 0; width: calc(100% - 32px); box-sizing: border-box; border-radius: 12px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
-.cedian-agent-pane .card.ask { box-shadow: inset 0 0 0 1px var(--cedian-accent); }
 .cedian-agent-pane .card .q { font-weight: 600; }
 .cedian-agent-pane .card.threads { gap: 0; padding: 4px 12px; }
 .cedian-agent-pane .thread-card { padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
@@ -47,9 +32,6 @@
 .cedian-agent-pane .chip.pr-wait, .cedian-agent-pane .chip.pr-done { color: var(--cedian-text-muted); }
 .cedian-agent-pane .thread-card .step { color: var(--cedian-text-muted); }
 .cedian-agent-pane .steps { list-style: none; margin: 0; padding: 0; }
-.cedian-agent-pane .step { display: flex; gap: 8px; }
-.cedian-agent-pane .step.done { color: var(--cedian-text-muted); }
-.cedian-agent-pane .step.doing .mark { color: var(--cedian-working); }
 .cedian-agent-pane .file { display: flex; gap: 8px; align-items: center; }
 .cedian-agent-pane .file .link { flex: 1 1 auto; text-align: left; }
 .cedian-agent-pane .finding > .link, .cedian-agent-pane .finding > .ell { flex: 1 1 auto; text-align: left; }
@@ -220,3 +202,78 @@
   .cedian-agent-pane .pill.effort { display: none; }
   .cedian-agent-pane .composer { margin: 6px 8px 8px; }
 }
+
+/* The conversation (design/agent-panel mockup, round 2): a run of tools is a card with its state
+   as an icon, a receipt puts its stats under the verdict, cedia's question marks its recommended
+   answer, and the plan shows how far it is. Yellow stays to the question's left edge. */
+.cedian-agent-pane .ubub { align-self: flex-end; max-width: min(84%, 560px); background: var(--cedian-raised); box-shadow: 0 0 0 1px var(--cedian-line); border-radius: 16px 16px 4px 16px; padding: 8px 13px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane details > summary { list-style: none; cursor: pointer; }
+.cedian-agent-pane details > summary::-webkit-details-marker { display: none; }
+.cedian-agent-pane .think > summary { display: flex; align-items: center; gap: 6px; color: var(--cedian-text-faint); font-size: 12.5px; }
+.cedian-agent-pane .thinkbody { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--cedian-text-muted); font-size: 12.5px; border-left: 2px dashed var(--cedian-line-strong); padding-left: 12px; }
+.cedian-agent-pane .tools { border-radius: 10px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); }
+.cedian-agent-pane .tools.fail { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cedian-failed) 40%, transparent); }
+.cedian-agent-pane .tline { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 10px; color: var(--cedian-text-muted); font-size: 12.5px; border-radius: 10px; }
+.cedian-agent-pane .tline:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .tline > .ell { flex: 1 1 auto; }
+.cedian-agent-pane .tline .side { flex: none; color: var(--cedian-text-faint); font-size: 11.5px; }
+.cedian-agent-pane .ic.ok, .cedian-agent-pane .st.ok, .cedian-agent-pane .ti .st { color: var(--cedian-diff-add); }
+.cedian-agent-pane .ic.bad, .cedian-agent-pane .st.bad, .cedian-agent-pane .ti.bad .st { color: var(--cedian-failed); }
+.cedian-agent-pane .ic.run, .cedian-agent-pane .ti.run .st { color: var(--cedian-working); }
+@keyframes cedian-spin { to { transform: rotate(360deg); } }
+.cedian-agent-pane .tlist { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .ti { display: grid; grid-template-columns: 15px 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 2px 10px; color: var(--cedian-text-muted); }
+.cedian-agent-pane .ti .n { color: var(--cedian-text); overflow: hidden; text-overflow: ellipsis; }
+.cedian-agent-pane .ti.bad .n { color: var(--cedian-failed); }
+.cedian-agent-pane .ti .k { color: var(--cedian-text-faint); font-size: 11.5px; }
+.cedian-agent-pane .fail-out { margin: 2px 10px 8px 33px; padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--cedian-failed); background: color-mix(in srgb, var(--cedian-failed) 8%, transparent); }
+.cedian-agent-pane .receipt { border-radius: 12px; background: var(--cedian-raised); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cedian-accent) 55%, transparent); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
+.cedian-agent-pane .receipt .rhead { min-width: 0; }
+.cedian-agent-pane .receipt .verdict { flex: 1 1 auto; font-weight: 500; }
+.cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 11.5px; line-height: 20px; padding: 0 8px; border-radius: 999px; }
+.cedian-agent-pane .vbadge { font-weight: 600; padding-left: 7px; background: var(--cedian-accent-text); color: var(--cedian-app); }
+.cedian-agent-pane .ubadge { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); color: var(--cedian-text-muted); }
+.cedian-agent-pane .receipt .stats { color: var(--cedian-text-faint); font-size: 11.5px; overflow-wrap: anywhere; }
+.cedian-agent-pane .receipt .checks { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .receipt .check { color: var(--cedian-text-muted); }
+.cedian-agent-pane .receipt .check > .ell { flex: 1 1 auto; }
+.cedian-agent-pane .receipt .check > .small { flex: none; color: var(--cedian-text-faint); }
+.cedian-agent-pane .card .ch { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cedian-agent-pane .card .ch .t { flex: 1 1 auto; font-weight: 500; }
+.cedian-agent-pane .card .ch .n { flex: none; color: var(--cedian-text-faint); font-size: 12px; }
+.cedian-agent-pane .todo .bar { height: 4px; border-radius: 2px; background: var(--cedian-field); overflow: hidden; }
+.cedian-agent-pane .todo .bar i { display: block; height: 100%; background: var(--cedian-accent); transition: width .2s ease; }
+.cedian-agent-pane .todo .step { display: flex; gap: 8px; align-items: flex-start; color: var(--cedian-text-muted); }
+.cedian-agent-pane .todo .step .mark { flex: none; display: flex; padding-top: 3px; color: var(--cedian-text-faint); }
+.cedian-agent-pane .todo .step .t { min-width: 0; overflow-wrap: anywhere; }
+.cedian-agent-pane .todo .step.done { color: var(--cedian-text-faint); }
+.cedian-agent-pane .todo .step.done .mark { color: var(--cedian-diff-add); }
+.cedian-agent-pane .todo .step.doing { color: var(--cedian-text); }
+.cedian-agent-pane .todo .step.doing .mark { color: var(--cedian-working); }
+.cedian-agent-pane .card.ask { background: var(--cedian-raised); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), inset 3px 0 0 var(--cedian-warn); padding-left: 15px; gap: 8px; }
+.cedian-agent-pane .card.ask .lab { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; color: var(--cedian-warn); }
+.cedian-agent-pane .card.ask .q { font-weight: 500; overflow-wrap: anywhere; }
+.cedian-agent-pane .card.ask .opts { display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .card.ask .opt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit; color: var(--cedian-text); background: transparent; border: 0; border-radius: 8px; padding: 6px 10px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong); cursor: pointer; overflow-wrap: anywhere; }
+.cedian-agent-pane .card.ask .opt:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .card.ask .opt.rec { background: color-mix(in srgb, var(--cedian-accent) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cedian-accent) 55%, transparent); }
+.cedian-agent-pane .card.ask .opt .rtag { margin-left: auto; flex: none; font-size: 11px; color: var(--cedian-accent-text); }
+@container agent-pane (max-width: 360px) {
+  .cedian-agent-pane .ti { grid-template-columns: 15px 38px minmax(0, 1fr); }
+  .cedian-agent-pane .ti .k { display: none; }
+  .cedian-agent-pane .fail-out { margin-left: 10px; }
+}
+/* The conversation's marks are text glyphs on one span each: no SVG nodes, masks or rotated
+   boxes. A 10k-block thread draws tens of thousands of them, and test/smoke/scroll.mjs dropped
+   30 of 600 frames with masks and over 200 with rotated borders, against 2 on main. */
+.cedian-agent-pane .mk { flex: none; display: inline-block; width: 15px; text-align: center; font: 600 12px/15px var(--cedian-font-ui, system-ui), sans-serif; }
+.cedian-agent-pane .mk-check::before, .cedian-agent-pane .vbadge::before { content: "\2713"; }
+.cedian-agent-pane .mk-close::before { content: "\2715"; }
+.cedian-agent-pane .mk-spinner { width: 11px; height: 11px; margin: 0 2px; box-sizing: border-box; border: 1.8px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: cedian-spin 1s linear infinite; }
+.cedian-agent-pane .step.doing .mark svg { animation: cedian-spin 1s linear infinite; }
+.cedian-agent-pane details > summary::after, .cedian-agent-pane .think > summary::before { content: "\203A"; flex: none; width: 12px; text-align: center; color: var(--cedian-text-faint); font-size: 15px; line-height: 1; }
+.cedian-agent-pane .think > summary::after { content: none; }
+.cedian-agent-pane details[open] > summary::after, .cedian-agent-pane .think[open] > summary::before { content: "\2304"; font-size: 12px; }
+.cedian-agent-pane .vbadge::before { font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane .mk-spinner, .cedian-agent-pane .step.doing .mark svg { animation: none; } }

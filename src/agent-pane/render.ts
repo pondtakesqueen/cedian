@@ -1,6 +1,6 @@
 // Draws the agent pane's items as DOM, with the prototype's class names, into any Document
 // (the workbench's, or a test's). Text always goes in as text, never as HTML.
-import type { Item } from "./items.js";
+import type { Item, ToolRow } from "./items.js";
 
 export function renderItems(doc: Document, items: Item[]): HTMLElement {
   return new ItemsView(doc).update(items);
@@ -68,16 +68,22 @@ function renderItem(doc: Document, item: Item): HTMLElement {
       const names = new Map<string, number>();
       for (const call of item.calls) names.set(call.name, (names.get(call.name) ?? 0) + 1);
       const summary = [...names].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(", ");
+      const failed = item.calls.filter((c) => c.failed).length;
       const box = el(doc, "details", item.failure ? "tools fail" : "tools");
       // A failed run of tools opens by itself, as the prototype's does.
       if (item.failure) box.setAttribute("open", "");
       const line = el(doc, "summary", "tline");
-      line.append(el(doc, "span", "ell", `${item.calls.length} ${item.calls.length === 1 ? "tool" : "tools"} · ${summary}`));
-      if (item.running) line.append(el(doc, "span", "dot st-working"));
+      // Marks are masks on their own span, not SVG: a 10k-block thread draws one element per mark.
+      line.append(el(doc, "span", item.running ? "ic run mk mk-spinner" : failed ? "ic bad mk mk-close" : "ic ok mk mk-check"), el(doc, "span", "ell", `${item.calls.length} ${item.calls.length === 1 ? "tool" : "tools"} · ${summary}`));
+      const total = item.calls.reduce((sum, c) => sum + (c.ms ?? 0), 0);
+      const side = item.running ? "running" : failed ? `${failed} failed` : total > 0 ? duration(total) : "";
+      if (side) line.append(el(doc, "span", "side m", side));
       const list = el(doc, "div", "tlist");
       for (const call of item.calls) {
-        const row = el(doc, "div", call.failed ? "ti bad" : "ti");
-        row.append(el(doc, "span", "m", call.name), el(doc, "span", "m ell", call.detail));
+        const row = el(doc, "div", call.failed ? "ti bad" : call.running ? "ti run" : "ti");
+        row.append(el(doc, "span", `st mk mk-${call.failed ? "close" : call.running ? "spinner" : "check"}`), el(doc, "span", "m n", call.name), el(doc, "span", "m ell", call.detail));
+        const k = callSide(call);
+        if (k) row.append(el(doc, "span", "m k", k));
         list.append(row);
       }
       if (item.failure) list.append(el(doc, "div", "fail-out m", item.failure));
@@ -86,28 +92,22 @@ function renderItem(doc: Document, item: Item): HTMLElement {
     }
     case "receipt": {
       const card = el(doc, "div", item.verified ? "receipt" : "receipt unv");
-      const head = el(doc, "div", "row head");
-      head.append(
-        item.verified
-          ? el(doc, "span", "vbadge", "verified")
-          : el(doc, "span", "ubadge", badge(item)),
-        // One line: the whole answer is drawn above it, and a row made to hold the answer
-        // squeezed the stats to a word a line (seen on the Mac at 419 px).
-        el(doc, "span", "verdict ell", verdictLine(item.verdict)),
-        el(doc, "span", "small m num", meta(item)),
-      );
-      const checks = el(doc, "div", "checks");
-      for (const check of item.checks) {
-        const ok = check.exitCode === 0;
-        const row = el(doc, "div", "row");
-        row.append(
-          el(doc, "span", ok ? "ok" : "bad", ok ? "✓" : "✕"),
-          el(doc, "span", "m ell", check.command),
-          el(doc, "span", "small", `exit ${check.exitCode}`),
-        );
-        checks.append(row);
+      // The verdict gets its own line after the badge; the stats go under it, so a narrow pane
+      // wraps neither (the stats once squeezed to a word a line, seen on the Mac at 419 px).
+      const head = el(doc, "div", "row rhead");
+      head.append(item.verified ? el(doc, "span", "vbadge", "verified") : el(doc, "span", "ubadge", badge(item)), el(doc, "span", "verdict ell", verdictLine(item.verdict)));
+      const stats = el(doc, "div", "stats m num", meta(item));
+      card.append(head, stats);
+      if (item.checks.length) {
+        const checks = el(doc, "div", "checks");
+        for (const check of item.checks) {
+          const ok = check.exitCode === 0;
+          const row = el(doc, "div", ok ? "row check" : "row check bad");
+          row.append(el(doc, "span", ok ? "st ok mk mk-check" : "st bad mk mk-close"), el(doc, "span", "m ell", check.command), el(doc, "span", "small m", `exit ${check.exitCode}`));
+          checks.append(row);
+        }
+        card.append(checks);
       }
-      card.append(head, checks);
       return card;
     }
   }
@@ -149,6 +149,21 @@ function labelled(node: HTMLElement, item: Item): HTMLElement {
 function badge(item: Extract<Item, { k: "receipt" }>): string {
   if (item.subtype !== "success") return item.subtype.replace(/^error_/, "").replace(/_/g, " ");
   return item.unverified ? `unverified ${item.unverified}` : "unverified";
+}
+
+/** A call's own note: its exit code when it failed with one, else how long it took. */
+function callSide(call: ToolRow): string {
+  if (call.failed && call.exitCode !== null && call.exitCode !== 0) return `exit ${call.exitCode}`;
+  if (call.failed) return "";
+  return call.ms !== null && call.ms > 0 ? duration(call.ms) : "";
+}
+
+/** 40ms, 1.2s, 2m 5s. */
+export function duration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
 function meta(item: Extract<Item, { k: "receipt" }>): string {
