@@ -106,6 +106,27 @@ describe("the picked element's picture", () => {
   });
 });
 
+describe("watching a page Electron draws (the native view)", () => {
+  test("turns on what the block reads, with no screencast and no size of its own", async () => {
+    const calls: string[] = [];
+    const cdp = {
+      on: () => () => {},
+      onClose: () => () => {},
+      call: (method: string) => {
+        calls.push(method);
+        if (method === "Page.getFrameTree") return Promise.resolve({ frameTree: { frame: { id: "f", url: "http://localhost:3000/" } } });
+        if (method === "Page.getNavigationHistory") return Promise.resolve({ currentIndex: 0, entries: [{ id: 1, url: "http://localhost:3000/", title: "App" }] });
+        return Promise.resolve({});
+      },
+    };
+    const session = new PageSession(cdp as unknown as ConstructorParameters<typeof PageSession>[0]);
+    await session.watch();
+    expect(calls).toEqual(expect.arrayContaining(["Page.enable", "Runtime.enable", "Log.enable", "Overlay.enable"]));
+    expect(calls.some((c) => c.startsWith("Emulation") || c.includes("Screencast"))).toBe(false);
+    expect(session.view).toMatchObject({ url: "http://localhost:3000/", load: "loaded", title: "App" });
+  });
+});
+
 describe("resizing the page", () => {
   test("a drag's many sizes reach Chromium as the first and the latest, one at a time", async () => {
     const calls: string[] = [];

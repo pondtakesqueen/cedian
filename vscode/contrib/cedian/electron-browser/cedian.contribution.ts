@@ -8,3 +8,5 @@ import './daemonService.js';
 import '../browser/cedian.contribution.js';
 // The native browser view's safety banner: VS Code's browser editor lives in electron-browser.
 import './siteBanner.js';
+// The Browser block's console strip, element select and Dev servers on the native view.
+import './nativeTools.js';

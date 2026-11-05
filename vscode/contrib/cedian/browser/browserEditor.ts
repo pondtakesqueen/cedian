@@ -153,7 +153,7 @@ export function createBrowserPanel(services: BrowserServices, folder: URI, float
 }
 
 /** Into the agent pane's composer, showing the pane first. */
-async function attach(services: BrowserServices, text: string, png: Uint8Array | undefined, name: string | undefined): Promise<void> {
+export async function attach(services: BrowserServices, text: string, png: Uint8Array | undefined, name: string | undefined): Promise<void> {
 	if (!CedianPanes.current) {
 		await services.viewsService.openView(AGENT_PANE_VIEW_ID, true);
 	}

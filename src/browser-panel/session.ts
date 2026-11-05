@@ -248,6 +248,16 @@ export class PageSession {
 
   /** Turns on what the block shows and starts the screencast at the block's size. */
   async start(width: number, height: number, scale: number): Promise<void> {
+    await this.watch();
+    await this.resize(width, height, scale);
+  }
+
+  /**
+   * Turns on what the block reads (load state, history, console, the element overlay) without
+   * the screencast or a size of its own: for a page Electron draws itself (the native view), whose
+   * size is the view's.
+   */
+  async watch(): Promise<void> {
     await Promise.all(["Page.enable", "Runtime.enable", "Network.enable", "Log.enable", "DOM.enable"].map((m) => this.cdp.call(m)));
     await this.cdp.call("Overlay.enable");
     const tree = await this.cdp.call("Page.getFrameTree");
@@ -255,7 +265,6 @@ export class PageSession {
     this.set({ url: tree.frameTree.frame.url, load: tree.frameTree.frame.url === "about:blank" ? "idle" : "loaded" });
     if (this.view.load === "loaded") this.everLoaded = true;
     await this.history();
-    await this.resize(width, height, scale);
   }
 
   /**
