@@ -16,6 +16,8 @@ import { firstTab, prListCard, type PrListTab } from "./pr-list.js";
 import { filterOf, issuesCard, issueTask, newIssuesUi, type IssuesUi } from "./issues.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
+import { stickToBottom } from "./stick.js";
+import { icon, type IconName } from "./icons.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
 import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
@@ -192,6 +194,7 @@ export class AgentPane {
   private readonly input: HTMLTextAreaElement;
   private readonly sendButton: HTMLButtonElement;
   private readonly off: () => void;
+  private readonly unstick: () => void;
 
   constructor(private readonly doc: Document, private readonly wire: Wire<Request, Notice>, private readonly host: PaneHost) {
     this.state = openState(host.cwd);
@@ -201,6 +204,7 @@ export class AgentPane {
     this.itemsView = new ItemsView(doc);
     this.log.setAttribute("role", "log");
     this.log.setAttribute("aria-live", "polite");
+    this.unstick = stickToBottom(this.log);
     this.queue = el(doc, "div", "queue");
     const composer = el(doc, "div", "composer");
     this.popup = el(doc, "div", "popup");
@@ -210,7 +214,7 @@ export class AgentPane {
     this.input.rows = 3;
     this.input.setAttribute("aria-label", "Message to the agent");
     this.chips = el(doc, "div", "chips");
-    this.sendButton = button(doc, "Send", () => this.primary(), "btn send");
+    this.sendButton = button(doc, "Send", () => this.primary(), "send");
     const row = el(doc, "div", "row");
     row.append(this.chips, this.sendButton);
     composer.append(this.popup, this.attachments, this.input, row);
@@ -231,6 +235,7 @@ export class AgentPane {
 
   dispose(): void {
     this.off();
+    this.unstick();
     if (this.state.thread) this.wire.request({ op: "close", thread: this.state.thread });
   }
 
@@ -786,6 +791,7 @@ export class AgentPane {
   }
 
   private typed(): void {
+    this.renderSend();
     const token = tokenAt(this.input.value, this.input.selectionStart ?? this.input.value.length);
     this.token = token;
     if (!token) return this.closePopup();
@@ -860,66 +866,141 @@ export class AgentPane {
     this.renderComposer();
   }
 
+  /**
+   * Two rows: the thread (its picker, read as a title) with how it stands and the window buttons;
+   * under it what it works on and what it has cost: branch, PR, context, run cost, and the view.
+   */
   private renderHeader(): void {
-    const d = this.doc;
-    const list = threadList(this.threads);
-    const coordinator = coordinatorThread(this.threads);
-    const options = [
-      { value: CHAT, label: "Project chat" },
-      { value: "", label: "New thread" },
-      ...list.filter((t) => t.id !== coordinator?.id).map((t) => ({ value: t.id, label: `${t.title || t.task}${t.needs_you ? " •" : ""}` })),
-    ];
-    const picker = select(d, options, this.chat ? CHAT : (this.state.thread ?? ""), (id) => (id === CHAT ? this.projectChat() : id ? this.openThread(id) : this.newThread()), "sel threads");
-    picker.setAttribute("aria-label", "Thread");
     if (this.sideOf) return this.renderSideHeader();
-    const status = this.state.status;
-    const dot = el(d, "span", `dot st-${status ?? "none"}`);
-    if (status) dot.title = STATUS_LABEL[status] ?? status;
-    const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
-    mode.title = "Switch view (Ctrl+O)";
-    this.header.replaceChildren(picker, dot, mode);
-    if (this.host.popOut) {
-      const pop = button(d, "⧉", () => this.popOut(), "chip pop");
-      pop.title = "Open in new window";
-      pop.setAttribute("aria-label", "Open in new window");
-      this.header.append(pop);
-    }
-    if (this.host.float) {
-      const float = button(d, "◳", () => this.float(), "chip float");
-      float.title = "Float over the window";
-      float.setAttribute("aria-label", "Float over the window");
-      this.header.append(float);
-    }
+    const d = this.doc;
+    const top = el(d, "div", "r1");
+    const picker = el(d, "label", "picker");
+    picker.append(this.threadPicker(), icon(d, "chevron"));
+    top.append(picker, ...this.statusPill());
+    if (this.host.float) top.append(this.iconButton("float", "Float over the window", () => this.float(), "float"));
+    if (this.host.popOut) top.append(this.iconButton("popOut", "Open in new window", () => this.popOut(), "pop"));
+    const meta = el(d, "div", "r2");
+    if (this.state.thread && this.git && typeof this.git !== "string") meta.append(this.branchChip(this.git));
     const open = this.state.thread ? this.threads.find((t) => t.id === this.state.thread) : undefined;
     if (open?.pr) {
-      this.header.insertBefore(this.prChip(open.pr), mode);
-      if (open.pr.state === "open") this.header.insertBefore(this.watchButton(open.id, false), mode);
-    } else if (open?.pr_unwatched) this.header.insertBefore(this.watchButton(open.id, true), mode);
-    const meter = contextMeter(this.state.view.context ?? undefined, currentModel(this.state.view.blocks as Block[], this.state.info), this.models);
-    if (meter) {
-      const ns = "http://www.w3.org/2000/svg";
-      const svg = d.createElementNS(ns, "svg");
-      svg.setAttribute("viewBox", "0 0 16 16");
-      svg.setAttribute("class", meter.high ? "ring high" : "ring");
-      svg.setAttribute("role", "img");
-      svg.setAttribute("aria-label", meterLabel(meter));
-      const track = d.createElementNS(ns, "circle");
-      const arc = d.createElementNS(ns, "circle");
-      for (const c of [track, arc]) {
-        c.setAttribute("cx", "8");
-        c.setAttribute("cy", "8");
-        c.setAttribute("r", "6");
-      }
-      track.setAttribute("class", "track");
-      arc.setAttribute("class", "arc");
-      arc.setAttribute("stroke-dasharray", ringDash(meter));
-      arc.setAttribute("transform", "rotate(-90 8 8)");
-      const title = d.createElementNS(ns, "title");
-      title.textContent = `${meterLabel(meter)} (${meter.percent}%)`;
-      svg.append(title, track, arc);
-      this.header.append(svg);
+      meta.append(this.prChip(open.pr));
+      if (open.pr.state === "open") meta.append(this.watchButton(open.id, false));
+    } else if (open?.pr_unwatched) meta.append(this.watchButton(open.id, true));
+    const ring = this.contextRing();
+    if (ring) meta.append(ring);
+    if (this.state.view.runCost > 0) meta.append(el(d, "span", "meta m cost", `$${this.state.view.runCost.toFixed(2)}`));
+    meta.append(el(d, "span", "sp"), this.viewButton());
+    this.header.replaceChildren(top, meta);
+  }
+
+  /** The thread picker: the project chat, a new thread, then the threads by what they need. */
+  private threadPicker(): HTMLSelectElement {
+    const d = this.doc;
+    const coordinator = coordinatorThread(this.threads);
+    const list = threadList(this.threads).filter((t) => t.id !== coordinator?.id);
+    const picker = el(d, "select", "sel threads");
+    picker.setAttribute("aria-label", "Thread");
+    const option = (value: string, label: string) => {
+      const o = el(d, "option", "", label);
+      o.value = value;
+      return o;
+    };
+    picker.append(option(CHAT, "Project chat"), option("", "New thread"));
+    const busy = (t: ThreadInfo) => t.status === "working" || t.status === "queued";
+    const groups: [string, ThreadInfo[]][] = [
+      ["Needs you", list.filter((t) => t.needs_you)],
+      ["Working", list.filter((t) => !t.needs_you && busy(t))],
+      ["Threads", list.filter((t) => !t.needs_you && !busy(t))],
+    ];
+    for (const [label, threads] of groups) {
+      if (threads.length === 0) continue;
+      const group = el(d, "optgroup");
+      group.label = label;
+      group.append(...threads.map((t) => option(t.id, t.title || t.task)));
+      picker.append(group);
     }
-    if (this.state.view.runCost > 0) this.header.append(el(d, "span", "small m cost", `$${this.state.view.runCost.toFixed(2)}`));
+    picker.value = this.chat ? CHAT : (this.state.thread ?? "");
+    picker.title = this.title();
+    picker.addEventListener("change", () => (picker.value === CHAT ? this.projectChat() : picker.value ? this.openThread(picker.value) : this.newThread()));
+    return picker;
+  }
+
+  /** How the open thread stands, in words beside its colour; nothing for a thread not started. */
+  private statusPill(): HTMLElement[] {
+    const status = this.state.status;
+    if (!status) return [];
+    const label = STATUS_LABEL[status] ?? status;
+    const pill = el(this.doc, "span", `status st-${status}`);
+    pill.title = label;
+    pill.append(el(this.doc, "span", `dot st-${status}`), el(this.doc, "span", "l", label));
+    return [pill];
+  }
+
+  private iconButton(name: IconName, label: string, onClick: () => void, cls: string): HTMLButtonElement {
+    const b = button(this.doc, "", onClick, `ib ${cls}`);
+    b.title = label;
+    b.setAttribute("aria-label", label);
+    b.append(icon(this.doc, name));
+    return b;
+  }
+
+  /** The thread's branch: a click opens the Git card (and fetches, so behind is current). */
+  private branchChip(git: GitState): HTMLButtonElement {
+    const d = this.doc;
+    const chip = button(d, "", () => {
+      this.gitOpen = !this.gitOpen;
+      // Opening it is the person's ask to look at the remote: fetch, so behind is current.
+      if (this.gitOpen) {
+        this.gitFetching = true;
+        this.wire.request({ op: "git", cwd: this.host.cwd, thread: this.state.thread!, fetch: true });
+      }
+      this.render();
+    }, "chip meta m git");
+    chip.append(icon(d, "branch"), el(d, "span", "l", git.branch ?? "detached"));
+    chip.setAttribute("aria-expanded", String(this.gitOpen));
+    chip.title = branchLine(git);
+    return chip;
+  }
+
+  /** How full the context is, as a ring and a percent; none until a turn has reported it. */
+  private contextRing(): HTMLElement | undefined {
+    const d = this.doc;
+    const meter = contextMeter(this.state.view.context ?? undefined, currentModel(this.state.view.blocks as Block[], this.state.info), this.models);
+    if (!meter) return undefined;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = d.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("class", meter.high ? "ring high" : "ring");
+    svg.setAttribute("aria-hidden", "true");
+    const track = d.createElementNS(ns, "circle");
+    const arc = d.createElementNS(ns, "circle");
+    for (const c of [track, arc]) {
+      c.setAttribute("cx", "8");
+      c.setAttribute("cy", "8");
+      c.setAttribute("r", "6");
+    }
+    track.setAttribute("class", "track");
+    arc.setAttribute("class", "arc");
+    arc.setAttribute("stroke-dasharray", ringDash(meter));
+    arc.setAttribute("transform", "rotate(-90 8 8)");
+    svg.append(track, arc);
+    const box = el(d, "span", "meta m ctx");
+    box.setAttribute("role", "img");
+    box.setAttribute("aria-label", meterLabel(meter));
+    box.title = `${meterLabel(meter)} (${meter.percent}%)`;
+    box.append(svg, el(d, "span", "l", `${meter.percent}%`));
+    return box;
+  }
+
+  /** The view mode (answers, thinking, all tools); a click or Ctrl+O moves to the next. */
+  private viewButton(): HTMLButtonElement {
+    const d = this.doc;
+    const label = VIEW_MODES.find((v) => v.mode === this.viewMode)!.label;
+    const mode = button(d, "", () => this.cycleViewMode(), "chip view");
+    mode.title = `View: ${label}. Switch view (Ctrl+O)`;
+    mode.setAttribute("aria-label", `View: ${label}`);
+    mode.append(icon(d, "eye"), el(d, "span", "l", label));
+    return mode;
   }
 
   private renderLog(): void {
@@ -1391,20 +1472,47 @@ export class AgentPane {
     const label = el(d, "span", "side-label");
     label.textContent = `Side chat · ${this.sideOf!.title}`;
     label.title = "Read-only: it sees the thread as it stood, changes nothing, and is thrown away when closed";
-    const status = this.state.status;
-    const dot = el(d, "span", `dot st-${status ?? "none"}`);
-    if (status) dot.title = STATUS_LABEL[status] ?? status;
-    const mode = button(d, VIEW_MODES.find((v) => v.mode === this.viewMode)!.label, () => this.cycleViewMode(), "chip view");
-    mode.title = "Switch view (Ctrl+O)";
-    this.header.replaceChildren(label, dot, mode);
+    const top = el(d, "div", "r1");
+    top.append(label, ...this.statusPill());
+    const meta = el(d, "div", "r2");
+    const ring = this.contextRing();
+    if (ring) meta.append(ring);
+    meta.append(el(d, "span", "sp"), this.viewButton());
+    this.header.replaceChildren(top, meta);
+  }
+
+  /** A composer picker as a pill: an icon, the native select (keyboard and VoiceOver as is), a chevron. */
+  private pill(select: HTMLSelectElement, name: IconName | undefined, cls: string): HTMLElement {
+    const d = this.doc;
+    const pill = el(d, "label", `pill ${cls}`);
+    pill.title = select.title;
+    if (name) pill.append(icon(d, name));
+    pill.append(select, icon(d, "chevron"));
+    return pill;
+  }
+
+  /**
+   * The send button as the click would act: Stop while a run goes and nothing is typed, Queue
+   * while it goes, else Send. Drawn again on each keystroke, so it never says Stop over a draft.
+   */
+  private renderSend(): void {
+    const d = this.doc;
+    const running = isRunning(this.state);
+    const stop = running && isEmpty(this.draft);
+    const word = stop ? "Stop" : running ? "Queue" : "Send";
+    if (this.sendButton.getAttribute("aria-label") === word && this.sendButton.dataset.idle === String(isEmpty(this.draft))) return;
+    this.sendButton.replaceChildren(icon(d, stop ? "stop" : "send"), el(d, "span", "vh", word));
+    this.sendButton.setAttribute("aria-label", word);
+    this.sendButton.dataset.idle = String(isEmpty(this.draft));
+    this.sendButton.title = stop ? "Stop the run" : running ? "Queue for the agent's next turn" : "Send (Enter)";
+    this.sendButton.className = stop ? "send stop" : isEmpty(this.draft) ? "send idle" : "send";
   }
 
   private renderComposer(): void {
     const d = this.doc;
     const running = isRunning(this.state);
     this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Continue this thread" : "What should the agent do? (@ files, / commands)";
-    this.sendButton.textContent = running && isEmpty(this.draft) ? "Stop" : running ? "Queue" : "Send";
-    this.sendButton.className = running && isEmpty(this.draft) ? "btn send stop" : "btn send";
+    this.renderSend();
     this.attachments.replaceChildren(
       ...this.images.map((path) => {
         const chip = el(d, "span", "tag");
@@ -1425,17 +1533,17 @@ export class AgentPane {
     if (this.models) {
       const threadModel = this.state.thread && !this.chosen.has("model") ? currentModel(this.state.view.blocks as Block[], this.state.info) : undefined;
       const shown = threadModel ?? this.choices.model ?? "";
-      const s = select(d, [{ value: "", label: `Model: ${this.models.default}` }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
+      const s = select(d, [{ value: "", label: this.models.models.find((m) => m.ref === this.models!.default)?.label ?? this.models.default }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
       s.dataset.chip = "model";
       s.title = "Model (Cmd+Shift+I)";
-      chips.push(s);
+      chips.push(this.pill(s, "model", "model"));
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : ["low", "medium", "high", "xhigh", "max"];
         const e = select(d, [{ value: "", label: `effort: ${entry.defaultEffort ?? "default"}` }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = "Effort (Cmd+Shift+E)";
-        chips.push(e);
+        chips.push(this.pill(e, undefined, "effort"));
       }
     }
     if (this.permissions && !this.sideOf) {
@@ -1443,21 +1551,7 @@ export class AgentPane {
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
       s.title = "Permission (Cmd+Shift+M)";
-      chips.push(s);
-    }
-    if (this.state.thread && this.git && typeof this.git !== "string") {
-      const branch = button(d, `⑂ ${this.git.branch ?? "detached"}`, () => {
-        this.gitOpen = !this.gitOpen;
-        // Opening it is the person's ask to look at the remote: fetch, so behind is current.
-        if (this.gitOpen) {
-          this.gitFetching = true;
-          this.wire.request({ op: "git", cwd: this.host.cwd, thread: this.state.thread!, fetch: true });
-        }
-        this.render();
-      }, "chip m git");
-      branch.setAttribute("aria-expanded", String(this.gitOpen));
-      branch.title = branchLine(this.git);
-      chips.push(branch);
+      chips.push(this.pill(s, "shield", "permission"));
     }
     if (!this.state.thread) {
       const label = el(d, "label", "chip check");
@@ -1470,7 +1564,12 @@ export class AgentPane {
     }
     if (this.capabilities.length === 0 || this.capabilities.includes("images")) {
       const video = this.takesVideo();
-      chips.push(button(d, video ? "+ Image/video" : "+ Image", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "chip"));
+      const attach = video ? "Attach image or video" : "Attach image";
+      const pick = button(d, "", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "ib attach");
+      pick.title = attach;
+      pick.setAttribute("aria-label", attach);
+      pick.append(icon(d, "attach"));
+      chips.push(el(d, "span", "sp"), pick);
     }
     this.chips.replaceChildren(...chips);
   }

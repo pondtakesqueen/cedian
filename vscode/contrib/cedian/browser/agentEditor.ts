@@ -117,6 +117,11 @@ export class CedianAgentEditor extends EditorPane {
 		super(CedianAgentEditor.ID, group, telemetryService, themeService, storageService);
 	}
 
+	/** Narrower than this the thread's title shows a few letters at most (design/agent-panel); a floating block keeps the same floor (`PIP_MIN`). */
+	override get minimumWidth(): number {
+		return 280;
+	}
+
 	protected override createEditor(parent: HTMLElement): void {
 		this.container = parent;
 	}
