@@ -44,7 +44,7 @@
 .cedian-agent-pane .queued { background: var(--cedian-sheet); border-radius: 8px; padding: 4px 8px; }
 .cedian-agent-pane .queued .ell { flex: 1 1 auto; }
 .cedian-agent-pane .composer { position: relative; margin: 8px 12px 12px; border-radius: 14px; background: var(--cedian-field); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 2px var(--cedian-accent); }
+.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus); }
 .cedian-agent-pane .composer .input { resize: none; border: 0; outline: none; background: transparent; color: inherit; font: inherit; line-height: var(--cedian-line-height, 1.6); }
 .cedian-agent-pane .composer > .row { justify-content: space-between; }
 .cedian-agent-pane .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
@@ -169,7 +169,7 @@
 .cedian-agent-pane > .head .ring { width: 14px; height: 14px; }
 .cedian-agent-pane > .head .ring circle { stroke-width: 2.4; }
 .cedian-agent-pane .composer { flex: none; background: var(--cedian-raised); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 1px 2px rgb(0 0 0 / 5%); padding: 10px 10px 8px 12px; gap: 8px; min-width: 0; }
-.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 1.5px var(--cedian-accent), 0 1px 2px rgb(0 0 0 / 5%); }
+.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 1px 2px rgb(0 0 0 / 5%); }
 .cedian-agent-pane .composer > .row { gap: 2px; height: 30px; }
 .cedian-agent-pane .composer .chips { flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: 2px; overflow: hidden; }
 .cedian-agent-pane .composer .chips > .sp { flex: 1 1 0; min-width: 0; }
@@ -301,7 +301,7 @@
 .cedian-agent-pane > .dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none; }
 .cedian-agent-pane > .dock > * { pointer-events: auto; }
 .cedian-agent-pane > .dock .composer { border-radius: 18px; background: color-mix(in srgb, var(--cedian-raised) 74%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 10px 30px rgba(0, 0, 0, .14); }
-.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 2px var(--cedian-accent), 0 10px 30px rgba(0, 0, 0, .14); }
+.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 10px 30px rgba(0, 0, 0, .14); }
 .cedian-agent-pane > .dock .send { border-radius: 10px; }
 @media (prefers-reduced-transparency: reduce) {
   .cedian-agent-pane > .dock .composer { background: var(--cedian-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -334,6 +334,11 @@
 .cedian-agent-pane textarea.input { resize: vertical; line-height: var(--cedian-line-height, 1.6); }
 .cedian-agent-pane .input::placeholder { color: var(--cedian-text-faint); }
 .cedian-agent-pane .input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--cedian-accent); }
+/* The composer's focus is one quiet line on its card, as a focused block's tab is a step darker:
+   not the lime ring twice over (the card's, and the field's own inside it). The field inside the
+   card draws none; the card's line is the text colour at 40%, clear in light and dark. */
+.cedian-agent-pane { --cedian-composer-focus: color-mix(in srgb, var(--cedian-text) 40%, transparent); }
+.cedian-agent-pane .composer .input:focus { box-shadow: none; }
 .cedian-agent-pane .card .tabs { flex-wrap: wrap; gap: 2px; align-self: flex-start; max-width: 100%; padding: 2px; border-radius: 9px; background: var(--cedian-field); box-shadow: none; }
 .cedian-agent-pane .card .tabs .tab { font: inherit; font-size: 12px; line-height: 20px; color: var(--cedian-text-muted); background: none; border: 0; border-radius: 7px; padding: 1px 10px; white-space: nowrap; cursor: pointer; box-shadow: none; }
 .cedian-agent-pane .card .tabs .tab:hover { color: var(--cedian-text); }
