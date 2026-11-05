@@ -242,6 +242,9 @@
    never in the pointer's way. Out of the editor area it has lost its card's ground, so it gets it
    back; its corners and the gaps around it are drawn by the clip it collapses with. */
 .cedian-block-closing { position: fixed; z-index: 30; pointer-events: none; }
+/* A block shrinking to make room, drawn bigger than it is laid out: past its content, its card's
+   ground carries on to where it is drawn (blockMove.ts), under a block that closes. */
+.cedian-block-ground { position: fixed; z-index: 29; pointer-events: none; }
 .cedian-block-closing > .editor-group-container {
 	background-color: var(--vscode-editor-background);
 	box-sizing: border-box;
