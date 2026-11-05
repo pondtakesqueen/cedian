@@ -329,7 +329,7 @@
 /* The project tabs (projectTabs.ts) at the start of the title bar's left side, as the prototype's
    .ptab row: quiet until hovered, this window's project filled. What needs the person is a badge in
    the accent colour, what is at work a dot and a count in the working colour. */
-.monaco-workbench .part.titlebar .cedian-project-tabs { display: flex; align-items: center; gap: 2px; height: 100%; min-width: 0; padding: 0 6px; -webkit-app-region: no-drag; }
+.monaco-workbench .part.titlebar .cedian-project-tabs { display: flex; align-items: center; gap: 2px; height: 100%; min-width: 0; overflow: hidden; padding: 0 6px; -webkit-app-region: no-drag; }
 /* On the Mac VS Code leaves the traffic lights no container of their own (titlebarPart.ts), so the
    row steps past them itself: the 70px VS Code gives them elsewhere. Full screen hides them. */
 .monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar .cedian-project-tabs { margin-left: 70px; }
@@ -342,6 +342,20 @@
 .cedian-project-tabs .cedian-project-tab:hover { color: var(--cedian-text, var(--vscode-foreground)); background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); }
 .cedian-project-tabs .cedian-project-tab.on { background: var(--cedian-raised, var(--vscode-toolbar-activeBackground)); color: var(--cedian-text, var(--vscode-foreground)); }
 .cedian-project-tabs .cedian-project-tab:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+/* A tab's × (projectTabs.ts) shows on hover or focus and takes the project off the bar
+   (desktop.projects). The + after the tabs opens a project or adds a repo. */
+.cedian-project-tabs .cedian-project-tab { flex: 0 1 auto; }
+.cedian-project-tabs .close { flex: none; display: none; width: 16px; height: 16px; margin-right: -4px; border-radius: 4px; line-height: 15px; text-align: center; font-size: 13px; color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); }
+.cedian-project-tabs .cedian-project-tab:hover .close,
+.cedian-project-tabs .cedian-project-tab:focus-visible .close { display: inline-block; }
+.cedian-project-tabs .close:hover { background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); color: var(--cedian-text, var(--vscode-foreground)); }
+.cedian-project-tabs .cedian-project-add {
+	flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+	color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); font: inherit; font-size: 16px; line-height: 26px;
+	-webkit-app-region: no-drag;
+}
+.cedian-project-tabs .cedian-project-add:hover { color: var(--cedian-text, var(--vscode-foreground)); background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); }
+.cedian-project-tabs .cedian-project-add:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
 .cedian-project-tabs .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cedian-project-tabs .count { flex: none; font-size: 11px; font-weight: 600; line-height: 16px; }
 .cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; text-align: center; background: var(--cedian-accent, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }

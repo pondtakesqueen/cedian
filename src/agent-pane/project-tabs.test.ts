@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadInfo } from "../protocol/wire.js";
-import { counts, isScratch, MAX_TABS, projectName, projectTabs } from "./project-tabs.js";
+import { counts, isScratch, nextAfterClose, projectName, projectsOf, projectTabs, withoutProject, withProject } from "./project-tabs.js";
 
 const thread = (id: string, status: ThreadInfo["status"], extra: Partial<ThreadInfo> = {}): ThreadInfo =>
   ({ id, status, archived: false, messages: [], pending: [], title: id, task: "", updated_at: "2026-11-04T00:00:00Z", ...extra }) as unknown as ThreadInfo;
@@ -16,18 +16,41 @@ describe("project tabs", () => {
     expect(counts(threads)).toEqual({ needs: 2, working: 2 });
   });
 
-  it("puts this window's project first, then the recent ones, each once and no more than the bar holds", () => {
-    const recent = ["/b", "/a", "/c", "/b", "/d", "/e", "/f"];
-    const tabs = projectTabs("/a", recent, new Map([["/c", [thread("x", "asking")]]]));
-    expect(tabs.map((t) => t.root)).toEqual(["/a", "/b", "/c", "/d", "/e"]);
-    expect(tabs).toHaveLength(MAX_TABS);
-    expect(tabs[0]?.on).toBe(true);
+  it("shows the person's projects in their order, this window's first while it is not listed", () => {
+    const tabs = projectTabs("/a", ["/b", "/a", "/c"], new Map([["/c", [thread("x", "asking")]]]));
+    expect(tabs.map((t) => t.root)).toEqual(["/b", "/a", "/c"]);
+    expect(tabs.find((t) => t.on)?.root).toBe("/a");
     expect(tabs[2]).toMatchObject({ name: "c", needs: 1, working: 0, on: false });
+    expect(projectTabs("/z", ["/b"], new Map()).map((t) => t.root)).toEqual(["/z", "/b"]);
   });
-  it("leaves temporary folders out of the recent ones, but not the window's own", () => {
+
+  it("starts from this window's project alone: no recently opened folders", () => {
+    expect(projectTabs("/Users/p/cedian", projectsOf({}), new Map()).map((t) => t.name)).toEqual(["cedian"]);
+  });
+
+  it("reads desktop.projects leniently", () => {
+    expect(projectsOf({ projects: ["/a/", "/b", "/a", 3, "", "/c"] as unknown as string[] })).toEqual(["/a", "/b", "/c"]);
+    expect(projectsOf({ projects: "nope" as unknown as string[] })).toEqual([]);
+  });
+
+  it("adds a project once, never a temporary folder, and takes one off", () => {
+    expect(withProject(["/a"], "/b/")).toEqual(["/a", "/b"]);
+    expect(withProject(["/a", "/b"], "/b")).toBeUndefined();
+    expect(withProject(["/a"], "/var/folders/r7/x/T/cedian-smoke-a/folder")).toBeUndefined();
+    expect(withoutProject(["/a", "/b", "/c"], "/b")).toEqual(["/a", "/c"]);
+  });
+
+  it("moves to the next tab, else the one before, when this window's tab closes", () => {
+    const tabs = projectTabs("/b", ["/a", "/b", "/c"], new Map());
+    expect(nextAfterClose(tabs, "/b")).toBe("/c");
+    expect(nextAfterClose(tabs, "/c")).toBe("/b");
+    expect(nextAfterClose(projectTabs("/a", [], new Map()), "/a")).toBeUndefined();
+  });
+
+  it("leaves temporary folders out, but not the window's own", () => {
     const smoke = "/var/folders/r7/x/T/cedian-smoke-a/folder";
-    expect(projectTabs("/Users/p/cedian", [smoke, "/private/tmp/b", "/Users/p/site"], new Map()).map((t) => t.name)).toEqual(["cedian", "site"]);
     expect(projectTabs(smoke, [], new Map()).map((t) => t.root)).toEqual([smoke]);
+    expect(isScratch("/private/tmp/b")).toBe(true);
     expect(isScratch("C:\\Users\\p\\AppData\\Local\\Temp\\x")).toBe(true);
     expect(isScratch("/Users/p/tmp/x")).toBe(false);
   });

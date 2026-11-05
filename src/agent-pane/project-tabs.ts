@@ -1,6 +1,9 @@
-// The project tabs in the title bar (the prototype's .ptab row): the project open in this window and
-// the ones opened lately, each with how many of its threads need the person and how many are at
-// work, so a project that wants something shows from any other.
+// The project tabs in the title bar (the prototype's .ptab row): the projects the person keeps open,
+// `desktop.projects` in their order, each with how many of its threads need the person and how many
+// are at work, so a project that wants something shows from any other. A folder opened in a window
+// joins the list; a tab's × takes it off. VS Code's recently opened list is not used: it held every
+// folder any build or test had opened, which is not the person's projects.
+import type { Desktop } from "../settings/desktop.js";
 import type { ThreadInfo } from "../protocol/wire.js";
 import { COORDINATOR, coordinatorThread } from "./project-chat.js";
 import { groupOf } from "./thread-list.js";
@@ -14,9 +17,6 @@ export interface ProjectTab {
   needs: number;
   working: number;
 }
-
-/** How many tabs the title bar holds, this window's project among them. */
-export const MAX_TABS = 5;
 
 /** The last part of a folder's path, either separator. */
 export function projectName(root: string): string {
@@ -44,12 +44,38 @@ export function isScratch(root: string): boolean {
   return /^(\/private)?\/(var\/folders|tmp)\//.test(root) || /[\\/]AppData[\\/]Local[\\/]Temp[\\/]/i.test(root);
 }
 
+const trimSlash = (path: string) => (path.length > 1 ? path.replace(/[\\/]+$/, "") : path);
+
+/** `desktop.projects`: the folders the person keeps as tabs, in their order, each once. */
+export function projectsOf(desktop: Desktop): string[] {
+  const listed = Array.isArray(desktop.projects) ? desktop.projects : [];
+  const roots = listed.filter((r): r is string => typeof r === "string" && r.trim() !== "").map((r) => trimSlash(r.trim()));
+  return roots.filter((r, i) => roots.indexOf(r) === i);
+}
+
+/** The list with `root` at its end, or `undefined` when it is there already or is a temporary folder. */
+export function withProject(projects: readonly string[], root: string): string[] | undefined {
+  const r = trimSlash(root);
+  return projects.includes(r) || isScratch(r) ? undefined : [...projects, r];
+}
+
+/** The list without `root`. */
+export function withoutProject(projects: readonly string[], root: string): string[] {
+  return projects.filter((r) => r !== trimSlash(root));
+}
+
 /**
- * The tabs: this window's project first, then the folders opened lately, newest first, each once,
- * up to MAX_TABS, leaving out temporary folders. A project whose threads the daemon has not sent
- * yet counts none.
+ * The tabs: the person's projects in their order, with this window's project among them (first,
+ * while it is not listed yet). A project whose threads the daemon has not sent yet counts none.
  */
-export function projectTabs(current: string, recent: readonly string[], threads: ReadonlyMap<string, readonly ThreadInfo[]>): ProjectTab[] {
-  const roots = [current, ...recent.filter((r) => r !== current && !isScratch(r))].filter((r, i, all) => all.indexOf(r) === i).slice(0, MAX_TABS);
+export function projectTabs(current: string, projects: readonly string[], threads: ReadonlyMap<string, readonly ThreadInfo[]>): ProjectTab[] {
+  const roots = projects.includes(current) ? projects : [current, ...projects];
   return roots.map((root) => ({ root, name: projectName(root), on: root === current, ...counts(threads.get(root) ?? []) }));
+}
+
+/** The tab to show when this window's own tab closes: the one after it, else the one before, else none. */
+export function nextAfterClose(tabs: readonly ProjectTab[], root: string): string | undefined {
+  const at = tabs.findIndex((t) => t.root === root);
+  if (at < 0) return undefined;
+  return (tabs[at + 1] ?? tabs[at - 1])?.root;
 }

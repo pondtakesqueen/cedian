@@ -17,6 +17,8 @@ export interface Desktop {
   notifications?: { sound?: boolean };
   keymap?: Record<string, string>;
   roots?: Record<string, string[]>;
+  /** The project tabs in the title bar, in the person's order (src/agent-pane/project-tabs.ts). */
+  projects?: string[];
   editor?: { auto_save?: boolean; format_on_save?: boolean; tab_completion?: boolean };
   /** Creator mode (spec §3.10): cedia's runs get `--creator on`, so the agent may write and install
    * plugins of its own. Off unless the owner turns it on. */
