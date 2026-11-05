@@ -110,21 +110,34 @@
 	transition-timing-function: var(--cedian-ease-open, ease-out);
 }
 /* The focused block: its current tab's fill a step stronger than in the other blocks, so what is
-   selected shows without a line drawn around or over the block. One step: the selection tint
-   (--cedian-sel) everywhere else, the strong line tint (--cedian-line-strong) in the block that holds
-   focus; both are theme tokens, so light and dark each get theirs. */
+   selected shows without a line drawn around or over the block. Elsewhere the selection tint
+   (--cedian-sel); in the block that holds focus the text colour at 16%, which reads as one clear
+   step in dark as well as light (the line tint alone was too faint in dark). A block with one view
+   has no tabs, so its title takes the same fill as a pill while it holds focus. */
+.monaco-workbench {
+	--cedian-focus-fill: color-mix(in srgb, var(--cedian-text, var(--vscode-foreground)) 16%, transparent);
+}
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) {
 	--modern-ui-editor-tab-active-background: var(--cedian-sel, var(--vscode-modernEditorTab-activeBackground));
 	--modern-ui-editor-tab-unfocused-active-background: var(--cedian-sel, var(--vscode-modernEditorTab-activeBackground));
 }
-.monaco-workbench.modern-ui-tabs .part.editor:focus-within {
-	--modern-ui-editor-tab-active-background: var(--cedian-line-strong, var(--vscode-modernEditorTab-activeBackground));
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor:focus-within {
+	--modern-ui-editor-tab-active-background: var(--cedian-focus-fill);
 }
-.monaco-workbench.modern-ui-tabs .pane-composite-part:focus-within {
-	--modern-ui-tab-active-background: var(--cedian-line-strong, var(--vscode-modernTab-activeBackground));
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part:focus-within {
+	--modern-ui-tab-active-background: var(--cedian-focus-fill);
+}
+.monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part > .title > .title-label > h2 {
+	margin-left: -6px;
+	padding: 1px 6px;
+	border-radius: 6px;
+}
+.monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part:focus-within > .title > .title-label > h2 {
+	background-color: var(--cedian-focus-fill);
 }
 .monaco-workbench.monaco-enable-motion.modern-ui-tabs .part.editor .tabs-container > .tab > .tab-fill,
-.monaco-workbench.monaco-enable-motion.modern-ui-tabs .pane-composite-part .composite-bar .action-item > .active-item-indicator {
+.monaco-workbench.monaco-enable-motion.modern-ui-tabs .pane-composite-part .composite-bar .action-item > .active-item-indicator,
+.monaco-workbench.monaco-enable-motion .pane-composite-part > .title > .title-label > h2 {
 	transition: background-color var(--cedian-motion-focus) var(--cedian-ease-out);
 }
 
