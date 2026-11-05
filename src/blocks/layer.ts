@@ -12,6 +12,15 @@ import { arrange, fan, fit, GAP, place, PIP_SIZE, resized, settle, sideOf, step,
 /** The height of a floating block's header, where it is dragged from. */
 export const HEAD = 30;
 
+/**
+ * How far a card's shadow reaches past it (blocks.css: 0 12px 32px). A card opening or closing is
+ * clipped this much wider than itself, so its edge and shadow move with it instead of the card
+ * showing flat against the editor and its shadow popping in at the end.
+ */
+const SHADOW = 48;
+/** The whole card and its shadow. */
+const CARD = `inset(${-SHADOW}px ${-SHADOW}px ${-SHADOW}px ${-SHADOW}px round 12px)`;
+
 /** What the layer needs from the window around it. */
 export interface LayerHost {
   /** Puts a block of `kind` back in the editor area, showing `id` when it showed one (an agent's
@@ -211,7 +220,7 @@ export class BlockLayer {
     this.draw();
     // Opens from its header down, as a drawer: never scaled, never faded.
     if (!quiet && this.host.moving?.() && typeof node.animate === "function") {
-      node.animate([{ clipPath: `inset(0px 0px calc(100% - ${HEAD}px) 0px round 12px)` }, { clipPath: "inset(0px 0px 0px 0px round 12px)" }], opening);
+      node.animate([{ clipPath: `inset(${-SHADOW}px ${-SHADOW}px calc(100% - ${HEAD}px) ${-SHADOW}px round 12px)` }, { clipPath: CARD }], opening);
     }
     if (!quiet) this.changed();
   }
@@ -414,16 +423,15 @@ export class BlockLayer {
     node.style.pointerEvents = "none";
     const from = node.getBoundingClientRect();
     const at = node.style.transform || "none";
-    const whole = "inset(0px 0px 0px 0px round 12px)";
     const frames: Keyframe[] = to
       ? [
-          { transform: at, clipPath: whole },
+          { transform: at, clipPath: CARD },
           {
             transform: `translate(${Math.round(to.left - from.left)}px, ${Math.round(to.top - from.top)}px) ${at === "none" ? "" : at}`.trim(),
             clipPath: `inset(0px ${Math.max(0, Math.round(from.width - to.width))}px ${Math.max(0, Math.round(from.height - to.height))}px 0px round 12px)`,
           },
         ]
-      : [{ clipPath: whole }, { clipPath: "inset(0px 0px 100% 0px round 12px)" }];
+      : [{ clipPath: CARD }, { clipPath: `inset(${-SHADOW}px ${-SHADOW}px calc(100% + ${SHADOW}px) ${-SHADOW}px round 12px)` }];
     const run = node.animate(frames, { ...closing, fill: "forwards" });
     run.onfinish = gone;
     run.oncancel = gone;
