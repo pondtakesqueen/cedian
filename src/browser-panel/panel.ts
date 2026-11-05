@@ -37,6 +37,8 @@ export interface BrowserHost {
 
 /** How long a dev server has to answer after it starts before the block stops trying. */
 const DEV_SERVER_WAIT_MS = 30_000;
+/** How long a block's size has to hold still before the page is laid out at it. */
+const RESIZE_SETTLE_MS = 100;
 /** The phone width the block can lay a page out at, as the prototype's mobile switch. */
 export const PHONE_WIDTH = 390;
 
@@ -58,6 +60,7 @@ export class BrowserPanel implements Block {
   private readonly banner: HTMLElement;
   private readonly stage: HTMLElement;
   private screen: HTMLImageElement;
+  private settling: ReturnType<typeof setTimeout> | undefined;
   /** The newest frame handed to the screen; an older one that decodes after it is dropped. */
   private frames = 0;
   private readonly overlay: HTMLElement;
@@ -212,7 +215,10 @@ export class BrowserPanel implements Block {
   layout(width: number, height: number): void {
     this.root.style.width = `${width}px`;
     this.root.style.height = `${height}px`;
-    this.fit();
+    // While the block is being resized the page keeps its size and the last frame stays still;
+    // once the sizes stop coming the page is laid out once, at the size the block ended at.
+    clearTimeout(this.settling);
+    this.settling = setTimeout(() => this.fit(), RESIZE_SETTLE_MS);
   }
 
   focus(): void {
@@ -222,6 +228,7 @@ export class BrowserPanel implements Block {
 
   dispose(): void {
     this.disposed = true;
+    clearTimeout(this.settling);
     for (const off of this.offs) off();
     this.session?.dispose();
     this.session = undefined;

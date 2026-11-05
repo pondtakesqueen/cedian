@@ -8,8 +8,10 @@ import { BrowserPanel, type BrowserHost } from "./panel.js";
 class FakeSocket implements Socket {
   readyState = 1;
   private readonly onMessage: ((e: { data: unknown }) => void)[] = [];
+  readonly sent: { method: string; params?: { width?: number } }[] = [];
   send(data: string): void {
-    const { id } = JSON.parse(data) as { id: number };
+    const { id, method, params } = JSON.parse(data) as { id: number; method: string; params?: { width?: number } };
+    this.sent.push({ method, params });
     queueMicrotask(() => this.emit({ id, result: {} }));
   }
   close(): void {}
@@ -65,5 +67,23 @@ test("a screencast frame is shown at its own size, swapped in whole once decoded
   expect(shown[0]!.style.width).toBe("400px");
   expect(shown[0]!.style.height).toBe("200px");
   expect(shown[0]!.getAttribute("src")).toBe("data:image/jpeg;base64,AA==");
+  panel.dispose();
+});
+
+test("a block being resized lays the page out once, when its size holds still", async () => {
+  const { panel, socket } = open();
+  await new Promise((r) => setTimeout(r, 20));
+  const metrics = () => socket.sent.filter((c) => c.method === "Emulation.setDeviceMetricsOverride").map((c) => c.params?.width);
+  const before = metrics().length;
+  let width = 500;
+  vi.spyOn(panel.root.querySelector(".stage")!, "getBoundingClientRect").mockImplementation(() => ({ width, height: 300 }) as DOMRect);
+  for (const w of [500, 520, 540, 560, 580, 600]) {
+    width = w;
+    panel.layout(w, 400);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  expect(metrics().length).toBe(before);
+  await new Promise((r) => setTimeout(r, 150));
+  expect(metrics().slice(before)).toEqual([600]);
   panel.dispose();
 });

@@ -122,8 +122,16 @@ describe("resizing the page", () => {
     await settle();
     await Promise.all(done);
     expect(calls.filter((c) => c.startsWith("Emulation.setDeviceMetricsOverride"))).toEqual(["Emulation.setDeviceMetricsOverride 400", "Emulation.setDeviceMetricsOverride 440"]);
-    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(2);
+    // The screencast starts once, after the last size, not once per size.
+    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(1);
+    expect(calls).not.toContain("Page.stopScreencast");
     await session.resize(440, 300, 2);
     expect(calls.filter((c) => c.startsWith("Emulation"))).toHaveLength(2);
+    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(1);
+    // A later size restarts it once, so a page that doesn't change still sends a frame at it.
+    const later = session.resize(480, 300, 2);
+    await settle();
+    await later;
+    expect(calls.slice(-3)).toEqual(["Emulation.setDeviceMetricsOverride 480", "Page.stopScreencast", "Page.startScreencast"]);
   });
 });
