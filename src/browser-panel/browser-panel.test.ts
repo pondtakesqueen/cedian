@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { devServers } from "./launch.js";
-import { imageName, keyParams, loadError, modifiersOf, PageSession, type PickedElement } from "./session.js";
-import { addressOf, allowSite, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
+import { imageName, loadError, PageSession, type PickedElement } from "./session.js";
+import { addressOf, allowSite, bannerOf, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
 
 describe("the site allowlist (spec §6.3)", () => {
+  test("the safety banner: none off the web, off with the host to allow, on with what the agent may open", () => {
+    const sites = ["docs.example.com"];
+    expect(bannerOf("about:blank", sites)).toEqual({ kind: "none" });
+    expect(bannerOf("file:///etc/passwd", sites)).toEqual({ kind: "none" });
+    expect(bannerOf("https://x.com/a", sites)).toEqual({ kind: "off", host: "x.com" });
+    expect(bannerOf("http://localhost:5173/", sites)).toEqual({ kind: "on", host: "localhost", open: "localhost, docs.example.com", removable: false });
+    expect(bannerOf("https://docs.example.com/b", sites)).toEqual({ kind: "on", host: "docs.example.com", open: "localhost, docs.example.com", removable: true });
+  });
   const root = "/Users/pond/app";
   const desktop = { browser_sites: { "Users-pond-app": ["docs.example.com"], "Users-pond-other": ["x.com"] } };
   test("localhost and a blank page need no approval; other sites only once added", () => {
@@ -66,20 +74,7 @@ describe("dev servers (launch.json)", () => {
   });
 });
 
-describe("input and errors", () => {
-  const key = (k: Partial<Parameters<typeof keyParams>[1]>) => ({ key: "a", code: "KeyA", keyCode: 65, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...k });
-  test("a printable key types its text; Enter types a return; others are raw", () => {
-    expect(keyParams("keyDown", key({}))).toMatchObject({ type: "keyDown", text: "a" });
-    expect(keyParams("keyDown", key({ key: "Enter", code: "Enter", keyCode: 13 }))).toMatchObject({ type: "keyDown", text: "\r" });
-    expect(keyParams("keyDown", key({ key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 }))).toMatchObject({ type: "rawKeyDown" });
-    expect(keyParams("keyUp", key({}))).not.toHaveProperty("text");
-  });
-  test("Cmd+A selects all on macOS, Ctrl+A elsewhere", () => {
-    expect(keyParams("keyDown", key({ metaKey: true }), true)).toMatchObject({ type: "rawKeyDown", commands: ["selectAll"], modifiers: 4 });
-    expect(keyParams("keyDown", key({ ctrlKey: true }), false)).toMatchObject({ commands: ["selectAll"], modifiers: 2 });
-    expect(keyParams("keyDown", key({ ctrlKey: true }), true)).not.toHaveProperty("commands");
-    expect(modifiersOf({ altKey: true, ctrlKey: false, metaKey: true, shiftKey: true })).toBe(13);
-  });
+describe("load errors", () => {
   test("spec §8: the network and timeouts are notifications; other failures stay in the block", () => {
     expect(loadError("net::ERR_INTERNET_DISCONNECTED")).toEqual({ message: "the network went away", transient: true });
     expect(loadError("net::ERR_CONNECTION_TIMED_OUT")).toEqual({ message: "the connection timed out", transient: true });
@@ -98,40 +93,57 @@ describe("the picked element's picture", () => {
   });
 });
 
-describe("resizing the page", () => {
-  test("a drag's many sizes reach Chromium as the first and the latest, one at a time", async () => {
+describe("watching a page Electron draws (the native view)", () => {
+  test("turns on what the block reads, with no screencast and no size of its own", async () => {
     const calls: string[] = [];
-    const waiting: (() => void)[] = [];
     const cdp = {
       on: () => () => {},
       onClose: () => () => {},
-      call: (method: string, params?: { width?: number }) => {
-        calls.push(params?.width ? `${method} ${params.width}` : method);
-        return new Promise<unknown>((done) => waiting.push(() => done({})));
+      call: (method: string) => {
+        calls.push(method);
+        if (method === "Page.getFrameTree") return Promise.resolve({ frameTree: { frame: { id: "f", url: "http://localhost:3000/" } } });
+        if (method === "Page.getNavigationHistory") return Promise.resolve({ currentIndex: 0, entries: [{ id: 1, url: "http://localhost:3000/", title: "App" }] });
+        return Promise.resolve({});
       },
     };
     const session = new PageSession(cdp as unknown as ConstructorParameters<typeof PageSession>[0]);
-    const done = [400, 410, 420, 430, 440].map((w) => session.resize(w, 300, 2));
-    const settle = async () => {
-      for (let i = 0; i < 20 && waiting.length; i++) {
-        waiting.shift()!();
-        await Promise.resolve();
-        await Promise.resolve();
-      }
+    await session.watch();
+    expect(calls).toEqual(expect.arrayContaining(["Page.enable", "Runtime.enable", "Log.enable", "Overlay.enable"]));
+    expect(calls.some((c) => c.startsWith("Emulation") || c.includes("Screencast"))).toBe(false);
+    expect(session.view).toMatchObject({ url: "http://localhost:3000/", load: "loaded", title: "App" });
+  });
+});
+
+describe("element selection on the native view", () => {
+  test("Chromium's inspect mode picks; the pick is described and inspect mode ends", async () => {
+    const calls: string[] = [];
+    const handlers = new Map<string, (p: any) => void>();
+    const cdp = {
+      on: (event: string, h: (p: any) => void) => {
+        handlers.set(event, h);
+        return () => {};
+      },
+      onClose: () => () => {},
+      call: (method: string, params?: { mode?: string }) => {
+        calls.push(params?.mode ? `${method} ${params.mode}` : method);
+        if (method === "DOM.resolveNode") return Promise.resolve({ object: { objectId: "o" } });
+        if (method === "Runtime.callFunctionOn") return Promise.resolve({ result: { value: { selector: "main > button#go", tag: "button", text: "Go", html: "<button id=go>Go</button>", styles: {}, box: { x: 0, y: 0, width: 0, height: 0 } } } });
+        return Promise.resolve({});
+      },
     };
-    await settle();
-    await Promise.all(done);
-    expect(calls.filter((c) => c.startsWith("Emulation.setDeviceMetricsOverride"))).toEqual(["Emulation.setDeviceMetricsOverride 400", "Emulation.setDeviceMetricsOverride 440"]);
-    // The screencast starts once, after the last size, not once per size.
-    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(1);
-    expect(calls).not.toContain("Page.stopScreencast");
-    await session.resize(440, 300, 2);
-    expect(calls.filter((c) => c.startsWith("Emulation"))).toHaveLength(2);
-    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(1);
-    // A later size restarts it once, so a page that doesn't change still sends a frame at it.
-    const later = session.resize(480, 300, 2);
-    await settle();
-    await later;
-    expect(calls.slice(-3)).toEqual(["Emulation.setDeviceMetricsOverride 480", "Page.stopScreencast", "Page.startScreencast"]);
+    const session = new PageSession(cdp as unknown as ConstructorParameters<typeof PageSession>[0]);
+    const picks: PickedElement[] = [];
+    session.onPicked((p) => picks.push(p));
+    await session.inspect();
+    expect(session.view.pick).toBe("inspecting");
+    handlers.get("Overlay.inspectNodeRequested")!({ backendNodeId: 7 });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(picks.map((p) => p.selector)).toEqual(["main > button#go"]);
+    expect(calls).toEqual(["Overlay.setInspectMode searchForNode", "Overlay.setInspectMode none", "DOM.resolveNode", "Runtime.callFunctionOn", "Runtime.releaseObject"]);
+    expect(session.view.pick).toBe("idle");
+    // Escape in the page cancels it: Chromium says so, and the block shows it off.
+    await session.inspect();
+    handlers.get("Overlay.inspectModeCanceled")!({});
+    expect(session.view.pick).toBe("idle");
   });
 });

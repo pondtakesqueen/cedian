@@ -43,7 +43,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 │  └─────────────────────────────────────────────┘    │
 │  ┌─────────────────────────────────────────────┐    │
 │  │  Cedian daemon (Rust, separate process)      │    │
-│  │  - worktree, git, browser (Chromium),        │    │
+│  │  - worktree, git, browser CDP bridge,         │    │
 │  │  - settings, snapshots, indexing,            │    │
 │  │  - Roots UI, multi-repo workspace            │    │
 │  └─────────────────────────────────────────────┘    │
@@ -74,7 +74,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 - **Blocks**: native GPUI → Tern-style blocks (drag/zoom/park/PiP) via VS Code workbench fork (TS/CSS, native DOM)
 - **Editor**: Zed's editor → the fork's own VS Code editor (built in, not a separate Monaco)
 - **Terminal**: Zed's terminal → VS Code's xterm.js (built-in)
-- **Browser**: screencast → daemon-owned Chromium (bundled), screencast into VS Code panel (not VS Code integrated browser)
+- **Browser**: screencast → VS Code's native browser view (a WebContentsView Electron draws in the block; decided 2026-11-05, replacing the daemon's headless Chromium and its screencast), with Cedian's tools on it and the daemon's CDP bridge for the agent (§6.3)
 - **Thai text**: ICU4X → browser native (Chromium ICU line breaking + CSS font fallback; no ICU4X/Intl.Segmenter needed)
 - **Theme**: Zed tokens → VS Code theme + Cedian tokens
 - **Cross-platform**: macOS only → macOS 26 (Tahoe) only for v1 (Windows/Linux later)
@@ -101,7 +101,7 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | Git actions (pull, push, branch, commit, PR) | VS Code source control for pull/push/branch; `cedia commit` / `cedia pr` from the receipt card |
 | Empty states | Every block has one: what it will show and one action to start (Phase B) |
 | PR monitoring (Auto-fix, Merge when ready) | Daemon + gh CLI |
-| Browser pane (tabbed, element selection, safety) | daemon Chromium (bundled) screencast into panel + CDP (agent drives) |
+| Browser pane (element selection, safety) | VS Code's native browser view + CDP through the daemon's bridge (agent drives) |
 | Terminal (integrated, xterm.js) | VS Code terminal |
 | File editor (open/edit/save) | VS Code editor (of the fork) |
 | View modes (Normal/Thinking/Verbose) | Agent pane view modes |
@@ -143,10 +143,10 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 | Fan (deck of PiPs) | CSS fan |
 | Tear-off (new window) | Electron BrowserWindow |
 | Debugger (DAP) | VS Code debugger (DAP) |
-| Native webview (sharp browser) | daemon Chromium (bundled) screencast into panel |
+| Native webview (sharp browser) | VS Code's native browser view (WebContentsView) |
 | Grab Element (agent context) | CDP DOM.inspect |
 | Worktree-first | Daemon (worktree per thread) |
-| No flicker (resize) | Chromium native (no screencast) |
+| No flicker (resize) | native view, laid out in the resize's frame (no screencast) |
 | Open files on restart | VS Code (restores tabs) |
 | Themes (Ghostty/Warp) | VS Code themes + Cedian tokens |
 | Markdown (Mermaid, PDF export) | VS Code markdown preview |
@@ -161,11 +161,11 @@ Cedian is an **agentic IDE** built on a VS Code fork, with cedia as the AI agent
 
 | Feature | Cedian implementation |
 |---------|----------------------|
-| Native child webview (sharp) | daemon Chromium (bundled) screencast into panel |
+| Native child webview (sharp) | VS Code's native browser view (WebContentsView) |
 | Element selection + viewport capture | CDP DOM.inspect + captureScreenshot |
 | Resource limits (no polling, lazy load) | VS Code (lazy loading) |
 | No transitions (everything at once) | VS Code (instant render) |
-| Ephemeral browser history | daemon Chromium (ephemeral profile) |
+| Ephemeral browser history | native view's browser session |
 | App menus hide guest view | VS Code (native) |
 
 ### 3.5 From Claude Projects (claude.ai/code)
@@ -283,11 +283,11 @@ with window mirrors in `src/artifacts/` (gating/preview only):
   read-only.
 - **Render:** artifact opens as a block beside the agent pane (Electron/VS Code
   split, not a separate window); Docs → markdown preview + VS Code editor;
-  Code/Website → editor + daemon-Chromium preview (bundled `chrome-headless-shell`,
+  Code/Website → editor + native browser view preview (
   same pane as §6.3); Slides/Design → editor + preview (canvas drag is Phase C,
-  user-confirmed, not in v1); Dashboard → `copy`/`download` + Chromium preview
+  user-confirmed, not in v1); Dashboard → `copy`/`download` + native view preview
   when the content is static HTML (no live per-viewer queries in v1);
-  Motion → Chromium preview of the HTML animation only (no timeline editor,
+  Motion → native view preview of the HTML animation only (no timeline editor,
   no MP4 render in v1).
   Capability maps to `desktop.artifacts.enabled` (default true); cedia's
   thread/session files stay append-only and cedia's to write.
@@ -311,7 +311,7 @@ with window mirrors in `src/artifacts/` (gating/preview only):
    execution, no private-URL live pages that update mid-session.
 2. No Google handoff: Word/PDF/Markdown via VS Code; no "open in Google Docs /
    Slides as editable", no Design ".zip → other tool" push, no MP4 export.
-3. Templates: Docs/Slides/Design fully local; Dashboard stored with Chromium
+3. Templates: Docs/Slides/Design fully local; Dashboard stored with native-view
    preview for static HTML (live per-viewer queries deferred); Motion stored
    with HTML-animation preview only (timeline editor + MP4 deferred).
 4. No shared storage, publish, or sharing links: personal-only, 20 MB
@@ -356,7 +356,7 @@ anything needing a second person, a cloud run, or an external SaaS stays out
 - **Edit with your team — no:** private by default and stays private; no
   viewers/editors roles, no in-org or public links, no audit log.
 - **Export it — partial:** Markdown/PDF/standalone-HTML/PNG/copy/download via
-  VS Code + bundled Chromium. No PowerPoint/Google Slides editable handoff,
+  VS Code + its native browser view. No PowerPoint/Google Slides editable handoff,
   no .zip-to-tool push, no MP4 in v1.
 - **Pass it on — no push:** no send-to-tools integration; handoff is a local
   file the owner moves. Always-on Mac covers scheduled refresh
@@ -429,7 +429,7 @@ stay deferred (§12 G13).
   inline error names which. Project-level `enableArtifact` never re-enables;
   cedian ignores project-level settings (single source `~/.cedia/settings.json`).
   Canvas drag (Phase C) gets its own perf gate; exempt from the 10k-block scroll
-  budget until measured. Local Chromium preview enforces the viewer CSP from
+  budget until measured. The local native-view preview enforces the viewer CSP from
   Phase B (CDN allowlist, data-URI images, no external network). Scheduled
   dashboard refresh publishes a new version per refresh; daemon keeps the newest
   20, prunes older.
@@ -671,15 +671,16 @@ draft → open → (edited | fixing | forked) → pinned → closed
 - Electron IPC: window-local only (renderer↔main); not used for daemon communication
 - Tauri: not used
 
-### 6.3 Browser (Chromium/CDP)
+### 6.3 Browser (native view + CDP bridge; decided 2026-11-05)
 
-- daemon Chromium (bundled) screencast into panel for browser pane
-- Idle cost: a Browser block sends no frames while it can't be seen (another editor tab in front, stashed, window hidden); the page keeps running for the agent. With no block open in any window and no run going for 5 minutes, the daemon quits Chromium (its tabs go, the profile stays) and the next block starts it again
-- CDP for agent-driven browser (read/click/type/navigate)
-- Element selection via CDP DOM.inspect
+- The Browser block is VS Code's own browser editor (`workbench/contrib/browserView`): a WebContentsView Electron draws in the block, laid out in the same frame as a resize. One per window: the Browser tool, Open Browser and Cmd+Shift+B reveal it, else open one. Cedian's tools sit on it (`vscode/contrib/cedian/electron-browser/`): the safety banner under the address, element select and Dev servers beside it, the console strip under the page. It replaced the daemon's headless Chromium and its screencast, which flickered and lagged on every resize (a frame round trip) and cost about ten times the CPU.
+- The page lives in the window, an exception to "the daemon owns all state": the daemon keeps the project's allowlist and the runs, the window the live page. A run gets the browser only while a window holds the project's page (the same as Claude Desktop, whose agent reaches its own native view through the app).
+- Agent: the daemon's CDP bridge (`cedian_daemon::native_browser`). While a window holds a native page (`Request::BrowserNative`) the project's runs get `--browser ws://127.0.0.1:<port>/devtools/page/<random id>`; each message is relayed to that window (`Notice::BrowserCdp*`, `Request::BrowserCdp`), which speaks to the page through `IBrowserViewCDPService` (`src/browser-panel/relay.ts`, page-level domains only: Page, Runtime, Log, Fetch, Input, DOM, Network, Emulation, Overlay, Accessibility). No debugging port is opened on the app.
+- Element selection: Chromium's inspect mode on the page (`Overlay.setInspectMode`); the element (selector, text, HTML, styles, a picture) goes to the composer
 - Screenshot via Page.captureScreenshot
-- Console: the page's console messages and errors in the browser panel (CDP `Runtime.consoleAPICalled`, `Runtime.exceptionThrown`)
-- External sites: per-project allowlist only (localhost by default; owner adds each site); no classifier (§3.7)
+- Console: the page's console messages and errors in the strip under it (CDP `Runtime.consoleAPICalled`, `Runtime.exceptionThrown`, `Log.entryAdded`); an error or warning attaches to the composer
+- Floating: the page floats over the window as a block (§3.3 PiP); while the block moves, or a menu, the palette or a notification covers it, a still picture of the page stands in for it, and the live page returns where the block rests
+- External sites: per-project allowlist only (localhost by default; owner adds each site); no classifier (§3.7). The person goes anywhere; the banner says whether the agent may use the page, with Allow and Remove. The agent keeps to the list through cedia's `--browser-sites` (its Fetch interception holds through the bridge)
 - Dev servers from `.cedia/launch.json`, else `.claude/launch.json` (`Dev servers` menu; localhost needs no approval)
 - Allowlist entries revocable in Settings
 
@@ -726,7 +727,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
 | `Cmd+W` | Close session |
 | `Ctrl+Tab` | Next/previous session |
 | `Cmd+Shift+D` | Toggle diff pane |
-| `Cmd+Shift+B` | Toggle Browser pane |
+| `Cmd+Shift+B` | Open the Browser (the native view; shows it if open) |
 | `Cmd+Shift+S` | Select element in Browser |
 | `Ctrl+`` ` | Toggle terminal |
 | `Cmd+\` | Close focused pane |
@@ -812,7 +813,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
 - **Who runs threads** (decided 2026-10-28): the cedian daemon starts queued threads and fires due schedules on a Mac where cedian runs; it holds a lock that `cedia daemon` checks and yields to, so no thread starts twice. `cedia daemon` (or cron) runs them only where cedian does not.
 - **Models/effort**: coordinator (project chat) and threads may use different model+effort (Claude Projects pattern); defaults Opus/high for threads, lower for coordinator. Set per-project in desktop key.
 - **Agent is the only agent**: cedia owns MCP; VS Code MCP client disabled (avoids duplicate tool surfaces; cedia permission/sandbox covers MCP tools).
-- **Browser**: in-app Chromium (daemon-owned, bundled chrome-headless-shell) + CDP; screencast into VS Code panel. Not VS Code integrated browser. One browser per workspace, shared by person + agent. cedia owns site policy; Cedian adds per-project allowlist (desktop.browser), localhost by default; no classifier.
+- **Browser** (revised 2026-11-05): VS Code's native browser view in the window + the daemon's CDP bridge for the agent (§6.3); the daemon-owned headless Chromium and its screencast are gone. One page per window, shared by person + agent. cedia owns site policy; Cedian adds per-project allowlist (desktop.browser), localhost by default; no classifier.
 - **Debugger**: Full DAP (VS Code-level).
 - **Computer use**: later (macOS 26 Accessibility / Cua Spaces / Cua Driver, research preview). Core implementation must be Cedian-owned and MIT-clean; only MIT-compatible dependencies allowed.
 - **Remote access**: later (protocol ready, client later).
@@ -832,7 +833,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
   | Review | `cedian_review` (hunks vs first snapshot) | diff UI via VS Code diff editor |
   | Artifacts | `cedian_artifact` (trigger, kind, versions, 20 MB store) + daemon record files (§5.4) | `src/artifacts/` (kinds, policy gating, pane render) |
   | Layout | block trees in `desktop.layout` (daemon persists) | `src/blocks/` (drag/zoom/park/PiP) |
-  | Browser | `cedian_daemon` (Chromium process, CDP) | `src/browser-panel/` (screencast view) |
+  | Browser | `cedian_daemon` (CDP bridge to the window's page, `native_browser`) | VS Code's native view + `src/browser-panel/` (relay, page reader, sites) |
   | Settings | `cedian_daemon` (atomic `desktop`-key writes) | `src/settings/` (settings window) |
 
   Rule of thumb: if the window can be killed and rebuilt from it, it lives in
@@ -899,7 +900,7 @@ This section is the roadmap; `docs/ARCHITECTURE.md` keeps the GPUI-era phases as
 | 0 Settle | Spec conflicts closed (Q1–Q12 + review, 2026-10-28); roadmap here; stray draft text removed | SPEC: workspace key, daemon lock, repo name; leaked-source references removed and audited | No open conflict between the two specs; `docs/READINESS.md` updated |
 | A Window | Vendor VS Code 1.143.1 per `docs/VENDORING.md` steps 1–4; bump cedia pin, one schema, TS types generated from it; daemon folds stream-json in `cedian_agent` and sends structured events over `cedian_wire`; agent pane replays cedia's fixtures; measure stock VS Code budgets (§9) | — | Cedian.app opens on macOS 26 and renders a fixture; `cargo test --workspace`, vitest and the Playwright smoke green; license scan green; budgets recorded |
 | B One live thread | Daemon IPC over `daemon.sock` (prompt, send, stop, reconcile, worktree, keep-awake); composer (queue, Send now, `@`, `/`, images); review via VS Code diff editor + `cedian_review`; receipt card with Commit / open PR (`cedia commit`, `cedia pr`); settings window (atomic `desktop` writes, generated read-only VS Code settings, Models/MCP/Roots); Warm & Lime theme + `--cedian-*`, Thai line-height ≥1.6, keybinding layer; view modes, context meter, thread details; permission picker (cedia's four modes); ask card, todo checklist; inline edit (Cmd+K) as a diff in the editor; worktree setup from `.cedia/launch.json` (`worktree.setup`, thread starts after it unless the policy says at once; `worktree.archive` before removal), created in the background with progress and Retry, `.worktreeinclude` copied with `clonefile(2)`; receipt card "Fix in this thread" on a failed commit hook; `desktop.keepAwake` always / working / off (§3.8) | Daemon lock that `cedia daemon` yields to; images on `threads send` and `threads fork`; inline-edit command (selection + instruction → diff) | Delegate a task into a worktree, quit and reopen with the thread intact, review and accept; kill the daemon and the thread rebuilds from cedia's files |
-| C Parallel | Project chat (⌘0) + coordinator cards; sidebar groups by state; badges (tab, sidebar, Dock); roots per project (primary root fixed); browser (daemon Chromium + CDP + screencast, element select, allowlist, Dev servers); blocks at full Tern parity (split, drag, zoom, park, PiP, tear-off, fan, stash, named layouts in `desktop.layout`); artifacts IPC; side chat; schedules; usage page; archive lifecycle; MCP card; thread card shows the in-progress `todo` step (else the last assistant line) and Mark unread; schedule precheck (non-zero exit skips the run, Run now bypasses it, history shows the skip) in the daemon; element select attaches computed styles and the source-map `file:line` (§3.8) | Multi-repo: `--thread` runs in the thread's root, memory and schedules keyed by the primary root's slug, extra read-only roots; `Artifact` tool + `enableArtifact`; write to project files | Three threads at once across two repos from one project chat; memory measured; scroll 10k blocks @60fps |
+| C Parallel | Project chat (⌘0) + coordinator cards; sidebar groups by state; badges (tab, sidebar, Dock); roots per project (primary root fixed); browser (native view + daemon CDP bridge, element select, allowlist, Dev servers); blocks at full Tern parity (split, drag, zoom, park, PiP, tear-off, fan, stash, named layouts in `desktop.layout`); artifacts IPC; side chat; schedules; usage page; archive lifecycle; MCP card; thread card shows the in-progress `todo` step (else the last assistant line) and Mark unread; schedule precheck (non-zero exit skips the run, Run now bypasses it, history shows the skip) in the daemon; element select attaches computed styles and the source-map `file:line` (§3.8) | Multi-repo: `--thread` runs in the thread's root, memory and schedules keyed by the primary root's slug, extra read-only roots; `Artifact` tool + `enableArtifact`; write to project files | Three threads at once across two repos from one project chat; memory measured; scroll 10k blocks @60fps |
 | D Media, depth | Images and video in threads; line comments on diffs (anchored by hunk context so they follow edits, open/resolved after the next run, unresolved ones sent as one batch; §3.8); `/code-review` card; git pane; pop-out panes; Help → Check for updates; tab completion (ghost text) with a measured latency budget; §13 gates (a11y, Thai, 3 error levels, telemetry off, legal review) | Completion command (fill-in-the-middle on a fast cheap model); prompt images route, video frames | The agent fixes a bug shown in a screen recording |
 | Later | Remote, SSH/WSL, computer use (`COMPUTER_USE_SPEC.md`), auto-update | | |
 
@@ -928,7 +929,7 @@ Reviewed against the Claude Desktop, Cursor and Tern notes (kept outside this re
 | MCP | cloud connectors | yes | cedia mcp (local) | ⚠️ local only (by design) |
 | Background agents | cloud | cloud | local background tasks | ⚠️ local only (by design) |
 | Tab completion | no | yes (proprietary) | v1 via cedia completion (G4) | ✅ planned (Phase D) |
-| Browser (in-app Chromium) | yes (+ Claude in Chrome) | ? | daemon Chromium + CDP | ✅ (shared page) |
+| Browser (in-app, native) | yes (+ Claude in Chrome) | ? | native view + CDP bridge | ✅ (shared page) |
 | Element selection | yes | ? | CDP DOM.inspect | ✅ |
 | Diff view | yes | unified/split | VS Code diff + shadow git | ✅ |
 | PR monitoring | yes | yes | daemon + gh CLI | ✅ |
@@ -1034,7 +1035,7 @@ Consolidated checklist; details in referenced sections.
 - [ ] **License** (§9): VS Code MIT notice in LICENSE/NOTICE; legal review before ship; permissive-only dependency scan; Apache-2.0 NOTICEs kept; THIRD_PARTY_NOTICES updated.
 - [ ] **Settings** (§5, §9): single source ~/.cedia/settings.json; VS Code settings UI disabled; Cedian settings window writes desktop key atomically.
 - [ ] **Blocks** (§9, §11): full Tern parity (split/drag/zoom/park/PiP/tear-off/named layouts/overview/fold) working at 720–1440px, both themes, no leak.
-- [ ] **Browser** (§9): daemon Chromium + CDP + screencast; element selection + capture; per-project allowlist; safety banner.
+- [ ] **Browser** (§9): native view + CDP bridge; element selection + capture; per-project allowlist; safety banner.
 - [ ] **Multi-repo** (§3.5, §11): roots add/remove/validate; one thread per root; coordinator cards; auto-archive.
 - [ ] **Code-tab behaviors** (§3.7): suggestions accept/toggle, cedia's four permission modes, preview servers + auto-verify, site allowlist, diff comments + review card, session cards, file-pane save semantics, /context + compact, side-chat discard, archive lifecycle, worktree settings. Unit-test pure rules; E2E smoke covers panes.
 - [ ] **Artifacts** (§3.6, §4.5, §5.4, §8.6): `cargo test -p cedian_artifact` +

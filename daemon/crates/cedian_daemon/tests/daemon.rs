@@ -2449,56 +2449,14 @@ fn a_cedia_without_inline_edit_or_completion_answers_the_ask_with_why() {
     ));
 }
 
-/// A real Chromium for the browser tests: `CEDIAN_CHROMIUM`, else Playwright's in the cloud.
-fn chromium() -> Option<String> {
-    std::env::var("CEDIAN_CHROMIUM").ok().or_else(|| {
-        Path::new("/opt/pw-browsers/chromium")
-            .exists()
-            .then(|| "/opt/pw-browsers/chromium".to_owned())
-    })
-}
-
 #[test]
-fn a_run_drives_the_active_tab_and_keeps_to_the_project_s_sites() {
-    let Some(bin) = chromium() else { return };
-    let harness = start_with_env(
-        "edit-and-check",
-        "\"browser\",\"browser.sites\"",
-        [("CEDIAN_CHROMIUM", bin)],
-    );
-    let slug = cedian_index::project_key(&harness.cwd);
-    std::fs::create_dir_all(&harness.home).expect("home");
-    std::fs::write(
-        harness.home.join("settings.json"),
-        serde_json::json!({ "desktop": { "browser_sites": { slug: ["Docs.Example.com"] } } })
-            .to_string(),
-    )
-    .expect("settings");
+fn a_run_drives_the_native_page_a_window_holds_through_the_bridge() {
+    let harness = start_with("edit-and-check", "\"browser\"");
     let mut window = Window::connect(&harness);
-    let mut other = Window::connect(&harness);
-    window.ask(Request::Browser {
+    window.ask(Request::BrowserNative {
         cwd: harness.cwd.clone(),
-        tab: None,
+        open: true,
     });
-    let page = |seen: &[Notice]| match seen.last() {
-        Some(Notice::Browser { page: Ok(page), .. }) => page.clone(),
-        other => panic!("{other:?}"),
-    };
-    let (_, seen) = window.until(|n| matches!(n, Notice::Browser { .. }));
-    let first = page(&seen);
-    assert_eq!(first.tabs.len(), 1);
-    window.ask(Request::Browser {
-        cwd: harness.cwd.clone(),
-        tab: Some(cedian_wire::BrowserTabAction::Open { url: None }),
-    });
-    let (_, seen) =
-        window.until(|n| matches!(n, Notice::Browser { page: Ok(p), .. } if p.tabs.len() == 2));
-    let second = page(&seen);
-    assert_eq!(second.socket, second.tabs[1].socket);
-    // Another window hears of the tab it did not open.
-    let (_, seen) =
-        other.until(|n| matches!(n, Notice::Browser { page: Ok(p), .. } if p.tabs.len() == 2));
-    assert_eq!(page(&seen), second);
     window.ask(Request::Prompt {
         cwd: harness.cwd.clone(),
         text: "look at the page".into(),
@@ -2513,21 +2471,48 @@ fn a_run_drives_the_active_tab_and_keeps_to_the_project_s_sites() {
     });
     window.until(status_is(Status::Done));
     let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
-    let args: Vec<&str> = args.lines().collect();
-    assert!(
-        args.windows(2)
-            .any(|w| w == ["--browser", second.socket.as_str()]),
-        "{args:?}"
+    let url = args
+        .lines()
+        .skip_while(|line| *line != "--browser")
+        .nth(1)
+        .expect("--browser")
+        .to_owned();
+    assert!(url.starts_with("ws://127.0.0.1:"), "{url}");
+    // cedia's side: what it sends reaches the window, and the window's answer reaches it.
+    let (mut cedia, _) = tungstenite::connect(url.as_str()).expect("bridge");
+    cedia
+        .send(tungstenite::Message::Text(
+            r#"{"id":1,"method":"Page.enable"}"#.into(),
+        ))
+        .expect("send");
+    let (_, seen) = window.until(|n| matches!(n, Notice::BrowserCdp { .. }));
+    let conn = seen
+        .iter()
+        .find_map(|n| match n {
+            Notice::BrowserCdpOpen { conn, cwd } if *cwd == harness.cwd => Some(*conn),
+            _ => None,
+        })
+        .expect("opened");
+    assert!(seen.iter().any(|n| matches!(n,
+        Notice::BrowserCdp { conn: c, data } if *c == conn && data.contains("Page.enable"))));
+    window.ask(Request::BrowserCdp {
+        conn,
+        data: Some(r#"{"id":1,"result":{}}"#.into()),
+    });
+    assert_eq!(
+        cedia.read().expect("answer"),
+        tungstenite::Message::Text(r#"{"id":1,"result":{}}"#.into())
     );
-    assert!(
-        args.windows(2)
-            .any(|w| w == ["--browser-sites", "docs.example.com"]),
-        "{args:?}"
-    );
-    let _ = std::process::Command::new("pkill")
-        .arg("-f")
-        .arg(harness._dir.path().join("state").display().to_string())
-        .status();
+    // The page goes: cedia's socket closes. A wrong path is refused.
+    window.ask(Request::BrowserCdp { conn, data: None });
+    assert!(matches!(
+        cedia.read(),
+        Ok(tungstenite::Message::Close(_)) | Err(_)
+    ));
+    let wrong = url
+        .rsplit_once('/')
+        .map(|(base, _)| format!("{base}/{}", "0".repeat(32)));
+    assert!(tungstenite::connect(wrong.expect("base").as_str()).is_err());
 }
 
 #[test]

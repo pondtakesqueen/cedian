@@ -284,115 +284,6 @@
         }
       ]
     },
-    "BrowserPage": {
-      "description": "A project's pages in the shared Chromium the daemon runs: the tabs the Browser block shows, and the active one, which the project's runs get with cedia's `--browser`.",
-      "properties": {
-        "endpoint": {
-          "description": "The browser's DevTools endpoint, `http://127.0.0.1:<port>`.",
-          "type": "string"
-        },
-        "socket": {
-          "description": "The active tab's DevTools WebSocket, `ws://127.0.0.1:<port>/devtools/page/<id>`.",
-          "type": "string"
-        },
-        "tabs": {
-          "default": [],
-          "description": "The project's tabs in the order they opened; the active one among them.",
-          "items": {
-            "$ref": "#/definitions/BrowserTab"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "endpoint",
-        "socket"
-      ],
-      "type": "object"
-    },
-    "BrowserTab": {
-      "description": "One tab of a project: a page target in the shared Chromium.",
-      "properties": {
-        "id": {
-          "description": "Chromium's target id.",
-          "type": "string"
-        },
-        "socket": {
-          "description": "The tab's DevTools WebSocket.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "socket"
-      ],
-      "type": "object"
-    },
-    "BrowserTabAction": {
-      "description": "What the Browser block asks of a project's tabs.",
-      "oneOf": [
-        {
-          "description": "A new tab, active from then on, on `url` or a blank page.",
-          "properties": {
-            "action": {
-              "enum": [
-                "open"
-              ],
-              "type": "string"
-            },
-            "url": {
-              "default": null,
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "action"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "Makes the tab active: the one the block shows and the runs drive.",
-          "properties": {
-            "action": {
-              "enum": [
-                "select"
-              ],
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "action",
-            "id"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "Closes the tab; the last one closed leaves a blank one in its place.",
-          "properties": {
-            "action": {
-              "enum": [
-                "close"
-              ],
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "action",
-            "id"
-          ],
-          "type": "object"
-        }
-      ]
-    },
     "Build": {
       "additionalProperties": false,
       "description": "Which build of the daemon answers: its binary, and that file's modification time when the daemon started. A window compares it with the daemon beside its own binary, so a window from a new app does not drive a daemon left running from an old one (or from a build replaced in place since).",
@@ -3507,25 +3398,75 @@
         },
         {
           "additionalProperties": false,
-          "description": "The answer to `Request::Browser`: the project's page, or why there is none (no Chromium found, or it did not start).",
+          "description": "A run opened bridge socket `conn` to the native page of the project in `cwd` that this window holds: the window speaks to the page for it (`Request::BrowserCdp`).",
           "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
             "cwd": {
               "type": "string"
             },
             "kind": {
               "enum": [
-                "browser"
+                "browser_cdp_open"
               ],
               "type": "string"
-            },
-            "page": {
-              "$ref": "#/definitions/Result_of_BrowserPage_or_String"
             }
           },
           "required": [
+            "conn",
             "cwd",
-            "kind",
-            "page"
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A DevTools message from a run for the page on bridge socket `conn`.",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "data": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "browser_cdp"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "data",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The run closed bridge socket `conn`.",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "browser_cdp_close"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "kind"
           ],
           "type": "object"
         },
@@ -5871,45 +5812,14 @@
         },
         {
           "additionalProperties": false,
-          "description": "The project's tabs in the shared Chromium, which the daemon starts when none runs, after `tab` when given. Every window gets `Notice::Browser`; from then on the project's runs get the active tab.",
+          "description": "The window holds the project in `cwd`'s page in its native browser (`open`), or no longer does. While it does, the project's runs drive that page through the daemon's CDP bridge (`Notice::BrowserCdpOpen`). Unanswered.",
           "properties": {
             "cwd": {
               "type": "string"
             },
             "op": {
               "enum": [
-                "browser"
-              ],
-              "type": "string"
-            },
-            "tab": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/BrowserTabAction"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            }
-          },
-          "required": [
-            "cwd",
-            "op"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Browser block `id` (the window's own name for it) opened (`open`) or closed; saying it twice is harmless. With none open in any window and no run going for a while, the daemon quits the shared Chromium; the next block starts it again. Unanswered.",
-          "properties": {
-            "id": {
-              "type": "string"
-            },
-            "op": {
-              "enum": [
-                "browser_block"
+                "browser_native"
               ],
               "type": "string"
             },
@@ -5918,9 +5828,38 @@
             }
           },
           "required": [
-            "id",
+            "cwd",
             "op",
             "open"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A DevTools message from the native page to bridge socket `conn`, or none when the page went and the socket should close. Unanswered.",
+          "properties": {
+            "conn": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "data": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "op": {
+              "enum": [
+                "browser_cdp"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "conn",
+            "op"
           ],
           "type": "object"
         },
@@ -6251,32 +6190,6 @@
                 "$ref": "#/definitions/IssueSummary"
               },
               "type": "array"
-            }
-          },
-          "required": [
-            "Ok"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "Err": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "Err"
-          ],
-          "type": "object"
-        }
-      ]
-    },
-    "Result_of_BrowserPage_or_String": {
-      "oneOf": [
-        {
-          "properties": {
-            "Ok": {
-              "$ref": "#/definitions/BrowserPage"
             }
           },
           "required": [

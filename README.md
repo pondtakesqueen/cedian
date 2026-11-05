@@ -19,9 +19,9 @@ See `docs/CEDIAN_SPEC.md` for the full specification.
 
 - `daemon/` — Rust daemon (moved from the former `cedian` repo). Builds with Cargo.
   - `daemon/crates/` — cedian_daemon, cedian_protocol, cedian_index, cedian_wire, cedian_agent, cedian_review, cedian_artifact
-- `src/` — TypeScript (blocks, agent pane, settings, browser panel, ...)
+- `src/` — TypeScript (blocks, agent pane, settings, the browser view's tools, ...)
 - `docs/` — `CEDIAN_SPEC.md` (design source), `ARCHITECTURE.md` (historical), `specs/`
-- `brand/`, `script/` — icons and generators (theme, icon, fetch-chromium, vscode/prepare, vscode/build-mac)
+- `brand/`, `script/` — icons and generators (theme, icon, vscode/prepare, vscode/build-mac)
 
 The daemon owns all state; this app is the viewer. They communicate over the Unix
 socket `daemon.sock` (cedian_wire protocol).

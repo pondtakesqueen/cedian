@@ -4,7 +4,6 @@
 
 mod anchor;
 mod auto_archive;
-mod browser;
 mod cedia;
 mod clone_ignored;
 mod daemon;
@@ -18,6 +17,7 @@ mod issues;
 mod keep_awake;
 pub mod launch_agent;
 mod ledger;
+mod native_browser;
 mod notes;
 mod pr_view;
 mod pr_watch;

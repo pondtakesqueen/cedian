@@ -90,8 +90,8 @@ need the Mac.
    2026-10-28; the command palette stays on Cmd+Shift+P); `desktop.keymap`
    takes effect when a window opens.
 7. Add the Cedian workbench contributions from `src/`: agent pane, composer,
-   blocks layout engine (Tern-style, native DOM + CSS), browser panel
-   (daemon Chromium screencast), settings window. Daemon IPC over the Unix
+   blocks layout engine (Tern-style, native DOM + CSS), the Browser block's
+   tools on VS Code's native browser view (spec §6.3), settings window. Daemon IPC over the Unix
    socket `daemon.sock` via the `cedian_wire` protocol — Electron IPC stays
    window-local only.
 8. Theme: the Warm & Lime token table in `script/themes/cedian.py` is the color

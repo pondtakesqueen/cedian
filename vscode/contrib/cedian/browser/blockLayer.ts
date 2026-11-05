@@ -11,9 +11,9 @@ import { URI } from '../../../../base/common/uri.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { EditorsOrder } from '../../../common/editor.js';
 import { EditorGroupLayout, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
@@ -24,7 +24,10 @@ import { layoutName, layoutsIn, withCurrent, withLayout, withoutLayout, type Nam
 import { AgentBlock } from './agent-pane/floating.js';
 import { AgentPane, type SideSource } from './agent-pane/pane.js';
 import { CedianAgentInput } from './agentEditor.js';
-import { browserServices, CedianBrowserInput, createBrowserPanel, openBrowser } from './browserEditor.js';
+import { openBrowser } from './browserEditor.js';
+import { NativeBrowserBlock } from './nativeFloat.js';
+import { BrowserEditorInput } from '../../browserView/common/browserEditorInput.js';
+import type { IBrowserViewModel } from '../../browserView/common/browserView.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { createPaneHost } from './paneHost.js';
 import { CedianPanes, connectionBar } from './panes.js';
@@ -42,6 +45,8 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 	static current: CedianBlockLayer | undefined;
 
 	private readonly layer: BlockLayer;
+	/** The native page floating now, when it is: docking or tearing it off gives its input back. */
+	private native: NativeBrowserBlock | undefined;
 	private desktop: Desktop = {};
 	private restored = false;
 
@@ -54,12 +59,19 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IEditorGroupsService private readonly editorGroups: IEditorGroupsService,
 		@INotificationService private readonly notifications: INotificationService,
+		@ICommandService private readonly commands: ICommandService,
 	) {
 		super();
 		this.layer = new BlockLayer(mainWindow.document, {
 			dock: (kind, id) => {
 				if (kind === 'browser') {
-					void openBrowser(this.editorService);
+					const native = this.native;
+					this.native = undefined;
+					if (native) {
+						void this.editorService.openEditor(native.dock(), { pinned: true });
+					} else {
+						void openBrowser(this.editorService, this.commands);
+					}
 				} else if (kind === 'agent') {
 					// Into the editor area beside the code, as a popped-out pane is in its own window.
 					void this.editorService.openEditor(new CedianAgentInput(id), { pinned: true });
@@ -72,6 +84,11 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 			},
 			moving: () => moving(layoutService.mainContainer),
 			changed: floating => this.keep(floating),
+			closed: kind => {
+				if (kind === 'browser') {
+					this.native = undefined;
+				}
+			},
 			// Torn off (↗, or let go outside the window): an editor of its own in a new window there.
 			tearOff: (kind, id, bounds) => { void this.tearOff(kind, id, bounds); },
 		});
@@ -102,35 +119,54 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		return folder && folder.uri.scheme === 'file' ? folder.uri : undefined;
 	}
 
-	/** Floats the Browser block, closing its editor: the block moves, it is not copied. */
+	/** Floats the Browser block, closing its editor: the page moves, it is not copied. */
 	async floatBrowser(): Promise<void> {
 		const folder = this.folder();
-		if (!folder) {
+		if (!folder || this.layer.has('browser')) {
 			return;
 		}
-		const open = this.editorService.getEditors(EditorsOrder.SEQUENTIAL).filter(id => id.editor instanceof CedianBrowserInput);
-		if (open.length) {
-			await this.editorService.closeEditors(open);
-		}
-		if (!this.layer.has('browser')) {
-			this.floatBrowserAt(folder, floatingIn(this.desktop, folder.fsPath).find(f => f.kind === 'browser'), false);
-		}
+		await this.floatBrowserAt(floatingIn(this.desktop, folder.fsPath).find(f => f.kind === 'browser'), false);
 	}
 
 	dockBrowser(): void {
 		if (this.layer.has('browser')) {
 			this.layer.dock('browser');
 		} else {
-			void openBrowser(this.editorService);
+			void openBrowser(this.editorService, this.commands);
 		}
 	}
 
-	private floatBrowserAt(folder: URI, at: Floating | undefined, quiet: boolean): void {
-		const panel = createBrowserPanel(this.instantiation.invokeFunction(browserServices), folder);
-		const offBar = connectionBar(panel.root, this.daemon.client);
-		const dispose = panel.dispose.bind(panel);
-		panel.dispose = () => { offBar.dispose(); dispose(); };
-		this.layer.float(panel, at, quiet);
+	/** The window's native browser page, open in an editor: there is one per window. */
+	private nativeInput(): BrowserEditorInput | undefined {
+		return this.editorService.editors.find((editor): editor is BrowserEditorInput => editor instanceof BrowserEditorInput);
+	}
+
+	/**
+	 * Floats the native page at `at`: its tab closes with the page kept (the input's disposal is
+	 * vetoed), and a block over the window lays the same page out where it rests. With none open
+	 * yet, a blank one opens first.
+	 */
+	private async floatBrowserAt(at: Floating | undefined, quiet: boolean): Promise<void> {
+		let input = this.nativeInput();
+		if (!input) {
+			await this.commands.executeCommand('workbench.action.browser.open', 'about:blank');
+			input = this.nativeInput();
+		}
+		if (!input || this.layer.has('browser')) {
+			return;
+		}
+		const model = await modelOf(input);
+		if (!model || this.layer.has('browser')) {
+			return;
+		}
+		const keep = input.onBeforeDispose(e => e.veto());
+		try {
+			await this.editorService.closeEditors(this.editorService.findEditors(input));
+		} finally {
+			keep.dispose();
+		}
+		this.native = new NativeBrowserBlock(input, model);
+		this.layer.float(this.native, at, quiet);
 	}
 
 	/** Floats `thread` (a new thread when none) in an agent pane of its own over the window. */
@@ -249,7 +285,11 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		const options = { pinned: true, auxiliary: { bounds, compact: true } };
 		try {
 			if (kind === 'browser') {
-				await this.editorService.openEditor(new CedianBrowserInput(), options, AUX_WINDOW_GROUP);
+				const native = this.native;
+				this.native = undefined;
+				if (native) {
+					await this.editorService.openEditor(native.dock(), options, AUX_WINDOW_GROUP);
+				}
 			} else if (kind === 'agent') {
 				await this.editorService.openEditor(new CedianAgentInput(id), options, AUX_WINDOW_GROUP);
 			}
@@ -341,7 +381,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 				this.layer.resizeTo(f.kind, { width: f.width, height: f.height });
 				this.layer.moveTo(f.kind, f);
 			} else if (f.kind === 'browser') {
-				this.floatBrowserAt(folder, f, false);
+				void this.floatBrowserAt(f, false);
 			} else if (f.kind === 'agent') {
 				this.floatAgentAt(f.id, f, false);
 			}
@@ -363,7 +403,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		}
 		for (const f of floatingIn(this.desktop, folder.fsPath)) {
 			if (f.kind === 'browser' && !this.layer.has('browser')) {
-				this.floatBrowserAt(folder, f, true);
+				void this.floatBrowserAt(f, true);
 			} else if (f.kind === 'agent' && !this.layer.has('agent')) {
 				this.floatAgentAt(f.id, f, true);
 			}
@@ -379,4 +419,12 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 		// The daemon's notice follows; until then, what was asked is what floats.
 		this.write(withFloating(this.desktop, folder.fsPath, floating));
 	}
+}
+
+/** The page of a native browser input, once it has one (it does once its editor showed it). */
+function modelOf(input: BrowserEditorInput): Promise<IBrowserViewModel | undefined> {
+	return new Promise(resolve => {
+		const timer = setTimeout(() => { listening.dispose(); resolve(undefined); }, 5_000);
+		const listening = input.onceModelResolves(model => { clearTimeout(timer); resolve(model); });
+	});
 }

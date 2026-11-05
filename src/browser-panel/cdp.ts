@@ -1,6 +1,5 @@
-// A DevTools protocol connection to one page of the daemon's Chromium, over a WebSocket the
-// window opens to it (the daemon hands out the page's socket in `Notice::Browser`). The window's
-// own WebSocket in the app, Node's in tests: both fit `Socket`.
+// A DevTools protocol connection to one page, over anything shaped like a WebSocket (`Socket`):
+// in the app, a `PageRelay` on a native browser view's CDP group (relay.ts); a fake in tests.
 
 /** The part of a WebSocket the connection uses. */
 export interface Socket {

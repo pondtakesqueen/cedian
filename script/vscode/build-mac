@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Builds Cedian.app from a tree script/vscode/prepare made, on a Mac, with the Node version
 # VS Code pins (.nvmrc). The app lands next to the tree: <dir>/../VSCode-darwin-<arch>/Cedian.app,
-# with cedian-daemon beside its binary in Contents/MacOS (where the window looks for it first)
-# and the Chromium cedian ships (script/fetch-chromium) in Contents/Resources/chromium, where
-# the daemon looks before an installed Chrome, signed ad hoc so it runs on the Mac that built it.
+# with cedian-daemon beside its binary in Contents/MacOS (where the window looks for it first),
+# signed ad hoc so it runs on the Mac that built it. The Browser block is VS Code's own native
+# view, so no Chromium ships beside it.
 # Usage: script/vscode/build-mac <dir>
 set -euo pipefail
 dir="$(cd "${1:?usage: script/vscode/build-mac <dir>}" && pwd)"
@@ -25,10 +25,7 @@ app="$(dirname "$dir")/VSCode-darwin-$arch/Cedian.app"
 cp "$repo/daemon/target/release/cedian-daemon" "$app/Contents/MacOS/cedian-daemon.new"
 codesign --force --sign - "$app/Contents/MacOS/cedian-daemon.new"
 mv -f "$app/Contents/MacOS/cedian-daemon.new" "$app/Contents/MacOS/cedian-daemon"
-# Without it the daemon falls back to an installed Google Chrome, whose headless mode never
-# finished loading a localhost page in the Browser block (owner's Mac, Chrome 149 and 156).
-"$repo/script/fetch-chromium" "mac-$arch" "$repo/daemon/target"
+# A build from before the native view carried the daemon's Chromium: it goes.
 rm -rf "$app/Contents/Resources/chromium"
-ditto "$repo/daemon/target/chromium" "$app/Contents/Resources/chromium"
 codesign --force --deep --sign - "$app"
 echo "built $app"

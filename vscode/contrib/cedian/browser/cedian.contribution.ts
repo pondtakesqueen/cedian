@@ -32,7 +32,7 @@ import { IViewContainersRegistry, IViewsRegistry, ViewContainerLocation, Extensi
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from './agentEditor.js';
-import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, openBrowser } from './browserEditor.js';
+import { openBrowser } from './browserEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
@@ -53,6 +53,7 @@ import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
 import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
+import { CedianNativeBrowser } from './nativeBrowser.js';
 import { THREADS_CONTAINER_ID, THREADS_VIEW_ID, ThreadsView } from './threadsView.js';
 import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
@@ -150,13 +151,7 @@ registerAction2(class extends Action2 {
 	}
 });
 
-// ---- the Browser block: the project's tabs in the daemon's Chromium (spec §3.3, §6.3) ----
-
-Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
-	EditorPaneDescriptor.create(CedianBrowserEditor, CedianBrowserEditor.ID, localize('cedian.browser', "Browser")),
-	[new SyncDescriptor(CedianBrowserInput)],
-);
-Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(CedianBrowserInput.ID, CedianBrowserInputSerializer);
+// ---- the Browser block: VS Code's native browser view (spec §3.3, §6.3) ----
 
 registerAction2(class extends Action2 {
 	constructor() {
@@ -170,20 +165,11 @@ registerAction2(class extends Action2 {
 		});
 	}
 	run(accessor: ServicesAccessor): Promise<void> {
-		return openBrowser(accessor.get(IEditorService));
+		return openBrowser(accessor.get(IEditorService), accessor.get(ICommandService));
 	}
 });
 
-/** VS Code's own browser editor (workbench/contrib/browserView): its input type and open command. */
-const NATIVE_BROWSER_INPUT = 'workbench.editorinputs.browser';
-const NATIVE_BROWSER_OPEN = 'workbench.action.browser.open';
-
-/**
- * A preview of the native Browser block (docs plan, step 1): VS Code's browser, a WebContentsView
- * Electron draws in the block, so a resize is laid out in the same frame. Measured on the Mac it
- * resizes with no strip and uses about a tenth of the screencast's CPU. Until the CDP bridge lands
- * the agent still drives the daemon's Chromium, not this page.
- */
+/** The palette name the native view was tried under; it opens the Browser block now. */
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
@@ -193,15 +179,8 @@ registerAction2(class extends Action2 {
 			f1: true,
 		});
 	}
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const editors = accessor.get(IEditorService);
-		const commands = accessor.get(ICommandService);
-		const open = editors.editors.find(editor => editor.typeId === NATIVE_BROWSER_INPUT);
-		if (open) {
-			await editors.openEditor(open);
-		} else {
-			await commands.executeCommand(NATIVE_BROWSER_OPEN);
-		}
+	run(accessor: ServicesAccessor): Promise<void> {
+		return openBrowser(accessor.get(IEditorService), accessor.get(ICommandService));
 	}
 });
 
@@ -666,3 +645,4 @@ class CedianSettingsRedirect implements IWorkbenchContribution {
 registerWorkbenchContribution2(CedianSettingsRedirect.ID, CedianSettingsRedirect, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianTabCompletion.ID, CedianTabCompletion, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianWelcomeCheck.ID, CedianWelcomeCheck, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianNativeBrowser.ID, CedianNativeBrowser, WorkbenchPhase.AfterRestored);

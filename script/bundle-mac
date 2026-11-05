@@ -4,13 +4,12 @@
 #
 # PRE-PIVOT script: writes a NATIVE bundle (Rust window binary). Since the VS Code
 # fork pivot (docs/CEDIAN_SPEC.md §9) the window is Electron: Phase D retargets this
-# script (Electron app + daemon + cedia + chromium beside it, see docs/VENDORING.md).
-# Chromium signing/dmg/notarize notes below still apply.
+# script (Electron app + daemon + cedia, see docs/VENDORING.md); the dmg and notarize notes
+# below still apply. The browser is the window's own (VS Code's native view): no Chromium ships.
 #
 #   Cedian.app/Contents/MacOS/cedian                     the window
 #   Cedian.app/Contents/MacOS/cedian-daemon              found by the window beside itself
 #   Cedian.app/Contents/MacOS/cedia                      the pinned cedia build, found by the daemon
-#   Cedian.app/Contents/Resources/chromium/              found by the daemon at ../Resources
 #   Cedian.app/Contents/Resources/remote-web/            remote control's page, likewise
 #
 # Usage: script/bundle-mac --cedia <path> [--arch aarch64|x86_64] [--sign <identity>] [--dmg]
@@ -63,8 +62,8 @@ fi
 
 arch="${arch:-$(uname -m)}"
 case "$arch" in
-  aarch64|arm64) arch=aarch64; triple=aarch64-apple-darwin; chromium=mac-arm64 ;;
-  x86_64) triple=x86_64-apple-darwin; chromium=mac-x64 ;;
+  aarch64|arm64) arch=aarch64; triple=aarch64-apple-darwin ;;
+  x86_64) triple=x86_64-apple-darwin ;;
   *) echo "unknown arch: $arch (aarch64 or x86_64)" >&2; exit 2 ;;
 esac
 if ! lipo -archs "$cedia" | tr ' ' '\n' | grep -qx "${arch/aarch64/arm64}"; then
@@ -89,8 +88,6 @@ done
 cargo rustc --release --locked --target "$triple" -p cedian_window --bin cedian ${features[@]+"${features[@]}"} -- -C "$hide"
 cargo rustc --release --locked --target "$triple" -p cedian_daemon --bin cedian-daemon -- -C "$hide"
 
-script/fetch-chromium "$chromium" "$out"
-
 app="$out/Cedian.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
@@ -101,11 +98,10 @@ for bin in cedian cedian-daemon; do
   strip -x "$app/Contents/MacOS/$bin"
 done
 cp "$cedia" "$app/Contents/MacOS/cedia"
-cp -R "$out/chromium" "$app/Contents/Resources/chromium"
 # Remote control's page (docs/CEDIAN_SPEC.md §6.5), found by the daemon at ../Resources.
 node script/remote-web.mjs "$app/Contents/Resources/remote-web"
 cp brand/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
-# The third-party notices travel with the binaries they cover (Chromium's stays in chromium/).
+# The third-party notices travel with the binaries they cover.
 cp LICENSE NOTICE "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -150,11 +146,6 @@ else
   echo "no --sign: signing ad hoc, for this Mac only"
   sign=(codesign --force --sign -)
 fi
-shell="$app/Contents/Resources/chromium"
-for lib in "$shell"/*.dylib; do
-  "${sign[@]}" "$lib"
-done
-"${sign[@]}" --entitlements "$jit" "$shell/chrome-headless-shell"
 "${sign[@]}" --entitlements "$jit" "$app/Contents/MacOS/cedia"
 "${sign[@]}" "$app/Contents/MacOS/cedian-daemon"
 "${sign[@]}" "$app/Contents/MacOS/cedian"
@@ -171,7 +162,7 @@ if [[ "$dmg" == true ]]; then
   mkdir -p "$stage"
   cp -R "$app" "$stage/"
   ln -s /Applications "$stage/Applications"
-  # ULMO is lzma (macOS 10.15+): well under the zlib of Zed's UDZO for Chromium's binary.
+  # ULMO is lzma (macOS 10.15+): well under the zlib of Zed's UDZO.
   hdiutil create -volname Cedian -srcfolder "$stage" -ov -format ULMO "$file"
   rm -rf "$stage"
   if [[ -n "$identity" ]]; then

@@ -20,7 +20,6 @@ use cedian_wire::{Build, Notice, Request, Status, ThreadInfo};
 
 use crate::{
     Cedia, auto_archive,
-    browser::Browser,
     cedia::{Flags, browser_sites, creator_on},
     desktop_settings::{read_desktop, set_desktop_key, settings_path},
     flow::{Flow, Held},
@@ -83,14 +82,8 @@ pub struct Daemon {
     started: HashSet<(String, String)>,
     /// Each shown project's scheduled runs, as last listed.
     schedules: background::Schedules,
-    /// The shared Chromium, locked on its own: starting it takes a moment, and only a
-    /// Browser block starts it.
-    browser: Arc<Mutex<Browser>>,
-    /// Each window's open Browser blocks, by the window's id for each (`Request::BrowserBlock`).
-    browser_blocks: HashMap<ClientId, HashSet<String>>,
-    /// Bumped each time the last Browser block closes or one opens, so an older idle timer
-    /// knows it is stale.
-    browser_idle: u64,
+    /// The native pages windows hold and the CDP bridge to them (`native_browser`).
+    pub(crate) native: crate::native_browser::NativePages,
     /// The pull requests followed, by thread (`pr_watch`).
     prs: HashMap<String, crate::pr_watch::Watch>,
     gh: crate::pr_watch::Gh,
@@ -112,9 +105,6 @@ pub struct Daemon {
 /// write instead of 1.25x and saves rereading the whole thread uncached after each pause.
 /// Threads the coordinator queues and scheduled runs keep cedia's default.
 const PERSON_CACHE_TTL: &str = "1h";
-
-/// How long the shared Chromium outlives the last Browser block.
-const BROWSER_IDLE: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 /// `Notice::Choices` from cedia's `models` and `permissions`, each asked only when this cedia
 /// offers it: an older cedia would read the word as a prompt.
@@ -145,7 +135,6 @@ impl Daemon {
             Err(error) => log::warn!("{error}"),
         }
         let choices = choices(&cedia, &version);
-        let browser = Arc::new(Mutex::new(Browser::new(state_dir, cedia.env.clone())));
         let gh = crate::pr_watch::Gh::of(&cedia.env);
         Self {
             cedia,
@@ -165,9 +154,7 @@ impl Daemon {
             seen: Seen::new(state_dir),
             started: HashSet::new(),
             schedules: background::Schedules::default(),
-            browser,
-            browser_blocks: HashMap::new(),
-            browser_idle: 0,
+            native: Default::default(),
             prs: HashMap::new(),
             gh,
             gh_login: None,
@@ -319,13 +306,7 @@ impl Daemon {
         let sides = {
             let mut daemon = lock(shared);
             daemon.disconnect(id);
-            if daemon
-                .browser_blocks
-                .remove(&id)
-                .is_some_and(|ids| !ids.is_empty())
-            {
-                daemon.browser_closed(shared);
-            }
+            daemon.native.gone(id);
             daemon.sides.remove(&id).unwrap_or_default()
         };
         if !sides.is_empty() {
@@ -374,43 +355,6 @@ impl Daemon {
         });
     }
 
-    /// A Browser block closed. With none left open in any window, the shared Chromium quits
-    /// after `BROWSER_IDLE`, once no run is going: an idle headless Chromium still holds about
-    /// 200 MB and draws its page. A block that opens meanwhile keeps it.
-    fn browser_closed(&mut self, shared: &Shared) {
-        if self.browser_blocks.values().any(|ids| !ids.is_empty()) {
-            return;
-        }
-        let generation = self.browser_idle;
-        let shared = shared.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(BROWSER_IDLE);
-            loop {
-                let browser = {
-                    let daemon = lock(&shared);
-                    if daemon.browser_idle != generation {
-                        return;
-                    }
-                    if daemon.runs.values().any(|run| run.alive) {
-                        None
-                    } else {
-                        Some(daemon.browser.clone())
-                    }
-                };
-                match browser {
-                    Some(browser) => {
-                        browser
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .quit();
-                        return;
-                    }
-                    None => std::thread::sleep(std::time::Duration::from_secs(60)),
-                }
-            }
-        });
-    }
-
     pub fn disconnect(&mut self, id: ClientId) {
         self.clients.remove(&id);
         if let Some((_, Some(pid))) = self.completing.remove(&id) {
@@ -421,6 +365,11 @@ impl Daemon {
                 run.requester = None;
             }
         }
+    }
+
+    /// Sends `notice` to window `id`, for the daemon's other modules.
+    pub(crate) fn send_to(&mut self, id: ClientId, notice: Notice) {
+        self.send(id, notice);
     }
 
     fn send(&mut self, id: ClientId, notice: Notice) {
@@ -1258,44 +1207,16 @@ impl Daemon {
                     lock(&shared).send(client, Notice::PrLog { thread, run, log });
                 });
             }
-            Request::Browser { cwd, tab } => {
-                let browser = lock(shared).browser.clone();
-                let page = browser
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .page(&project_key(&cwd), tab.as_ref())
-                    .map_err(|e| format!("{e:#}"));
-                if let Err(error) = &page {
-                    log::warn!("browser: {error}");
-                }
-                // A tab one window opened or closed is every window's: each shows the project's
-                // tabs as the daemon has them. Why there are none is the asking window's.
-                let mut daemon = lock(shared);
-                let clients: Vec<ClientId> = if page.is_ok() {
-                    daemon.clients.keys().copied().collect()
-                } else {
-                    vec![client]
-                };
-                for id in clients {
-                    let notice = Notice::Browser {
-                        cwd: cwd.clone(),
-                        page: page.clone(),
-                    };
-                    daemon.send(id, notice);
-                }
-            }
-            Request::BrowserBlock { id, open } => {
-                let mut daemon = lock(shared);
-                let blocks = daemon.browser_blocks.entry(client).or_default();
+            Request::BrowserNative { cwd, open } => {
                 if open {
-                    blocks.insert(id);
-                } else {
-                    blocks.remove(&id);
+                    crate::native_browser::listen(shared);
                 }
-                daemon.browser_idle += 1;
-                if !open {
-                    daemon.browser_closed(shared);
-                }
+                lock(shared)
+                    .native
+                    .set(&project_key(&cwd), &cwd, client, open);
+            }
+            Request::BrowserCdp { conn, data } => {
+                lock(shared).native.forward(client, conn, data);
             }
             Request::CommitDraft { .. }
             | Request::Commit { .. }
@@ -2141,15 +2062,10 @@ impl Daemon {
                 .as_ref()
                 .is_ok_and(|v| v.capabilities.contains(&capability))
         };
-        // The project's page, when the shared browser runs: a run never starts it.
+        // The project's page: the native view a window holds for it, through the bridge. A run
+        // opens none; with no window holding one, it has no browser.
         let page = can(cedian_protocol::Capability::Browser)
-            .then(|| {
-                daemon
-                    .browser
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .running_page(&slug)
-            })
+            .then(|| daemon.native.url(&slug))
             .flatten();
         let shows_images = can(cedian_protocol::Capability::Images);
         // The project's allowlist holds for the agent too, when this cedia can hold it.
@@ -2163,7 +2079,7 @@ impl Daemon {
             todo: can(cedian_protocol::Capability::Todo),
             creator: can(cedian_protocol::Capability::Creator)
                 && read_desktop(&settings_path(&daemon.home)).is_ok_and(|d| creator_on(&d)),
-            browser: page.as_ref().map(|p| p.socket.as_str()),
+            browser: page.as_deref(),
             sites: sites.as_deref(),
             cache_ttl: with
                 .cache_ttl

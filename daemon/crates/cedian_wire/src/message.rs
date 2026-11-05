@@ -14,9 +14,8 @@ use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    BrowserPage, BrowserTabAction, Build, GitAction, GitState, IssueAction, IssueFilter,
-    IssueSummary, IssueView, LineComment, McpAdd, McpServer, NewIssue, Notes, PrAction, PrList,
-    PrView, Status, ThreadInfo,
+    Build, GitAction, GitState, IssueAction, IssueFilter, IssueSummary, IssueView, LineComment,
+    McpAdd, McpServer, NewIssue, Notes, PrAction, PrList, PrView, Status, ThreadInfo,
 };
 
 /// From the window to the daemon.
@@ -306,18 +305,17 @@ pub enum Request {
         thread: String,
         run: String,
     },
-    /// The project's tabs in the shared Chromium, which the daemon starts when none runs, after
-    /// `tab` when given. Every window gets `Notice::Browser`; from then on the project's runs
-    /// get the active tab.
-    Browser {
-        cwd: PathBuf,
+    /// The window holds the project in `cwd`'s page in its native browser (`open`), or no longer
+    /// does. While it does, the project's runs drive that page through the daemon's CDP bridge
+    /// (`Notice::BrowserCdpOpen`). Unanswered.
+    BrowserNative { cwd: PathBuf, open: bool },
+    /// A DevTools message from the native page to bridge socket `conn`, or none when the page
+    /// went and the socket should close. Unanswered.
+    BrowserCdp {
+        conn: u64,
         #[serde(default)]
-        tab: Option<BrowserTabAction>,
+        data: Option<String>,
     },
-    /// Browser block `id` (the window's own name for it) opened (`open`) or closed; saying it
-    /// twice is harmless. With none open in any window and no run going for a while, the daemon
-    /// quits the shared Chromium; the next block starts it again. Unanswered.
-    BrowserBlock { id: String, open: bool },
     /// A message for the files `thread` changed in `cwd` (its worktree, else the project),
     /// drafted by its writer model (`cedia commit --thread --json`), answered with
     /// `Notice::CommitDraft`, when this cedia offers `commit`. Nothing is committed.
@@ -619,11 +617,20 @@ pub enum Notice {
     McpChecked {
         check: McpCheck,
     },
-    /// The answer to `Request::Browser`: the project's page, or why there is none (no
-    /// Chromium found, or it did not start).
-    Browser {
+    /// A run opened bridge socket `conn` to the native page of the project in `cwd` that this
+    /// window holds: the window speaks to the page for it (`Request::BrowserCdp`).
+    BrowserCdpOpen {
+        conn: u64,
         cwd: PathBuf,
-        page: Result<BrowserPage, String>,
+    },
+    /// A DevTools message from a run for the page on bridge socket `conn`.
+    BrowserCdp {
+        conn: u64,
+        data: String,
+    },
+    /// The run closed bridge socket `conn`.
+    BrowserCdpClose {
+        conn: u64,
     },
     /// The answer to `Request::Git` and `Request::GitAction`: the thread's folder in git, or why
     /// there is none (not a git repository).
