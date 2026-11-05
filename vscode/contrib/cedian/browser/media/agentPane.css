@@ -180,6 +180,8 @@
    names: before, "effort: default" stayed whole while the model shrank to "Opu…" at 360 px. Its
    default reads as the level alone ("effort" when cedia names none), as a picked level does. */
 .cedian-agent-pane .pill.effort { flex: 0 100 auto; }
+/* Effort's icon shows only when the pills are icons alone (below). */
+.cedian-agent-pane .pill.effort svg.i-effort { display: none; }
 .cedian-agent-pane .pill select { appearance: none; field-sizing: content; min-width: 0; max-width: 160px; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-overflow: ellipsis; cursor: pointer; }
 .cedian-agent-pane .pill select:focus-visible { outline: none; }
 .cedian-agent-pane .pill:has(select:focus-visible) { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
@@ -196,11 +198,18 @@
   .cedian-agent-pane > .head .status .l { display: none; }
   .cedian-agent-pane > .head .status { padding: 7px; }
   .cedian-agent-pane > .head .cost { display: none; }
-  .cedian-agent-pane .pill select { max-width: 96px; }
+}
+/* Narrower, the model, effort and permission pills are their icons alone, so all three stay
+   (before, the effort pill went at 300 px and the names cut to "Opu…"). The select still spans the
+   pill, unseen, so a click opens it; the pill's tooltip names the pick. */
+@container agent-pane (max-width: 340px) {
+  .cedian-agent-pane .pill.model, .cedian-agent-pane .pill.effort, .cedian-agent-pane .pill.permission { flex: none; padding: 0 6px; }
+  .cedian-agent-pane .pill select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
+  .cedian-agent-pane .pill svg.i-chevron { display: none; }
+  .cedian-agent-pane .pill.effort svg.i-effort { display: block; }
 }
 @container agent-pane (max-width: 300px) {
   .cedian-agent-pane > .head .ctx .l { display: none; }
-  .cedian-agent-pane .pill.effort { display: none; }
   .cedian-agent-pane .composer { margin: 6px 8px 8px; }
 }
 

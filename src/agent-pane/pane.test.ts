@@ -817,4 +817,14 @@ describe("agent pane header and composer", () => {
     expect(model.options[0]!.textContent).toBe("Opus 5.5");
     expect(pane.root.querySelector('select[data-chip="permission"]')!.closest(".pill.permission")).not.toBeNull();
   });
+
+  it("gives each picker pill an icon and a tooltip naming its pick, for a narrow pane's icons alone", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "choices", models: { default: "anthropic/claude-opus-5-5", models: [{ ref: "anthropic/claude-opus-5-5", label: "Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true }], modes: [] }, permissions: { default: "workspace", modes: [{ mode: "workspace", label: "Workspace", description: "" }] } });
+    const pill = (c: string) => pane.root.querySelector<HTMLElement>(`.pill.${c}`)!;
+    expect(["model", "effort", "permission"].map((c) => pill(c).querySelector(`svg.i-${c === "permission" ? "shield" : c}`) !== null)).toEqual([true, true, true]);
+    expect(pill("model").title).toBe("Model: Opus 5.5 (Cmd+Shift+I)");
+    expect(pill("effort").title).toBe("Effort: default (Cmd+Shift+E)");
+    expect(pill("permission").title).toBe("Permission: Workspace (Cmd+Shift+M)");
+  });
 });
