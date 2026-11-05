@@ -127,6 +127,40 @@ describe("watching a page Electron draws (the native view)", () => {
   });
 });
 
+describe("element selection on the native view", () => {
+  test("Chromium's inspect mode picks; the pick is described and inspect mode ends", async () => {
+    const calls: string[] = [];
+    const handlers = new Map<string, (p: any) => void>();
+    const cdp = {
+      on: (event: string, h: (p: any) => void) => {
+        handlers.set(event, h);
+        return () => {};
+      },
+      onClose: () => () => {},
+      call: (method: string, params?: { mode?: string }) => {
+        calls.push(params?.mode ? `${method} ${params.mode}` : method);
+        if (method === "DOM.resolveNode") return Promise.resolve({ object: { objectId: "o" } });
+        if (method === "Runtime.callFunctionOn") return Promise.resolve({ result: { value: { selector: "main > button#go", tag: "button", text: "Go", html: "<button id=go>Go</button>", styles: {}, box: { x: 0, y: 0, width: 0, height: 0 } } } });
+        return Promise.resolve({});
+      },
+    };
+    const session = new PageSession(cdp as unknown as ConstructorParameters<typeof PageSession>[0]);
+    const picks: PickedElement[] = [];
+    session.onPicked((p) => picks.push(p));
+    await session.inspect();
+    expect(session.view.pick).toBe("inspecting");
+    handlers.get("Overlay.inspectNodeRequested")!({ backendNodeId: 7 });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(picks.map((p) => p.selector)).toEqual(["main > button#go"]);
+    expect(calls).toEqual(["Overlay.setInspectMode searchForNode", "Overlay.setInspectMode none", "DOM.resolveNode", "Runtime.callFunctionOn", "Runtime.releaseObject"]);
+    expect(session.view.pick).toBe("idle");
+    // Escape in the page cancels it: Chromium says so, and the block shows it off.
+    await session.inspect();
+    handlers.get("Overlay.inspectModeCanceled")!({});
+    expect(session.view.pick).toBe("idle");
+  });
+});
+
 describe("resizing the page", () => {
   test("a drag's many sizes reach Chromium as the first and the latest, one at a time", async () => {
     const calls: string[] = [];

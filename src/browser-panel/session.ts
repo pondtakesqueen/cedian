@@ -170,6 +170,8 @@ export class PageSession {
   private readonly noticeListeners = new Set<(message: string) => void>();
   private readonly closeListeners = new Set<(beforeLoad: boolean) => void>();
   private everLoaded = false;
+  /** Chromium's own inspect mode is on (`inspect`): it highlights, and says what a click picks. */
+  private inspecting = false;
   private paused = false;
   /** The scale the screencast runs at; none while it is stopped. */
   private streaming: number | undefined;
@@ -217,6 +219,14 @@ export class PageSession {
     cdp.on("Log.entryAdded", (p) => {
       const e = p.entry ?? {};
       this.log({ level: LEVELS[e.level] ?? "log", text: e.text ?? "", ...(e.url ? { source: e.url } : {}) });
+    });
+    cdp.on("Overlay.inspectNodeRequested", (p) => {
+      if (this.inspecting && typeof p.backendNodeId === "number") void this.pickNode(p.backendNodeId);
+    });
+    cdp.on("Overlay.inspectModeCanceled", () => {
+      if (!this.inspecting) return;
+      this.inspecting = false;
+      this.set({ pick: "idle" });
     });
     cdp.on("Inspector.detached", () => cdp.close());
     cdp.onClose(() => {
@@ -374,6 +384,34 @@ export class PageSession {
     this.hovered = undefined;
     this.set({ pick: "idle" });
     await this.cdp.call("Overlay.hideHighlight").catch(() => {});
+  }
+
+  /**
+   * Element selection on a page Electron draws (the native view), whose mouse the block never
+   * sees: Chromium's inspect mode highlights what is under the pointer and says what a click
+   * picks, and the pick goes to `onPicked` as the block's does. `stopInspect` ends it.
+   */
+  async inspect(): Promise<void> {
+    this.inspecting = true;
+    this.set({ pick: "inspecting" });
+    await this.cdp.call("Overlay.setInspectMode", { mode: "searchForNode", highlightConfig: HIGHLIGHT });
+  }
+
+  async stopInspect(): Promise<void> {
+    this.inspecting = false;
+    this.set({ pick: "idle" });
+    await this.cdp.call("Overlay.setInspectMode", { mode: "none", highlightConfig: HIGHLIGHT }).catch(() => {});
+  }
+
+  private async pickNode(backendNodeId: number): Promise<void> {
+    await this.stopInspect();
+    this.set({ pick: "selected" });
+    try {
+      const picked = await this.describe(backendNodeId);
+      for (const l of this.pickListeners) l(picked);
+    } finally {
+      this.set({ pick: "idle" });
+    }
   }
 
   clearConsole(): void {
