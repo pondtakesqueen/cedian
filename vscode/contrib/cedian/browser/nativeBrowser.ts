@@ -12,7 +12,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { BrowserEditorInput } from '../../browserView/common/browserEditorInput.js';
 import { IBrowserViewCDPService } from '../../browserView/common/browserView.js';
 import { ICedianDaemonService } from './daemonService.js';
-import { PageRelay, type BrowserChannel, type CdpMessage } from './browser-panel/relay.js';
+import { agentMay, PageRelay, type BrowserChannel, type CdpMessage } from './browser-panel/relay.js';
 
 /** One run's connection to the native page: the relay once its group exists, what came before it. */
 interface Conn {
@@ -139,7 +139,8 @@ export class CedianNativeBrowser extends Disposable implements IWorkbenchContrib
 				void this.cdp.destroySessionGroup(groupId).catch(() => { });
 			},
 		};
-		const relay = new PageRelay(channel);
+		// A run reaches this page and nothing past it (relay.ts, AGENT_DOMAINS).
+		const relay = new PageRelay(channel, agentMay);
 		conn.relay = relay;
 		relay.addEventListener('message', e => {
 			if (typeof e.data === 'string') {

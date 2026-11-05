@@ -25,6 +25,19 @@ export interface BrowserChannel {
   close(): void;
 }
 
+/**
+ * The domains a run's browser tool may call on the page: reading it, its console, input, and the
+ * request interception that keeps it to the project's sites. Nothing that reaches past the page
+ * (`Target`, `Browser`, `Storage`, `SystemInfo`, `IO`) passes, so a run holding the bridge's
+ * socket drives that one page and nothing else in the window.
+ */
+export const AGENT_DOMAINS: ReadonlySet<string> = new Set(["Page", "Runtime", "Log", "Fetch", "Input", "DOM", "Network", "Emulation", "Overlay", "Accessibility"]);
+
+/** Whether a run may call `method` through the bridge. */
+export function agentMay(method: string): boolean {
+  return AGENT_DOMAINS.has(method.split(".")[0] ?? "");
+}
+
 /** The relay's own calls use ids no page-level client reaches. */
 const OWN_IDS = 2_000_000_000;
 
@@ -47,7 +60,8 @@ export class PageRelay implements Socket {
   private readonly listeners = new Map<string, Set<Listener>>();
   private readonly off: () => void;
 
-  constructor(private readonly channel: BrowserChannel) {
+  /** `allow`: the methods callers may send; any other is answered with an error, not sent. */
+  constructor(private readonly channel: BrowserChannel, private readonly allow: (method: string) => boolean = () => true) {
     this.off = channel.onMessage((message) => this.receive(message));
     void this.attach();
   }
@@ -111,6 +125,11 @@ export class PageRelay implements Socket {
     try {
       message = JSON.parse(data) as CdpMessage;
     } catch {
+      return;
+    }
+    if (message.method !== undefined && !this.allow(message.method)) {
+      const refused = { id: message.id, error: { code: -32601, message: `${message.method} is not allowed on this page` } };
+      queueMicrotask(() => this.emit("message", JSON.stringify(refused)));
       return;
     }
     this.channel.send({ ...message, sessionId: this.sessionId });

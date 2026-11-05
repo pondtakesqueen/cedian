@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { Cdp } from "./cdp.js";
-import { PageRelay, type BrowserChannel, type CdpMessage } from "./relay.js";
+import { agentMay, PageRelay, type BrowserChannel, type CdpMessage } from "./relay.js";
 
 /** A group of one page, as VS Code's CDP proxy answers it. */
 class FakeGroup implements BrowserChannel {
@@ -68,5 +68,23 @@ describe("a native page as a page-level socket", () => {
   test("a group with no page fails the way a socket that never opened does", async () => {
     const cdp = new Cdp(new PageRelay(new FakeGroup([])));
     await expect(cdp.call("Page.enable")).rejects.toThrow("closed before its page opened");
+  });
+
+  test("a run's socket reaches the page and nothing past it", async () => {
+    const group = new FakeGroup();
+    const cdp = new Cdp(new PageRelay(group, agentMay));
+    await expect(cdp.call("Fetch.enable")).resolves.toEqual({ echoed: "Fetch.enable" });
+    await expect(cdp.call("Target.createTarget", { url: "about:blank" })).rejects.toThrow("not allowed");
+    await expect(cdp.call("Browser.close")).rejects.toThrow("not allowed");
+    expect(group.sent.filter((m) => m.sessionId).map((m) => m.method)).toEqual(["Fetch.enable"]);
+  });
+
+  test("the methods cedia's browser tool and the block call are allowed", () => {
+    for (const method of ["Page.navigate", "Runtime.evaluate", "Input.dispatchMouseEvent", "Fetch.failRequest", "DOM.getNodeForLocation", "Emulation.setDeviceMetricsOverride", "Log.enable", "Overlay.highlightNode"]) {
+      expect(agentMay(method), method).toBe(true);
+    }
+    for (const method of ["Target.attachToTarget", "Browser.getVersion", "Storage.clearDataForOrigin", "SystemInfo.getInfo", "IO.read"]) {
+      expect(agentMay(method), method).toBe(false);
+    }
   });
 });
