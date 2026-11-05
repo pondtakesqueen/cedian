@@ -4,12 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { addDisposableListener } from '../../../../base/browser/dom.js';
-import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { GroupDirection, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
 import { moving, stretching } from './blocks/motion.js';
+import { play, type Playing } from './blocks/resize.js';
+import { RESIZED, RESIZING } from './blockStretch.js';
 import { edgeBox, ground, holdScroll, moved, OPPOSITE, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
 
 /** The side blocks, which make room for each other and for the editor's blocks as they come and go. */
@@ -89,8 +95,9 @@ function facing(box: Box, other: Box): Edge {
  *   far edge, the one away from the block it split from, which shrinks to make room.
  * - A block closed shrinks into the edge away from the block that takes its room, which stretches
  *   back over it (its own element, which VS Code has taken out, shown where it stood).
- * - A side block shown or hidden (blockStretch.ts grows or shrinks it) makes the editor's blocks
- *   and the other side blocks shrink or stretch the same way.
+ * - A side block shown or hidden by its commands is laid out at every size it passes through
+ *   (blockStretch.ts), and every block with it; nothing here moves then. Shown or hidden another
+ *   way, the editor's blocks and the other side blocks shrink or stretch the way above.
  * - A block moved, dropped somewhere else or put somewhere new by a layout goes from where it
  *   stood; a group a drop makes, from the block its editor came from.
  * Opening and closing take the same time and curve. Where the blocks stood is noted after each
@@ -114,12 +121,49 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	/** A side block was shown or hidden, and the window is being laid out again. */
 	private resizing = false;
 	private resizeTimer: ReturnType<typeof setTimeout> | undefined;
+	/** What has scrolled, so a group's last look shows each list where it was (copy.ts). */
+	private readonly scrolls = new ScrollNotes(mainWindow.document);
+	/**
+	 * Each group's last look before its last editor closed. A group closed with its editors in it
+	 * (closing a split) has them closed first, and would fold away showing its empty page.
+	 */
+	private readonly lastLook = new WeakMap<HTMLElement, StillCopy & { at: number }>();
+	private readonly watching = this._register(new DisposableMap<number>());
+	/** A split shrinking away before it closes. */
+	private shrinking: Playing | undefined;
+	/** The next change was played out already (a split shrunk away): it only needs noting. */
+	private quiet = false;
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
 		@IEditorGroupsService private readonly groups: IEditorGroupsService,
+		@IConfigurationService private readonly configuration: IConfigurationService,
+		@IInstantiationService instantiation: IInstantiationService,
 	) {
 		super();
+		// Closing a split by its commands: it shrinks away first, laid out at every size.
+		for (const id of ['workbench.action.closeGroup', 'workbench.action.closeEditorsAndGroup', 'workbench.action.closeActiveEditor']) {
+			const own = CommandsRegistry.getCommand(id);
+			if (!own) {
+				continue;
+			}
+			this._register(CommandsRegistry.registerCommand({
+				id,
+				metadata: own.metadata,
+				handler: (accessor, ...args) => {
+					const run = () => instantiation.invokeFunction(own.handler, ...args);
+					this.shrinking?.finish();
+					const group = this.groups.mainPart.activeGroup;
+					const whole = id !== 'workbench.action.closeActiveEditor'
+						|| (group.count === 1 && this.configuration.getValue('workbench.editor.closeEmptyGroups') !== false);
+					// From a tab's menu (a group named), or one that would ask to save first: at once.
+					if (!whole || args.some(a => a !== undefined) || group.editors.some(e => e.isDirty())) {
+						return run();
+					}
+					return this.shrinkAway(group, run);
+				},
+			}));
+		}
 		const note = () => { if (!this.pending && !this.sliding) { this.note(); } };
 		// The blocks move between changes only by hand (a sash let go) or with the window: a key
 		// changes nothing until it changes them, and then they are noted after that change.
@@ -132,11 +176,16 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		// Capture: measured before VS Code's own drop handlers move anything.
 		this._register(addDisposableListener(mainWindow, 'drop', () => this.drop(), true));
 		const part = groups.mainPart;
-		this._register(part.onDidAddGroup(group => { this.added.add(group); this.changed(); }));
-		this._register(part.onDidRemoveGroup(() => this.changed()));
+		this._register({ dispose: () => this.scrolls.dispose() });
+		for (const group of part.groups) {
+			this.watch(group);
+		}
+		this._register(part.onDidAddGroup(group => { this.watch(group); this.added.add(group); this.changed(); }));
+		this._register(part.onDidRemoveGroup(group => { this.watching.deleteAndDispose(group.id); this.changed(); }));
 		this._register(part.onDidMoveGroup(() => this.changed()));
 		// A side block shown or hidden. The grid tells it from within the change, before it lays the
 		// window out again; by the end of this task it has, and nothing is painted yet.
+		this._register(addDisposableListener(layout.mainContainer, RESIZED, () => { if (!this.pending && !this.sliding) { this.note(); } }));
 		this._register(layout.onDidChangePartVisibility(() => {
 			if (!this.resizing) {
 				this.resizing = true;
@@ -147,6 +196,28 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			}
 		}));
 		this.note();
+	}
+
+	/**
+	 * Notes a group's look as its editors start to leave it: closed, or moved out as the group is
+	 * closed with them in it (VS Code merges them into another group, one by one). Once per task,
+	 * before the first of them goes.
+	 */
+	private watch(group: IEditorGroup): void {
+		let taken = false;
+		const look = () => {
+			const element = elementOf(group);
+			if (taken || !element?.offsetParent || !moving(this.layout.mainContainer)) {
+				return;
+			}
+			taken = true;
+			queueMicrotask(() => taken = false);
+			this.lastLook.set(element, { ...stillCopy(element, this.scrolls), at: Date.now() });
+		};
+		const store = new DisposableStore();
+		store.add(group.onWillCloseEditor(look));
+		store.add(group.onWillMoveEditor(look));
+		this.watching.set(group.id, store);
 	}
 
 	/** The editor's blocks and the side blocks shown now. */
@@ -176,6 +247,9 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 
 	/** A side block was shown or hidden: the blocks that were there shrink or stretch to their new boxes. */
 	private resized(): void {
+		if (this.layout.mainContainer.classList.contains(RESIZING)) {
+			return; // laid out at every size it passes through (blockStretch.ts); noted once it is done
+		}
 		if (this.pending) {
 			return; // the group change under way notes them after it
 		}
@@ -226,8 +300,10 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			this.pending = false;
 			const dropped = this.dropping;
 			this.dropping = false;
+			const quiet = this.quiet;
+			this.quiet = false;
 			try {
-				if (moving(this.layout.mainContainer)) {
+				if (moving(this.layout.mainContainer) && !quiet) {
 					this.settle(dropped);
 				}
 			} finally {
@@ -267,6 +343,11 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 				this.fold(element, box, OPPOSITE[facing(box, taker)]);
 			}
 		}
+		// A split: the new block is laid out at every size it grows through, and the blocks beside
+		// it with it, so nothing else here moves.
+		if (!dropped && this.sizeOut(groups, before, now)) {
+			return;
+		}
 		for (const group of groups) {
 			const element = elementOf(group);
 			const to = element && now.get(element);
@@ -297,6 +378,102 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 				const own = { card: was?.card ?? cardOf(element), ground: was?.ground ?? groundOf(element) };
 				this.stretch(element, from, to, own, !was, false);
 			}
+		}
+	}
+
+	/**
+	 * Grows the one block a split added from nothing to the size VS Code laid it out at, laying the
+	 * editor out at every size between (owner, 2026-11-05: every frame resized, as the mockup's E),
+	 * so the block it split from shrinks with it and what sits on either one's far edge moves with
+	 * that edge. Its least size (220 by 70 px, an editor's) is let down to nothing meanwhile. False
+	 * when the change is not one split, for the drawn motion to take it.
+	 */
+	private sizeOut(groups: readonly IEditorGroup[], before: Map<HTMLElement, Noted>, now: Map<HTMLElement, Box>): boolean {
+		const added = groups.filter(g => this.added.has(g));
+		const group = added[0];
+		const element = group && elementOf(group);
+		const to = element && now.get(element);
+		if (added.length !== 1 || !element || !to || [...before.keys()].some(e => !e.isConnected)) {
+			return false;
+		}
+		let source: Box | undefined;
+		let most = 0;
+		for (const other of groups) {
+			const box = other !== group ? before.get(elementOf(other) as HTMLElement) : undefined;
+			const shared = box ? overlap(box, to) : 0;
+			if (box && shared > most) {
+				most = shared;
+				source = box;
+			}
+		}
+		if (!source) {
+			return false;
+		}
+		const edge = facing(to, source);
+		const across = edge === 'left' || edge === 'right';
+		const least = across ? 'minimumWidth' : 'minimumHeight';
+		// The group's own getter, shadowed on it for now and taken away after.
+		Object.defineProperty(group, least, { value: 0, configurable: true, writable: true });
+		this.sliding++;
+		const playing = play(0, across ? to.width : to.height, size => {
+			this.groups.mainPart.setSize(group, across ? { width: size, height: to.height } : { width: to.width, height: size });
+		}, {
+			request: cb => mainWindow.requestAnimationFrame(cb),
+			cancel: id => mainWindow.cancelAnimationFrame(id),
+			now: () => mainWindow.performance.now(),
+		});
+		void playing.done.then(() => {
+			delete (group as unknown as Record<string, unknown>)[least];
+			if (--this.sliding === 0) {
+				this.note();
+			}
+		});
+		return true;
+	}
+
+	/**
+	 * Shrinks a group into nothing, laying the editor out at every size between, then closes it:
+	 * the block beside it stretches back over its room as the mockup's E has it. If it is still
+	 * there after (closing it was refused), it is put back at its size.
+	 */
+	private async shrinkAway<T>(group: IEditorGroup, close: () => T): Promise<Awaited<T>> {
+		const element = elementOf(group);
+		const part = this.groups.mainPart;
+		const across = !!(part.findGroup({ direction: GroupDirection.LEFT }, group) ?? part.findGroup({ direction: GroupDirection.RIGHT }, group));
+		const down = !!(part.findGroup({ direction: GroupDirection.UP }, group) ?? part.findGroup({ direction: GroupDirection.DOWN }, group));
+		if (!element?.offsetParent || !moving(this.layout.mainContainer) || part.count < 2 || (!across && !down)) {
+			return await close();
+		}
+		const size = { width: element.offsetWidth, height: element.offsetHeight };
+		const least = across ? 'minimumWidth' : 'minimumHeight';
+		Object.defineProperty(group, least, { value: 0, configurable: true, writable: true });
+		this.sliding++;
+		const playing = play(across ? size.width : size.height, 0, s => {
+			part.setSize(group, across ? { width: s, height: size.height } : { width: size.width, height: s });
+		}, {
+			request: cb => mainWindow.requestAnimationFrame(cb),
+			cancel: id => mainWindow.cancelAnimationFrame(id),
+			now: () => mainWindow.performance.now(),
+		});
+		this.shrinking = playing;
+		await playing.done;
+		if (this.shrinking === playing) {
+			this.shrinking = undefined;
+		}
+		delete (group as unknown as Record<string, unknown>)[least];
+		// Gone at no size: nothing to fold or stretch for it.
+		this.quiet = true;
+		try {
+			return await close();
+		} finally {
+			queueMicrotask(() => {
+				if (part.groups.includes(group)) {
+					part.setSize(group, size);
+				}
+				if (--this.sliding === 0) {
+					this.note();
+				}
+			});
 		}
 	}
 
@@ -372,10 +549,26 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		holder.style.top = `${box.top}px`;
 		holder.style.width = `${box.width}px`;
 		holder.style.height = `${box.height}px`;
-		element.style.width = element.style.height = '100%';
-		element.style.animation = element.style.clipPath = 'none';
-		holder.appendChild(element);
+		// How it looked with its editors in it, if they were closed with it.
+		// Taken as the group closes; one older than that is from an editor closed before, the group
+		// kept, and is not how it looks now.
+		const noted = this.lastLook.get(element);
+		this.lastLook.delete(element);
+		const look = noted && Date.now() - noted.at < 1000 ? noted : undefined;
+		const shown = look?.copy ?? element;
+		shown.style.width = shown.style.height = '100%';
+		shown.style.animation = shown.style.clipPath = 'none';
+		// VS Code draws a group's insides by where it sits, in the editor's content: the same two
+		// boxes around it out here, or its tabs and pages lose their styles.
+		const part = mainWindow.document.createElement('div');
+		part.className = 'part editor';
+		const content = mainWindow.document.createElement('div');
+		content.className = 'content';
+		content.appendChild(shown);
+		part.appendChild(content);
+		holder.appendChild(part);
 		this.layout.mainContainer.appendChild(holder);
+		look?.settle();
 		const run = holder.animate(stretchFrames(box, box, edgeBox(box, edge), box.card), { ...stretching, fill: 'forwards' });
 		const gone = () => holder.remove();
 		run.onfinish = gone;

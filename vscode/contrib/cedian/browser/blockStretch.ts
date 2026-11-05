@@ -9,9 +9,8 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
-import { moving, stretching } from './blocks/motion.js';
-import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
-import { edgeBox, holdScroll, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
+import { moving } from './blocks/motion.js';
+import { play, type Playing } from './blocks/resize.js';
 
 /** The side blocks, each with VS Code's commands that hide it. */
 const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
@@ -20,48 +19,46 @@ const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
 	{ part: Parts.PANEL_PART, hide: ['workbench.action.togglePanel', 'workbench.action.closePanel'] },
 ];
 
-/** Where an element is on screen, and its card: a side block is its own card, rounded, with no inset. */
-function boxOf(element: HTMLElement): Box {
-	const r = element.getBoundingClientRect();
-	return { left: r.left, top: r.top, width: r.width, height: r.height };
-}
-function cardOf(element: HTMLElement): Card {
-	return { top: 0, right: 0, bottom: 0, left: 0, radius: parseFloat(mainWindow.getComputedStyle(element).borderTopLeftRadius) || 0 };
-}
+/** The class on the window while a side block is resized frame by frame (blockMove.ts leaves it be). */
+export const RESIZING = 'cedian-block-resizing';
+/** Fired on the window once a side block has played its size out. */
+export const RESIZED = 'cedian-block-resized';
+
+/** A part's least size, which the grid keeps it at or above. */
+interface Least { minimumWidth: number; minimumHeight: number }
 
 /**
  * A side block (Threads, the right panel, the bottom panel) grows out of the window's edge it hangs
- * from and shrinks back into it, while the blocks beside it shrink to make room and stretch back
- * (blockMove.ts): the window divides its room (owner, 2026-11-05, the open/close mockup's E). VS
- * Code lays the window out once, at once, and the block is drawn at the box it is passing through
- * (stretch.ts: transform and clip-path, nothing laid out meanwhile), its content held at its start
- * corner, so a block on the right or at the bottom comes in with its moving edge. Shown any way, it
- * grows; hidden by VS Code's commands, a copy of it where it stood shrinks into the edge over the
- * blocks that take its room; hidden any other way, it goes at once. Opening and closing take the
- * same time and curve. Maximizing is VS Code's, at once. Never scaled, never faded; off with the
- * window's reduced motion.
+ * from and shrinks back into it, laid out at every size it passes through, so the blocks beside it
+ * shrink to make room and stretch back, each laid out too: what sits on a block's far edge (a
+ * scrollbar, the composer, its send button) moves with that edge (owner, 2026-11-05, the open/close
+ * mockup's E, every frame resized). For the length of it the block's least size is let down to
+ * nothing, which VS Code's grid would otherwise keep it at or above (170 px, the panel 77 px).
+ * Shown any way, it grows; hidden by VS Code's commands, it shrinks first and is hidden at its end,
+ * at its own size again so VS Code keeps that for its next showing; hidden any other way, it goes
+ * at once. Opening and closing take the same time and curve. Maximizing is VS Code's, at once.
+ * Never scaled, never faded; off with the window's reduced motion.
  */
 export class CedianBlockStretch extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.blockStretch';
 
-	/** What has scrolled, so a copy shows each list where it was (copy.ts). */
-	private readonly scrolls = new ScrollNotes(mainWindow.document);
-	/** Each block's copy still folding away: shown again before it is gone, the block comes out over it. */
-	private readonly leaving = new Map<Parts, HTMLElement>();
+	/** Each block's size being played out. */
+	private readonly playing = new Map<Parts, Playing>();
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
 		@IInstantiationService instantiation: IInstantiationService,
 	) {
 		super();
-		this._register({ dispose: () => this.scrolls.dispose() });
 		this._register(layout.onDidChangePartVisibility(e => {
 			const side = SIDES.find(s => s.part === e.partId);
-			// Told from within the change, before the grid lays the window out; it has by the end of
-			// this task, before anything is painted.
-			if (side && e.visible) {
-				queueMicrotask(() => this.open(side.part));
+			if (!side || !e.visible || !this.moving() || !this.least(side.part)) {
+				return;
 			}
+			// Told from within the change, before the grid lays the window out; it has by the end of
+			// this task, before anything is painted. Marked now, so blockMove leaves the blocks be.
+			this.layout.mainContainer.classList.add(RESIZING);
+			queueMicrotask(() => this.open(side.part));
 		}));
 		for (const side of SIDES) {
 			for (const id of side.hide) {
@@ -73,92 +70,116 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 					id,
 					metadata: own.metadata,
 					handler: (accessor, ...args) => {
-						const leaving = this.layout.isVisible(side.part, mainWindow) ? this.copy(side.part) : undefined;
-						const result = instantiation.invokeFunction(own.handler, ...args);
-						if (leaving && !this.layout.isVisible(side.part, mainWindow)) {
-							this.fold(side.part, leaving, this.edge(side.part));
+						const hide = () => instantiation.invokeFunction(own.handler, ...args);
+						// A second press while it still moves: it lands where it was going first.
+						this.playing.get(side.part)?.finish();
+						if (!this.layout.isVisible(side.part, mainWindow) || !this.moving() || !this.least(side.part)) {
+							return hide();
 						}
-						return result;
+						return this.close(side.part, hide);
 					},
 				}));
 			}
 		}
+		this._register({ dispose: () => this.playing.forEach(p => p.finish()) });
 	}
 
 	private moving(): boolean {
 		return moving(this.layout.mainContainer) && !this.layout.isPanelMaximized() && !this.layout.isAuxiliaryBarMaximized();
 	}
 
-	private edge(part: Parts): Edge {
-		const left = this.layout.getSideBarPosition() === Position.LEFT;
-		switch (part) {
-			case Parts.SIDEBAR_PART: return left ? 'left' : 'right';
-			case Parts.AUXILIARYBAR_PART: return left ? 'right' : 'left';
-			default: {
-				const panel = this.layout.getPanelPosition();
-				return panel === Position.TOP ? 'top' : panel === Position.LEFT ? 'left' : panel === Position.RIGHT ? 'right' : 'bottom';
-			}
-		}
+	/** VS Code's own part, whose least size the grid reads as it lays out. */
+	private least(part: Parts): Least | undefined {
+		const get = (this.layout as unknown as { getPart?(part: Parts): Least }).getPart;
+		const found = typeof get === 'function' ? get.call(this.layout, part) : undefined;
+		return found && typeof found.minimumWidth === 'number' ? found : undefined;
 	}
 
-	/** Uncovers a block VS Code has just laid out, from its edge. */
+	/** Whether the block hangs from a side (its width moves) or the top or bottom (its height). */
+	private across(part: Parts): boolean {
+		if (part !== Parts.PANEL_PART) {
+			return true;
+		}
+		const panel = this.layout.getPanelPosition();
+		return panel === Position.LEFT || panel === Position.RIGHT;
+	}
+
+	/** Grows a block VS Code has just shown, from nothing to the size it laid it out at. */
 	private open(part: Parts): void {
-		// Shown again while its copy still folds away (a quick double toggle): the copy goes, or it
-		// would cover the block coming out under it.
-		this.leaving.get(part)?.remove();
-		this.leaving.delete(part);
-		const element = this.layout.getContainer(mainWindow, part);
-		if (!element || !this.moving()) {
+		const element = this.slot(part);
+		if (!element?.offsetParent) {
+			this.settled();
 			return;
 		}
-		const box = boxOf(element);
-		holdScroll(element, this.layout.mainContainer, element.animate(stretchFrames(box, edgeBox(box, this.edge(part)), box, cardOf(element)), stretching));
+		const size = this.across(part) ? element.offsetWidth : element.offsetHeight;
+		void this.resize(part, size, 0, size).then(() => this.settled());
 	}
 
-	/** A copy of a block where it stands, to fold away over the window once VS Code has hidden it. */
-	private copy(part: Parts): (StillCopy & { box: Box; card: Card }) | undefined {
-		const element = this.layout.getContainer(mainWindow, part);
-		if (!element || !this.moving()) {
-			return undefined;
-		}
-		const rect = element.getBoundingClientRect();
-		if (rect.width === 0 || rect.height === 0) {
-			return undefined;
-		}
-		const card = cardOf(element);
-		const still = stillCopy(element, this.scrolls);
-		const copy = still.copy;
-		copy.classList.add('cedian-block-leaving');
-		copy.setAttribute('aria-hidden', 'true');
-		copy.removeAttribute('id');
-		copy.style.left = `${rect.left}px`;
-		copy.style.top = `${rect.top}px`;
-		copy.style.width = `${rect.width}px`;
-		copy.style.height = `${rect.height}px`;
-		// It keeps the part's classes, so VS Code's rules for the part apply to it too: it is hidden
-		// with !important once the part is, and the card's margin would shift it off its place by
-		// the margin. Only inline declarations are stronger.
-		copy.style.setProperty('display', 'block', 'important');
-		copy.style.setProperty('visibility', 'visible', 'important');
-		copy.style.setProperty('margin', '0', 'important');
-		return { ...still, box: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }, card };
+	/** Shrinks a block into its edge, then hides it at its own size again. */
+	private async close<T>(part: Parts, hide: () => T): Promise<Awaited<T>> {
+		const element = this.slot(part)!;
+		const size = this.across(part) ? element.offsetWidth : element.offsetHeight;
+		this.layout.mainContainer.classList.add(RESIZING);
+		await this.resize(part, size, size, 0, () => {
+			// Back at its size, then hidden, in one task: VS Code keeps the size it had for its next
+			// showing, and nothing is painted between.
+			this.layout.setSize(part, this.sized(part, element, size));
+		});
+		const result = hide();
+		// After the hide's own news of it: blockMove reads that at the end of this task.
+		queueMicrotask(() => this.settled());
+		return await result;
 	}
 
-	private fold(part: Parts, leaving: StillCopy & { box: Box; card: Card }, edge: Edge): void {
-		const copy = leaving.copy;
-		this.leaving.get(part)?.remove();
-		this.leaving.set(part, copy);
-		this.layout.mainContainer.appendChild(copy);
-		leaving.settle();
-		// From its whole box into its edge, as the blocks beside it stretch back into the room.
-		const run = copy.animate(stretchFrames(leaving.box, leaving.box, edgeBox(leaving.box, edge), leaving.card), { ...stretching, fill: 'forwards' });
-		const gone = () => {
-			copy.remove();
-			if (this.leaving.get(part) === copy) {
-				this.leaving.delete(part);
+	/**
+	 * Plays a block's size from `from` to `to`, laying the window out at each. `last` runs at its
+	 * end in place of laying it out at `to`, before its least size is put back.
+	 */
+	private resize(part: Parts, size: number, from: number, to: number, last?: () => void): Promise<void> {
+		const least = this.least(part)!;
+		const was = { minimumWidth: least.minimumWidth, minimumHeight: least.minimumHeight };
+		const element = this.slot(part)!;
+		if (this.across(part)) {
+			least.minimumWidth = 0;
+		} else {
+			least.minimumHeight = 0;
+		}
+		const playing = play(from, to, s => {
+			if (s === to && last) {
+				return;
 			}
-		};
-		run.onfinish = gone;
-		run.oncancel = gone;
+			this.layout.setSize(part, this.sized(part, element, s));
+		}, {
+			request: cb => mainWindow.requestAnimationFrame(cb),
+			cancel: id => mainWindow.cancelAnimationFrame(id),
+			now: () => mainWindow.performance.now(),
+		});
+		this.playing.set(part, playing);
+		return playing.done.then(() => {
+			last?.();
+			least.minimumWidth = was.minimumWidth;
+			least.minimumHeight = was.minimumHeight;
+			if (this.playing.get(part) === playing) {
+				this.playing.delete(part);
+			}
+		});
+	}
+
+	/** The grid's box for a part: the part's card sits in it with a margin, its size is the box's. */
+	private slot(part: Parts): HTMLElement | undefined {
+		const element = this.layout.getContainer(mainWindow, part);
+		return element?.parentElement ?? element;
+	}
+
+	/** A size for VS Code's grid: this much across or down, the block's other side as it is. */
+	private sized(part: Parts, element: HTMLElement, size: number): { width: number; height: number } {
+		return this.across(part) ? { width: size, height: element.offsetHeight } : { width: element.offsetWidth, height: size };
+	}
+
+	private settled(): void {
+		if (this.playing.size === 0) {
+			this.layout.mainContainer.classList.remove(RESIZING);
+			this.layout.mainContainer.dispatchEvent(new CustomEvent(RESIZED));
+		}
 	}
 }
