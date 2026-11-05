@@ -114,8 +114,56 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     // The git pane lists each thread's worktree beside the project (they live under
     // .cedian/worktrees, which the folder scan never reaches).
     "git.detectWorktrees": true,
+    ...LEAN,
   };
 }
+
+/**
+ * Defaults that keep the window light on CPU and memory, none of which Cedian's own features
+ * need. Each is a VS Code setting the person can still change.
+ */
+const LEAN: Record<string, unknown> = {
+  // One TypeScript server, not a syntax server beside the semantic one: about 80 MB less.
+  "typescript.tsserver.useSyntaxServer": "never",
+  // No typings installer process fetching @types from npm in the background.
+  "typescript.disableAutomaticTypeAcquisition": true,
+  // The file watcher and search skip build output and thread worktrees (each a full copy of the
+  // project), not only node_modules; VS Code's own entries stay, as an override replaces them.
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.hg/store/**": true,
+    "**/node_modules/*/**": true,
+    "**/target/**": true,
+    "**/dist/**": true,
+    "**/.next/**": true,
+    "**/.cedian/worktrees/**": true,
+    "**/.claude/worktrees/**": true,
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/target": true,
+    "**/.cedian/worktrees": true,
+    "**/.claude/worktrees": true,
+  },
+  // ripgrep following symlinks into node_modules is the usual cause of a search pinning a core.
+  "search.followSymlinks": false,
+  // No scanning every package.json, Gruntfile and Gulpfile for tasks at startup.
+  "npm.autoDetect": "off",
+  "grunt.autoDetect": "off",
+  "gulp.autoDetect": "off",
+  "jake.autoDetect": "off",
+  "typescript.tsc.autoDetect": "off",
+  // The auto-attach watcher on every terminal stays off until asked for.
+  "debug.javascript.autoAttachFilter": "disabled",
+  // No experiment or recommendation lookups over the network.
+  "workbench.enableExperiments": false,
+  "extensions.ignoreRecommendations": true,
+  // The minimap draws blocks, not glyphs: cheaper on every scroll, and it reads the same at 40 columns.
+  "editor.minimap.renderCharacters": false,
+};
 
 /** Which app icon `desktop.app_icon` asks for, given the appearance of the theme showing now. */
 export function appIconOf(desktop: Desktop, showing: "light" | "dark"): "light" | "dark" {

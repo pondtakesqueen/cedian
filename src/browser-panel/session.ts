@@ -164,6 +164,7 @@ export class PageSession {
   private readonly noticeListeners = new Set<(message: string) => void>();
   private readonly closeListeners = new Set<(beforeLoad: boolean) => void>();
   private everLoaded = false;
+  private paused = false;
 
   constructor(private readonly cdp: Cdp) {
     cdp.on("Page.screencastFrame", (p) => {
@@ -270,8 +271,24 @@ export class PageSession {
       this.size = { width: w, height: h, scale };
       await this.cdp.call("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 0, mobile: false });
       await this.cdp.call("Page.stopScreencast").catch(() => {});
-      await this.cdp.call("Page.startScreencast", { format: "jpeg", quality: 85, maxWidth: Math.round(w * scale), maxHeight: Math.round(h * scale), everyNthFrame: 1 });
+      if (!this.paused) await this.screencast();
     }
+  }
+
+  /** Stops sending frames while the block can't be seen, and starts again once it can: a page
+   *  that animates otherwise has Chromium encode, and the window decode, frames nobody sees. The
+   *  page itself keeps running, so the agent can still drive it. */
+  async setPaused(paused: boolean): Promise<void> {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (!this.size.width) return;
+    if (paused) await this.cdp.call("Page.stopScreencast").catch(() => {});
+    else await this.screencast();
+  }
+
+  private screencast(): Promise<void> {
+    const { width, height, scale } = this.size;
+    return this.cdp.call("Page.startScreencast", { format: "jpeg", quality: 85, maxWidth: Math.round(width * scale), maxHeight: Math.round(height * scale), everyNthFrame: 1 });
   }
 
   async navigate(url: string): Promise<void> {

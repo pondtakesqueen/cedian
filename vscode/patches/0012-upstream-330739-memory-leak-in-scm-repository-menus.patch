@@ -1,0 +1,66 @@
+diff --git a/src/vs/platform/configuration/common/configurationModels.ts b/src/vs/platform/configuration/common/configurationModels.ts
+index 8ed882c0..0fbea1a7 100644
+--- a/src/vs/platform/configuration/common/configurationModels.ts
++++ b/src/vs/platform/configuration/common/configurationModels.ts
+@@ -803,6 +803,9 @@ export class Configuration {
+ 
+ 		if (value === undefined) {
+ 			memoryConfiguration.removeValue(key);
++			if (overrides.resource && memoryConfiguration.isEmpty()) {
++				this._memoryConfigurationByResource.delete(overrides.resource);
++			}
+ 		} else {
+ 			memoryConfiguration.setValue(key, value);
+ 		}
+diff --git a/src/vs/workbench/contrib/scm/browser/menus.ts b/src/vs/workbench/contrib/scm/browser/menus.ts
+index d783fd55..564cee6f 100644
+--- a/src/vs/workbench/contrib/scm/browser/menus.ts
++++ b/src/vs/workbench/contrib/scm/browser/menus.ts
+@@ -365,6 +365,16 @@ export class SCMRepositoryMenus implements ISCMRepositoryMenus, IDisposable {
+ 			this.contextualRepositoryMenus.clear();
+ 			this.contextualRepositoryMenus = undefined;
+ 		}
++		this.genericRepositoryContextMenu?.dispose();
++		if (this.contextualRepositoryContextMenus) {
++			dispose(this.contextualRepositoryContextMenus.values());
++			this.contextualRepositoryContextMenus.clear();
++			this.contextualRepositoryContextMenus = undefined;
++		}
++		dispose(this.artifactGroupMenus.values());
++		this.artifactGroupMenus.clear();
++		dispose(this.artifactMenus.values());
++		this.artifactMenus.clear();
+ 		this.resourceGroupMenusItems.forEach(item => item.dispose());
+ 		this.disposables.dispose();
+ 	}
+diff --git a/src/vs/workbench/contrib/scm/browser/scmInput.ts b/src/vs/workbench/contrib/scm/browser/scmInput.ts
+index d73da821..415f6a88 100644
+--- a/src/vs/workbench/contrib/scm/browser/scmInput.ts
++++ b/src/vs/workbench/contrib/scm/browser/scmInput.ts
+@@ -5,7 +5,7 @@
+ 
+ import './media/scm.css';
+ import { Event, Emitter } from '../../../../base/common/event.js';
+-import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
++import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+ import { append, $, Dimension, trackFocus } from '../../../../base/browser/dom.js';
+ import { InputValidationType, ISCMInput, IInputValidation, ISCMViewService, SCMInputChangeReason, ISCMInputValueProviderContext } from '../common/scm.js';
+ import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+@@ -410,8 +410,15 @@ export class SCMInputWidget {
+ 		const textModel = input.repository.provider.inputBoxTextModel;
+ 		this.inputEditor.setModel(textModel);
+ 
+-		if (this.configurationService.getValue('editor.wordBasedSuggestions', { resource: textModel.uri }) !== 'off') {
+-			this.configurationService.updateValue('editor.wordBasedSuggestions', 'off', { resource: textModel.uri }, ConfigurationTarget.MEMORY);
++		const wordBasedSuggestionsOverrides = { resource: textModel.uri };
++		if (this.configurationService.getValue('editor.wordBasedSuggestions', wordBasedSuggestionsOverrides) !== 'off') {
++			const previousWordBasedSuggestions = this.configurationService.inspect('editor.wordBasedSuggestions', wordBasedSuggestionsOverrides).memoryValue;
++			void this.configurationService.updateValue('editor.wordBasedSuggestions', 'off', wordBasedSuggestionsOverrides, ConfigurationTarget.MEMORY);
++			this.repositoryDisposables.add(toDisposable(() => {
++				if (this.configurationService.inspect('editor.wordBasedSuggestions', wordBasedSuggestionsOverrides).memoryValue === 'off') {
++					void this.configurationService.updateValue('editor.wordBasedSuggestions', previousWordBasedSuggestions, wordBasedSuggestionsOverrides, ConfigurationTarget.MEMORY);
++				}
++			}));
+ 		}
+ 
+ 		// Validation

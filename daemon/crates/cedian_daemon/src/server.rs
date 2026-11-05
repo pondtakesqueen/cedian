@@ -44,6 +44,7 @@ pub fn serve(config: Config) -> anyhow::Result<()> {
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_default();
+    let home = config.home.clone();
     let shared: Shared = Arc::new(Mutex::new(Daemon::new(
         config.cedia,
         config.home,
@@ -64,6 +65,15 @@ pub fn serve(config: Config) -> anyhow::Result<()> {
         },
         None => None,
     };
+    // Remote control, when `desktop.remote.port` is set: the same windows, over a socket a
+    // browser opens (remote.rs).
+    match crate::remote::remote_config(&home, &state_dir) {
+        Ok(Some(remote)) => crate::remote::serve_remote(shared.clone(), remote, recorder.clone()),
+        Ok(None) => {}
+        Err(error) => log::warn!("remote: {error:#}"),
+    }
+    // Phone notifications to the browsers that subscribed from the remote page (push.rs).
+    crate::push::watch_pushes(shared.clone(), home.clone(), state_dir.clone());
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {

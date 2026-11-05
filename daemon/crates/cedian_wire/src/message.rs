@@ -314,6 +314,10 @@ pub enum Request {
         #[serde(default)]
         tab: Option<BrowserTabAction>,
     },
+    /// Browser block `id` (the window's own name for it) opened (`open`) or closed; saying it
+    /// twice is harmless. With none open in any window and no run going for a while, the daemon
+    /// quits the shared Chromium; the next block starts it again. Unanswered.
+    BrowserBlock { id: String, open: bool },
     /// A message for the files `thread` changed in `cwd` (its worktree, else the project),
     /// drafted by its writer model (`cedia commit --thread --json`), answered with
     /// `Notice::CommitDraft`, when this cedia offers `commit`. Nothing is committed.

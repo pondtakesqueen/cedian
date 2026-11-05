@@ -1,6 +1,7 @@
 //! `cedian-daemon`: serves windows on the socket in cedian's state directory until it is
 //! killed. `install` and `uninstall` register it as a LaunchAgent, or remove it. `--printenv`
 //! prints this process's environment as JSON, for reading the login shell's environment.
+//! `remote-url` prints the link that opens remote control in a browser (remote.rs).
 
 use std::path::PathBuf;
 
@@ -10,8 +11,11 @@ fn main() {
     match std::env::args().nth(1).as_deref() {
         Some("--printenv") => return cedian_daemon::print_env(),
         Some(command @ ("install" | "uninstall")) => return agent(command),
+        Some("remote-url") => return remote_url(),
         Some(other) => {
-            eprintln!("usage: cedian-daemon [install | uninstall]; unknown argument {other:?}");
+            eprintln!(
+                "usage: cedian-daemon [install | uninstall | remote-url]; unknown argument {other:?}"
+            );
             std::process::exit(2);
         }
         None => {}
@@ -89,6 +93,49 @@ fn log_signals(when: &str) {
         ));
     }
     log::info!("signals {when}: {}", words.join(", "));
+}
+
+/// The login link for remote control: the local address with the token, and how to reach it
+/// from a phone.
+fn remote_url() {
+    let home = std::env::var_os("CEDIA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(cedian_index::cedia_home);
+    let port = std::fs::read_to_string(home.join("settings.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|settings| {
+            settings
+                .pointer("/desktop/remote/port")
+                .and_then(serde_json::Value::as_u64)
+        });
+    let Some(port) = port else {
+        eprintln!(
+            "cedian-daemon remote-url: remote control is off; set desktop.remote.port in {}",
+            home.join("settings.json").display()
+        );
+        std::process::exit(1);
+    };
+    match cedian_daemon::remote_token(&cedian_wire::state_dir()) {
+        Ok(token) => match cedian_daemon::tailnet_host() {
+            Some(host) => {
+                println!("https://{host}/?token={token}");
+                eprintln!(
+                    "Open it on your phone (on your tailnet). If it does not load, run `tailscale serve --bg {port}` once. On this Mac: http://127.0.0.1:{port}/?token={token}"
+                );
+            }
+            None => {
+                println!("http://127.0.0.1:{port}/?token={token}");
+                eprintln!(
+                    "Tailscale was not found. For a phone: install Tailscale, run `tailscale serve --bg {port}` once, then open https://<this machine>.<tailnet>.ts.net/?token=<the same token>"
+                );
+            }
+        },
+        Err(error) => {
+            eprintln!("cedian-daemon remote-url: {error:#}");
+            std::process::exit(1);
+        }
+    }
 }
 
 fn agent(command: &str) {

@@ -110,6 +110,41 @@ impl Browser {
         }
     }
 
+    /// Quits the Chromium on this profile, whether this daemon or an earlier one started it. Its
+    /// tabs go with it; the profile, and so the sign-ins, stay.
+    pub fn quit(&mut self) {
+        if self.alive().is_none() {
+            return;
+        }
+        log::info!("quitting the browser: no Browser block open");
+        // Chromium's main process is the one with the profile and the debugging port; its
+        // helpers end with it.
+        let pattern = format!(
+            "--user-data-dir={}",
+            regex_escape(&self.profile.display().to_string())
+        );
+        if let Err(e) = Command::new("pkill")
+            .args(["-TERM", "-f", "--", &pattern])
+            .status()
+        {
+            log::warn!("quitting the browser: {e}");
+        }
+        // Gone before a new one starts on the same profile, which it still locks.
+        let since = Instant::now();
+        while since.elapsed() < HTTP_TIMEOUT
+            && Command::new("pgrep")
+                .args(["-f", "--", &pattern])
+                .stdout(Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success())
+        {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let _ = std::fs::remove_file(self.profile.join("DevToolsActivePort"));
+        self.port = None;
+        self.pages.clear();
+    }
+
     fn start(&mut self) -> anyhow::Result<u16> {
         let exe = std::env::current_exe()
             .inspect_err(|e| log::warn!("the daemon's own path: {e}"))
@@ -217,6 +252,18 @@ impl Browser {
                 .collect(),
         })
     }
+}
+
+/// `text` matched literally in the extended regex `pkill -f` takes.
+fn regex_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if "\\.^$|?*+()[]{}".contains(c) {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
 }
 
 /// `url` percent-encoded for the query of `/json/new`, which Chromium unescapes whole.
@@ -533,9 +580,11 @@ mod tests {
         assert_eq!(c.endpoint, a.endpoint);
         let version = http(browser.port.expect("port"), "GET", "/json/version").expect("version");
         assert!(version.contains("webSocketDebuggerUrl"));
-        let _ = Command::new("pkill")
-            .arg("-f")
-            .arg(dir.path().join("browser").display().to_string())
-            .status();
+        // With no block open it quits, and the next block starts it again.
+        again.quit();
+        assert!(again.running_page("a").is_none(), "quit");
+        let d = again.page("a", None).expect("restarts");
+        assert_eq!(d.tabs.len(), 1);
+        again.quit();
     }
 }

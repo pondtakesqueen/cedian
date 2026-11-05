@@ -1,0 +1,736 @@
+diff --git a/src/vs/platform/storage/common/storageIpc.ts b/src/vs/platform/storage/common/storageIpc.ts
+index fb6f844d..dc1e924a 100644
+--- a/src/vs/platform/storage/common/storageIpc.ts
++++ b/src/vs/platform/storage/common/storageIpc.ts
+@@ -36,6 +36,12 @@ export interface IBaseSerializableStorageRequest {
+ 	 */
+ 	readonly applicationShared?: boolean;
+ 
++	/**
++	 * Window owning this request, if any. Only profile and workspace
++	 * storage requests with an owner participate in main process ref counting.
++	 */
++	readonly ownerWindowId?: number;
++
+ 	/**
+ 	 * Additional payload for the request to perform.
+ 	 */
+@@ -77,20 +83,25 @@ abstract class BaseStorageDatabaseClient extends Disposable implements IStorageD
+ 	constructor(
+ 		protected channel: IChannel,
+ 		protected profile: UriDto<IUserDataProfile> | undefined,
+-		protected workspace: IAnyWorkspaceIdentifier | undefined
++		protected workspace: IAnyWorkspaceIdentifier | undefined,
++		protected readonly ownerWindowId: number | undefined = undefined
+ 	) {
+ 		super();
+ 	}
+ 
++	protected toSerializableRequest(): IBaseSerializableStorageRequest {
++		return { profile: this.profile, workspace: this.workspace, applicationShared: this.applicationShared, ownerWindowId: this.ownerWindowId };
++	}
++
+ 	async getItems(): Promise<Map<string, string>> {
+-		const serializableRequest: IBaseSerializableStorageRequest = { profile: this.profile, workspace: this.workspace, applicationShared: this.applicationShared };
++		const serializableRequest = this.toSerializableRequest();
+ 		const items: Item[] = await this.channel.call('getItems', serializableRequest);
+ 
+ 		return new Map(items);
+ 	}
+ 
+ 	updateItems(request: IUpdateRequest): Promise<void> {
+-		const serializableRequest: ISerializableUpdateRequest = { profile: this.profile, workspace: this.workspace, applicationShared: this.applicationShared };
++		const serializableRequest: ISerializableUpdateRequest = this.toSerializableRequest();
+ 
+ 		if (request.insert) {
+ 			serializableRequest.insert = Array.from(request.insert.entries());
+@@ -104,7 +115,7 @@ abstract class BaseStorageDatabaseClient extends Disposable implements IStorageD
+ 	}
+ 
+ 	optimize(): Promise<void> {
+-		const serializableRequest: IBaseSerializableStorageRequest = { profile: this.profile, workspace: this.workspace, applicationShared: this.applicationShared };
++		const serializableRequest = this.toSerializableRequest();
+ 
+ 		return this.channel.call('optimize', serializableRequest);
+ 	}
+@@ -117,14 +128,14 @@ abstract class BaseProfileAwareStorageDatabaseClient extends BaseStorageDatabase
+ 	private readonly _onDidChangeItemsExternal = this._register(new Emitter<IStorageItemsChangeEvent>());
+ 	readonly onDidChangeItemsExternal = this._onDidChangeItemsExternal.event;
+ 
+-	constructor(channel: IChannel, profile: UriDto<IUserDataProfile> | undefined) {
+-		super(channel, profile, undefined);
++	constructor(channel: IChannel, profile: UriDto<IUserDataProfile> | undefined, ownerWindowId: number | undefined = undefined) {
++		super(channel, profile, undefined, ownerWindowId);
+ 
+ 		this.registerListeners();
+ 	}
+ 
+ 	private registerListeners(): void {
+-		this._register(this.channel.listen<ISerializableItemsChangeEvent>('onDidChangeStorage', { profile: this.profile, applicationShared: this.applicationShared })((e: ISerializableItemsChangeEvent) => this.onDidChangeStorage(e)));
++		this._register(this.channel.listen<ISerializableItemsChangeEvent>('onDidChangeStorage', this.toSerializableRequest())((e: ISerializableItemsChangeEvent) => this.onDidChangeStorage(e)));
+ 	}
+ 
+ 	private onDidChangeStorage(e: ISerializableItemsChangeEvent): void {
+@@ -175,6 +186,10 @@ export class ApplicationSharedStorageDatabaseClient extends BaseProfileAwareStor
+ 
+ export class ProfileStorageDatabaseClient extends BaseProfileAwareStorageDatabaseClient {
+ 
++	constructor(channel: IChannel, profile: UriDto<IUserDataProfile> | undefined, ownerWindowId: number | undefined = undefined) {
++		super(channel, profile, ownerWindowId);
++	}
++
+ 	async close(): Promise<void> {
+ 
+ 		// The profile storage database is shared across all instances of
+@@ -190,8 +205,8 @@ export class WorkspaceStorageDatabaseClient extends BaseStorageDatabaseClient im
+ 
+ 	readonly onDidChangeItemsExternal = Event.None; // unsupported for workspace storage because we only ever write from one window
+ 
+-	constructor(channel: IChannel, workspace: IAnyWorkspaceIdentifier) {
+-		super(channel, undefined, workspace);
++	constructor(channel: IChannel, workspace: IAnyWorkspaceIdentifier, ownerWindowId: number | undefined = undefined) {
++		super(channel, undefined, workspace, ownerWindowId);
+ 	}
+ 
+ 	async close(): Promise<void> {
+diff --git a/src/vs/platform/storage/common/storageService.ts b/src/vs/platform/storage/common/storageService.ts
+index 9bb5d71c..f0bcfe3b 100644
+--- a/src/vs/platform/storage/common/storageService.ts
++++ b/src/vs/platform/storage/common/storageService.ts
+@@ -34,7 +34,8 @@ export class RemoteStorageService extends AbstractStorageService {
+ 		initialWorkspace: IAnyWorkspaceIdentifier | undefined,
+ 		initialProfiles: { defaultProfile: IUserDataProfile; currentProfile: IUserDataProfile },
+ 		protected readonly remoteService: IRemoteService,
+-		private readonly environmentService: IEnvironmentService
++		private readonly environmentService: IEnvironmentService,
++		private readonly ownerWindowId: number | undefined = undefined
+ 	) {
+ 		super();
+ 
+@@ -85,7 +86,7 @@ export class RemoteStorageService extends AbstractStorageService {
+ 
+ 			profileStorage = this.applicationStorage;
+ 		} else {
+-			const storageDataBaseClient = this.profileStorageDisposables.add(new ProfileStorageDatabaseClient(this.remoteService.getChannel('storage'), profile));
++			const storageDataBaseClient = this.profileStorageDisposables.add(new ProfileStorageDatabaseClient(this.remoteService.getChannel('storage'), profile, this.ownerWindowId));
+ 			profileStorage = this.profileStorageDisposables.add(new Storage(storageDataBaseClient));
+ 		}
+ 
+@@ -106,7 +107,7 @@ export class RemoteStorageService extends AbstractStorageService {
+ 
+ 		let workspaceStorage: IStorage | undefined = undefined;
+ 		if (workspace) {
+-			const storageDataBaseClient = this.workspaceStorageDisposables.add(new WorkspaceStorageDatabaseClient(this.remoteService.getChannel('storage'), workspace));
++			const storageDataBaseClient = this.workspaceStorageDisposables.add(new WorkspaceStorageDatabaseClient(this.remoteService.getChannel('storage'), workspace, this.ownerWindowId));
+ 			workspaceStorage = this.workspaceStorageDisposables.add(new Storage(storageDataBaseClient));
+ 
+ 			this.workspaceStorageDisposables.add(workspaceStorage.onDidChangeStorage(e => this.emitDidChangeValue(StorageScope.WORKSPACE, e)));
+diff --git a/src/vs/platform/storage/electron-main/storageIpc.ts b/src/vs/platform/storage/electron-main/storageIpc.ts
+index a3d05961..40741953 100644
+--- a/src/vs/platform/storage/electron-main/storageIpc.ts
++++ b/src/vs/platform/storage/electron-main/storageIpc.ts
+@@ -4,7 +4,7 @@
+  *--------------------------------------------------------------------------------------------*/
+ 
+ import { Emitter, Event } from '../../../base/common/event.js';
+-import { Disposable } from '../../../base/common/lifecycle.js';
++import { Disposable, DisposableStore } from '../../../base/common/lifecycle.js';
+ import { revive } from '../../../base/common/marshalling.js';
+ import { IServerChannel } from '../../../base/parts/ipc/common/ipc.js';
+ import { ILogService } from '../../log/common/log.js';
+@@ -21,7 +21,7 @@ export class StorageDatabaseChannel extends Disposable implements IServerChannel
+ 	private readonly onDidChangeApplicationStorageEmitter = this._register(new Emitter<ISerializableItemsChangeEvent>());
+ 	private readonly onDidChangeApplicationSharedStorageEmitter = this._register(new Emitter<ISerializableItemsChangeEvent>());
+ 
+-	private readonly mapProfileToOnDidChangeProfileStorageEmitter = new Map<string /* profile ID */, Emitter<ISerializableItemsChangeEvent>>();
++	private readonly mapProfileToOnDidChangeProfileStorageEmitter = new Map<string /* profile ID */, { readonly emitter: Emitter<ISerializableItemsChangeEvent>; readonly store: DisposableStore }>();
+ 
+ 	constructor(
+ 		private readonly logService: ILogService,
+@@ -35,12 +35,12 @@ export class StorageDatabaseChannel extends Disposable implements IServerChannel
+ 
+ 	//#region Storage Change Events
+ 
+-	private registerStorageChangeListeners(storage: IStorageMain, emitter: Emitter<ISerializableItemsChangeEvent>): void {
++	private registerStorageChangeListeners(storage: IStorageMain, emitter: Emitter<ISerializableItemsChangeEvent>, store: DisposableStore = this._store): void {
+ 
+ 		// Listen for changes in provided storage to send to listeners
+ 		// that are listening. Use a debouncer to reduce IPC traffic.
+ 
+-		this._register(Event.debounce(storage.onDidChangeStorage, (prev: IStorageChangeEvent[] | undefined, cur: IStorageChangeEvent) => {
++		store.add(Event.debounce(storage.onDidChangeStorage, (prev: IStorageChangeEvent[] | undefined, cur: IStorageChangeEvent) => {
+ 			if (!prev) {
+ 				prev = [cur];
+ 			} else {
+@@ -89,14 +89,22 @@ export class StorageDatabaseChannel extends Disposable implements IServerChannel
+ 				}
+ 
+ 				// With profile: profile scope for the profile
++				const ownerWindowId = this.getOwnerWindowId(arg);
++				const storage = this.storageMainService.profileStorage(profile, ownerWindowId);
+ 				let profileStorageChangeEmitter = this.mapProfileToOnDidChangeProfileStorageEmitter.get(profile.id);
+ 				if (!profileStorageChangeEmitter) {
+-					profileStorageChangeEmitter = this._register(new Emitter<ISerializableItemsChangeEvent>());
+-					this.registerStorageChangeListeners(this.storageMainService.profileStorage(profile), profileStorageChangeEmitter);
++					const store = new DisposableStore();
++					const emitter = store.add(new Emitter<ISerializableItemsChangeEvent>());
++					this.registerStorageChangeListeners(storage, emitter, store);
++					store.add(Event.once(storage.onDidCloseStorage)(() => {
++						this.mapProfileToOnDidChangeProfileStorageEmitter.delete(profile.id);
++						store.dispose();
++					}));
++					profileStorageChangeEmitter = { emitter, store };
+ 					this.mapProfileToOnDidChangeProfileStorageEmitter.set(profile.id, profileStorageChangeEmitter);
+ 				}
+ 
+-				return profileStorageChangeEmitter.event;
++				return profileStorageChangeEmitter.emitter.event;
+ 			}
+ 		}
+ 
+@@ -110,9 +118,10 @@ export class StorageDatabaseChannel extends Disposable implements IServerChannel
+ 		const profile = arg.profile ? revive<IUserDataProfile>(arg.profile) : undefined;
+ 		const workspace = reviveIdentifier(arg.workspace);
+ 		const applicationShared = arg.applicationShared;
++		const ownerWindowId = this.getOwnerWindowId(arg);
+ 
+ 		// Get storage to be ready
+-		const storage = await this.withStorageInitialized(profile, workspace, applicationShared);
++		const storage = await this.withStorageInitialized(profile, workspace, applicationShared, ownerWindowId);
+ 
+ 		// handle call
+ 		switch (command) {
+@@ -177,12 +186,16 @@ export class StorageDatabaseChannel extends Disposable implements IServerChannel
+ 		}
+ 	}
+ 
+-	private async withStorageInitialized(profile: IUserDataProfile | undefined, workspace: IAnyWorkspaceIdentifier | undefined, applicationShared?: boolean): Promise<IStorageMain> {
++	private getOwnerWindowId(arg: IBaseSerializableStorageRequest): number | undefined {
++		return Number.isInteger(arg.ownerWindowId) ? arg.ownerWindowId : undefined;
++	}
++
++	private async withStorageInitialized(profile: IUserDataProfile | undefined, workspace: IAnyWorkspaceIdentifier | undefined, applicationShared: boolean | undefined, ownerWindowId: number | undefined): Promise<IStorageMain> {
+ 		let storage: IStorageMain;
+ 		if (workspace) {
+-			storage = this.storageMainService.workspaceStorage(workspace);
++			storage = this.storageMainService.workspaceStorage(workspace, ownerWindowId);
+ 		} else if (profile) {
+-			storage = this.storageMainService.profileStorage(profile);
++			storage = this.storageMainService.profileStorage(profile, ownerWindowId);
+ 		} else if (applicationShared) {
+ 			storage = this.storageMainService.applicationSharedStorage;
+ 		} else {
+@@ -197,4 +210,13 @@ export class StorageDatabaseChannel extends Disposable implements IServerChannel
+ 
+ 		return storage;
+ 	}
++
++	override dispose(): void {
++		for (const profileStorageChangeEmitter of this.mapProfileToOnDidChangeProfileStorageEmitter.values()) {
++			profileStorageChangeEmitter.store.dispose();
++		}
++		this.mapProfileToOnDidChangeProfileStorageEmitter.clear();
++
++		super.dispose();
++	}
+ }
+diff --git a/src/vs/platform/storage/electron-main/storageMain.ts b/src/vs/platform/storage/electron-main/storageMain.ts
+index a56091d0..84ce18f1 100644
+--- a/src/vs/platform/storage/electron-main/storageMain.ts
++++ b/src/vs/platform/storage/electron-main/storageMain.ts
+@@ -7,7 +7,7 @@ import * as fs from 'fs';
+ import { top } from '../../../base/common/arrays.js';
+ import { DeferredPromise } from '../../../base/common/async.js';
+ import { Emitter, Event } from '../../../base/common/event.js';
+-import { Disposable, IDisposable } from '../../../base/common/lifecycle.js';
++import { Disposable, IDisposable, thenRegisterOrDispose } from '../../../base/common/lifecycle.js';
+ import { join } from '../../../base/common/path.js';
+ import { StopWatch } from '../../../base/common/stopwatch.js';
+ import { URI } from '../../../base/common/uri.js';
+@@ -156,7 +156,10 @@ abstract class BaseStorageMain extends Disposable implements IStorageMain {
+ 				try {
+ 
+ 					// Create storage via subclasses
+-					const storage = this._register(await this.doCreate());
++					const storage = await thenRegisterOrDispose(this.doCreate(), this._store);
++					if (this._store.isDisposed) {
++						return;
++					}
+ 
+ 					// Replace our in-memory storage with the real
+ 					// once as soon as possible without awaiting
+@@ -383,7 +386,7 @@ export class ApplicationSharedStorageMain extends BaseStorageMain {
+ 		await this.applicationStorage.init();
+ 		this.logService.info(`[shared storage] Fallback application storage initialized with ${this.applicationStorage.items.size} items`);
+ 
+-		const migratingStorage = this._register(new MigratingStorage(database, { hint: wasCreated ? StorageHint.STORAGE_DOES_NOT_EXIST : undefined }));
++		const migratingStorage = new MigratingStorage(database, { hint: wasCreated ? StorageHint.STORAGE_DOES_NOT_EXIST : undefined });
+ 		migratingStorage.setFallbackStorage(this.applicationStorage.storage, false);
+ 		return migratingStorage;
+ 	}
+diff --git a/src/vs/platform/storage/electron-main/storageMainService.ts b/src/vs/platform/storage/electron-main/storageMainService.ts
+index d31880cc..bc4ee62b 100644
+--- a/src/vs/platform/storage/electron-main/storageMainService.ts
++++ b/src/vs/platform/storage/electron-main/storageMainService.ts
+@@ -5,7 +5,7 @@
+ 
+ import { URI } from '../../../base/common/uri.js';
+ import { Emitter, Event } from '../../../base/common/event.js';
+-import { Disposable } from '../../../base/common/lifecycle.js';
++import { Disposable, IDisposable } from '../../../base/common/lifecycle.js';
+ import { join } from '../../../base/common/path.js';
+ import { IStorage } from '../../../base/parts/storage/common/storage.js';
+ import { INativeEnvironmentService } from '../../environment/common/environment.js';
+@@ -17,6 +17,7 @@ import { AbstractStorageService, isProfileUsingDefaultStorage, IStorageService,
+ import { ApplicationStorageMain, ApplicationSharedStorageMain, ProfileStorageMain, InMemoryStorageMain, IStorageMain, IStorageMainOptions, WorkspaceStorageMain, IStorageChangeEvent } from './storageMain.js';
+ import { IUserDataProfile, IUserDataProfilesService } from '../../userDataProfile/common/userDataProfile.js';
+ import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
++import { ICodeWindow } from '../../window/electron-main/window.js';
+ import { IAnyWorkspaceIdentifier } from '../../workspace/common/workspace.js';
+ import { IUriIdentityService } from '../../uriIdentity/common/uriIdentity.js';
+ import { Schemas } from '../../../base/common/network.js';
+@@ -61,7 +62,7 @@ export interface IStorageMainService {
+ 	 * Note: DO NOT use this for reading/writing from the main process!
+ 	 *       This is currently not supported.
+ 	 */
+-	profileStorage(profile: IUserDataProfile): IStorageMain;
++	profileStorage(profile: IUserDataProfile, ownerWindowId?: number): IStorageMain;
+ 
+ 	/**
+ 	 * Provides access to the workspace storage specific to a single window.
+@@ -69,7 +70,7 @@ export interface IStorageMainService {
+ 	 * Note: DO NOT use this for reading/writing from the main process!
+ 	 *       This is currently not supported.
+ 	 */
+-	workspaceStorage(workspace: IAnyWorkspaceIdentifier): IStorageMain;
++	workspaceStorage(workspace: IAnyWorkspaceIdentifier, ownerWindowId?: number): IStorageMain;
+ 
+ 	/**
+ 	 * Checks if the provided path is currently in use for a storage database.
+@@ -84,6 +85,9 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 	declare readonly _serviceBrand: undefined;
+ 
+ 	private shutdownReason: ShutdownReason | undefined = undefined;
++	private readonly profileStorageMap: StorageMap;
++	private readonly workspaceStorageMap: StorageMap;
++	private readonly mapWindowIdToStorageReleaseListener = new Map<number /* window ID */, IDisposable>();
+ 
+ 	private readonly _onDidChangeProfileStorage = this._register(new Emitter<IProfileStorageChangeEvent>());
+ 	readonly onDidChangeProfileStorage = this._onDidChangeProfileStorage.event;
+@@ -98,6 +102,9 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 	) {
+ 		super();
+ 
++		this.profileStorageMap = this._register(new StorageMap());
++		this.workspaceStorageMap = this._register(new StorageMap());
++
+ 		this.applicationStorage = this._register(this.createApplicationStorage());
+ 		this.applicationSharedStorage = this._register(this.createApplicationSharedStorage());
+ 
+@@ -121,16 +128,7 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 		})();
+ 
+ 		this._register(this.lifecycleMainService.onWillLoadWindow(e => {
+-
+-			// Profile Storage: Warmup when related window with profile loads
+-			if (e.window.profile) {
+-				this.profileStorage(e.window.profile).init();
+-			}
+-
+-			// Workspace Storage: Warmup when related window with workspace loads
+-			if (e.workspace) {
+-				this.workspaceStorage(e.workspace).init();
+-			}
++			this.registerWindowStorageWarmup(e.window);
+ 		}));
+ 
+ 		// All Storage: Close when shutting down
+@@ -147,13 +145,13 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 			e.join('applicationSharedStorage', this.applicationSharedStorage.close());
+ 
+ 			// Profile Storage(s)
+-			for (const [, profileStorage] of this.mapProfileToStorage) {
+-				e.join('profileStorage', profileStorage.close());
++			for (const profileStorageClosePromise of this.profileStorageMap.closeAll()) {
++				e.join('profileStorage', profileStorageClosePromise);
+ 			}
+ 
+ 			// Workspace Storage(s)
+-			for (const [, workspaceStorage] of this.mapWorkspaceToStorage) {
+-				e.join('workspaceStorage', workspaceStorage.close());
++			for (const workspaceStorageClosePromise of this.workspaceStorageMap.closeAll()) {
++				e.join('workspaceStorage', workspaceStorageClosePromise);
+ 			}
+ 		}));
+ 
+@@ -168,13 +166,30 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 
+ 		// Close the storage of the profile that is being removed
+ 		this._register(this.userDataProfilesService.onWillRemoveProfile(e => {
+-			const storage = this.mapProfileToStorage.get(e.profile.id);
+-			if (storage) {
+-				e.join(storage.close());
++			const storageClosePromise = this.profileStorageMap.close(e.profile.id);
++			if (storageClosePromise) {
++				e.join(storageClosePromise);
+ 			}
+ 		}));
+ 	}
+ 
++	private registerWindowStorageWarmup(window: ICodeWindow): void {
++		if (this.mapWindowIdToStorageReleaseListener.has(window.id)) {
++			return;
++		}
++
++		const listener = Event.once(Event.any(window.onDidClose, window.onDidDestroy))(() => {
++			this.mapWindowIdToStorageReleaseListener.delete(window.id);
++			listener.dispose();
++
++			void Promise.all([
++				this.profileStorageMap.releaseWindowStorage(window.id),
++				this.workspaceStorageMap.releaseWindowStorage(window.id)
++			]).catch(error => this.logService.error(error));
++		});
++		this.mapWindowIdToStorageReleaseListener.set(window.id, listener);
++	}
++
+ 	//#region Application Storage
+ 
+ 	readonly applicationStorage: IStorageMain;
+@@ -219,37 +234,33 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 
+ 	//#region Profile Storage
+ 
+-	private readonly mapProfileToStorage = new Map<string /* profile ID */, IStorageMain>();
+-
+-	profileStorage(profile: IUserDataProfile): IStorageMain {
++	profileStorage(profile: IUserDataProfile, ownerWindowId?: number): IStorageMain {
+ 		if (isProfileUsingDefaultStorage(profile)) {
+ 			return this.applicationStorage; // for profiles using default storage, use application storage
+ 		}
+ 
+-		let profileStorage = this.mapProfileToStorage.get(profile.id);
+-		if (!profileStorage) {
++		return this.profileStorageMap.getOrCreate(profile.id, ownerWindowId, () => {
+ 			this.logService.trace(`StorageMainService: creating profile storage (${profile.name})`);
+ 
+-			profileStorage = this._register(this.createProfileStorage(profile));
+-			this.mapProfileToStorage.set(profile.id, profileStorage);
++			const profileStorage = this.createProfileStorage(profile);
+ 
+ 			// Don't use this._register() for listeners that are disposed early
+ 			// as it causes entries to accumulate in _store when storage is closed/reopened
+ 			const listener = profileStorage.onDidChangeStorage(e => this._onDidChangeProfileStorage.fire({
+ 				...e,
+-				storage: profileStorage!,
++				storage: profileStorage,
+ 				profile
+ 			}));
+ 
+-			Event.once(profileStorage.onDidCloseStorage)(() => {
+-				this.logService.trace(`StorageMainService: closed profile storage (${profile.name})`);
+-
+-				this.mapProfileToStorage.delete(profile.id);
+-				listener.dispose();
+-			});
+-		}
++			return {
++				storage: profileStorage,
++				onDidClose: () => {
++					this.logService.trace(`StorageMainService: closed profile storage (${profile.name})`);
+ 
+-		return profileStorage;
++					listener.dispose();
++				}
++			};
++		});
+ 	}
+ 
+ 	private createProfileStorage(profile: IUserDataProfile): IStorageMain {
+@@ -270,25 +281,17 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 
+ 	//#region Workspace Storage
+ 
+-	private readonly mapWorkspaceToStorage = new Map<string /* workspace ID */, IStorageMain>();
+-
+-	workspaceStorage(workspace: IAnyWorkspaceIdentifier): IStorageMain {
+-		let workspaceStorage = this.mapWorkspaceToStorage.get(workspace.id);
+-		if (!workspaceStorage) {
++	workspaceStorage(workspace: IAnyWorkspaceIdentifier, ownerWindowId?: number): IStorageMain {
++		return this.workspaceStorageMap.getOrCreate(workspace.id, ownerWindowId, () => {
+ 			this.logService.trace(`StorageMainService: creating workspace storage (${workspace.id})`);
+ 
+-			workspaceStorage = this._register(this.createWorkspaceStorage(workspace));
+-			this.mapWorkspaceToStorage.set(workspace.id, workspaceStorage);
++			const storage = this.createWorkspaceStorage(workspace);
+ 
+-			// Don't use this._register() for Event.once as it auto-disposes
+-			Event.once(workspaceStorage.onDidCloseStorage)(() => {
+-				this.logService.trace(`StorageMainService: closed workspace storage (${workspace.id})`);
+-
+-				this.mapWorkspaceToStorage.delete(workspace.id);
+-			});
+-		}
+-
+-		return workspaceStorage;
++			return {
++				storage,
++				onDidClose: () => this.logService.trace(`StorageMainService: closed workspace storage (${workspace.id})`)
++			};
++		});
+ 	}
+ 
+ 	private createWorkspaceStorage(workspace: IAnyWorkspaceIdentifier): IStorageMain {
+@@ -309,7 +312,14 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 	isUsed(path: string): boolean {
+ 		const pathUri = URI.file(path);
+ 
+-		for (const storage of [this.applicationStorage, this.applicationSharedStorage, ...this.mapProfileToStorage.values(), ...this.mapWorkspaceToStorage.values()]) {
++		const storages = [
++			this.applicationStorage,
++			this.applicationSharedStorage,
++			...this.profileStorageMap.storages,
++			...this.workspaceStorageMap.storages
++		];
++
++		for (const storage of storages) {
+ 			if (!storage.path) {
+ 				continue;
+ 			}
+@@ -321,10 +331,206 @@ export class StorageMainService extends Disposable implements IStorageMainServic
+ 
+ 		return false;
+ 	}
++
++	override dispose(): void {
++		for (const listener of this.mapWindowIdToStorageReleaseListener.values()) {
++			listener.dispose();
++		}
++		this.mapWindowIdToStorageReleaseListener.clear();
++
++		super.dispose();
++	}
++
+ }
+ 
+ //#endregion
+ 
++class StorageMap extends Disposable {
++
++	private readonly mapStorage = new Map<string /* storage ID */, RefCountedStorage>();
++	private readonly mapWindowIdToStorageIds = new Map<number /* window ID */, Set<string /* storage ID */>>();
++
++	get storages(): IStorageMain[] {
++		return Array.from(this.mapStorage.values(), storage => storage.storage);
++	}
++
++	getOrCreate(storageId: string, ownerWindowId: number | undefined, create: () => { storage: IStorageMain; onDidClose: () => void }): IStorageMain {
++		let storage = this.mapStorage.get(storageId);
++		if (storage?.isClosing) {
++			this.mapStorage.delete(storageId);
++			this.clearStorageReferences(storageId);
++			storage = undefined;
++		}
++
++		if (!storage) {
++			const result = create();
++			const refCountedStorage = new RefCountedStorage(result.storage, result.onDidClose, () => {
++				if (this.mapStorage.get(storageId) === refCountedStorage) {
++					this.mapStorage.delete(storageId);
++					this.clearStorageReferences(storageId);
++				}
++			});
++			storage = refCountedStorage;
++			this.mapStorage.set(storageId, storage);
++		}
++
++		this.addWindowReference(storageId, storage, ownerWindowId);
++
++		return storage.storage;
++	}
++
++	close(storageId: string): Promise<void> | undefined {
++		return this.closeStorage(storageId);
++	}
++
++	closeAll(): Promise<void>[] {
++		this.clearWindowReferences();
++
++		return Array.from(this.mapStorage.keys()).map(storageId => this.closeStorage(storageId)!);
++	}
++
++	private addWindowReference(storageId: string, storage: RefCountedStorage, ownerWindowId: number | undefined): void {
++		if (typeof ownerWindowId !== 'number') {
++			return;
++		}
++
++		let storageIds = this.mapWindowIdToStorageIds.get(ownerWindowId);
++		if (!storageIds) {
++			storageIds = new Set();
++			this.mapWindowIdToStorageIds.set(ownerWindowId, storageIds);
++		}
++
++		storageIds.add(storageId);
++		storage.increment(ownerWindowId);
++	}
++
++	async releaseWindowStorage(ownerWindowId: number): Promise<void> {
++		const storageIds = this.mapWindowIdToStorageIds.get(ownerWindowId);
++		this.mapWindowIdToStorageIds.delete(ownerWindowId);
++		if (!storageIds) {
++			return;
++		}
++
++		for (const storageId of storageIds) {
++			if (this.mapStorage.get(storageId)?.decrement(ownerWindowId)) {
++				await this.closeStorage(storageId);
++			}
++		}
++	}
++
++	private closeStorage(storageId: string): Promise<void> | undefined {
++		const storage = this.mapStorage.get(storageId);
++		if (!storage) {
++			return undefined;
++		}
++
++		this.mapStorage.delete(storageId);
++		this.clearStorageReferences(storageId);
++
++		return storage.close();
++	}
++
++	private clearWindowReferences(): void {
++		this.mapWindowIdToStorageIds.clear();
++	}
++
++	private clearStorageReferences(storageId: string): void {
++		for (const [ownerWindowId, storageIds] of this.mapWindowIdToStorageIds) {
++			storageIds.delete(storageId);
++			if (storageIds.size === 0) {
++				this.mapWindowIdToStorageIds.delete(ownerWindowId);
++			}
++		}
++	}
++
++	override dispose(): void {
++		this.clearWindowReferences();
++		for (const storage of this.mapStorage.values()) {
++			storage.dispose();
++		}
++		this.mapStorage.clear();
++
++		super.dispose();
++	}
++}
++
++class RefCountedStorage extends Disposable {
++
++	private readonly ownerWindowIds = new Set<number>();
++	private readonly closeListener: IDisposable;
++	private readonly doClose: () => Promise<void>;
++	private closePromise: Promise<void> | undefined;
++	private didClose = false;
++	private didCleanup = false;
++
++	get isClosing(): boolean {
++		return !!this.closePromise;
++	}
++
++	constructor(
++		readonly storage: IStorageMain,
++		private readonly onDidClose: () => void,
++		private readonly onDidCloseStorage: () => void
++	) {
++		super();
++
++		this.doClose = storage.close.bind(storage);
++		storage.close = () => this.close();
++
++		this.closeListener = Event.once(storage.onDidCloseStorage)(() => this.handleDidClose());
++	}
++
++	increment(ownerWindowId: number): void {
++		this.ownerWindowIds.add(ownerWindowId);
++	}
++
++	decrement(ownerWindowId: number): boolean {
++		if (!this.ownerWindowIds.delete(ownerWindowId)) {
++			return false;
++		}
++
++		return this.ownerWindowIds.size === 0;
++	}
++
++	async close(): Promise<void> {
++		if (!this.closePromise) {
++			this.ownerWindowIds.clear();
++			this.closePromise = this.doClose();
++		}
++
++		await this.closePromise;
++	}
++
++	private handleDidClose(): void {
++		if (this.didClose) {
++			return;
++		}
++
++		this.didClose = true;
++		this.onDidCloseStorage();
++		queueMicrotask(() => this.dispose());
++	}
++
++	override dispose(): void {
++		this.ownerWindowIds.clear();
++		this.closeListener.dispose();
++		this.cleanup();
++		this.storage.close = this.doClose;
++		this.storage.dispose();
++
++		super.dispose();
++	}
++
++	private cleanup(): void {
++		if (this.didCleanup) {
++			return;
++		}
++
++		this.didCleanup = true;
++		this.onDidClose();
++	}
++}
++
+ 
+ //#region Application Main Storage Service (intent: use application storage from main process)
+ 
+diff --git a/src/vs/workbench/services/storage/electron-browser/storageService.ts b/src/vs/workbench/services/storage/electron-browser/storageService.ts
+index 6a02706a..bd59bb85 100644
+--- a/src/vs/workbench/services/storage/electron-browser/storageService.ts
++++ b/src/vs/workbench/services/storage/electron-browser/storageService.ts
+@@ -11,7 +11,7 @@ import { StorageScope, StorageTarget } from '../../../../platform/storage/common
+ import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
+ import { IAnyWorkspaceIdentifier } from '../../../../platform/workspace/common/workspace.js';
+ import { IUserDataProfileService } from '../../userDataProfile/common/userDataProfile.js';
+-import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
++import { INativeWorkbenchEnvironmentService } from '../../environment/electron-browser/environmentService.js';
+ 
+ export class NativeWorkbenchStorageService extends RemoteStorageService {
+ 
+@@ -20,9 +20,9 @@ export class NativeWorkbenchStorageService extends RemoteStorageService {
+ 		private readonly userDataProfileService: IUserDataProfileService,
+ 		userDataProfilesService: IUserDataProfilesService,
+ 		mainProcessService: IMainProcessService,
+-		private readonly workbenchEnvironmentService: IWorkbenchEnvironmentService,
++		private readonly workbenchEnvironmentService: INativeWorkbenchEnvironmentService,
+ 	) {
+-		super(workspace, { currentProfile: userDataProfileService.currentProfile, defaultProfile: userDataProfilesService.defaultProfile }, mainProcessService, workbenchEnvironmentService);
++		super(workspace, { currentProfile: userDataProfileService.currentProfile, defaultProfile: userDataProfilesService.defaultProfile }, mainProcessService, workbenchEnvironmentService, workbenchEnvironmentService.window.id);
+ 
+ 		this.registerListeners();
+ 	}
+@@ -69,4 +69,3 @@ export class NativeWorkbenchStorageService extends RemoteStorageService {
+ 		this._register(this.userDataProfileService.onDidChangeCurrentProfile(e => e.join(this.switchToProfile(e.profile))));
+ 	}
+ }
+-
