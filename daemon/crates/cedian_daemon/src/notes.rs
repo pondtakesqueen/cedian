@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn comments_go_as_one_message_with_their_lines() {
-        let comments = vec![
+        let comments = [
             LineComment {
                 quote: Some("  return `x`;".into()),
                 ..comment("c1", "src/a.ts", 12, "return y here ")

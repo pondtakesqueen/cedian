@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyBytes, pickProject, PUSH_TEXT, pushState, socketUrl, SocketTransport, webHost } from "./main.js";
+import { keyBytes, pickProject, pickThread, PUSH_TEXT, pushState, socketUrl, SocketTransport, webHost } from "./main.js";
 
 class FakeSocket {
   sent: string[] = [];
@@ -91,5 +91,11 @@ describe("remote control page", () => {
   it("reads the daemon's base64url key as the bytes subscribe takes", () => {
     expect([...keyBytes("-_8")]).toEqual([0xfb, 0xff]);
     expect(keyBytes("BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4").length).toBe(65);
+  });
+
+  it("opens the thread a notification names", () => {
+    expect(pickThread("?cwd=%2Frepo&thread=t-1")).toBe("t-1");
+    expect(pickThread("?cwd=%2Frepo")).toBeUndefined();
+    expect(pickThread("?thread=")).toBeUndefined();
   });
 });

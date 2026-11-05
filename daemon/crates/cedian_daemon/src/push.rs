@@ -45,7 +45,7 @@ pub fn push_projects(desktop: &Value) -> Vec<PathBuf> {
 pub struct Push {
     pub title: String,
     pub body: String,
-    /// The page to open on a tap, relative to the page's own origin.
+    /// The page to open on a tap, at the thread, relative to the page's own origin.
     pub url: String,
     /// One notification per thread: a newer one replaces it.
     pub tag: String,
@@ -98,7 +98,11 @@ impl Pushes {
                     Some(question) => format!("{project} · {question}"),
                     None => project,
                 },
-                url: format!("/?cwd={}", encode(&cwd.to_string_lossy())),
+                url: format!(
+                    "/?cwd={}&thread={}",
+                    encode(&cwd.to_string_lossy()),
+                    encode(&info.thread.id)
+                ),
                 tag: info.thread.id.clone(),
             });
         }
@@ -232,7 +236,7 @@ mod tests {
             vec![Push {
                 title: "Fix the login: asks you".into(),
                 body: "my app · Keep the old session cookie?".into(),
-                url: "/?cwd=/Users/me/my%20app".into(),
+                url: "/?cwd=/Users/me/my%20app&thread=t-1".into(),
                 tag: "t-1".into(),
             }]
         );

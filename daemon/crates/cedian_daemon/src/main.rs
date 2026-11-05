@@ -117,12 +117,20 @@ fn remote_url() {
         std::process::exit(1);
     };
     match cedian_daemon::remote_token(&cedian_wire::state_dir()) {
-        Ok(token) => {
-            println!("http://127.0.0.1:{port}/?token={token}");
-            eprintln!(
-                "From a phone on your tailnet: run `tailscale serve --bg {port}` once, then open https://<this machine>.<tailnet>.ts.net/?token=<the same token>"
-            );
-        }
+        Ok(token) => match cedian_daemon::tailnet_host() {
+            Some(host) => {
+                println!("https://{host}/?token={token}");
+                eprintln!(
+                    "Open it on your phone (on your tailnet). If it does not load, run `tailscale serve --bg {port}` once. On this Mac: http://127.0.0.1:{port}/?token={token}"
+                );
+            }
+            None => {
+                println!("http://127.0.0.1:{port}/?token={token}");
+                eprintln!(
+                    "Tailscale was not found. For a phone: install Tailscale, run `tailscale serve --bg {port}` once, then open https://<this machine>.<tailnet>.ts.net/?token=<the same token>"
+                );
+            }
+        },
         Err(error) => {
             eprintln!("cedian-daemon remote-url: {error:#}");
             std::process::exit(1);
