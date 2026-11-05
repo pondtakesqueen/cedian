@@ -1,6 +1,7 @@
-// One tab of the daemon's Chromium as the Browser block sees it (spec §3.3, §4.3, §6.3): its
-// screencast, its load state, its console, input from the block, and the element picker. Every
-// change is a DevTools call on the page; nothing here is kept that the page cannot give again.
+// The native browser view's page as the Browser block's tools read it (spec §3.3, §4.3, §6.3),
+// over a CDP group of the view: its load state and history, its console, and the element picker
+// (Chromium's inspect mode). Electron draws the page and takes its input; nothing here is kept
+// that the page cannot give again.
 import { Cdp, TIMED_OUT } from "./cdp.js";
 
 /** Spec §4.3: idle → loading → loaded → (error). */
@@ -28,19 +29,6 @@ export interface ConsoleLine {
   source?: string;
 }
 
-/**
- * The screencast's bounds, in CSS pixels: past any block, so a frame is never cut to an older
- * size's bounds and a resize never has to restart the screencast.
- */
-const FRAME_BOUND = 8192;
-
-/** A screencast frame: a JPEG, base64, and the CSS size of the page it shows. */
-export interface Frame {
-  data: string;
-  width: number;
-  height: number;
-}
-
 /** A picked element, for the agent: where it is, what it says and how it is styled. */
 export interface PickedElement {
   url: string;
@@ -55,58 +43,9 @@ export interface PickedElement {
   image?: string;
 }
 
-export interface MouseInput {
-  type: "mousePressed" | "mouseReleased" | "mouseMoved";
-  x: number;
-  y: number;
-  /** DOM's `button`: 0 left, 1 middle, 2 right. */
-  button?: number;
-  /** DOM's `buttons` bitmask. */
-  buttons?: number;
-  clickCount?: number;
-  modifiers?: number;
-}
-
-/** The keys of a DOM KeyboardEvent the block passes on. */
-export interface KeyInput {
-  key: string;
-  code: string;
-  keyCode: number;
-  altKey: boolean;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  shiftKey: boolean;
-}
-
 /** How long the console keeps: the newest lines. */
 export const CONSOLE_LINES = 500;
 const MAX_LINE = 2_000;
-
-/** The CDP modifiers bitmask of a DOM event: Alt 1, Ctrl 2, Meta 4, Shift 8. */
-export function modifiersOf(e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): number {
-  return (e.altKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.metaKey ? 4 : 0) | (e.shiftKey ? 8 : 0);
-}
-
-/** Editing shortcuts headless Chromium only takes as named commands (Cmd on macOS, Ctrl elsewhere). */
-const COMMANDS: Record<string, string> = { a: "selectAll", c: "copy", x: "cut", z: "undo" };
-
-/** `Input.dispatchKeyEvent`'s params for a DOM key event. */
-export function keyParams(type: "keyDown" | "keyUp", e: KeyInput, mac = true): Record<string, unknown> {
-  const modifiers = modifiersOf(e);
-  const shortcut = mac ? e.metaKey : e.ctrlKey;
-  const text = type === "keyDown" && !e.ctrlKey && !e.metaKey ? (e.key.length === 1 ? e.key : e.key === "Enter" ? "\r" : undefined) : undefined;
-  const command = type === "keyDown" && shortcut && !e.altKey ? COMMANDS[e.key.toLowerCase()] : undefined;
-  return {
-    type: type === "keyDown" && text === undefined ? "rawKeyDown" : type,
-    key: e.key,
-    code: e.code,
-    windowsVirtualKeyCode: e.keyCode,
-    nativeVirtualKeyCode: e.keyCode,
-    modifiers,
-    ...(text !== undefined ? { text, unmodifiedText: text } : {}),
-    ...(command ? { commands: [command] } : {}),
-  };
-}
 
 /**
  * A failed load as the block says it (spec §8): the network and a timeout are transient, a
@@ -158,13 +97,7 @@ export class PageSession {
   view: PageView = { url: "", title: "", load: "idle", canBack: false, canForward: false, pick: "idle" };
   readonly console: ConsoleLine[] = [];
   private mainFrame = "";
-  private size = { width: 0, height: 0, scale: 1 };
-  /** The size asked for while a resize is on its way, and that resize: a drag asks every frame. */
-  private wanted: { width: number; height: number; scale: number } | undefined;
-  private resizing: Promise<void> | undefined;
-  private hovered: number | undefined;
   private readonly changeListeners = new Set<(view: PageView) => void>();
-  private readonly frameListeners = new Set<(frame: Frame) => void>();
   private readonly consoleListeners = new Set<(line: ConsoleLine | undefined) => void>();
   private readonly pickListeners = new Set<(picked: PickedElement) => void>();
   private readonly noticeListeners = new Set<(message: string) => void>();
@@ -172,15 +105,8 @@ export class PageSession {
   private everLoaded = false;
   /** Chromium's own inspect mode is on (`inspect`): it highlights, and says what a click picks. */
   private inspecting = false;
-  private paused = false;
-  /** The scale the screencast runs at; none while it is stopped. */
-  private streaming: number | undefined;
 
   constructor(private readonly cdp: Cdp) {
-    cdp.on("Page.screencastFrame", (p) => {
-      cdp.call("Page.screencastFrameAck", { sessionId: p.sessionId }).catch(() => {});
-      for (const l of this.frameListeners) l({ data: p.data, width: p.metadata?.deviceWidth ?? this.size.width, height: p.metadata?.deviceHeight ?? this.size.height });
-    });
     cdp.on("Page.frameStartedLoading", (p) => {
       if (p.frameId === this.mainFrame) this.set({ load: "loading", error: undefined });
     });
@@ -237,9 +163,6 @@ export class PageSession {
   onChange(listener: (view: PageView) => void): () => void {
     return add(this.changeListeners, listener);
   }
-  onFrame(listener: (frame: Frame) => void): () => void {
-    return add(this.frameListeners, listener);
-  }
   /** A line added, or none when the console was cleared. */
   onConsole(listener: (line: ConsoleLine | undefined) => void): () => void {
     return add(this.consoleListeners, listener);
@@ -256,16 +179,9 @@ export class PageSession {
     return add(this.closeListeners, listener);
   }
 
-  /** Turns on what the block shows and starts the screencast at the block's size. */
-  async start(width: number, height: number, scale: number): Promise<void> {
-    await this.watch();
-    await this.resize(width, height, scale);
-  }
-
   /**
-   * Turns on what the block reads (load state, history, console, the element overlay) without
-   * the screencast or a size of its own: for a page Electron draws itself (the native view), whose
-   * size is the view's.
+   * Turns on what the block reads (load state, history, console, the element overlay); Electron
+   * draws the page and gives it its size, so nothing here sizes or streams it.
    */
   async watch(): Promise<void> {
     await Promise.all(["Page.enable", "Runtime.enable", "Network.enable", "Log.enable", "DOM.enable"].map((m) => this.cdp.call(m)));
@@ -277,119 +193,16 @@ export class PageSession {
     await this.history();
   }
 
-  /**
-   * The page laid out at the block's size, its frames sent at the screen's pixels. A drag asks on
-   * every frame; while one resize is on its way the asks wait, and only the latest is sent after
-   * it, so Chromium lays out and restarts its screencast once per round trip, not once per frame.
-   */
-  resize(width: number, height: number, scale: number): Promise<void> {
-    this.wanted = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)), scale };
-    this.resizing ??= this.applyResizes().finally(() => {
-      this.resizing = undefined;
-    });
-    return this.resizing;
-  }
-
-  private async applyResizes(): Promise<void> {
-    let changed = false;
-    for (let next = this.wanted; next; next = this.wanted) {
-      this.wanted = undefined;
-      const { width: w, height: h, scale } = next;
-      if (w === this.size.width && h === this.size.height && scale === this.size.scale) continue;
-      this.size = { width: w, height: h, scale };
-      changed = true;
-      await this.cdp.call("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 0, mobile: false });
-    }
-    // Once the sizes stop: a page that doesn't change sends no frame after a new size, so the
-    // screencast restarts once, and its first frame is the page at the size it ended at. The
-    // block asks only when a resize settles (panel.ts), so this is once a gesture, not once a step.
-    if (!changed || this.paused) return;
-    if (this.streaming !== undefined) await this.cdp.call("Page.stopScreencast").catch(() => {});
-    await this.screencast();
-  }
-
-  /** Stops sending frames while the block can't be seen, and starts again once it can: a page
-   *  that animates otherwise has Chromium encode, and the window decode, frames nobody sees. The
-   *  page itself keeps running, so the agent can still drive it. */
-  async setPaused(paused: boolean): Promise<void> {
-    if (paused === this.paused) return;
-    this.paused = paused;
-    if (!this.size.width) return;
-    if (paused) {
-      this.streaming = undefined;
-      await this.cdp.call("Page.stopScreencast").catch(() => {});
-    } else await this.screencast();
-  }
-
-  private async screencast(): Promise<void> {
-    const { scale } = this.size;
-    const bound = Math.round(FRAME_BOUND * scale);
-    this.streaming = scale;
-    await this.cdp.call("Page.startScreencast", { format: "jpeg", quality: 85, maxWidth: bound, maxHeight: bound, everyNthFrame: 1 });
-  }
-
   async navigate(url: string): Promise<void> {
     this.set({ load: "loading", error: undefined, url });
     const result = await this.cdp.call("Page.navigate", { url });
     if (result.errorText) this.failed(result.errorText);
   }
 
-  back(): Promise<void> {
-    return this.step(-1);
-  }
-  forward(): Promise<void> {
-    return this.step(1);
-  }
-  reload(): Promise<void> {
-    this.set({ error: undefined });
-    return this.cdp.call("Page.reload");
-  }
-  stop(): Promise<void> {
-    return this.cdp.call("Page.stopLoading");
-  }
-
-  async mouse(input: MouseInput): Promise<void> {
-    if (this.view.pick === "inspecting") return this.pickAt(input);
-    await this.cdp.call("Input.dispatchMouseEvent", {
-      type: input.type,
-      x: input.x,
-      y: input.y,
-      modifiers: input.modifiers ?? 0,
-      button: input.type === "mouseMoved" && !input.buttons ? "none" : (["left", "middle", "right"][input.button ?? 0] ?? "left"),
-      buttons: input.buttons ?? 0,
-      clickCount: input.clickCount ?? (input.type === "mouseMoved" ? 0 : 1),
-    });
-  }
-
-  wheel(x: number, y: number, deltaX: number, deltaY: number, modifiers = 0): Promise<void> {
-    return this.cdp.call("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX, deltaY, modifiers });
-  }
-
-  async key(type: "keyDown" | "keyUp", e: KeyInput, mac = true): Promise<void> {
-    if (this.view.pick === "inspecting" && e.key === "Escape") return this.cancelPick();
-    await this.cdp.call("Input.dispatchKeyEvent", keyParams(type, e, mac));
-  }
-
-  /** Text pasted into the block, typed into the page's focused field. */
-  insertText(text: string): Promise<void> {
-    return this.cdp.call("Input.insertText", { text });
-  }
-
-  /** Element selection: the next click picks the element under it instead of clicking it. */
-  pick(): void {
-    this.set({ pick: "inspecting" });
-  }
-
-  async cancelPick(): Promise<void> {
-    this.hovered = undefined;
-    this.set({ pick: "idle" });
-    await this.cdp.call("Overlay.hideHighlight").catch(() => {});
-  }
-
   /**
-   * Element selection on a page Electron draws (the native view), whose mouse the block never
-   * sees: Chromium's inspect mode highlights what is under the pointer and says what a click
-   * picks, and the pick goes to `onPicked` as the block's does. `stopInspect` ends it.
+   * Element selection: Chromium's inspect mode highlights what is under the pointer and says what
+   * a click picks, and the pick goes to `onPicked`. The page's mouse is Electron's, never the
+   * block's, so Chromium does the picking. `stopInspect` ends it; Escape in the page does too.
    */
   async inspect(): Promise<void> {
     this.inspecting = true;
@@ -403,6 +216,15 @@ export class PageSession {
     await this.cdp.call("Overlay.setInspectMode", { mode: "none", highlightConfig: HIGHLIGHT }).catch(() => {});
   }
 
+  clearConsole(): void {
+    this.console.length = 0;
+    for (const l of this.consoleListeners) l(undefined);
+  }
+
+  dispose(): void {
+    this.cdp.close();
+  }
+
   private async pickNode(backendNodeId: number): Promise<void> {
     await this.stopInspect();
     this.set({ pick: "selected" });
@@ -412,41 +234,6 @@ export class PageSession {
     } finally {
       this.set({ pick: "idle" });
     }
-  }
-
-  clearConsole(): void {
-    this.console.length = 0;
-    for (const l of this.consoleListeners) l(undefined);
-  }
-
-  /** The tab's title and address, for a tab the block does not show. */
-  async info(): Promise<{ url: string; title: string }> {
-    const info = await this.cdp.call("Target.getTargetInfo");
-    return { url: info.targetInfo.url, title: info.targetInfo.title };
-  }
-
-  dispose(): void {
-    this.cdp.call("Page.stopScreencast").catch(() => {});
-    this.cdp.close();
-  }
-
-  private async pickAt(input: MouseInput): Promise<void> {
-    const at = await this.cdp.call("DOM.getNodeForLocation", { x: Math.round(input.x), y: Math.round(input.y), includeUserAgentShadowDOM: false }).catch(() => undefined);
-    const node: number | undefined = at?.backendNodeId;
-    if (input.type === "mouseMoved") {
-      if (node !== undefined && node !== this.hovered) {
-        this.hovered = node;
-        await this.cdp.call("Overlay.highlightNode", { backendNodeId: node, highlightConfig: HIGHLIGHT }).catch(() => {});
-      }
-      return;
-    }
-    if (input.type !== "mousePressed" || node === undefined) return;
-    await this.cdp.call("Overlay.hideHighlight").catch(() => {});
-    this.hovered = undefined;
-    const picked = await this.describe(node);
-    this.set({ pick: "selected" });
-    for (const l of this.pickListeners) l(picked);
-    this.set({ pick: "idle" });
   }
 
   private async describe(backendNodeId: number): Promise<PickedElement> {
@@ -462,12 +249,6 @@ export class PageSession {
       image = shot?.data;
     }
     return { url: this.view.url, ...d, ...(image ? { image } : {}) };
-  }
-
-  private async step(by: -1 | 1): Promise<void> {
-    const h = await this.cdp.call("Page.getNavigationHistory");
-    const entry = h.entries[h.currentIndex + by];
-    if (entry) await this.cdp.call("Page.navigateToHistoryEntry", { entryId: entry.id });
   }
 
   private async history(): Promise<void> {

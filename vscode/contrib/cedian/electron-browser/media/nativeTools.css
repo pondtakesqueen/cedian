@@ -1,14 +1,34 @@
-/* The Browser block's tools on the native view (nativeTools.ts). The console strip reuses the
-   screencast block's console styles (browser/media/browserPanel.css, under .cedian-browser); here
-   it sits under the page, in the room the editor keeps there, instead of filling the block. */
-.cedian-browser.cedian-native-console { position: absolute; left: 0; right: 0; bottom: 0; height: auto; display: block; border-top: 1px solid var(--cedian-line); background: var(--cedian-sheet); z-index: 1; }
+/* The Browser block's tools on the native view (nativeTools.ts): the console strip under the page,
+   in the room the editor keeps there, and element select and Dev servers beside the address.
+   Warm & Lime --cedian-* properties; Thai keeps line-height 1.6. */
+.cedian-native-console { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; border-top: 1px solid var(--cedian-line); background: var(--cedian-sheet); color: var(--cedian-text); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); }
+.cedian-native-console button { font: inherit; color: inherit; }
+.cedian-native-console [hidden] { display: none !important; }
+.cedian-native-console .ch { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 10px; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.cedian-native-console .ch .name { font-weight: 500; }
+.cedian-native-console .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cedian-native-console .fill { flex: 1 1 auto; }
+.cedian-native-console .small { color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-native-console .num { font-variant-numeric: tabular-nums; }
+.cedian-native-console .bad { color: var(--cedian-failed); }
+.cedian-native-console .warn { color: var(--cedian-warn); }
 .cedian-native-console .cl { overflow-y: auto; padding: 0 0 4px; }
-/* Element select beside the address, as the screencast block's ⌖. */
+.cedian-native-console .cl .clear { margin: 0 6px 2px auto; display: block; }
+.cedian-native-console .cr { display: flex; align-items: flex-start; gap: 8px; padding: 2px 10px; border-top: 1px solid var(--cedian-line); }
+.cedian-native-console .cr .tx { flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--cedian-font-code); font-size: var(--cedian-code-size, 12px); }
+.cedian-native-console .cr .src { color: var(--cedian-text-faint); }
+.cedian-native-console .cr.error { color: var(--cedian-failed); }
+.cedian-native-console .cr.warn { color: var(--cedian-warn); }
+.cedian-native-console .cr.debug, .cedian-native-console .cr.info { color: var(--cedian-text-muted); }
+.cedian-native-console .btn { flex: none; height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--cedian-line-strong); background: var(--cedian-raised); cursor: pointer; white-space: nowrap; }
+.cedian-native-console .btn.flat { border-color: transparent; background: transparent; color: var(--cedian-text-muted); }
+.cedian-native-console .btn:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+/* Element select beside the address. */
 .cedian-native-pick { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-muted, inherit); font-size: 15px; line-height: 24px; cursor: pointer; }
 .cedian-native-pick:hover:not(:disabled) { background: var(--cedian-hover); color: var(--cedian-text); }
 .cedian-native-pick.on { background: var(--cedian-accent-soft, var(--cedian-hover)); color: var(--cedian-accent, var(--cedian-text)); }
 .cedian-native-pick:disabled { opacity: 0.4; cursor: default; }
-/* The Dev servers menu beside the address, as the screencast block's. */
+/* The Dev servers menu beside the address. */
 .cedian-native-servers { flex: none; height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-muted, inherit); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .cedian-native-servers:hover { background: var(--cedian-hover); color: var(--cedian-text); }
 .cedian-native-servers[hidden] { display: none; }

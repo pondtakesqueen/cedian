@@ -32,7 +32,7 @@ import { IViewContainersRegistry, IViewsRegistry, ViewContainerLocation, Extensi
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { CedianAgentEditor, CedianAgentInput, CedianAgentInputSerializer } from './agentEditor.js';
-import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, openBrowser } from './browserEditor.js';
+import { openBrowser } from './browserEditor.js';
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
@@ -151,13 +151,7 @@ registerAction2(class extends Action2 {
 	}
 });
 
-// ---- the Browser block: the project's tabs in the daemon's Chromium (spec §3.3, §6.3) ----
-
-Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
-	EditorPaneDescriptor.create(CedianBrowserEditor, CedianBrowserEditor.ID, localize('cedian.browser', "Browser")),
-	[new SyncDescriptor(CedianBrowserInput)],
-);
-Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(CedianBrowserInput.ID, CedianBrowserInputSerializer);
+// ---- the Browser block: VS Code's native browser view (spec §3.3, §6.3) ----
 
 registerAction2(class extends Action2 {
 	constructor() {

@@ -24,7 +24,7 @@ import { layoutName, layoutsIn, withCurrent, withLayout, withoutLayout, type Nam
 import { AgentBlock } from './agent-pane/floating.js';
 import { AgentPane, type SideSource } from './agent-pane/pane.js';
 import { CedianAgentInput } from './agentEditor.js';
-import { CedianBrowserInput, openBrowser } from './browserEditor.js';
+import { openBrowser } from './browserEditor.js';
 import { NativeBrowserBlock } from './nativeFloat.js';
 import { BrowserEditorInput } from '../../browserView/common/browserEditorInput.js';
 import type { IBrowserViewModel } from '../../browserView/common/browserView.js';
@@ -287,7 +287,9 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 			if (kind === 'browser') {
 				const native = this.native;
 				this.native = undefined;
-				await this.editorService.openEditor(native ? native.dock() : new CedianBrowserInput(), options, AUX_WINDOW_GROUP);
+				if (native) {
+					await this.editorService.openEditor(native.dock(), options, AUX_WINDOW_GROUP);
+				}
 			} else if (kind === 'agent') {
 				await this.editorService.openEditor(new CedianAgentInput(id), options, AUX_WINDOW_GROUP);
 			}

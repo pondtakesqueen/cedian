@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { devServers } from "./launch.js";
-import { imageName, keyParams, loadError, modifiersOf, PageSession, type PickedElement } from "./session.js";
+import { imageName, loadError, PageSession, type PickedElement } from "./session.js";
 import { addressOf, allowSite, bannerOf, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
 
 describe("the site allowlist (spec §6.3)", () => {
@@ -74,20 +74,7 @@ describe("dev servers (launch.json)", () => {
   });
 });
 
-describe("input and errors", () => {
-  const key = (k: Partial<Parameters<typeof keyParams>[1]>) => ({ key: "a", code: "KeyA", keyCode: 65, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...k });
-  test("a printable key types its text; Enter types a return; others are raw", () => {
-    expect(keyParams("keyDown", key({}))).toMatchObject({ type: "keyDown", text: "a" });
-    expect(keyParams("keyDown", key({ key: "Enter", code: "Enter", keyCode: 13 }))).toMatchObject({ type: "keyDown", text: "\r" });
-    expect(keyParams("keyDown", key({ key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 }))).toMatchObject({ type: "rawKeyDown" });
-    expect(keyParams("keyUp", key({}))).not.toHaveProperty("text");
-  });
-  test("Cmd+A selects all on macOS, Ctrl+A elsewhere", () => {
-    expect(keyParams("keyDown", key({ metaKey: true }), true)).toMatchObject({ type: "rawKeyDown", commands: ["selectAll"], modifiers: 4 });
-    expect(keyParams("keyDown", key({ ctrlKey: true }), false)).toMatchObject({ commands: ["selectAll"], modifiers: 2 });
-    expect(keyParams("keyDown", key({ ctrlKey: true }), true)).not.toHaveProperty("commands");
-    expect(modifiersOf({ altKey: true, ctrlKey: false, metaKey: true, shiftKey: true })).toBe(13);
-  });
+describe("load errors", () => {
   test("spec §8: the network and timeouts are notifications; other failures stay in the block", () => {
     expect(loadError("net::ERR_INTERNET_DISCONNECTED")).toEqual({ message: "the network went away", transient: true });
     expect(loadError("net::ERR_CONNECTION_TIMED_OUT")).toEqual({ message: "the connection timed out", transient: true });
@@ -158,43 +145,5 @@ describe("element selection on the native view", () => {
     await session.inspect();
     handlers.get("Overlay.inspectModeCanceled")!({});
     expect(session.view.pick).toBe("idle");
-  });
-});
-
-describe("resizing the page", () => {
-  test("a drag's many sizes reach Chromium as the first and the latest, one at a time", async () => {
-    const calls: string[] = [];
-    const waiting: (() => void)[] = [];
-    const cdp = {
-      on: () => () => {},
-      onClose: () => () => {},
-      call: (method: string, params?: { width?: number }) => {
-        calls.push(params?.width ? `${method} ${params.width}` : method);
-        return new Promise<unknown>((done) => waiting.push(() => done({})));
-      },
-    };
-    const session = new PageSession(cdp as unknown as ConstructorParameters<typeof PageSession>[0]);
-    const done = [400, 410, 420, 430, 440].map((w) => session.resize(w, 300, 2));
-    const settle = async () => {
-      for (let i = 0; i < 20 && waiting.length; i++) {
-        waiting.shift()!();
-        await Promise.resolve();
-        await Promise.resolve();
-      }
-    };
-    await settle();
-    await Promise.all(done);
-    expect(calls.filter((c) => c.startsWith("Emulation.setDeviceMetricsOverride"))).toEqual(["Emulation.setDeviceMetricsOverride 400", "Emulation.setDeviceMetricsOverride 440"]);
-    // The screencast starts once, after the last size, not once per size.
-    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(1);
-    expect(calls).not.toContain("Page.stopScreencast");
-    await session.resize(440, 300, 2);
-    expect(calls.filter((c) => c.startsWith("Emulation"))).toHaveLength(2);
-    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(1);
-    // A later size restarts it once, so a page that doesn't change still sends a frame at it.
-    const later = session.resize(480, 300, 2);
-    await settle();
-    await later;
-    expect(calls.slice(-3)).toEqual(["Emulation.setDeviceMetricsOverride 480", "Page.stopScreencast", "Page.startScreencast"]);
   });
 });

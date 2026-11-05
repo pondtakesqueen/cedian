@@ -27,18 +27,17 @@ const LIST = 180;
 const DEV_SERVER_WAIT_MS = 30_000;
 
 /**
- * The Browser block's own tools on the native view (spec §6.3): a page session over a CDP group
- * of the view (`IBrowserViewCDPService`, read through a `PageRelay`), the same `PageSession` the
- * screencast block reads, without its screencast or size. Here: the console strip under the
- * page, the page's console messages and exceptions, which the agent reads too (cedia's browser
- * tool keeps its own); errors and warnings can be attached to the composer. And element select
- * beside the address: Chromium's inspect mode highlights under the pointer, and the element a
- * click picks goes to the composer with its picture, as the screencast block's picker did. And
- * the Dev servers menu: the project's `.cedia/launch.json` (else `.claude/launch.json`) servers,
- * each started in a terminal of its own and opened in the view once it answers.
+ * The Browser block's own tools on the native view (spec §6.3), over a CDP group of the view
+ * (`IBrowserViewCDPService`, read through a `PageRelay`) and a `PageSession` on it:
+ * - the console strip under the page: its console messages and exceptions, which the agent reads
+ *   too (cedia's browser tool keeps its own); an error or warning can be attached to the composer;
+ * - element select beside the address: Chromium's inspect mode highlights under the pointer, and
+ *   the element a click picks goes to the composer with its picture;
+ * - the Dev servers menu: the project's `.cedia/launch.json` (else `.claude/launch.json`) servers,
+ *   each started in a terminal of its own and opened in the view once it answers.
  */
 class CedianNativeTools extends BrowserEditorContribution {
-	private readonly strip = $('.cedian-browser.cedian-native-console');
+	private readonly strip = $('.cedian-native-console');
 	private readonly head = $('button.ch', { type: 'button', 'aria-expanded': 'false' });
 	private readonly list = $('.cl');
 	private readonly picker = $('button.cedian-native-pick', { type: 'button', 'aria-label': 'Select an element', 'aria-pressed': 'false', title: 'Select an element for the agent' }, '⌖');
