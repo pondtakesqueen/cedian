@@ -264,7 +264,13 @@ export class BrowserPanel implements Block {
     this.session = session;
     this.screen.removeAttribute("src");
     session.onFrame((f) => {
-      if (this.session === session) this.screen.src = `data:image/jpeg;base64,${f.data}`;
+      if (this.session !== session) return;
+      // At the size it was taken at, from the top left: while the block is resized, the last
+      // frame stays as it was (cut off, or with the stage beside it) until one at the new size
+      // comes, never stretched to the new size and then snapped back.
+      this.screen.style.width = `${f.width}px`;
+      this.screen.style.height = `${f.height}px`;
+      this.screen.src = `data:image/jpeg;base64,${f.data}`;
     });
     session.onChange((view) => {
       if (this.session !== session) return;
@@ -527,7 +533,6 @@ export class BrowserPanel implements Block {
   private fit(): void {
     if (!this.session) return;
     const { width, height } = this.size();
-    this.screen.style.width = `${width}px`;
     this.session.resize(width, height, this.scale()).catch(() => {});
   }
 
