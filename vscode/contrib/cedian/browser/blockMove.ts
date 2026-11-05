@@ -10,13 +10,29 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { moving, stretching } from './blocks/motion.js';
-import { edgeBox, ground, moved, OPPOSITE, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
+import { edgeBox, ground, holdScroll, moved, OPPOSITE, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
 
 /** The side blocks, which make room for each other and for the editor's blocks as they come and go. */
 const SIDE_PARTS = [Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART];
 
 /** Where a block stood, its card (workbench.css: the gaps between groups, and its corners) and its card's ground. */
 type Noted = Box & { card: Card; ground: string };
+
+/**
+ * A block's card ground as a CSS background: its own colour, and its header's band (an editor
+ * group's tab row) carried on across the top, so a block drawn past its content keeps its header.
+ */
+function groundOf(element: HTMLElement): string {
+	const color = mainWindow.getComputedStyle(element).backgroundColor;
+	const title = element.querySelector<HTMLElement>(':scope > .title');
+	if (title?.offsetHeight) {
+		// The tab row is drawn as an image over its colour (modern UI), or by its colour alone.
+		const style = mainWindow.getComputedStyle(title);
+		const band = style.backgroundImage !== 'none' ? style.backgroundImage : `linear-gradient(${style.backgroundColor}, ${style.backgroundColor})`;
+		return `${band} 0 ${title.offsetTop}px / 100% ${title.offsetHeight}px no-repeat, ${color}`;
+	}
+	return color;
+}
 
 /** Each block's card as last read at rest: a block in motion has its clip animated, and that is not its card. */
 const cards = new WeakMap<HTMLElement, Card>();
@@ -95,6 +111,8 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	/** Ancestors whose clipping is lifted while blocks slide over each other, and what it was. */
 	private readonly lifted = new Map<HTMLElement, string>();
 	private sliding = 0;
+	/** A side block was shown or hidden, and the window is being laid out again. */
+	private resizing = false;
 	private resizeTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(
@@ -117,8 +135,17 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		this._register(part.onDidAddGroup(group => { this.added.add(group); this.changed(); }));
 		this._register(part.onDidRemoveGroup(() => this.changed()));
 		this._register(part.onDidMoveGroup(() => this.changed()));
-		// A side block shown or hidden: VS Code has laid the window out again by now, before it paints.
-		this._register(layout.onDidChangePartVisibility(() => this.resized()));
+		// A side block shown or hidden. The grid tells it from within the change, before it lays the
+		// window out again; by the end of this task it has, and nothing is painted yet.
+		this._register(layout.onDidChangePartVisibility(() => {
+			if (!this.resizing) {
+				this.resizing = true;
+				queueMicrotask(() => {
+					this.resizing = false;
+					this.resized();
+				});
+			}
+		}));
 		this.note();
 	}
 
@@ -143,7 +170,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	private note(): void {
 		this.boxes = new Map();
 		for (const element of this.blocks()) {
-			this.boxes.set(element, { ...boxOf(element), card: cardOf(element), ground: mainWindow.getComputedStyle(element).backgroundColor });
+			this.boxes.set(element, { ...boxOf(element), card: cardOf(element), ground: groundOf(element) });
 		}
 	}
 
@@ -267,7 +294,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			const was = before.get(element);
 			const from = was ?? fromDrop;
 			if (from && moved(from, to)) {
-				const own = { card: was?.card ?? cardOf(element), ground: was?.ground ?? mainWindow.getComputedStyle(element).backgroundColor };
+				const own = { card: was?.card ?? cardOf(element), ground: was?.ground ?? groundOf(element) };
 				this.stretch(element, from, to, own, !was, false);
 			}
 		}
@@ -276,7 +303,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	/** A new block grows out of `edge`, the side away from the block it split from, its content coming in with that side. */
 	private grow(element: HTMLElement, to: Box, edge: Edge): void {
 		element.style.animation = 'none';
-		element.animate(stretchFrames(to, edgeBox(to, edge), to, cardOf(element)), stretching);
+		holdScroll(element, this.layout.mainContainer, element.animate(stretchFrames(to, edgeBox(to, edge), to, cardOf(element)), stretching));
 	}
 
 	/**
@@ -300,6 +327,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		}
 		this.sliding++;
 		const run = element.animate(stretchFrames(to, from, to, own.card), stretching);
+		holdScroll(element, this.layout.mainContainer, run);
 		const past = ground(to, from, to, own.card);
 		let strip: HTMLElement | undefined;
 		if (past) {
@@ -310,12 +338,15 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			strip.style.top = `${past.box.top}px`;
 			strip.style.width = `${past.box.width}px`;
 			strip.style.height = `${past.box.height}px`;
-			strip.style.backgroundColor = own.ground;
+			strip.style.background = own.ground;
+			// Where its ground carries on, the block's own edge is not drawn (workbench.css).
+			element.classList.add(past.box.width - to.width >= past.box.height - to.height ? 'cedian-ground-right' : 'cedian-ground-bottom');
 			this.layout.mainContainer.appendChild(strip);
 			strip.animate(past.frames, { ...stretching, fill: 'forwards' });
 		}
 		const done = () => {
 			strip?.remove();
+			element.classList.remove('cedian-ground-right', 'cedian-ground-bottom');
 			element.style.zIndex = '';
 			if (--this.sliding === 0) {
 				for (const [node, overflow] of this.lifted) {

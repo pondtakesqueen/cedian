@@ -245,6 +245,8 @@
 /* A block shrinking to make room, drawn bigger than it is laid out: past its content, its card's
    ground carries on to where it is drawn (blockMove.ts), under a block that closes. */
 .cedian-block-ground { position: fixed; z-index: 29; pointer-events: none; }
+.editor-group-container.cedian-ground-right::after { border-right-color: transparent !important; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.editor-group-container.cedian-ground-bottom::after { border-bottom-color: transparent !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
 .cedian-block-closing > .editor-group-container {
 	background-color: var(--vscode-editor-background);
 	box-sizing: border-box;
