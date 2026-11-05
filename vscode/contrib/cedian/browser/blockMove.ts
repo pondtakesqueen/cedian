@@ -79,19 +79,16 @@ interface Laid {
 	layout(width: number, height: number, top: number, left: number): void;
 }
 
-/**
- * Where the grid last placed a view, which it passes along with its size: VS Code keeps it as a
- * group's last layout, the editor part's top and left, and any other part's content position.
- */
-function placeOf(view: Laid): { top: number; left: number } {
-	const v = view as Laid & { lastLayout?: { top: number; left: number }; top?: unknown; left?: unknown; _contentPosition?: { top: number; left: number } };
-	if (v.lastLayout) {
-		return v.lastLayout;
-	}
-	if (typeof v.top === 'number' && typeof v.left === 'number') {
-		return { top: v.top, left: v.left };
-	}
-	return v._contentPosition ?? { top: 0, left: 0 };
+type LayoutFn = Laid['layout'];
+
+interface Held {
+	view: Laid;
+	layout: LayoutFn;
+	width: string;
+	height: string;
+	size: Box;
+	big: { width: number; height: number };
+	fresh: boolean;
 }
 
 /**
@@ -99,8 +96,8 @@ function placeOf(view: Laid): { top: number; left: number } {
  * 2026-11-05, the open/close mockup's H, its spring taken out): a block that opens grows in from
  * 87% of its size as it fades in (popin.ts), one that closes shrinks to it as it fades out, and
  * the blocks beside them move aside or back over WINDOWS_MS (motion.ts). VS Code lays a change
- * out once, at once; a block that shrinks is laid out again, once, at the size it had, until it
- * has moved (`hold`). Each block is then drawn at the box it is passing through with transform and
+ * out once, at once; a block that shrinks is laid out by that same layout at the size it had,
+ * until it has moved (`wrap`), and then once at its own. Each block is then drawn at the box it is passing through with transform and
  * clip-path (stretch.ts), its content held at its start corner and cut at its far sides: never
  * stretched, never laid out per frame, its text never wrapped again on the way.
  * - A block opened beside another (a file opened to the side, a split, a tool) pops in where VS
@@ -120,13 +117,16 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 
 	/** Where each block stood, and its card (a closed group's is gone with it). */
 	private boxes = new Map<HTMLElement, Noted>();
-	/** Each block's slot in the grid, and the editor's, as they stood. */
-	private slots = new Map<HTMLElement, Box>();
 	/**
-	 * Views laid out bigger than the grid has them while their blocks move: their slots' own sizes,
-	 * and the size and place the grid gave them, to lay them out at again.
+	 * Views laid out bigger than the grid has them while their blocks move, by slot: the slot's own
+	 * style, the size and place the grid gave the view, and its own layout to lay it out at them.
+	 * `fresh`: held by the change being laid out now, not yet moved.
 	 */
-	private held: { slot: HTMLElement; width: string; height: string; view: Laid; size: Box }[] = [];
+	private held = new Map<HTMLElement, Held>();
+	/** The size each view was last laid out at. */
+	private readonly drawn = new WeakMap<Laid, { width: number; height: number }>();
+	/** VS Code is laying out a change that moves the blocks: a view that shrinks is held. */
+	private transit = 0;
 	/** From a drop: where each editor's block stood. */
 	private byEditor = new Map<unknown, Box>();
 	private readonly added = new Set<IEditorGroup>();
@@ -167,8 +167,31 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		this._register({ dispose: () => this.scrolls.dispose() });
 		for (const group of part.groups) {
 			this.watch(group);
+			this.wrapGroup(group);
 		}
-		this._register(part.onDidAddGroup(group => { this.watch(group); this.added.add(group); this.changed(); }));
+		// Not the editor itself: its grid lays its groups out smaller, and they are held, each in its
+		// own slot at its own place.
+		for (const name of SIDE_PARTS) {
+			const view = this.part(name);
+			if (view) {
+				this.wrap(view, () => this.layout.getContainer(mainWindow, name)?.parentElement ?? undefined);
+			}
+		}
+		// A split lays its group out smaller as it adds the new one.
+		const editors = part as unknown as { addGroup: (...args: unknown[]) => unknown };
+		const addGroup = editors.addGroup;
+		if (typeof addGroup === 'function') {
+			editors.addGroup = (...args: unknown[]) => {
+				this.transit++;
+				try {
+					return addGroup.apply(part, args);
+				} finally {
+					this.transit--;
+				}
+			};
+			this._register(toDisposable(() => editors.addGroup = addGroup));
+		}
+		this._register(part.onDidAddGroup(group => { this.watch(group); this.wrapGroup(group); this.added.add(group); this.changed(); }));
 		this._register(part.onDidRemoveGroup(group => { this.watching.deleteAndDispose(group.id); this.changed(); }));
 		this._register(part.onDidMoveGroup(() => this.changed()));
 		// A side block shown or hidden. The grid tells it from within the change, before it lays the
@@ -176,8 +199,10 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		this._register(layout.onDidChangePartVisibility(() => {
 			if (!this.resizing) {
 				this.resizing = true;
+				this.transit++;
 				queueMicrotask(() => {
 					this.resizing = false;
+					this.transit--;
 					this.resized();
 				});
 			}
@@ -225,59 +250,104 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		return out;
 	}
 
-	/** Notes where the blocks stand as VS Code has laid them out: never while some are held. */
+	/** Notes where the blocks stand as VS Code has laid them out: one held, at the size the grid gave it. */
 	private note(): void {
 		this.boxes = new Map();
-		this.slots = new Map();
 		for (const element of this.blocks()) {
-			this.boxes.set(element, { ...boxOf(element), card: cardOf(element), ground: groundOf(element) });
-			if (element.parentElement) {
-				this.slots.set(element.parentElement, boxOf(element.parentElement));
+			const box = boxOf(element);
+			const held = element.parentElement && this.held.get(element.parentElement);
+			if (held) {
+				box.width = held.size.width;
+				box.height = held.size.height;
 			}
-		}
-		const editor = this.layout.getContainer(mainWindow, Parts.EDITOR_PART)?.parentElement;
-		if (editor) {
-			this.slots.set(editor, boxOf(editor));
-		}
-	}
-
-	/**
-	 * Lays each of `views` that shrank out once more at the bigger of its two sizes, its slot made
-	 * as big, so its block is drawn shrinking over its own content, cut at its far sides, never
-	 * past it (owner, 2026-11-05: text never stretched, never wrapped again on the way). `release`
-	 * gives the grid its sizes back.
-	 */
-	private hold(views: readonly { slot: HTMLElement; view: Laid }[], slots: Map<HTMLElement, Box>): void {
-		for (const { slot, view } of views) {
-			const was = slots.get(slot);
-			if (!was) {
-				continue;
-			}
-			const now = boxOf(slot);
-			const width = Math.max(was.width, now.width);
-			const height = Math.max(was.height, now.height);
-			if (width - now.width < 1 && height - now.height < 1) {
-				continue;
-			}
-			const place = placeOf(view);
-			this.held.push({ slot, width: slot.style.width, height: slot.style.height, view, size: { ...place, width: now.width, height: now.height } });
-			slot.style.width = `${width}px`;
-			slot.style.height = `${height}px`;
-			view.layout(width, height, place.top, place.left);
+			this.boxes.set(element, { ...box, card: cardOf(element), ground: groundOf(element) });
 		}
 	}
 
+	/** An editor group, laid out by the editor's grid in its element's parent. */
+	private wrapGroup(group: IEditorGroup): void {
+		const element = elementOf(group);
+		this.wrap(group as unknown as Laid, () => element?.parentElement ?? undefined);
+	}
+
 	/**
-	 * The grid's sizes back to the slots held bigger, each view laid out at them again: the grid
-	 * would not, its views' sizes being unchanged as far as it knows.
+	 * Takes over a view's layout: while VS Code lays out a change that moves the blocks, a view it
+	 * makes smaller is laid out at the bigger of its two sizes instead, its slot made as big, so its
+	 * block is drawn shrinking over its own content, cut at its far sides, never past it (owner,
+	 * 2026-11-05: text never stretched, never wrapped again on the way). One layout, VS Code's own,
+	 * not one more; `release` lays it out at the grid's size once it has moved.
 	 */
-	private release(): void {
-		const held = this.held;
-		this.held = [];
-		for (const { slot, width, height, view, size } of held) {
-			slot.style.width = width;
-			slot.style.height = height;
-			view.layout(size.width, size.height, size.top, size.left);
+	private wrap(view: Laid, slotOf: () => HTMLElement | undefined): void {
+		const layout = view.layout;
+		if (typeof layout !== 'function' || this.drawn.has(view)) {
+			return;
+		}
+		const slot = slotOf();
+		if (slot?.offsetWidth) {
+			this.drawn.set(view, { width: slot.offsetWidth, height: slot.offsetHeight });
+		}
+		view.layout = (width, height, top, left) => {
+			const at = slotOf();
+			const held = at && this.held.get(at);
+			if (held && held.view === view) {
+				held.size = { left, top, width, height };
+				if (width <= held.big.width && height <= held.big.height) {
+					return;
+				}
+				held.big = { width: Math.max(width, held.big.width), height: Math.max(height, held.big.height) };
+				this.size(at, held.big);
+				layout.call(view, held.big.width, held.big.height, top, left);
+				return;
+			}
+			const was = this.drawn.get(view);
+			if (at && was?.width && this.transit && (width < was.width - 0.5 || height < was.height - 0.5) && moving(this.layout.mainContainer)) {
+				const big = { width: Math.max(width, was.width), height: Math.max(height, was.height) };
+				this.held.set(at, { view, layout, width: at.style.width, height: at.style.height, size: { left, top, width, height }, big, fresh: true });
+				this.size(at, big);
+				layout.call(view, big.width, big.height, top, left);
+				this.drawn.set(view, big);
+				// Held for a change nothing moves for: given its size back after a frame.
+				mainWindow.requestAnimationFrame(() => mainWindow.requestAnimationFrame(() => {
+					if (!this.sliding) {
+						this.release(true);
+					}
+				}));
+				return;
+			}
+			this.drawn.set(view, { width, height });
+			layout.call(view, width, height, top, left);
+		};
+		this._register(toDisposable(() => view.layout = layout));
+	}
+
+	private size(slot: HTMLElement, size: { width: number; height: number }): void {
+		slot.style.width = `${size.width}px`;
+		slot.style.height = `${size.height}px`;
+	}
+
+	/**
+	 * The grid's sizes back to the slots held bigger, each view laid out at them: the grid would
+	 * not, its views' sizes being unchanged as far as it knows. Not those the change being laid out
+	 * now holds, unless `all`.
+	 */
+	private release(all = false): void {
+		for (const [slot, held] of [...this.held]) {
+			if (held.fresh && !all) {
+				continue;
+			}
+			this.held.delete(slot);
+			slot.style.width = held.width;
+			slot.style.height = held.height;
+			const { width, height, top, left } = held.size;
+			this.drawn.set(held.view, { width, height });
+			held.layout.call(held.view, width, height, top, left);
+		}
+	}
+
+	/** The views held by the change just laid out are now moving, theirs to release. */
+	private claim(): void {
+		for (const held of this.held.values()) {
+			held.fresh = false;
 		}
 	}
 
@@ -294,21 +364,12 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			return; // the group change under way notes them after it
 		}
 		const before = this.boxes;
-		const slots = this.slots;
 		this.release();
 		this.note();
+		this.claim();
 		if (!moving(this.layout.mainContainer)) {
 			return;
 		}
-		const views: { slot: HTMLElement; view: Laid }[] = [];
-		for (const part of [Parts.EDITOR_PART, ...SIDE_PARTS]) {
-			const slot = this.layout.getContainer(mainWindow, part)?.parentElement;
-			const view = this.part(part);
-			if (slot && view && this.layout.isVisible(part, mainWindow)) {
-				views.push({ slot, view });
-			}
-		}
-		this.hold(views, slots);
 		for (const [element, to] of this.boxes) {
 			const was = before.get(element);
 			// One just shown has no box before it: it pops in (blockStretch.ts).
@@ -349,12 +410,12 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			const dropped = this.dropping;
 			this.dropping = false;
 			const before = this.boxes;
-			const slots = this.slots;
 			try {
 				this.release();
 				this.note();
+				this.claim();
 				if (moving(this.layout.mainContainer)) {
-					this.settle(dropped, before, slots);
+					this.settle(dropped, before);
 				}
 			} finally {
 				this.added.clear();
@@ -363,18 +424,14 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		});
 	}
 
-	private settle(dropped: boolean, before: Map<HTMLElement, Noted>, slots: Map<HTMLElement, Box>): void {
+	private settle(dropped: boolean, before: Map<HTMLElement, Noted>): void {
 		const groups = this.groups.mainPart.groups;
 		const now = new Map<HTMLElement, Box>();
-		const views: { slot: HTMLElement; view: Laid }[] = [];
 		for (const group of groups) {
 			const element = elementOf(group);
 			const box = element && this.boxes.get(element);
 			if (element && box) {
 				now.set(element, box);
-				if (element.parentElement && !this.added.has(group)) {
-					views.push({ slot: element.parentElement, view: group as unknown as Laid });
-				}
 			}
 		}
 		// A closed group pops out where it stood, over the block that takes its room. One a drop
@@ -387,8 +444,6 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 				this.fold(element, box);
 			}
 		}
-		// The blocks that shrink are laid out at the size they had until they have moved.
-		this.hold(views, slots);
 		for (const group of groups) {
 			const element = elementOf(group);
 			const to = element && now.get(element);
