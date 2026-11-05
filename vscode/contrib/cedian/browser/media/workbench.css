@@ -96,7 +96,7 @@
    nothing is laid out while they move (src/blocks/motion.ts). A side block shown or hidden comes
    out of its edge and folds back into it (blockStretch.ts); an editor group opened is uncovered
    from the block it split from, one closed folds into its edge, and the rest slide to their new
-   places (blockMove.ts). The focused block's top edge lights up. VS Code puts
+   places (blockMove.ts). VS Code puts
    monaco-enable-motion on the window unless the OS asks for reduced motion or
    `workbench.reduceMotion` is on, so both turn the motion off. */
 .monaco-workbench {
@@ -109,17 +109,23 @@
 	transition-duration: var(--cedian-motion-open, .15s);
 	transition-timing-function: var(--cedian-ease-open, ease-out);
 }
-.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.sidebar,
-.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.auxiliarybar,
-.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.panel,
-.monaco-workbench.monaco-enable-motion.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) .editor-group-container::after {
-	transition: box-shadow var(--cedian-motion-focus) var(--cedian-ease-out);
+/* The focused block: its current tab's fill a step stronger than in the other blocks, so what is
+   selected shows without a line drawn around or over the block. One step: the selection tint
+   (--cedian-sel) everywhere else, the strong line tint (--cedian-line-strong) in the block that holds
+   focus; both are theme tokens, so light and dark each get theirs. */
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) {
+	--modern-ui-editor-tab-active-background: var(--cedian-sel, var(--vscode-modernEditorTab-activeBackground));
+	--modern-ui-editor-tab-unfocused-active-background: var(--cedian-sel, var(--vscode-modernEditorTab-activeBackground));
 }
-.monaco-workbench.modern-ui.floating-panels .part.sidebar:focus-within,
-.monaco-workbench.modern-ui.floating-panels .part.auxiliarybar:focus-within,
-.monaco-workbench.modern-ui.floating-panels .part.panel:focus-within,
-.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part):focus-within .editor-group-container.active::after {
-	box-shadow: inset 0 2px 0 var(--cedian-text-muted, var(--vscode-focusBorder));
+.monaco-workbench.modern-ui-tabs .part.editor:focus-within {
+	--modern-ui-editor-tab-active-background: var(--cedian-line-strong, var(--vscode-modernEditorTab-activeBackground));
+}
+.monaco-workbench.modern-ui-tabs .pane-composite-part:focus-within {
+	--modern-ui-tab-active-background: var(--cedian-line-strong, var(--vscode-modernTab-activeBackground));
+}
+.monaco-workbench.monaco-enable-motion.modern-ui-tabs .part.editor .tabs-container > .tab > .tab-fill,
+.monaco-workbench.monaco-enable-motion.modern-ui-tabs .pane-composite-part .composite-bar .action-item > .active-item-indicator {
+	transition: background-color var(--cedian-motion-focus) var(--cedian-ease-out);
 }
 
 /* A block's menu: VS Code's "More Actions..." (⋯) in a block's header, in the faint text colour,
