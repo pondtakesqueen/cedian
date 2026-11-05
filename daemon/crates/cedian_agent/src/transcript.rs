@@ -61,7 +61,7 @@ impl Transcript {
     }
 
     /// The first block that changed since the last call, so a view re-lays out from there.
-    pub fn take_changed_from(&mut self) -> Option<usize> {
+    fn take_changed_from(&mut self) -> Option<usize> {
         self.appended = None;
         self.changed_from.take()
     }

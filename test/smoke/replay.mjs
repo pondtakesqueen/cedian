@@ -7,9 +7,10 @@
 // than 25 ms. Prints JSON.
 // Usage: node test/smoke/replay.mjs <recording.jsonl> [--client <id>] [--speed <x>]
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+const chromiumBin = process.env.CEDIAN_CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -110,7 +111,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const play = playback(readFileSync(file, "utf8"), opt("--client") === undefined ? undefined : Number(opt("--client")));
   const speed = Number(opt("--speed") ?? 1);
   const { chromium } = await import("playwright-core").catch(() => import("playwright"));
-  const browser = await chromium.launch(process.env.CEDIAN_CHROMIUM ? { executablePath: process.env.CEDIAN_CHROMIUM } : {});
+  const browser = await chromium.launch(chromiumBin ? { executablePath: chromiumBin } : {});
   try {
     const page = await browser.newPage({ viewport: { width: 520, height: 900 } });
     const css = readFileSync(join(root, "vscode/contrib/cedian/browser/media/agentPane.css"), "utf8");

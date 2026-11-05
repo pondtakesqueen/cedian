@@ -17,11 +17,9 @@
   `shell_env.rs`, workspace deps trimmed, `[patch.crates-io]` dropped;
   the daemon links no GPL code)
 - [x] License scan in CI (`script/license-scan.py`)
-- [x] TS entrypoint smoke test (`src/index.test.ts`)
 - [x] Conflict sweep 2026-10-26 (8 fixed): spec §5.3 worktree path → in-repo
   `.cedian/worktrees` (matches code); `script/pin-cedia` dest → `daemon/`;
   `script/themes/cedian.py` refuses Zed-era write (Phase B retarget);
-  `script/bundle-mac` marked pre-pivot (Phase D retarget);
   THIRD_PARTY drop "(when added)"; LICENSE/NOTICE identity + VS Code
   timing fixed; spec §6 CLI matches `--print=`/`--` reality; CI pins
   toolchain 1.98.1; `daemon/LICENSE` symlink so workspace license-file

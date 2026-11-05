@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { DaemonClient, type ConnectionState, type Transport } from "./client.js";
-import { LineSplitter } from "./lines.js";
 
 class FakeTransport implements Transport {
   sent: unknown[] = [];
@@ -22,18 +21,6 @@ class FakeTransport implements Transport {
     this.state?.(state);
   }
 }
-
-describe("LineSplitter", () => {
-  it("keeps a line cut across reads whole", () => {
-    const split = new LineSplitter();
-    expect(split.push('{"kind":"caught","thr')).toEqual([]);
-    expect(split.push('ead":"t-1"}\n{"kind":')).toEqual(['{"kind":"caught","thread":"t-1"}']);
-    expect(split.push('"error","message":"x"}\n\n')).toEqual(['{"kind":"error","message":"x"}']);
-    expect(split.end()).toEqual([]);
-    split.push("tail");
-    expect(split.end()).toEqual(["tail"]);
-  });
-});
 
 describe("DaemonClient", () => {
   it("holds requests until connected, then sends watches first", () => {

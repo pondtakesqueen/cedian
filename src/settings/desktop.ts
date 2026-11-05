@@ -24,10 +24,13 @@ export interface Desktop {
   [key: string]: unknown;
 }
 
-export const DEFAULT_CODE_FONT = "Lilex";
+/** The bundled faces (media/fonts, SIL OFL 1.1): Geist for the interface, Geist Mono for code and
+ * the terminal. Neither has Thai, so Thai falls through to the system's Thai face after them. */
+export const DEFAULT_UI_FONT = "Geist";
+export const DEFAULT_CODE_FONT = "Geist Mono";
 /** Thai needs room above and below the line (spec §9 Accessibility: line-height ≥ 1.6). */
 export const LINE_HEIGHT = 1.6;
-const CODE_FALLBACK = "Menlo, Monaco, 'Courier New', monospace";
+const CODE_FALLBACK = "Menlo, Monaco, 'Courier New', 'Sukhumvit Set', 'Thonburi', monospace";
 const UI_FALLBACK = "-apple-system, BlinkMacSystemFont, 'Sukhumvit Set', 'Thonburi', sans-serif";
 
 /** `desktop`, or nothing usable as one, as a Desktop. */
@@ -170,9 +173,9 @@ export function appIconOf(desktop: Desktop, showing: "light" | "dark"): "light" 
 
 /** The agent pane's own type, as CSS custom properties. */
 export function paneTypography(desktop: Desktop): Record<string, string> {
-  const ui = desktop.font?.ui?.trim();
+  const ui = desktop.font?.ui?.trim() || DEFAULT_UI_FONT;
   return {
-    "--cedian-font-ui": ui ? `'${ui}', ${UI_FALLBACK}` : UI_FALLBACK,
+    "--cedian-font-ui": `'${ui}', ${UI_FALLBACK}`,
     "--cedian-font-code": `'${desktop.font?.code?.trim() || DEFAULT_CODE_FONT}', ${CODE_FALLBACK}`,
     "--cedian-ui-size": `${size(desktop.ui_font_size, 10, 24) ?? 14}px`,
     "--cedian-code-size": `${size(desktop.code_font_size, 8, 40) ?? 13}px`,

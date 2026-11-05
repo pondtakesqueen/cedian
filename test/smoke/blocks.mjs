@@ -58,7 +58,7 @@ body { font: 13px -apple-system, system-ui, sans-serif; background: var(--cedian
 .editor { position: absolute; inset: 8px; border-radius: 12px; background: var(--cedian-sheet); padding: 16px; box-shadow: 0 0 0 1px var(--cedian-line) }
 .editor pre { font: 12px/1.6 Menlo, monospace; color: var(--cedian-text-muted); margin: 0 }
 .stand-in { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8f5d8, #fff); color: #333; font-size: 15px }
-${css}</style><body><div id="frame"><div class="editor"><pre>${Array.from({ length: 40 }, (_, i) => `${String(i + 1).padStart(3)}  const basket = items.map((item) => item.price) // ตะกร้า`).join("\n")}</pre></div></div><script>${bundle}</script></body>`;
+${css}</style><body><div id="wb" class="monaco-workbench monaco-enable-motion" style="height: 100%"><div id="frame"><div class="editor"><pre>${Array.from({ length: 40 }, (_, i) => `${String(i + 1).padStart(3)}  const basket = items.map((item) => item.price) // ตะกร้า`).join("\n")}</pre></div></div></div><script>${bundle}</script></body>`;
 const server = createServer((_, res) => res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(PAGE));
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const url = `http://127.0.0.1:${server.address().port}/`;
@@ -74,7 +74,7 @@ await page.evaluate(() => window.start("light"));
 
 const box = (kind = "browser") => page.locator(`.cedian-pip[data-kind="${kind}"]`).boundingBox();
 const settled = async () => {
-  // The glide is 220 ms; wait for transitions to finish.
+  // The glide is 180 ms (motion.ts OPEN_MS); wait for transitions to finish.
   await page.waitForTimeout(320);
 };
 const last = () => page.evaluate(() => window.changes.at(-1));
@@ -209,11 +209,15 @@ try {
   await page.setViewportSize({ width: W, height: H });
   await settled();
 
-  // Reduce Motion: no glide.
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  const transition = await page.locator('.cedian-pip[data-kind="browser"]').evaluate((n) => getComputedStyle(n).transitionDuration);
+  // Reduce Motion: no glide. VS Code takes monaco-enable-motion off the workbench for the OS's
+  // reduced motion and for workbench.reduceMotion alike; the glide hangs on that class.
+  const duration = () => page.locator('.cedian-pip[data-kind="browser"]').evaluate((n) => getComputedStyle(n).transitionDuration);
+  const gliding = await duration();
+  ok("with motion on, a block glides", gliding.split(",").some((d) => parseFloat(d) > 0), gliding);
+  await page.evaluate(() => document.querySelector("#wb").classList.remove("monaco-enable-motion"));
+  const transition = await duration();
   ok("Reduce Motion stops the glide", transition.split(",").every((d) => parseFloat(d) === 0), transition);
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.evaluate(() => document.querySelector("#wb").classList.add("monaco-enable-motion"));
 
   // Dark theme.
   await page.evaluate(() => window.theme("dark"));

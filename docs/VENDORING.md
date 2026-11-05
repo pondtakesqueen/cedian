@@ -35,8 +35,9 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
   ships in the app beside its own `LICENSE.txt` and `ThirdPartyNotices.txt`.
 - `vscode/contrib/cedian/`: the workbench contribution, copied to
   `src/vs/workbench/contrib/cedian/`, with the window's modules from `src/`
-  (agent-pane, composer, daemon-client, dom, inline-edit, keybindings,
-  protocol, review, settings, theme; tests left out) under `browser/`. The
+  (agent-pane, blocks, browser-panel, completion, composer, daemon-client,
+  dom, inline-edit, keybindings, protocol, review, settings, theme, updates;
+  tests left out) under `browser/`. The
   contribution only hands those modules VS Code's services: the live Agent
   view (secondary side bar), Cedian Settings (an editor, opened by Cmd+, and
   VS Code's own settings commands), the review diff editors, Cmd+K inline

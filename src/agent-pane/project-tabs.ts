@@ -39,11 +39,17 @@ export function counts(threads: readonly ThreadInfo[]): { needs: number; working
   return { needs, working };
 }
 
+/** A folder in the system's temporary space (a test run's, an unzipped download): never a project. */
+export function isScratch(root: string): boolean {
+  return /^(\/private)?\/(var\/folders|tmp)\//.test(root) || /[\\/]AppData[\\/]Local[\\/]Temp[\\/]/i.test(root);
+}
+
 /**
  * The tabs: this window's project first, then the folders opened lately, newest first, each once,
- * up to MAX_TABS. A project whose threads the daemon has not sent yet counts none.
+ * up to MAX_TABS, leaving out temporary folders. A project whose threads the daemon has not sent
+ * yet counts none.
  */
 export function projectTabs(current: string, recent: readonly string[], threads: ReadonlyMap<string, readonly ThreadInfo[]>): ProjectTab[] {
-  const roots = [current, ...recent.filter((r) => r !== current)].filter((r, i, all) => all.indexOf(r) === i).slice(0, MAX_TABS);
+  const roots = [current, ...recent.filter((r) => r !== current && !isScratch(r))].filter((r, i, all) => all.indexOf(r) === i).slice(0, MAX_TABS);
   return roots.map((root) => ({ root, name: projectName(root), on: root === current, ...counts(threads.get(root) ?? []) }));
 }

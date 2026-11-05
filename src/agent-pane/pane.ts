@@ -7,7 +7,7 @@ import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunC
 import { button, el, select, type Wire } from "../dom/el.js";
 import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
-import { byFile, commentCount, findingCount, goesNext, openFindings, resolveComment, reviewed, sendComments, setComments, stateLabel, stateOf, walkSteps } from "../review/notes.js";
+import { byFile, commentCount, findingCount, goesNext, openFindings, removeComment, resolveComment, reviewed, sendComments, setComments, stateLabel, stateOf, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
@@ -1100,7 +1100,7 @@ export class AgentPane {
       row.append(at, el(d, "span", "small ell", c.text), el(d, "span", "small state", stateLabel(c)));
       if (state === "open" || state === "sent") row.append(button(d, "Resolve", () => this.wire.request(setComments(thread, resolveComment(comments, c.id, true))), "btn small"));
       if (state === "resolved") row.append(button(d, "Reopen", () => this.wire.request(setComments(thread, resolveComment(comments, c.id, false))), "btn small"));
-      row.append(button(d, "Delete", () => this.wire.request(setComments(thread, comments.filter((o) => o.id !== c.id))), "btn small"));
+      row.append(button(d, "Delete", () => this.wire.request(setComments(thread, removeComment(comments, c.id))), "btn small"));
       card.append(row);
     }
     return card;

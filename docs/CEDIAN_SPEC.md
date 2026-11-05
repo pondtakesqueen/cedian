@@ -631,7 +631,7 @@ draft → open → (edited | fixing | forked) → pinned → closed
   "desktop": {
     "theme": "dark",
     "app_icon": "light",
-    "font": { "ui": "SF Pro", "code": "Lilex" },
+    "font": { "ui": "Geist", "code": "Geist Mono" },
     "ui_font_size": 14,
     "code_font_size": 13,
     "density": "comfortable",
@@ -828,7 +828,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
   |------|-------------------------------|------------------------------|
   | Agent runs | `cedian_daemon` (runs, worktrees, git ops) + `cedian_agent` (stream fold, Phase B) | `src/agent-pane/`, `src/composer/` |
   | Protocol | `cedian_protocol` (cedia schema types), `cedian_wire` (socket framing) | generated TS types from wire (Phase B) |
-  | Index/search | `cedian_index` (threads/sessions/memory reads) | `src/workbench/` (sidebar, project chat) |
+  | Index/search | `cedian_index` (threads/sessions/memory reads) | `src/agent-pane/thread-list.ts`, `src/agent-pane/project-chat.ts` (sidebar, project chat) |
   | Review | `cedian_review` (hunks vs first snapshot) | diff UI via VS Code diff editor |
   | Artifacts | `cedian_artifact` (trigger, kind, versions, 20 MB store) + daemon record files (§5.4) | `src/artifacts/` (kinds, policy gating, pane render) |
   | Layout | block trees in `desktop.layout` (daemon persists) | `src/blocks/` (drag/zoom/park/PiP) |
@@ -905,7 +905,7 @@ This section is the roadmap; `docs/ARCHITECTURE.md` keeps the GPUI-era phases as
 
 Biggest risk: blocks at full Tern parity make Phase C the longest phase. Upstream merges are rare (§9), so the fork's drift cost is low, but blocks stay a layer over the workbench so a needed merge stays possible.
 
-Cedian-specific setup carried from the earlier list: rename to "Cedian" and strip Copilot/Cursor AI features; Open VSX; VS Code settings UI and MCP client disabled; Roots UI per `docs/specs/ROOTS_SETTINGS_DRAFT.md`; multi-repo per `docs/specs/PROJECTS_SPEC.md`; MIT notice for VS Code portions before ship.
+Cedian-specific setup carried from the earlier list: rename to "Cedian" and strip Copilot/Cursor AI features; Open VSX; VS Code settings UI and MCP client disabled; Roots UI in Cedian Settings (`src/settings/settings-view.ts`); multi-repo per `docs/specs/PROJECTS_SPEC.md`; MIT notice for VS Code portions before ship.
 
 ---
 

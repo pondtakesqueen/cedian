@@ -3,6 +3,7 @@
 // expands to fill the frame, and docks back into the editor area. Several in one corner stack.
 // It takes any `Block`; the Browser block is the first. Where each rests is the daemon's to keep
 // (`desktop.layout`); the layer says when that changed and draws what it is given.
+import { closing, opening } from "./motion.js";
 import { button, el } from "../dom/el.js";
 import { moveBlock, type Block, type BlockState } from "./block.js";
 import type { Floating } from "./layout.js";
@@ -16,6 +17,11 @@ export interface LayerHost {
   /** Puts a block of `kind` back in the editor area, showing `id` when it showed one (an agent's
    * thread). The layer has already closed its own. */
   dock(kind: string, id?: string): void;
+  /** Where a block docked into lands, in the window's CSS pixels, once it is there: the layer's
+   * block slides to it. Without it, the block goes where it is. */
+  landing?(kind: string): { left: number; top: number; width: number; height: number } | undefined;
+  /** Whether the window moves (off with reduced motion). Without it, blocks come and go at once. */
+  moving?(): boolean;
   /** What floats, or where, changed: the host asks the daemon to keep `floating`. */
   changed(floating: Floating[]): void;
   /** A block of `kind` was closed from its header. */
@@ -203,6 +209,10 @@ export class BlockLayer {
     this.raise(pip);
     this.drawTitle(pip);
     this.draw();
+    // Opens from its header down, as a drawer: never scaled, never faded.
+    if (!quiet && this.host.moving?.() && typeof node.animate === "function") {
+      node.animate([{ clipPath: `inset(0px 0px calc(100% - ${HEAD}px) 0px round 12px)` }, { clipPath: "inset(0px 0px 0px 0px round 12px)" }], opening);
+    }
     if (!quiet) this.changed();
   }
 
@@ -271,9 +281,11 @@ export class BlockLayer {
     const pip = this.find(kind);
     if (!pip || pip.block.throwaway) return;
     const id = pip.block.id;
-    this.drop(kind);
+    const leaving = this.detach(kind);
     this.changed();
     this.host.dock(kind, id);
+    // It slides to the block it lands in and goes into it there.
+    if (leaving) this.leave(leaving, this.host.landing?.(kind));
   }
 
   /**
@@ -285,9 +297,10 @@ export class BlockLayer {
     if (!pip || pip.block.throwaway || !this.host.tearOff) return;
     const id = pip.block.id;
     const at = bounds ?? this.onScreen(pip);
-    this.drop(kind);
+    const leaving = this.detach(kind);
     this.changed();
     this.host.tearOff(kind, id, at);
+    if (leaving) this.leave(leaving);
   }
 
   /** Where `pip` is drawn, in screen pixels. */
@@ -299,10 +312,11 @@ export class BlockLayer {
   }
 
   close(kind: string): void {
-    if (!this.find(kind)) return;
-    this.drop(kind);
+    const leaving = this.detach(kind);
+    if (!leaving) return;
     this.changed();
     this.host.closed?.(kind);
+    this.leave(leaving);
   }
 
   get isFanned(): boolean {
@@ -366,14 +380,52 @@ export class BlockLayer {
   }
 
   private drop(kind: string): void {
-    const at = this.pips.findIndex((p) => p.block.kind === kind);
-    if (at < 0) return;
-    const [pip] = this.pips.splice(at, 1);
-    for (const off of pip.offs) off();
+    const pip = this.detach(kind);
+    if (!pip) return;
     pip.block.dispose();
     pip.node.remove();
+  }
+
+  /** Takes the block of `kind` out of the layer; its node stays until `leave` or `drop` takes it. */
+  private detach(kind: string): Pip | undefined {
+    const at = this.pips.findIndex((p) => p.block.kind === kind);
+    if (at < 0) return undefined;
+    const [pip] = this.pips.splice(at, 1);
+    for (const off of pip.offs) off();
     if (this.fanned && this.pips.length === 0) this.fold();
     this.draw();
+    return pip;
+  }
+
+  /**
+   * Shows a block that went leaving, then disposes of it: it collapses into its header's top edge
+   * (closed, torn off), or slides to `to` (window CSS pixels) and is clipped to it there (docked).
+   * On the closing timing, never scaled, never faded.
+   */
+  private leave(pip: Pip, to?: { left: number; top: number; width: number; height: number }): void {
+    const node = pip.node;
+    const gone = () => {
+      pip.block.dispose();
+      node.remove();
+    };
+    if (!this.host.moving?.() || typeof node.animate !== "function") return gone();
+    node.style.transition = "none";
+    node.style.pointerEvents = "none";
+    const from = node.getBoundingClientRect();
+    const at = node.style.transform || "none";
+    const whole = "inset(0px 0px 0px 0px round 12px)";
+    const frames: Keyframe[] = to
+      ? [
+          { transform: at, clipPath: whole },
+          {
+            transform: `translate(${Math.round(to.left - from.left)}px, ${Math.round(to.top - from.top)}px) ${at === "none" ? "" : at}`.trim(),
+            clipPath: `inset(0px ${Math.max(0, Math.round(from.width - to.width))}px ${Math.max(0, Math.round(from.height - to.height))}px 0px round 12px)`,
+          },
+        ]
+      : [{ clipPath: whole }, { clipPath: "inset(0px 0px 100% 0px round 12px)" }];
+    const run = node.animate(frames, { ...closing, fill: "forwards" });
+    run.onfinish = gone;
+    run.oncancel = gone;
   }
 
   private changed(): void {
