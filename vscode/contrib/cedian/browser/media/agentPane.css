@@ -198,9 +198,16 @@
   .cedian-agent-pane > .head .cost { display: none; }
   .cedian-agent-pane .pill select { max-width: 96px; }
 }
+/* Narrower than the three names fit: the model, effort and permission pills are their icons alone,
+   so all three stay. The native select stays over the whole pill, so a click or the keyboard
+   opens it as before; the pill's hover says what each is set to. */
+@container agent-pane (max-width: 380px) {
+  .cedian-agent-pane .composer .pill:has(> svg.i + select) { width: 28px; padding: 0; justify-content: center; }
+  .cedian-agent-pane .composer .pill:has(> svg.i + select) > select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
+  .cedian-agent-pane .composer .pill:has(> svg.i + select) > svg.i-chevron { display: none; }
+}
 @container agent-pane (max-width: 300px) {
   .cedian-agent-pane > .head .ctx .l { display: none; }
-  .cedian-agent-pane .pill.effort { display: none; }
   .cedian-agent-pane .composer { margin: 6px 8px 8px; }
 }
 

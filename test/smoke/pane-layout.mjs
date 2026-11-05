@@ -107,7 +107,7 @@ try {
         failed++;
         console.log(`${appearance} ${w}px: ${i}`);
       }
-      if (shots && [280, 360, 440].includes(w)) {
+      if (shots && [280, 360, 400, 440].includes(w)) {
         mkdirSync(shots, { recursive: true });
         await page.evaluate(() => { const log = document.querySelector(".cedian-agent-pane .log"); log.scrollTop = log.scrollHeight; });
         await page.locator(".host").screenshot({ path: join(shots, `pane-${w}-${appearance}.png`), animations: "disabled" });
