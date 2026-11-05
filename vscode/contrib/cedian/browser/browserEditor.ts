@@ -33,6 +33,7 @@ import { BrowserPanel } from './browser-panel/panel.js';
 import type { Socket } from './browser-panel/cdp.js';
 import { ICedianDaemonService } from './daemonService.js';
 import type { AgentPane } from './agent-pane/pane.js';
+import { NativeFloat } from './nativeFloat.js';
 import { CedianPanes, connectionBar } from './panes.js';
 
 /** The Browser block as an editor: one per window, so it splits, drags and pops out like any editor. */
@@ -99,6 +100,11 @@ const NATIVE_BROWSER_OPEN = 'workbench.action.browser.open';
  * (`CedianBrowserInput`) stays registered until it is removed; nothing opens it from here.
  */
 export async function openBrowser(editorService: IEditorService, commands: ICommandService): Promise<void> {
+	if (NativeFloat.input) {
+		// It floats: it docks back, as the one native page of the window.
+		await commands.executeCommand('cedian.dockBrowser');
+		return;
+	}
 	const open = editorService.editors.find(editor => editor.typeId === NATIVE_BROWSER_INPUT);
 	if (open) {
 		await editorService.openEditor(open);

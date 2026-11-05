@@ -12,6 +12,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { BrowserEditorInput } from '../../browserView/common/browserEditorInput.js';
 import { IBrowserViewCDPService } from '../../browserView/common/browserView.js';
 import { ICedianDaemonService } from './daemonService.js';
+import { NativeFloat } from './nativeFloat.js';
 import { agentMay, PageRelay, type BrowserChannel, type CdpMessage } from './browser-panel/relay.js';
 
 /** One run's connection to the native page: the relay once its group exists, what came before it. */
@@ -43,6 +44,7 @@ export class CedianNativeBrowser extends Disposable implements IWorkbenchContrib
 		super();
 		const client = daemon.client;
 		this._register(editors.onDidEditorsChange(() => this.hold()));
+		this._register(NativeFloat.onDidChange(() => this.hold()));
 		this._register(toDisposable(client.onConnection(state => {
 			// A daemon that restarted knows no page: say it again, and its old connections are gone.
 			if (state === 'connected' && this.held) {
@@ -91,8 +93,11 @@ export class CedianNativeBrowser extends Disposable implements IWorkbenchContrib
 		}
 	}
 
-	/** The page a run drives: the native view in front, else the one used last. */
+	/** The page a run drives: the one floating, else the native view in front, else the one used last. */
 	private page(): BrowserEditorInput | undefined {
+		if (NativeFloat.input) {
+			return NativeFloat.input;
+		}
 		const active = this.editors.activeEditor;
 		if (active instanceof BrowserEditorInput) {
 			return active;
