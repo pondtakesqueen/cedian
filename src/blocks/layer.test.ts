@@ -11,6 +11,7 @@ class FakeBlock implements Block {
   sizes: [number, number][] = [];
   disposed = false;
   focused = 0;
+  left: string[] = [];
   private name = "Basket";
   private readonly listeners = new Set<(t: string) => void>();
   constructor(readonly kind = "browser") {}
@@ -19,6 +20,7 @@ class FakeBlock implements Block {
   onTitle(l: (t: string) => void) { this.listeners.add(l); return () => this.listeners.delete(l); }
   layout(w: number, h: number) { this.sizes.push([w, h]); }
   focus() { this.focused++; }
+  leaving() { this.left.push(this.disposed ? "after dispose" : "before dispose"); }
   dispose() { this.disposed = true; }
 }
 
@@ -106,6 +108,15 @@ describe("the block layer (spec §3.3, §4.4)", () => {
     pipOf(layer).querySelector<HTMLButtonElement>(".pip-close")!.click();
     expect(closed).toEqual(["browser"]);
     expect(docked).toEqual(["browser"]);
+  });
+  test("a block closed or docked is told it is leaving before it goes", () => {
+    const { layer } = setup();
+    for (const how of ["close", "dock"] as const) {
+      const block = new FakeBlock();
+      layer.float(block);
+      layer[how]("browser");
+      expect(block.left).toEqual(["before dispose"]);
+    }
   });
   test("a throwaway block (a side chat) has no dock, docks nowhere, and is not kept", () => {
     const { layer, docked, changes } = setup();

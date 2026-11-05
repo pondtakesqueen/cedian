@@ -10,6 +10,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
 import { closing, moving, opening } from './blocks/motion.js';
+import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
 
 /** The side blocks, each with VS Code's commands that hide it. */
 const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
@@ -42,11 +43,17 @@ const folded = (edge: Edge) => ({
 export class CedianBlockStretch extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.blockStretch';
 
+	/** What has scrolled, so a copy shows each list where it was (copy.ts). */
+	private readonly scrolls = new ScrollNotes(mainWindow.document);
+	/** Each block's copy still folding away: shown again before it is gone, the block comes out over it. */
+	private readonly leaving = new Map<Parts, HTMLElement>();
+
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
 		@IInstantiationService instantiation: IInstantiationService,
 	) {
 		super();
+		this._register({ dispose: () => this.scrolls.dispose() });
 		this._register(layout.onDidChangePartVisibility(e => {
 			const side = SIDES.find(s => s.part === e.partId);
 			if (side && e.visible) {
@@ -66,7 +73,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 						const leaving = this.layout.isVisible(side.part, mainWindow) ? this.copy(side.part) : undefined;
 						const result = instantiation.invokeFunction(own.handler, ...args);
 						if (leaving && !this.layout.isVisible(side.part, mainWindow)) {
-							this.fold(leaving, this.edge(side.part));
+							this.fold(side.part, leaving, this.edge(side.part));
 						}
 						return result;
 					},
@@ -93,6 +100,10 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 
 	/** Uncovers a block VS Code has just laid out, from its edge. */
 	private open(part: Parts): void {
+		// Shown again while its copy still folds away (a quick double toggle): the copy goes, or it
+		// would cover the block coming out under it.
+		this.leaving.get(part)?.remove();
+		this.leaving.delete(part);
 		const element = this.layout.getContainer(mainWindow, part);
 		if (!element || !this.moving()) {
 			return;
@@ -101,7 +112,7 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 	}
 
 	/** A copy of a block where it stands, to fold away over the window once VS Code has hidden it. */
-	private copy(part: Parts): HTMLElement | undefined {
+	private copy(part: Parts): (StillCopy & { from: string }) | undefined {
 		const element = this.layout.getContainer(mainWindow, part);
 		if (!element || !this.moving()) {
 			return undefined;
@@ -110,7 +121,10 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		if (rect.width === 0 || rect.height === 0) {
 			return undefined;
 		}
-		const copy = element.cloneNode(true) as HTMLElement;
+		// Hidden while still coming out, it folds from as far as it had come, not from all of it.
+		const from = element.getAnimations().length ? mainWindow.getComputedStyle(element).clipPath : SHOWN;
+		const still = stillCopy(element, this.scrolls);
+		const copy = still.copy;
 		copy.classList.add('cedian-block-leaving');
 		copy.setAttribute('aria-hidden', 'true');
 		copy.removeAttribute('id');
@@ -124,13 +138,22 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		copy.style.setProperty('display', 'block', 'important');
 		copy.style.setProperty('visibility', 'visible', 'important');
 		copy.style.setProperty('margin', '0', 'important');
-		return copy;
+		return { ...still, from: from && from !== 'none' ? from : SHOWN };
 	}
 
-	private fold(copy: HTMLElement, edge: Edge): void {
+	private fold(part: Parts, leaving: StillCopy & { from: string }, edge: Edge): void {
+		const copy = leaving.copy;
+		this.leaving.get(part)?.remove();
+		this.leaving.set(part, copy);
 		this.layout.mainContainer.appendChild(copy);
-		const run = copy.animate([{ clipPath: SHOWN }, { clipPath: folded(edge) }], { ...closing, fill: 'forwards' });
-		const gone = () => copy.remove();
+		leaving.settle();
+		const run = copy.animate([{ clipPath: leaving.from }, { clipPath: folded(edge) }], { ...closing, fill: 'forwards' });
+		const gone = () => {
+			copy.remove();
+			if (this.leaving.get(part) === copy) {
+				this.leaving.delete(part);
+			}
+		};
 		run.onfinish = gone;
 		run.oncancel = gone;
 	}
