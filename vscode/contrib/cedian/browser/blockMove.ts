@@ -290,17 +290,21 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			const at = slotOf();
 			const held = at && this.held.get(at);
 			if (held && held.view === view) {
+				// Laid out again while held: the grid has just sized its slot for it, which is what
+				// it goes back to, and the slot stays as big as the view is drawn.
 				held.size = { left, top, width, height };
-				if (width <= held.big.width && height <= held.big.height) {
-					return;
-				}
+				held.width = at.style.width;
+				held.height = at.style.height;
+				const grew = width > held.big.width || height > held.big.height;
 				held.big = { width: Math.max(width, held.big.width), height: Math.max(height, held.big.height) };
 				this.size(at, held.big);
-				layout.call(view, held.big.width, held.big.height, top, left);
+				if (grew) {
+					layout.call(view, held.big.width, held.big.height, top, left);
+				}
 				return;
 			}
 			const was = this.drawn.get(view);
-			if (at && was?.width && this.transit && (width < was.width - 0.5 || height < was.height - 0.5) && moving(this.layout.mainContainer)) {
+			if (at && was?.width && width > 0 && height > 0 && this.transit && (width < was.width - 0.5 || height < was.height - 0.5) && moving(this.layout.mainContainer)) {
 				const big = { width: Math.max(width, was.width), height: Math.max(height, was.height) };
 				this.held.set(at, { view, layout, width: at.style.width, height: at.style.height, size: { left, top, width, height }, big, fresh: true });
 				this.size(at, big);
@@ -344,10 +348,24 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		}
 	}
 
-	/** The views held by the change just laid out are now moving, theirs to release. */
+	/**
+	 * The views held by the change just laid out are now moving, theirs to release. The grid may
+	 * have sized their slots again since (a view whose size it thinks unchanged is not laid out, but
+	 * its slot is still sized): that is the size they go back to, and they are made big again.
+	 */
 	private claim(): void {
-		for (const held of this.held.values()) {
+		for (const [slot, held] of this.held) {
+			if (!held.fresh) {
+				continue;
+			}
 			held.fresh = false;
+			if (slot.style.width !== `${held.big.width}px`) {
+				held.width = slot.style.width;
+			}
+			if (slot.style.height !== `${held.big.height}px`) {
+				held.height = slot.style.height;
+			}
+			this.size(slot, held.big);
 		}
 	}
 
