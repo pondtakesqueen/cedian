@@ -112,7 +112,7 @@ if [[ "${1:-}" == "settings" ]]; then
   state="$FAKE_THREADS/.."
   mkdir -p "$state"
   printf '%s\n' "$*" >>"$state/settings-calls"
-  defaults='"defaults":{"code":"opencode-go/claude-haiku-5-5","swarm":"opencode-go/beam","media":"anthropic/claude-haiku-5-5","fallback":{},"planWhen":"auto","planOverlap":"on","onQuota":"fallback"}'
+  defaults='"defaults":{"code":"opencode-go/claude-haiku-5-5","swarm":"opencode-go/beam","media":"anthropic/claude-haiku-5-5","fallback":{},"planWhen":"auto","planOverlap":"on","onQuota":"fallback","privacy":"no-training","spawn":"on","handoff":"compact","lsp":"on","outputStyle":"default","sandboxMode":"auto","sandboxDomains":["pypi.org"]},"sandbox":{"allowedDomains":[]},"permissions":{"allow":[],"deny":[],"unlock":[]},"choices":{"outputStyles":["default"],"guards":["force-push"]}'
   case "${2:-}" in
     --json) echo "{\"roles\":$(cat "$state/roles.json" 2>/dev/null || echo '{}'),\"fallback\":{},$defaults}" ;;
     set)

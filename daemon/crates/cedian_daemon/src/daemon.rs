@@ -1440,7 +1440,7 @@ impl Daemon {
                     let clients: Vec<ClientId> = daemon.clients.keys().copied().collect();
                     for id in clients {
                         let notice = Notice::CediaSettings {
-                            settings: Some(settings.clone()),
+                            settings: Some(Box::new(settings.clone())),
                             refused: None,
                         };
                         daemon.send(id, notice);
@@ -1448,7 +1448,7 @@ impl Daemon {
                         daemon.send(id, choices);
                     }
                 } else {
-                    let settings = Some(settings);
+                    let settings = Some(Box::new(settings));
                     daemon.send(client, Notice::CediaSettings { settings, refused });
                 }
             }

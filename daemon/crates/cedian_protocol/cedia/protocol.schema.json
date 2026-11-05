@@ -1135,6 +1135,131 @@
         "planOverlap": {
           "type": "string"
         },
+        "privacy": {
+          "$ref": "#/definitions/PrivacyLevel"
+        },
+        "context": {
+          "type": "string"
+        },
+        "spawn": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off",
+            "worktree"
+          ]
+        },
+        "handoffAt": {
+          "type": "string"
+        },
+        "handoff": {
+          "type": "string",
+          "enum": [
+            "note",
+            "compact"
+          ]
+        },
+        "lsp": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off",
+            "custom"
+          ]
+        },
+        "jobs": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off"
+          ]
+        },
+        "promptSuggestions": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off"
+          ]
+        },
+        "consolidateMemory": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off"
+          ]
+        },
+        "outputStyle": {
+          "type": "string"
+        },
+        "sandbox": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "$ref": "#/definitions/SandboxSetting"
+            },
+            "allowedDomains": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "allowedDomains"
+          ],
+          "additionalProperties": false
+        },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "allow": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "deny": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "unlock": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Guard"
+              }
+            }
+          },
+          "required": [
+            "allow",
+            "deny",
+            "unlock"
+          ],
+          "additionalProperties": false
+        },
+        "choices": {
+          "type": "object",
+          "properties": {
+            "outputStyles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "guards": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Guard"
+              }
+            }
+          },
+          "required": [
+            "outputStyles",
+            "guards"
+          ],
+          "additionalProperties": false
+        },
         "defaults": {
           "type": "object",
           "properties": {
@@ -1164,6 +1289,36 @@
             "onQuota": {
               "type": "string",
               "const": "fallback"
+            },
+            "privacy": {
+              "type": "string",
+              "const": "no-training"
+            },
+            "spawn": {
+              "type": "string",
+              "const": "on"
+            },
+            "handoff": {
+              "type": "string",
+              "const": "compact"
+            },
+            "lsp": {
+              "type": "string",
+              "const": "on"
+            },
+            "outputStyle": {
+              "type": "string",
+              "const": "default"
+            },
+            "sandboxMode": {
+              "type": "string",
+              "const": "auto"
+            },
+            "sandboxDomains": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -1173,7 +1328,14 @@
             "fallback",
             "planWhen",
             "planOverlap",
-            "onQuota"
+            "onQuota",
+            "privacy",
+            "spawn",
+            "handoff",
+            "lsp",
+            "outputStyle",
+            "sandboxMode",
+            "sandboxDomains"
           ],
           "additionalProperties": false
         }
@@ -1181,6 +1343,9 @@
       "required": [
         "roles",
         "fallback",
+        "sandbox",
+        "permissions",
+        "choices",
         "defaults"
       ],
       "additionalProperties": false
@@ -1340,6 +1505,22 @@
         "thread"
       ],
       "additionalProperties": false
+    },
+    "Guard": {
+      "type": "string",
+      "enum": [
+        "force-push",
+        "reset-hard",
+        "clean-force",
+        "drop-refs",
+        "rm-outside",
+        "deploy",
+        "git-config",
+        "hook-bypass",
+        "secret-path",
+        "secret-redaction",
+        "slop-check"
+      ]
     },
     "GuideStep": {
       "type": "object",
@@ -2224,6 +2405,13 @@
         }
       ]
     },
+    "PrivacyLevel": {
+      "type": "string",
+      "enum": [
+        "no-training",
+        "zdr"
+      ]
+    },
     "PrOpened": {
       "anyOf": [
         {
@@ -2470,6 +2658,14 @@
           "type": "string",
           "const": "plan"
         }
+      ]
+    },
+    "SandboxSetting": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "on",
+        "off"
       ]
     },
     "Schedule": {

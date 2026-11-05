@@ -725,6 +725,116 @@ export type InlineEdit =
       error: string;
     };
 /**
+ * `Guard`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "force-push", "reset-hard", "clean-force", "drop-refs", "rm-outside", "deploy", "git-config", "hook-bypass", "secret-path", "secret-redaction", "slop-check" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "Guard".
+ */
+export type Guard =
+  | "force-push"
+  | "reset-hard"
+  | "clean-force"
+  | "drop-refs"
+  | "rm-outside"
+  | "deploy"
+  | "git-config"
+  | "hook-bypass"
+  | "secret-path"
+  | "secret-redaction"
+  | "slop-check";
+/**
+ * `EditableSettingsConsolidateMemory`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "on", "off" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsConsolidateMemory".
+ */
+export type EditableSettingsConsolidateMemory = "on" | "off";
+/**
+ * `EditableSettingsHandoff`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "note", "compact" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsHandoff".
+ */
+export type EditableSettingsHandoff = "note" | "compact";
+/**
+ * `EditableSettingsJobs`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "on", "off" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsJobs".
+ */
+export type EditableSettingsJobs = "on" | "off";
+/**
+ * `EditableSettingsLsp`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "on", "off", "custom" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsLsp".
+ */
+export type EditableSettingsLsp = "on" | "off" | "custom";
+/**
+ * `PrivacyLevel`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "no-training", "zdr" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "PrivacyLevel".
+ */
+export type PrivacyLevel = "no-training" | "zdr";
+/**
+ * `EditableSettingsPromptSuggestions`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "on", "off" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsPromptSuggestions".
+ */
+export type EditableSettingsPromptSuggestions = "on" | "off";
+/**
+ * `SandboxSetting`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "auto", "on", "off" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "SandboxSetting".
+ */
+export type SandboxSetting = "auto" | "on" | "off";
+/**
+ * `EditableSettingsSpawn`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "on", "off", "worktree" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsSpawn".
+ */
+export type EditableSettingsSpawn = "on" | "off" | "worktree";
+/**
  * `McpCheck`
  *
  * <details><summary>JSON schema</summary>
@@ -2240,30 +2350,57 @@ export interface InlineEditRange {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "defaults", "fallback", "roles" ], "properties": { "defaults": { "type": "object", "required": [ "code", "fallback", "media", "onQuota", "planOverlap", "planWhen", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "swarm": { "type": "string" } } }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "maxEffort": { "$ref": "#/definitions/Effort" }, "media": { "type": "string" }, "onQuota": { "type": "string" }, "planOverlap": { "type": "string" }, "planWhen": { "type": "string" }, "roles": { "type": "object", "properties": { "advisor": { "type": "string" }, "classifier": { "type": "string" }, "code": { "type": "string" }, "complete": { "type": "string" }, "plan": { "type": "string" }, "review": { "type": "string" }, "swarm": { "type": "string" }, "triage": { "type": "string" }, "workers": { "type": "string" } } }, "subthreadEffort": { "$ref": "#/definitions/Effort" } } } ``` </details>
+ * ```json { "type": "object", "required": [ "choices", "defaults", "fallback", "permissions", "roles", "sandbox" ], "properties": { "choices": { "type": "object", "required": [ "guards", "outputStyles" ], "properties": { "guards": { "type": "array", "items": { "$ref": "#/definitions/Guard" } }, "outputStyles": { "type": "array", "items": { "type": "string" } } } }, "consolidateMemory": { "type": "string", "enum": [ "on", "off" ] }, "context": { "type": "string" }, "defaults": { "type": "object", "required": [ "code", "fallback", "handoff", "lsp", "media", "onQuota", "outputStyle", "planOverlap", "planWhen", "privacy", "sandboxDomains", "sandboxMode", "spawn", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "const": "compact" }, "lsp": { "type": "string", "const": "on" }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "outputStyle": { "type": "string", "const": "default" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "privacy": { "type": "string", "const": "no-training" }, "sandboxDomains": { "type": "array", "items": { "type": "string" } }, "sandboxMode": { "type": "string", "const": "auto" }, "spawn": { "type": "string", "const": "on" }, "swarm": { "type": "string" } } }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "enum": [ "note", "compact" ] }, "handoffAt": { "type": "string" }, "jobs": { "type": "string", "enum": [ "on", "off" ] }, "lsp": { "type": "string", "enum": [ "on", "off", "custom" ] }, "maxEffort": { "$ref": "#/definitions/Effort" }, "media": { "type": "string" }, "onQuota": { "type": "string" }, "outputStyle": { "type": "string" }, "permissions": { "type": "object", "required": [ "allow", "deny", "unlock" ], "properties": { "allow": { "type": "array", "items": { "type": "string" } }, "deny": { "type": "array", "items": { "type": "string" } }, "unlock": { "type": "array", "items": { "$ref": "#/definitions/Guard" } } } }, "planOverlap": { "type": "string" }, "planWhen": { "type": "string" }, "privacy": { "$ref": "#/definitions/PrivacyLevel" }, "promptSuggestions": { "type": "string", "enum": [ "on", "off" ] }, "roles": { "type": "object", "properties": { "advisor": { "type": "string" }, "classifier": { "type": "string" }, "code": { "type": "string" }, "complete": { "type": "string" }, "plan": { "type": "string" }, "review": { "type": "string" }, "swarm": { "type": "string" }, "triage": { "type": "string" }, "workers": { "type": "string" } } }, "sandbox": { "type": "object", "required": [ "allowedDomains" ], "properties": { "allowedDomains": { "type": "array", "items": { "type": "string" } }, "mode": { "$ref": "#/definitions/SandboxSetting" } } }, "spawn": { "type": "string", "enum": [ "on", "off", "worktree" ] }, "subthreadEffort": { "$ref": "#/definitions/Effort" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "EditableSettings".
  */
 export interface EditableSettings {
+  choices: EditableSettingsChoices;
+  consolidateMemory?: EditableSettingsConsolidateMemory | null;
+  context?: string | null;
   defaults: EditableSettingsDefaults;
   fallback: {
     [k: string]: string | undefined;
   };
+  handoff?: EditableSettingsHandoff | null;
+  handoffAt?: string | null;
+  jobs?: EditableSettingsJobs | null;
+  lsp?: EditableSettingsLsp | null;
   maxEffort?: Effort | null;
   media?: string | null;
   onQuota?: string | null;
+  outputStyle?: string | null;
+  permissions: EditableSettingsPermissions;
   planOverlap?: string | null;
   planWhen?: string | null;
+  privacy?: PrivacyLevel | null;
+  promptSuggestions?: EditableSettingsPromptSuggestions | null;
   roles: EditableSettingsRoles;
+  sandbox: EditableSettingsSandbox;
+  spawn?: EditableSettingsSpawn | null;
   subthreadEffort?: Effort | null;
+}
+/**
+ * `EditableSettingsChoices`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "guards", "outputStyles" ], "properties": { "guards": { "type": "array", "items": { "$ref": "#/definitions/Guard" } }, "outputStyles": { "type": "array", "items": { "type": "string" } } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsChoices".
+ */
+export interface EditableSettingsChoices {
+  guards: Guard[];
+  outputStyles: string[];
 }
 /**
  * `EditableSettingsDefaults`
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "code", "fallback", "media", "onQuota", "planOverlap", "planWhen", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "swarm": { "type": "string" } } } ``` </details>
+ * ```json { "type": "object", "required": [ "code", "fallback", "handoff", "lsp", "media", "onQuota", "outputStyle", "planOverlap", "planWhen", "privacy", "sandboxDomains", "sandboxMode", "spawn", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "const": "compact" }, "lsp": { "type": "string", "const": "on" }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "outputStyle": { "type": "string", "const": "default" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "privacy": { "type": "string", "const": "no-training" }, "sandboxDomains": { "type": "array", "items": { "type": "string" } }, "sandboxMode": { "type": "string", "const": "auto" }, "spawn": { "type": "string", "const": "on" }, "swarm": { "type": "string" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "EditableSettingsDefaults".
@@ -2273,11 +2410,33 @@ export interface EditableSettingsDefaults {
   fallback: {
     [k: string]: string | undefined;
   };
+  handoff: string;
+  lsp: string;
   media: string;
   onQuota: string;
+  outputStyle: string;
   planOverlap: string;
   planWhen: string;
+  privacy: string;
+  sandboxDomains: string[];
+  sandboxMode: string;
+  spawn: string;
   swarm: string;
+}
+/**
+ * `EditableSettingsPermissions`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "allow", "deny", "unlock" ], "properties": { "allow": { "type": "array", "items": { "type": "string" } }, "deny": { "type": "array", "items": { "type": "string" } }, "unlock": { "type": "array", "items": { "$ref": "#/definitions/Guard" } } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsPermissions".
+ */
+export interface EditableSettingsPermissions {
+  allow: string[];
+  deny: string[];
+  unlock: Guard[];
 }
 /**
  * `EditableSettingsRoles`
@@ -2299,6 +2458,20 @@ export interface EditableSettingsRoles {
   swarm?: string | null;
   triage?: string | null;
   workers?: string | null;
+}
+/**
+ * `EditableSettingsSandbox`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "allowedDomains" ], "properties": { "allowedDomains": { "type": "array", "items": { "type": "string" } }, "mode": { "$ref": "#/definitions/SandboxSetting" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsSandbox".
+ */
+export interface EditableSettingsSandbox {
+  allowedDomains: string[];
+  mode?: SandboxSetting | null;
 }
 /**
  * `McpCheckTool`

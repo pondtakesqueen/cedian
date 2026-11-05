@@ -115,6 +115,9 @@
 .cedian-settings h2 { font-size: 18px; margin: 0 0 8px; }
 .cedian-settings h3 { font-size: 13px; font-weight: 600; margin: 12px 0 0; color: var(--cedian-text-muted); }
 .cedian-settings .combo .input { width: 260px; }
+.cedian-settings .area { width: 260px; resize: vertical; }
+.cedian-settings .checks { display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px; }
+.cedian-settings .checks .tag { cursor: pointer; }
 .cedian-settings .row { display: flex; gap: 12px; align-items: center; }
 .cedian-settings .row .label { min-width: 160px; }
 .cedian-settings .small { color: var(--cedian-text-muted); font-size: 12px; }
