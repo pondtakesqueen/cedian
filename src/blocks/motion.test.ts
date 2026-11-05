@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOSE_MS, EASE_CLOSE, EASE_OPEN, MOTION_PROPERTIES, OPEN_MS } from "./motion.js";
+import { CLOSE_MS, EASE_CLOSE, EASE_OPEN, EASE_WINDOWS, MOTION_PROPERTIES, OPEN_MS, stretching } from "./motion.js";
 
 /** A CSS cubic-bezier's y at x, solved for t by bisection. */
 function bezier(css: string, x: number): number {
@@ -33,5 +33,14 @@ describe("motion", () => {
 
   it("gives the CSS the same numbers", () => {
     expect(MOTION_PROPERTIES).toEqual({ "--cedian-motion-open": "180ms", "--cedian-motion-close": "140ms", "--cedian-motion-press": "90ms", "--cedian-ease-open": EASE_OPEN, "--cedian-ease-close": EASE_CLOSE });
+  });
+
+  it("moves the window's blocks on Hyprland's easeOutQuint, with no overshoot", () => {
+    for (const x of XS) {
+      const y = bezier(EASE_WINDOWS, x);
+      expect(y).toBeCloseTo(1 - (1 - x) ** 5, 1);
+      expect(y).toBeLessThanOrEqual(1);
+    }
+    expect(stretching).toEqual({ duration: 479, easing: EASE_WINDOWS });
   });
 });
