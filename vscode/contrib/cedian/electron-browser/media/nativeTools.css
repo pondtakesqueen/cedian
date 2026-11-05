@@ -8,3 +8,7 @@
 .cedian-native-pick:hover:not(:disabled) { background: var(--cedian-hover); color: var(--cedian-text); }
 .cedian-native-pick.on { background: var(--cedian-accent-soft, var(--cedian-hover)); color: var(--cedian-accent, var(--cedian-text)); }
 .cedian-native-pick:disabled { opacity: 0.4; cursor: default; }
+/* The Dev servers menu beside the address, as the screencast block's. */
+.cedian-native-servers { flex: none; height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-muted, inherit); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.cedian-native-servers:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-native-servers[hidden] { display: none; }

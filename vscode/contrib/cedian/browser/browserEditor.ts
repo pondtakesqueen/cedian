@@ -164,7 +164,7 @@ export async function attach(services: BrowserServices, text: string, png: Uint8
 	await pane.addContext(text, png, name);
 }
 
-async function devServersIn(services: BrowserServices, folder: URI): Promise<DevServer[]> {
+export async function devServersIn(services: BrowserServices, folder: URI): Promise<DevServer[]> {
 	for (const name of LAUNCH_FILES) {
 		const file = joinPath(folder, name);
 		if (await services.fileService.exists(file)) {
@@ -175,7 +175,7 @@ async function devServersIn(services: BrowserServices, folder: URI): Promise<Dev
 }
 
 /** In a terminal of its own, named after the server, so its output and Ctrl+C are the person's. */
-async function runDevServer(services: BrowserServices, folder: URI, server: DevServer): Promise<void> {
+export async function runDevServer(services: BrowserServices, folder: URI, server: DevServer): Promise<void> {
 	const terminal = await services.terminalService.createTerminal({
 		config: { name: server.name, env: server.env },
 		cwd: server.cwd ? joinPath(folder, server.cwd) : folder,
