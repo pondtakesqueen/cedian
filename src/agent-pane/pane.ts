@@ -1519,7 +1519,9 @@ export class AgentPane {
   private pill(select: HTMLSelectElement, name: IconName | undefined, cls: string): HTMLElement {
     const d = this.doc;
     const pill = el(d, "label", `pill ${cls}`);
-    pill.title = select.title;
+    // Its value too: in a narrow pane the pill is its icon alone, and its hover says what it is set to.
+    const shown = select.selectedOptions[0]?.textContent;
+    pill.title = shown ? `${select.title}: ${shown}` : select.title;
     if (name) pill.append(icon(d, name));
     pill.append(select, icon(d, "chevron"));
     return pill;
@@ -1577,7 +1579,7 @@ export class AgentPane {
         const e = select(d, [{ value: "", label: entry.defaultEffort ?? "effort" }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = "Effort (Cmd+Shift+E)";
-        chips.push(this.pill(e, undefined, "effort"));
+        chips.push(this.pill(e, "effort", "effort"));
       }
     }
     if (this.permissions && !this.sideOf) {
