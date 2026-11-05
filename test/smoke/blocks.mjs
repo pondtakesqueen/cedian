@@ -46,6 +46,18 @@ const bundle = execFileSync(join(root, "node_modules/.bin/esbuild"), ["--bundle"
       };
       window.layer = layer;
       window.float = (kind, label, at) => layer.float(block(kind, label), at);
+      // A block that lays itself out at the size it is given, its field at the bottom: the agent
+      // pane, whose focus() puts the caret in its composer.
+      window.floatPane = (kind, at) => {
+        const root = document.createElement("div");
+        root.className = "stand-in pane";
+        const head = document.createElement("div");
+        head.className = "pane-head";
+        head.textContent = "Thread";
+        const field = document.createElement("textarea");
+        root.append(head, field);
+        layer.float({ kind, root, title: () => "Thread", onTitle: () => () => {}, layout: (w, h) => { root.style.height = h + "px"; }, focus: () => field.focus(), dispose: () => root.remove() }, at);
+      };
     };`,
   encoding: "utf8",
   maxBuffer: 64 * 1024 * 1024,
@@ -57,6 +69,7 @@ body { font: 13px -apple-system, system-ui, sans-serif; background: var(--cedian
 #frame { position: relative; height: 100%; overflow: hidden }
 .editor { position: absolute; inset: 8px; border-radius: 12px; background: var(--cedian-sheet); padding: 16px; box-shadow: 0 0 0 1px var(--cedian-line) }
 .editor pre { font: 12px/1.6 Menlo, monospace; color: var(--cedian-text-muted); margin: 0 }
+.stand-in.pane { flex-direction: column; justify-content: space-between }
 .stand-in { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8f5d8, #fff); color: #333; font-size: 15px }
 ${css}</style><body><div id="wb" class="monaco-workbench monaco-enable-motion" style="height: 100%"><div id="frame"><div class="editor"><pre>${Array.from({ length: 40 }, (_, i) => `${String(i + 1).padStart(3)}  const basket = items.map((item) => item.price) // ตะกร้า`).join("\n")}</pre></div></div></div><script>${bundle}</script></body>`;
 const server = createServer((_, res) => res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(PAGE));
@@ -218,6 +231,21 @@ try {
   const transition = await duration();
   ok("Reduce Motion stops the glide", transition.split(",").every((d) => parseFloat(d) === 0), transition);
   await page.evaluate(() => document.querySelector("#wb").classList.add("monaco-enable-motion"));
+
+  // Expanding focuses the block, whose field sits at its bottom: the card must not scroll to show
+  // it while it grows, or the block's own header slides out of sight until the end.
+  await page.evaluate(() => window.floatPane("thread", { corner: "tl", width: 400, height: 300 }));
+  await settled();
+  const scrolled = await page.evaluate(async () => {
+    window.layer.expand("thread");
+    const body = document.querySelector('.cedian-pip[data-kind="thread"] .pip-body');
+    const seen = [body.scrollTop];
+    for (let i = 0; i < 12; i++) { await new Promise((r) => requestAnimationFrame(r)); seen.push(body.scrollTop); }
+    return Math.max(...seen);
+  });
+  ok("expanding, the card does not scroll to the block's focused field", scrolled === 0, `scrolled ${scrolled}px`);
+  await page.evaluate(() => window.layer.close("thread"));
+  await settled();
 
   // Dark theme.
   await page.evaluate(() => window.theme("dark"));
