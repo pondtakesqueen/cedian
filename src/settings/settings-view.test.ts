@@ -13,7 +13,7 @@ describe("settings window", () => {
   it("asks for settings and the MCP list, and writes one key per change", () => {
     const f = fake();
     const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
-    expect(f.sent).toEqual([{ op: "settings" }, { op: "mcp_list" }]);
+    expect(f.sent).toEqual([{ op: "settings" }, { op: "mcp_list" }, { op: "cedia_settings" }]);
     f.emit({ kind: "settings", desktop: { theme: "light" }, path: "/h/.cedia/settings.json" });
     const theme = view.root.querySelector("select")!;
     expect(theme.value).toBe("light");
@@ -102,5 +102,46 @@ describe("settings window", () => {
     expect(f.sent.at(-1)).toEqual({ op: "set_desktop", key: "creator", value: { enabled: true } });
     f.emit({ kind: "settings", desktop: { creator: { enabled: true } }, path: "" });
     expect(box().checked).toBe(true);
+  });
+
+  it("edits cedia's model settings through set_cedia, and shows cedia's refusal", () => {
+    const f = fake();
+    const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
+    view.show("models");
+    const models = { default: "opencode-go/claude-haiku-5-5", models: [{ ref: "opencode-go/claude-haiku-5-5", label: "Haiku", provider: "opencode-go", available: true, contextWindow: 200000, effort: true }] };
+    f.emit({ kind: "choices", models } as never);
+    const defaults = { code: "opencode-go/claude-haiku-5-5", swarm: "opencode-go/beam", media: "anthropic/claude-haiku-5-5", fallback: { "opencode-go/claude-haiku-5-5": "anthropic/claude-haiku-5-5" }, planWhen: "auto", planOverlap: "on", onQuota: "fallback" } as const;
+    f.emit({ kind: "cedia_settings", settings: { roles: { plan: "opus@high" }, fallback: {}, defaults } });
+    const row = (label: string) => [...view.root.querySelectorAll("label")].find((l) => l.querySelector(".label")?.textContent === label)!;
+    const plan = row("Plan").querySelector("input")!;
+    expect(plan.value).toBe("opus@high");
+    expect(row("Review").querySelector("input")!.placeholder).toBe("Default: off");
+    expect(row("Fallback").querySelector("input")!.placeholder).toBe("Default: anthropic/claude-haiku-5-5");
+    plan.value = "claude-code:opus@medium";
+    plan.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "roles.plan", value: "claude-code:opus@medium" });
+    plan.value = " ";
+    plan.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "roles.plan" });
+    const max = row("Highest effort").querySelector("select")!;
+    max.value = "high";
+    max.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "maxEffort", value: "high" });
+    const overlap = row("Read while planning").querySelector("input")!;
+    expect(overlap.checked).toBe(true);
+    overlap.checked = false;
+    overlap.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "planOverlap", value: "off" });
+    f.emit({ kind: "cedia_settings", settings: { roles: {}, fallback: {}, defaults }, refused: 'roles.plan: unknown model "x"' });
+    expect(view.root.textContent).toContain('roles.plan: unknown model "x"');
+  });
+
+  it("says so when this cedia cannot edit its model settings", () => {
+    const f = fake();
+    const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
+    view.show("models");
+    f.emit({ kind: "cedia_settings", refused: "this cedia does not edit its model settings yet" });
+    expect(view.root.textContent).toContain("does not edit its model settings yet");
+    expect(view.root.textContent).not.toContain("Roles");
   });
 });

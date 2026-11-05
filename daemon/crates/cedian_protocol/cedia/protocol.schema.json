@@ -58,6 +58,9 @@
     "McpCheck": {
       "$ref": "#/definitions/McpCheck"
     },
+    "EditableSettings": {
+      "$ref": "#/definitions/EditableSettings"
+    },
     "CommitDraft": {
       "$ref": "#/definitions/CommitDraft"
     },
@@ -321,6 +324,12 @@
         },
         "question": {
           "$ref": "#/definitions/Question"
+        },
+        "decided": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -407,6 +416,7 @@
         "cache-ttl",
         "threads.rename",
         "threads.delete",
+        "settings.edit",
         "mcp.manage",
         "commit",
         "pr",
@@ -1064,6 +1074,116 @@
         "head",
         "upstream"
       ]
+    },
+    "EditableSettings": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "plan": {
+              "type": "string"
+            },
+            "review": {
+              "type": "string"
+            },
+            "triage": {
+              "type": "string"
+            },
+            "advisor": {
+              "type": "string"
+            },
+            "classifier": {
+              "type": "string"
+            },
+            "swarm": {
+              "type": "string"
+            },
+            "workers": {
+              "type": "string"
+            },
+            "complete": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "fallback": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "media": {
+          "type": "string"
+        },
+        "maxEffort": {
+          "$ref": "#/definitions/Effort"
+        },
+        "subthreadEffort": {
+          "$ref": "#/definitions/Effort"
+        },
+        "onQuota": {
+          "type": "string"
+        },
+        "planWhen": {
+          "type": "string"
+        },
+        "planOverlap": {
+          "type": "string"
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "swarm": {
+              "type": "string"
+            },
+            "media": {
+              "type": "string"
+            },
+            "fallback": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "planWhen": {
+              "type": "string",
+              "const": "auto"
+            },
+            "planOverlap": {
+              "type": "string",
+              "const": "on"
+            },
+            "onQuota": {
+              "type": "string",
+              "const": "fallback"
+            }
+          },
+          "required": [
+            "code",
+            "swarm",
+            "media",
+            "fallback",
+            "planWhen",
+            "planOverlap",
+            "onQuota"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "roles",
+        "fallback",
+        "defaults"
+      ],
+      "additionalProperties": false
     },
     "EffectStatus": {
       "type": "string",

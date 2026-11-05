@@ -705,7 +705,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
 ### 7.1 Settings window (Cedian's own; VS Code settings UI disabled)
 
 - Appearance: theme, app icon (light by default; dark or match the theme sets the Dock icon while Cedian runs), fonts, sizes, density, view mode, sound
-- Bots, Models, MCP (cedia's keys, edited through schema)
+- Bots, Models, MCP (cedia's keys, edited through schema): cedian never writes them itself. MCP goes through `cedia mcp`; the model settings (roles, fallback, media, maxEffort, subthreadEffort, onQuota, planWhen, planOverlap) through `cedia settings set|unset` (`set_cedia`), which checks each value as a run reads it (capability `settings.edit`)
 - Roots: per-project root paths (validate git repo, dedup); the primary root (first, whose slug keys the project) cannot be removed
 - Worktrees: branch prefix, custom location (per project)
 - Sessions: prompt-suggestion toggle, auto-archive after PR merge (default off)

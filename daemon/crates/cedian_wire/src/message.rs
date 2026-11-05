@@ -6,9 +6,9 @@ use std::{
 use cedian_agent::Block;
 use cedian_index::{MemoryNote, Output};
 use cedian_protocol::{
-    CommandEntry, CommitDraft, Committed, Completion, InlineEdit, McpCheck, McpList, ModelList,
-    PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule, UsageReport,
-    VersionInfo,
+    CommandEntry, CommitDraft, Committed, Completion, EditableSettings, InlineEdit, McpCheck,
+    McpList, ModelList, PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule,
+    UsageReport, VersionInfo,
 };
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -347,6 +347,17 @@ pub enum Request {
     McpAdd { name: String, server: McpAdd },
     /// Removes a server (`cedia mcp remove`), answered with `Notice::Mcp`.
     McpRemove { name: String },
+    /// cedia's model settings (`cedia settings get --json`): roles, fallback, media, efforts,
+    /// quota and planning, answered with `Notice::CediaSettings`, when this cedia offers
+    /// `settings.edit`.
+    CediaSettings,
+    /// Sets one of them (`cedia settings set <key> <value>`), or unsets it when `value` is
+    /// none; cedia checks the value before it writes. Every window gets `Notice::CediaSettings`.
+    SetCedia {
+        key: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+    },
     /// The `desktop` key of cedia's settings file, answered with `Notice::Settings` and then
     /// `Notice::Choices` again (the settings window opens after the window connected).
     Settings,
@@ -595,6 +606,14 @@ pub enum Notice {
     InlineEdit {
         id: String,
         edit: InlineEdit,
+    },
+    /// cedia's model settings, none when this cedia cannot list them, and why the change asked
+    /// for last was refused (or why there are none), if it was.
+    CediaSettings {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        settings: Option<EditableSettings>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        refused: Option<String>,
     },
     /// The answer to `Request::McpCheck`.
     McpChecked {

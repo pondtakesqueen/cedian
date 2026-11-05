@@ -414,7 +414,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"creator\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"creator\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"settings.edit\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -448,6 +448,7 @@
         "cache-ttl",
         "threads.rename",
         "threads.delete",
+        "settings.edit",
         "mcp.manage",
         "commit",
         "pr",
@@ -897,6 +898,172 @@
           "type": "object"
         }
       ]
+    },
+    "EditableSettings": {
+      "description": "`EditableSettings`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"defaults\", \"fallback\", \"roles\" ], \"properties\": { \"defaults\": { \"type\": \"object\", \"required\": [ \"code\", \"fallback\", \"media\", \"onQuota\", \"planOverlap\", \"planWhen\", \"swarm\" ], \"properties\": { \"code\": { \"type\": \"string\" }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\", \"const\": \"fallback\" }, \"planOverlap\": { \"type\": \"string\", \"const\": \"on\" }, \"planWhen\": { \"type\": \"string\", \"const\": \"auto\" }, \"swarm\": { \"type\": \"string\" } } }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"maxEffort\": { \"$ref\": \"#/definitions/Effort\" }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\" }, \"planOverlap\": { \"type\": \"string\" }, \"planWhen\": { \"type\": \"string\" }, \"roles\": { \"type\": \"object\", \"properties\": { \"advisor\": { \"type\": \"string\" }, \"classifier\": { \"type\": \"string\" }, \"code\": { \"type\": \"string\" }, \"complete\": { \"type\": \"string\" }, \"plan\": { \"type\": \"string\" }, \"review\": { \"type\": \"string\" }, \"swarm\": { \"type\": \"string\" }, \"triage\": { \"type\": \"string\" }, \"workers\": { \"type\": \"string\" } } }, \"subthreadEffort\": { \"$ref\": \"#/definitions/Effort\" } } } ``` </details>",
+      "properties": {
+        "defaults": {
+          "$ref": "#/definitions/EditableSettingsDefaults"
+        },
+        "fallback": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "maxEffort": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Effort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "media": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "onQuota": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "planOverlap": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "planWhen": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "roles": {
+          "$ref": "#/definitions/EditableSettingsRoles"
+        },
+        "subthreadEffort": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Effort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "defaults",
+        "fallback",
+        "roles"
+      ],
+      "type": "object"
+    },
+    "EditableSettingsDefaults": {
+      "description": "`EditableSettingsDefaults`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"code\", \"fallback\", \"media\", \"onQuota\", \"planOverlap\", \"planWhen\", \"swarm\" ], \"properties\": { \"code\": { \"type\": \"string\" }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\", \"const\": \"fallback\" }, \"planOverlap\": { \"type\": \"string\", \"const\": \"on\" }, \"planWhen\": { \"type\": \"string\", \"const\": \"auto\" }, \"swarm\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "fallback": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "media": {
+          "type": "string"
+        },
+        "onQuota": {
+          "type": "string"
+        },
+        "planOverlap": {
+          "type": "string"
+        },
+        "planWhen": {
+          "type": "string"
+        },
+        "swarm": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "fallback",
+        "media",
+        "onQuota",
+        "planOverlap",
+        "planWhen",
+        "swarm"
+      ],
+      "type": "object"
+    },
+    "EditableSettingsRoles": {
+      "description": "`EditableSettingsRoles`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"properties\": { \"advisor\": { \"type\": \"string\" }, \"classifier\": { \"type\": \"string\" }, \"code\": { \"type\": \"string\" }, \"complete\": { \"type\": \"string\" }, \"plan\": { \"type\": \"string\" }, \"review\": { \"type\": \"string\" }, \"swarm\": { \"type\": \"string\" }, \"triage\": { \"type\": \"string\" }, \"workers\": { \"type\": \"string\" } } } ``` </details>",
+      "properties": {
+        "advisor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "classifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "complete": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plan": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "swarm": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "triage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workers": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "EffectStatus": {
       "description": "`EffectStatus`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"completed\", \"failed\", \"denied\", \"not_started\", \"interrupted_safe\", \"interrupted_unknown\" ] } ``` </details>",
@@ -3008,6 +3175,38 @@
           "required": [
             "edit",
             "id",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "cedia's model settings, none when this cedia cannot list them, and why the change asked for last was refused (or why there are none), if it was.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "cedia_settings"
+              ],
+              "type": "string"
+            },
+            "refused": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "settings": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/EditableSettings"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
             "kind"
           ],
           "type": "object"
@@ -5626,6 +5825,48 @@
           },
           "required": [
             "name",
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "cedia's model settings (`cedia settings get --json`): roles, fallback, media, efforts, quota and planning, answered with `Notice::CediaSettings`, when this cedia offers `settings.edit`.",
+          "properties": {
+            "op": {
+              "enum": [
+                "cedia_settings"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "op"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Sets one of them (`cedia settings set <key> <value>`), or unsets it when `value` is none; cedia checks the value before it writes. Every window gets `Notice::CediaSettings`.",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "set_cedia"
+              ],
+              "type": "string"
+            },
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "key",
             "op"
           ],
           "type": "object"

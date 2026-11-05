@@ -189,6 +189,11 @@ export type Notice =
       kind: "inline_edit";
     }
   | {
+      kind: "cedia_settings";
+      refused?: string | null;
+      settings?: EditableSettings | null;
+    }
+  | {
       check: McpCheck;
       kind: "mcp_checked";
     }
@@ -267,7 +272,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "settings.edit", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -305,6 +310,7 @@ export type Capability =
   | "cache-ttl"
   | "threads.rename"
   | "threads.delete"
+  | "settings.edit"
   | "mcp.manage"
   | "commit"
   | "pr"
@@ -1168,6 +1174,14 @@ export type Request =
   | {
       name: string;
       op: "mcp_remove";
+    }
+  | {
+      op: "cedia_settings";
+    }
+  | {
+      key: string;
+      op: "set_cedia";
+      value?: string | null;
     }
   | {
       op: "settings";
@@ -2220,6 +2234,71 @@ export interface InlineEditPosition {
 export interface InlineEditRange {
   end: InlineEditPosition;
   start: InlineEditPosition;
+}
+/**
+ * `EditableSettings`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "defaults", "fallback", "roles" ], "properties": { "defaults": { "type": "object", "required": [ "code", "fallback", "media", "onQuota", "planOverlap", "planWhen", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "swarm": { "type": "string" } } }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "maxEffort": { "$ref": "#/definitions/Effort" }, "media": { "type": "string" }, "onQuota": { "type": "string" }, "planOverlap": { "type": "string" }, "planWhen": { "type": "string" }, "roles": { "type": "object", "properties": { "advisor": { "type": "string" }, "classifier": { "type": "string" }, "code": { "type": "string" }, "complete": { "type": "string" }, "plan": { "type": "string" }, "review": { "type": "string" }, "swarm": { "type": "string" }, "triage": { "type": "string" }, "workers": { "type": "string" } } }, "subthreadEffort": { "$ref": "#/definitions/Effort" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettings".
+ */
+export interface EditableSettings {
+  defaults: EditableSettingsDefaults;
+  fallback: {
+    [k: string]: string | undefined;
+  };
+  maxEffort?: Effort | null;
+  media?: string | null;
+  onQuota?: string | null;
+  planOverlap?: string | null;
+  planWhen?: string | null;
+  roles: EditableSettingsRoles;
+  subthreadEffort?: Effort | null;
+}
+/**
+ * `EditableSettingsDefaults`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "code", "fallback", "media", "onQuota", "planOverlap", "planWhen", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "swarm": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsDefaults".
+ */
+export interface EditableSettingsDefaults {
+  code: string;
+  fallback: {
+    [k: string]: string | undefined;
+  };
+  media: string;
+  onQuota: string;
+  planOverlap: string;
+  planWhen: string;
+  swarm: string;
+}
+/**
+ * `EditableSettingsRoles`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "properties": { "advisor": { "type": "string" }, "classifier": { "type": "string" }, "code": { "type": "string" }, "complete": { "type": "string" }, "plan": { "type": "string" }, "review": { "type": "string" }, "swarm": { "type": "string" }, "triage": { "type": "string" }, "workers": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsRoles".
+ */
+export interface EditableSettingsRoles {
+  advisor?: string | null;
+  classifier?: string | null;
+  code?: string | null;
+  complete?: string | null;
+  plan?: string | null;
+  review?: string | null;
+  swarm?: string | null;
+  triage?: string | null;
+  workers?: string | null;
 }
 /**
  * `McpCheckTool`

@@ -105,6 +105,24 @@ if [[ "${1:-}" == "mcp" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "settings" ]]; then
+  # settings --json get | settings set -- <key> <value> | settings unset -- <key>: each call's
+  # arguments go to $FAKE_THREADS/../settings-calls; a set of roles.<role> is kept in
+  # $FAKE_THREADS/../roles.json, and the value bad-model is refused.
+  state="$FAKE_THREADS/.."
+  mkdir -p "$state"
+  printf '%s\n' "$*" >>"$state/settings-calls"
+  defaults='"defaults":{"code":"opencode-go/claude-haiku-5-5","swarm":"opencode-go/beam","media":"anthropic/claude-haiku-5-5","fallback":{},"planWhen":"auto","planOverlap":"on","onQuota":"fallback"}'
+  case "${2:-}" in
+    --json) echo "{\"roles\":$(cat "$state/roles.json" 2>/dev/null || echo '{}'),\"fallback\":{},$defaults}" ;;
+    set)
+      if [[ "$5" == "bad-model" ]]; then echo "cedia: $4: unknown model \"bad-model\"" >&2; exit 1; fi
+      echo "{\"${4#roles.}\":\"$5\"}" >"$state/roles.json" ;;
+    unset) echo '{}' >"$state/roles.json" ;;
+  esac
+  exit 0
+fi
+
 if [[ "${1:-}" == "threads" && "${4:-}" == "delete" ]]; then
   # threads --cwd <dir> delete <id> [--force]
   rm -f "$FAKE_THREADS/$5.jsonl"
