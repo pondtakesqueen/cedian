@@ -86,6 +86,11 @@ pub struct Daemon {
     /// The shared Chromium, locked on its own: starting it takes a moment, and only a
     /// Browser block starts it.
     browser: Arc<Mutex<Browser>>,
+    /// Each window's open Browser blocks, by the window's id for each (`Request::BrowserBlock`).
+    browser_blocks: HashMap<ClientId, HashSet<String>>,
+    /// Bumped each time the last Browser block closes or one opens, so an older idle timer
+    /// knows it is stale.
+    browser_idle: u64,
     /// The pull requests followed, by thread (`pr_watch`).
     prs: HashMap<String, crate::pr_watch::Watch>,
     gh: crate::pr_watch::Gh,
@@ -107,6 +112,9 @@ pub struct Daemon {
 /// write instead of 1.25x and saves rereading the whole thread uncached after each pause.
 /// Threads the coordinator queues and scheduled runs keep cedia's default.
 const PERSON_CACHE_TTL: &str = "1h";
+
+/// How long the shared Chromium outlives the last Browser block.
+const BROWSER_IDLE: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 /// `Notice::Choices` from cedia's `models` and `permissions`, each asked only when this cedia
 /// offers it: an older cedia would read the word as a prompt.
@@ -158,6 +166,8 @@ impl Daemon {
             started: HashSet::new(),
             schedules: background::Schedules::default(),
             browser,
+            browser_blocks: HashMap::new(),
+            browser_idle: 0,
             prs: HashMap::new(),
             gh,
             gh_login: None,
@@ -309,6 +319,13 @@ impl Daemon {
         let sides = {
             let mut daemon = lock(shared);
             daemon.disconnect(id);
+            if daemon
+                .browser_blocks
+                .remove(&id)
+                .is_some_and(|ids| !ids.is_empty())
+            {
+                daemon.browser_closed(shared);
+            }
             daemon.sides.remove(&id).unwrap_or_default()
         };
         if !sides.is_empty() {
@@ -352,6 +369,43 @@ impl Daemon {
                 let cedia = lock(&shared).cedia.clone();
                 if let Err(error) = cedia.discard(&cwd, &thread) {
                     log::warn!("throwing away side chat {thread}: {error:#}");
+                }
+            }
+        });
+    }
+
+    /// A Browser block closed. With none left open in any window, the shared Chromium quits
+    /// after `BROWSER_IDLE`, once no run is going: an idle headless Chromium still holds about
+    /// 200 MB and draws its page. A block that opens meanwhile keeps it.
+    fn browser_closed(&mut self, shared: &Shared) {
+        if self.browser_blocks.values().any(|ids| !ids.is_empty()) {
+            return;
+        }
+        let generation = self.browser_idle;
+        let shared = shared.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(BROWSER_IDLE);
+            loop {
+                let browser = {
+                    let daemon = lock(&shared);
+                    if daemon.browser_idle != generation {
+                        return;
+                    }
+                    if daemon.runs.values().any(|run| run.alive) {
+                        None
+                    } else {
+                        Some(daemon.browser.clone())
+                    }
+                };
+                match browser {
+                    Some(browser) => {
+                        browser
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .quit();
+                        return;
+                    }
+                    None => std::thread::sleep(std::time::Duration::from_secs(60)),
                 }
             }
         });
@@ -1228,6 +1282,19 @@ impl Daemon {
                         page: page.clone(),
                     };
                     daemon.send(id, notice);
+                }
+            }
+            Request::BrowserBlock { id, open } => {
+                let mut daemon = lock(shared);
+                let blocks = daemon.browser_blocks.entry(client).or_default();
+                if open {
+                    blocks.insert(id);
+                } else {
+                    blocks.remove(&id);
+                }
+                daemon.browser_idle += 1;
+                if !open {
+                    daemon.browser_closed(shared);
                 }
             }
             Request::CommitDraft { .. }

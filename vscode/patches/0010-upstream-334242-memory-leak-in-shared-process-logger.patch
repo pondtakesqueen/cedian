@@ -1,0 +1,13 @@
+diff --git a/src/vs/platform/log/common/logIpc.ts b/src/vs/platform/log/common/logIpc.ts
+index a75622ae..5e062c1f 100644
+--- a/src/vs/platform/log/common/logIpc.ts
++++ b/src/vs/platform/log/common/logIpc.ts
+@@ -27,7 +27,7 @@ export class LoggerChannelClient extends AbstractLoggerService implements ILogge
+ 				super.registerLogger({ ...loggerResource, resource: URI.revive(loggerResource.resource) });
+ 			}
+ 			for (const loggerResource of removed) {
+-				super.deregisterLogger(loggerResource.resource);
++				super.deregisterLogger(URI.revive(loggerResource.resource));
+ 			}
+ 		}));
+ 	}

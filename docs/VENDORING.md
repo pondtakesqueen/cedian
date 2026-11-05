@@ -21,6 +21,13 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
   runtime and `@vscode/copilot-api`, proprietary, are kept out of the app's
   node_modules); `0003` defaults telemetry to off; `0004` keeps crash reports
   on the machine, in `~/Library/Logs/Cedian` on macOS, never uploaded.
+  `0005` onward are open upstream pull requests not yet in the tag, each
+  named `<n>-upstream-<pr>-<title>`: faster `workspace.fs` in the extension
+  host (microsoft/vscode#324070) and memory-leak fixes (#345781, #345347,
+  #338249, #338236, #334242, #336026, #330739, #336032, #345461, #331198,
+  #317841), their source changes only, without their tests. Drop one when
+  the pin moves past the release that merged it; one that no longer
+  applies is rebased or dropped, never forced.
 - `vscode/product.json`: keys merged over VS Code's (`null` removes one):
   the Cedian names, bundle id `dev.cedian.app`, URL protocol `cedian`, Open
   VSX as the gallery, no voice or agents telemetry endpoints.
