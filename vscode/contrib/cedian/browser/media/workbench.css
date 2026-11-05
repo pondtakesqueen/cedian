@@ -109,23 +109,37 @@
 	transition-duration: var(--cedian-motion-open, .15s);
 	transition-timing-function: var(--cedian-ease-open, ease-out);
 }
-/* The focused block: its current tab's fill a step stronger than in the other blocks, so what is
-   selected shows without a line drawn around or over the block. Elsewhere the selection tint
-   (--cedian-sel); in the block that holds focus the text colour at 16%, which reads as one clear
-   step in dark as well as light (the line tint alone was too faint in dark). A block with one view
-   has no tabs, so its title takes the same fill as a pill while it holds focus. */
+/* The focused block: its current tab a step stronger than in the other blocks, so what is
+   selected shows without a line drawn around or over the block. The open editor tab is a raised
+   pill on the header's ground (the workbench mockup's): in every group the sheet's raised colour,
+   and in the group that holds focus a hairline and a small drop besides, as a key on a desk. A
+   panel's tab (Terminal, Problems) and a side bar's title keep a fill: the selection tint, in the
+   block that holds focus the text colour at 16%, which reads as one clear step in dark as well as
+   light (the line tint alone was too faint in dark). A block with one view has no tabs, so its
+   title takes the same fill as a pill while it holds focus. */
 .monaco-workbench {
 	--cedian-focus-fill: color-mix(in srgb, var(--cedian-text, var(--vscode-foreground)) 16%, transparent);
 }
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) {
-	--modern-ui-editor-tab-active-background: var(--cedian-sel, var(--vscode-modernEditorTab-activeBackground));
-	--modern-ui-editor-tab-unfocused-active-background: var(--cedian-sel, var(--vscode-modernEditorTab-activeBackground));
+	--modern-ui-editor-tab-active-background: var(--cedian-raised, var(--vscode-modernEditorTab-activeBackground));
+	--modern-ui-editor-tab-unfocused-active-background: var(--cedian-raised, var(--vscode-modernEditorTab-activeBackground));
+	--modern-ui-editor-tab-active-hover-background: var(--cedian-raised, var(--vscode-modernEditorTab-activeHoverBackground));
+	--modern-ui-editor-tab-unfocused-active-hover-background: var(--cedian-raised, var(--vscode-modernEditorTab-activeHoverBackground));
 }
-.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor:focus-within {
-	--modern-ui-editor-tab-active-background: var(--cedian-focus-fill);
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor .tabs-container > .tab.active > .tab-fill {
+	box-shadow: 0 0 0 1px var(--cedian-line, var(--vscode-widget-border));
 }
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor:focus-within .editor-group-container.active .tabs-container > .tab.active > .tab-fill {
+	box-shadow: 0 0 0 1px var(--cedian-line-strong, var(--vscode-widget-border)), 0 1px 2px var(--cedian-tab-drop, rgba(0, 0, 0, .08));
+}
+.monaco-workbench.vs-dark { --cedian-tab-drop: rgba(0, 0, 0, .35); }
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part:focus-within {
 	--modern-ui-tab-active-background: var(--cedian-focus-fill);
+}
+/* A panel's open tab is its pill alone: the accent line VS Code draws over it goes (a tab only
+   focused by the keyboard keeps it). */
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part > :is(.title, .header-or-footer) > .composite-bar-container > .composite-bar > .monaco-action-bar .action-item.checked:not(:focus) .active-item-indicator::before {
+	display: none;
 }
 .monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part > .title > .title-label > h2 {
 	margin-left: -6px;
@@ -135,7 +149,9 @@
 .monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part:focus-within > .title > .title-label > h2 {
 	background-color: var(--cedian-focus-fill);
 }
-.monaco-workbench.monaco-enable-motion.modern-ui-tabs .part.editor .tabs-container > .tab > .tab-fill,
+.monaco-workbench.monaco-enable-motion.modern-ui-tabs .part.editor .tabs-container > .tab > .tab-fill {
+	transition: background-color var(--cedian-motion-focus) var(--cedian-ease-out), box-shadow var(--cedian-motion-focus) var(--cedian-ease-out);
+}
 .monaco-workbench.monaco-enable-motion.modern-ui-tabs .pane-composite-part .composite-bar .action-item > .active-item-indicator,
 .monaco-workbench.monaco-enable-motion .pane-composite-part > .title > .title-label > h2 {
 	transition: background-color var(--cedian-motion-focus) var(--cedian-ease-out);
@@ -287,3 +303,102 @@
 /* Still while the window is in the background (projectTabs.ts): a pulse nobody sees is work for nothing. */
 .monaco-workbench.cedian-window-blurred .cedian-project-tabs .count.working::before { animation-play-state: paused; }
 @keyframes cedian-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* The code's top edge under the tab bar and breadcrumb, once it has scrolled: a fade from the
+   code's own colour, where Monaco draws its scroll shadow (`.scroll-decoration`, shown only while
+   the editor is scrolled), in place of the shadow. A gradient layer, never a mask: a mask makes
+   the whole scrolling editor a composited, masked layer every frame (the agent pane's measure). */
+.monaco-workbench:not(.hc-black):not(.hc-light) .part.editor .editor-container .monaco-editor .scroll-decoration {
+	height: 12px;
+	box-shadow: none;
+	background: linear-gradient(var(--vscode-editor-background), transparent);
+	pointer-events: none;
+}
+
+/* Floating things as glass, with concentric corners: the Command Palette 14px around its 8px rows,
+   a context menu 12px around 7px rows, each outer corner the inner one plus the inset. VS Code's
+   Modern UI frosted glass draws them (`workbench.modernUIFrostedGlass`, on by default; off with
+   Reduce Transparency, a high contrast theme or no GPU compositing): here it lets more of what is
+   behind through (72%, VS Code's is 80), and the palette's blur is the mockup's. A context menu
+   lives in a shadow root, so it takes its corners from the custom properties on its host and keeps
+   VS Code's blur. The row under the keys is the accent at 16% (theme.ts, `quickInputList` and
+   `menu` selection), not the selection blue. */
+@media (prefers-reduced-transparency: no-preference) and (forced-colors: none) {
+	.monaco-workbench.modern-ui.modern-ui-frosted-glass:not(.hc-black):not(.hc-light) {
+		--cedian-glass-rim: rgba(255, 255, 255, .8);
+		--modern-ui-glass-quick-input-background: color-mix(in srgb, var(--modern-ui-solid-quick-input-background) 72%, transparent);
+		--modern-ui-glass-menu-background: color-mix(in srgb, var(--modern-ui-solid-menu-background) 72%, transparent);
+	}
+	.monaco-workbench.vs-dark.modern-ui.modern-ui-frosted-glass:not(.hc-black):not(.hc-light) { --cedian-glass-rim: rgba(255, 255, 255, .10); }
+	.monaco-workbench.modern-ui.modern-ui-frosted-glass:not(.hc-black):not(.hc-light) .quick-input-widget:not(.quick-input-widget-overlay)::before {
+		backdrop-filter: blur(20px) saturate(1.8);
+		box-shadow: inset 0 0 0 1px var(--cedian-line-strong, transparent), inset 0 1px 0 var(--cedian-glass-rim);
+	}
+}
+.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget:not(.quick-input-widget-overlay) {
+	border-radius: 14px;
+	box-shadow: 0 16px 40px var(--cedian-glass-drop, rgba(0, 0, 0, .14));
+}
+.monaco-workbench.vs-dark { --cedian-glass-drop: rgba(0, 0, 0, .45); }
+.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget .quick-input-list .monaco-list-row { border-radius: 8px; }
+/* Its filter as the glass's own first line: no field, no ring, a hairline under it. */
+.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget:not(.hidden-input) .quick-input-header {
+	border-bottom: 1px solid var(--cedian-line, var(--vscode-widget-border));
+	padding-bottom: 6px;
+	margin-bottom: 4px;
+}
+.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget .quick-input-filter .monaco-inputbox {
+	background-color: transparent !important;
+	border-color: transparent !important;
+	outline: none !important;
+	font-size: 14px;
+}
+.monaco-workbench .shadow-root-host,
+.monaco-workbench .context-view.monaco-menu-container {
+	--vscode-cornerRadius-large: 12px;
+	--vscode-cornerRadius-medium: 7px;
+}
+
+/* The window's frame on macOS's vibrancy (vibrancy.ts puts cedian-vibrancy on the main window's
+   body; patch 0018 draws the window on an NSVisualEffectView under a clear page). The title bar,
+   the gaps between blocks, the status bar and the side bar are one sheet: the system's material
+   behind the frame colour at 68%, so the sheet keeps Warm & Lime's tone and lets the desktop show
+   through a little. The side bar loses its card (ground, border, corners stay but drawn by
+   nothing). The editor, terminal, diff and the side blocks on the right stay solid: they hold
+   text that scrolls. With Reduce Transparency the class goes and the frame is solid again. */
+@media (prefers-reduced-transparency: no-preference) {
+	body.cedian-vibrancy { background-color: transparent !important; }
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) {
+		background-color: color-mix(in srgb, var(--cedian-frame, var(--vscode-titleBar-activeBackground)) 68%, transparent) !important;
+	}
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) > .monaco-grid-view,
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.titlebar,
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.activitybar,
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.statusbar,
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.sidebar,
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.sidebar > :is(.title, .header-or-footer, .content) {
+		background-color: transparent !important;
+	}
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.titlebar,
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.statusbar {
+		border-color: transparent !important;
+	}
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.statusbar {
+		color: var(--cedian-text-faint, var(--vscode-statusBar-foreground)) !important;
+	}
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.sidebar {
+		--vscode-sideBar-background: transparent;
+		--vscode-sideBarSectionHeader-background: transparent;
+		--vscode-sideBarTitle-background: transparent;
+		border-color: transparent !important;
+		box-shadow: none !important;
+	}
+	/* The thread list on the sheet: hover and selection as the text colour over the glass, since
+	   a raised or a tinted fill would read as a block again. */
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.sidebar .cedian-thread-list :is(.row-btn, .thread-row):hover {
+		background: color-mix(in srgb, var(--cedian-text) 6%, transparent);
+	}
+	body.cedian-vibrancy > .monaco-workbench:not(.hc-black):not(.hc-light) .part.sidebar .cedian-thread-list .thread-row.on {
+		background: color-mix(in srgb, var(--cedian-text) 9%, transparent);
+	}
+}
