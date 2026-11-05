@@ -42,6 +42,7 @@ import { CedianTabMove } from './tabMove.js';
 import { CedianToolStrip, openTool } from './toolStrip.js';
 import { CedianDropTarget } from './dropTarget.js';
 import { CedianBlockStretch } from './blockStretch.js';
+import { CedianBlockTitle } from './blockTitle.js';
 import { CedianProjectTabs } from './projectTabs.js';
 import { TOOL_PICKS } from './blocks/places.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
@@ -189,6 +190,7 @@ registerAction2(class extends Action2 {
 registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianWindowPlaces.ID, CedianWindowPlaces, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianBlockStretch.ID, CedianBlockStretch, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianBlockTitle.ID, CedianBlockTitle, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianBlockMove.ID, CedianBlockMove, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianTabMove.ID, CedianTabMove, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianToolStrip.ID, CedianToolStrip, WorkbenchPhase.AfterRestored);
