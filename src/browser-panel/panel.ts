@@ -78,6 +78,8 @@ export class BrowserPanel implements Block {
   /** An address typed before the tab's session was there, opened once it is. */
   private pending: string | undefined;
   private disposed = false;
+  /** This block's name to the daemon, which counts the open ones. */
+  private readonly blockId = `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   /** Whether the block's page area is on screen, as last observed. */
   private onScreen = true;
 
@@ -158,7 +160,7 @@ export class BrowserPanel implements Block {
       wire.onAny((n) => {
         if (n.kind === "browser" && n.cwd === host.cwd) this.onPage(n.page);
         // A daemon that restarted knows of no open block; this one says so again.
-        else if (n.kind === "welcome") this.wire.request({ op: "browser_block", open: true });
+        else if (n.kind === "welcome") this.wire.request({ op: "browser_block", id: this.blockId, open: true });
         else if (n.kind === "settings") {
           this.desktop = desktopOf(n.desktop);
           this.drawBanner();
@@ -167,8 +169,8 @@ export class BrowserPanel implements Block {
     );
     this.wire.request({ op: "settings" });
     // While a block is open the daemon keeps Chromium; once none is, it quits it after a while.
-    this.wire.request({ op: "browser_block", open: true });
-    this.offs.push(() => this.wire.request({ op: "browser_block", open: false }));
+    this.wire.request({ op: "browser_block", id: this.blockId, open: true });
+    this.offs.push(() => this.wire.request({ op: "browser_block", id: this.blockId, open: false }));
     this.wire.request({ op: "browser", cwd: host.cwd });
     host.devServers().then(
       (list) => this.setDevServers(list),

@@ -1127,6 +1127,7 @@ export type Request =
       tab?: BrowserTabAction | null;
     }
   | {
+      id: string;
       op: "browser_block";
       open: boolean;
     }

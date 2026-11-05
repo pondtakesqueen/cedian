@@ -86,8 +86,8 @@ pub struct Daemon {
     /// The shared Chromium, locked on its own: starting it takes a moment, and only a
     /// Browser block starts it.
     browser: Arc<Mutex<Browser>>,
-    /// Each window's open Browser blocks (`Request::BrowserBlock`).
-    browser_blocks: HashMap<ClientId, u32>,
+    /// Each window's open Browser blocks, by the window's id for each (`Request::BrowserBlock`).
+    browser_blocks: HashMap<ClientId, HashSet<String>>,
     /// Bumped each time the last Browser block closes or one opens, so an older idle timer
     /// knows it is stale.
     browser_idle: u64,
@@ -319,7 +319,11 @@ impl Daemon {
         let sides = {
             let mut daemon = lock(shared);
             daemon.disconnect(id);
-            if daemon.browser_blocks.remove(&id).is_some_and(|n| n > 0) {
+            if daemon
+                .browser_blocks
+                .remove(&id)
+                .is_some_and(|ids| !ids.is_empty())
+            {
                 daemon.browser_closed(shared);
             }
             daemon.sides.remove(&id).unwrap_or_default()
@@ -374,7 +378,7 @@ impl Daemon {
     /// after `BROWSER_IDLE`, once no run is going: an idle headless Chromium still holds about
     /// 200 MB and draws its page. A block that opens meanwhile keeps it.
     fn browser_closed(&mut self, shared: &Shared) {
-        if self.browser_blocks.values().any(|&n| n > 0) {
+        if self.browser_blocks.values().any(|ids| !ids.is_empty()) {
             return;
         }
         let generation = self.browser_idle;
@@ -1280,14 +1284,14 @@ impl Daemon {
                     daemon.send(id, notice);
                 }
             }
-            Request::BrowserBlock { open } => {
+            Request::BrowserBlock { id, open } => {
                 let mut daemon = lock(shared);
-                let count = daemon.browser_blocks.entry(client).or_default();
-                *count = if open {
-                    count.saturating_add(1)
+                let blocks = daemon.browser_blocks.entry(client).or_default();
+                if open {
+                    blocks.insert(id);
                 } else {
-                    count.saturating_sub(1)
-                };
+                    blocks.remove(&id);
+                }
                 daemon.browser_idle += 1;
                 if !open {
                     daemon.browser_closed(shared);

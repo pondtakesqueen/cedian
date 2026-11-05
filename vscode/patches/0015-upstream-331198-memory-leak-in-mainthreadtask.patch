@@ -1,0 +1,75 @@
+diff --git a/src/vs/workbench/api/browser/mainThreadTask.ts b/src/vs/workbench/api/browser/mainThreadTask.ts
+index e151f5e4..f80b1278 100644
+--- a/src/vs/workbench/api/browser/mainThreadTask.ts
++++ b/src/vs/workbench/api/browser/mainThreadTask.ts
+@@ -732,7 +732,7 @@ export class MainThreadTask extends Disposable implements MainThreadTaskShape {
+ 			default:
+ 				platform = Platform.platform;
+ 		}
+-		this._taskService.registerTaskSystem(key, {
++		this._register(this._taskService.registerTaskSystem(key, {
+ 			platform: platform,
+ 			uriProvider: (path: string): URI => {
+ 				return URI.from({ scheme: info.scheme, authority: info.authority, path });
+@@ -777,7 +777,7 @@ export class MainThreadTask extends Disposable implements MainThreadTaskShape {
+ 			findExecutable: (command: string, cwd?: string, paths?: string[]): Promise<string | undefined> => {
+ 				return this._proxy.$findExecutable(command, cwd, paths);
+ 			}
+-		});
++		}));
+ 	}
+ 
+ 	async $registerSupportedExecutions(custom?: boolean, shell?: boolean, process?: boolean): Promise<void> {
+diff --git a/src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts b/src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts
+index a3079cd7..7c238e6b 100644
+--- a/src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts
++++ b/src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts
+@@ -878,8 +878,8 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
+ 		return infosCount > 0;
+ 	}
+ 
+-	public registerTaskSystem(key: string, info: ITaskSystemInfo): void {
+-		// Ideally the Web caller of registerRegisterTaskSystem would use the correct key.
++	public registerTaskSystem(key: string, info: ITaskSystemInfo): IDisposable {
++		// Ideally the Web caller of registerTaskSystem would use the correct key.
+ 		// However, the caller doesn't know about the workspace folders at the time of the call, even though we know about them here.
+ 		if (info.platform === Platform.Platform.Web) {
+ 			key = this.workspaceFolders.length ? this.workspaceFolders[0].uri.scheme : key;
+@@ -899,6 +899,24 @@ export abstract class AbstractTaskService extends Disposable implements ITaskSer
+ 		if (this.hasTaskSystemInfo) {
+ 			this._onDidChangeTaskSystemInfo.fire();
+ 		}
++
++		return toDisposable(() => {
++			const infos = this._taskSystemInfos.get(key);
++			if (!infos) {
++				return;
++			}
++			const index = infos.indexOf(info);
++			if (index === -1) {
++				return;
++			}
++			const remainingInfos = infos.toSpliced(index, 1);
++			if (remainingInfos.length === 0) {
++				this._taskSystemInfos.delete(key);
++			} else {
++				this._taskSystemInfos.set(key, remainingInfos);
++			}
++			this._onDidChangeTaskSystemInfo.fire();
++		});
+ 	}
+ 
+ 	private _getTaskSystemInfo(key: string): ITaskSystemInfo | undefined {
+diff --git a/src/vs/workbench/contrib/tasks/common/taskService.ts b/src/vs/workbench/contrib/tasks/common/taskService.ts
+index ec8414ee..e665a8da 100644
+--- a/src/vs/workbench/contrib/tasks/common/taskService.ts
++++ b/src/vs/workbench/contrib/tasks/common/taskService.ts
+@@ -104,7 +104,7 @@ export interface ITaskService {
+ 
+ 	registerTaskProvider(taskProvider: ITaskProvider, type: string): IDisposable;
+ 
+-	registerTaskSystem(scheme: string, taskSystemInfo: ITaskSystemInfo): void;
++	registerTaskSystem(scheme: string, taskSystemInfo: ITaskSystemInfo): IDisposable;
+ 	readonly onDidChangeTaskSystemInfo: Event<void>;
+ 	readonly onDidChangeTaskConfig: Event<void>;
+ 	readonly hasTaskSystemInfo: boolean;
