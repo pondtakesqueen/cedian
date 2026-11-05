@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import type { PrAction, PrView } from "../protocol/wire";
-import { checkSummary, fixText, mergeBlockers, newPrUi, prBlock, suggestion } from "./pr-block";
+import { blockerTone, checkSummary, fixText, mergeBlockers, newPrUi, prBlock, suggestion } from "./pr-block";
 
 const view = (over: Partial<PrView> = {}): PrView => ({
   number: 7, url: "https://github.com/o/r/pull/7", title: "Reset submitting", body: "Why.", state: "open", draft: false, author: "me", mine: false,
@@ -27,6 +27,7 @@ describe("PR block", () => {
     expect(mergeBlockers(view())).toEqual(["1 check failed", "Changes requested", "Behind the base"]);
     expect(mergeBlockers(view({ checks: [], review_decision: "approved", behind: false }))).toEqual([]);
     expect(mergeBlockers(view({ state: "merged" }))).toEqual(["Merged"]);
+    expect(["1 check failed", "Conflicts with the base", "Changes requested", "2 checks running", "Review required", "Behind the base"].map(blockerTone)).toEqual(["bad", "bad", "bad", "run", "wait", "wait"]);
     expect(checkSummary(view())).toBe("1 passed · 1 failed");
     expect(fixText(view().threads[0]!)).toBe("Address this review comment on src/a.ts:42:\nmai-k: Use a finally.");
   });

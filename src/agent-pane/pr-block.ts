@@ -45,6 +45,13 @@ export function mergeBlockers(v: PrView): string[] {
   return out;
 }
 
+/** How a merge blocker reads: bad needs a fix, run waits on CI, wait waits on a person or a click. */
+export function blockerTone(blocker: string): "bad" | "run" | "wait" {
+  if (/failed|Conflicts|Changes requested/.test(blocker)) return "bad";
+  if (/running/.test(blocker)) return "run";
+  return "wait";
+}
+
 export function checkSummary(v: PrView): string {
   const count = (s: string) => v.checks.filter((c) => c.state === s).length;
   const parts = [count("passed") && `${count("passed")} passed`, count("failed") && `${count("failed")} failed`, count("pending") && `${count("pending")} running`];
@@ -163,7 +170,12 @@ export function prBlock(d: Document, v: PrView, ui: PrUi, h: PrHandlers): HTMLEl
   if (v.state === "open") {
     const foot = el(d, "div", "pr-merge");
     const blockers = mergeBlockers(v);
-    for (const b of blockers) foot.append(el(d, "div", "small warn", b));
+    // What blocks the merge, as one row of chips toned by how bad (no wall of yellow lines).
+    if (blockers.length) {
+      const why = el(d, "div", "blockers");
+      for (const b of blockers) why.append(el(d, "span", `blk ${blockerTone(b)}`, b));
+      foot.append(why);
+    }
     const row = el(d, "div", "row wrap");
     if (v.draft && v.mine) row.append(btn("Ready for review", { do: "ready" }));
     if (v.behind) row.append(btn("Update branch", { do: "update_branch" }));

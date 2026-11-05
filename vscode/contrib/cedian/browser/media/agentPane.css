@@ -64,9 +64,6 @@
 .cedian-agent-pane .btn.danger, .cedian-settings .btn.danger { color: var(--cedian-failed); }
 .cedian-agent-pane .btn.small { padding: 0 6px; }
 .cedian-agent-pane .comments .comment-resolved { opacity: 0.6; }
-.cedian-agent-pane .comments .file { flex-wrap: wrap; }
-.cedian-agent-pane .comments .file .link { flex: 0 1 auto; min-width: 6em; max-width: 50%; }
-.cedian-agent-pane .comments .file > .ell { flex: 1 1 8em; }
 .cedian-agent-pane .comments .file > .state { white-space: nowrap; }
 .cedian-agent-pane .link { font: inherit; background: none; border: 0; padding: 0; color: var(--cedian-working); cursor: pointer; }
 .cedian-agent-pane .x { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; }
@@ -298,3 +295,48 @@
 @media (prefers-reduced-transparency: reduce) {
   .cedian-agent-pane > .dock .composer { background: var(--cedian-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* The remaining cards (design/agent-panel round 3: review, line comments, code review, commit,
+   Git, PR block, Pull requests, Issues), in the conversation cards' language: a button keeps its
+   label on one line and a crowded row wraps its actions instead (test/smoke cards sweep from
+   280 px found buttons leaving the pane); fields are drawn as fields; tabs are a segmented
+   control; file and finding names read as text, not as blue links; what blocks a merge is one
+   row of toned chips. */
+.cedian-agent-pane .btn, .cedian-agent-pane .link { white-space: nowrap; }
+.cedian-agent-pane .btn { line-height: 20px; }
+.cedian-agent-pane .btn.small { line-height: 18px; padding: 1px 8px; font-size: 11.5px; }
+.cedian-agent-pane .link { text-align: left; }
+.cedian-agent-pane .card > .row:first-child { flex-wrap: wrap; row-gap: 6px; }
+.cedian-agent-pane .card > .row:first-child > span:first-child { font-weight: 500; }
+.cedian-agent-pane .card > .btn { align-self: flex-start; }
+.cedian-agent-pane .card.ship:not(:has(textarea)) { flex-direction: row; flex-wrap: wrap; align-items: center; }
+/* A file, comment or finding row stays one line: its name gives way (ellipsis) to its counts and
+   actions, which never wrap one by one under it. */
+.cedian-agent-pane .card .file { display: grid; grid-auto-flow: column; grid-template-columns: minmax(0, 1fr); grid-auto-columns: max-content; align-items: center; gap: 8px; min-width: 0; padding: 2px 0; }
+.cedian-agent-pane .card.comments .file { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
+.cedian-agent-pane .card .file > .link { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--cedian-text); }
+.cedian-agent-pane .card .file > .link:hover, .cedian-agent-pane .issue-row .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.cedian-agent-pane .code-review .finding.current > .link { color: var(--cedian-accent-text); }
+.cedian-agent-pane .code-review .finding.dismissed > * { opacity: .55; }
+.cedian-agent-pane .code-review > .m.small { margin-top: 4px; color: var(--cedian-text-faint); }
+.cedian-agent-pane .input, .cedian-agent-pane .sel { font: inherit; font-size: 12.5px; color: var(--cedian-text); background: var(--cedian-field); border: 0; border-radius: 8px; padding: 4px 8px; box-shadow: inset 0 0 0 1px var(--cedian-line); min-width: 0; }
+.cedian-agent-pane textarea.input { resize: vertical; line-height: var(--cedian-line-height, 1.6); }
+.cedian-agent-pane .input::placeholder { color: var(--cedian-text-faint); }
+.cedian-agent-pane .input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--cedian-accent); }
+.cedian-agent-pane .card .tabs { flex-wrap: wrap; gap: 2px; align-self: flex-start; max-width: 100%; padding: 2px; border-radius: 9px; background: var(--cedian-field); box-shadow: none; }
+.cedian-agent-pane .card .tabs .tab { font: inherit; font-size: 12px; line-height: 20px; color: var(--cedian-text-muted); background: none; border: 0; border-radius: 7px; padding: 1px 10px; white-space: nowrap; cursor: pointer; box-shadow: none; }
+.cedian-agent-pane .card .tabs .tab:hover { color: var(--cedian-text); }
+.cedian-agent-pane .card .tabs .tab.on { color: var(--cedian-text); background: var(--cedian-raised); box-shadow: 0 0 0 1px var(--cedian-line), 0 1px 2px rgba(0, 0, 0, .06); }
+.cedian-agent-pane .pr-row:last-child, .cedian-agent-pane .issue-row:last-child { box-shadow: none; }
+.cedian-agent-pane .issue-row .link, .cedian-agent-pane .pr-row .link { color: var(--cedian-text); font-weight: 500; }
+.cedian-agent-pane .card .tag { box-shadow: inset 0 0 0 1px var(--cedian-line); }
+.cedian-agent-pane .pr-thread { background: var(--cedian-raised); }
+.cedian-agent-pane .blockers { display: flex; flex-wrap: wrap; gap: 4px; }
+.cedian-agent-pane .blk { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; line-height: 20px; padding: 0 8px; border-radius: 999px; color: var(--cedian-text-muted); background: var(--cedian-field); }
+.cedian-agent-pane .blk::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cedian-text-faint); }
+.cedian-agent-pane .blk.bad { color: var(--cedian-failed); background: color-mix(in srgb, var(--cedian-failed) 10%, transparent); }
+.cedian-agent-pane .blk.bad::before { background: var(--cedian-failed); }
+.cedian-agent-pane .blk.run { color: var(--cedian-working); background: color-mix(in srgb, var(--cedian-working) 10%, transparent); }
+.cedian-agent-pane .blk.run::before { background: var(--cedian-working); }
+.cedian-agent-pane .card > .row:first-child > .grow { flex-basis: 8em; }
+.cedian-agent-pane .card > .row:first-child > .btn:first-of-type:not(:first-child) { margin-left: auto; }
