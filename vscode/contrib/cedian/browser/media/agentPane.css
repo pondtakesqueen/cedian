@@ -279,3 +279,22 @@
 .cedian-agent-pane details[open] > summary::after, .cedian-agent-pane .think[open] > summary::before { content: "\2304"; font-size: 12px; }
 .cedian-agent-pane .vbadge::before { font-size: 11px; }
 @media (prefers-reduced-motion: reduce) { .cedian-agent-pane .mk-spinner, .cedian-agent-pane .step.doing .mark svg { animation: none; } }
+
+/* Option D of the design/agent-panel glass round: the header's rule gives way to a soft edge (a
+   fade laid over the log's top), and the queue and composer float over the log's end in the dock,
+   the composer as the pane's one piece of glass. The fades are painted strips, not a mask on the
+   log: a mask cost 15 to 50 of 600 scroll frames in test/smoke/scroll.mjs, the strips none.
+   Concentric corners: composer 18 = send 10 + 8. */
+.cedian-agent-pane { position: relative; }
+.cedian-agent-pane > .head { position: relative; z-index: 2; border-bottom: 0; }
+.cedian-agent-pane > .head::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; pointer-events: none; background: linear-gradient(var(--cedian-app), color-mix(in srgb, var(--cedian-app) 0%, transparent)); }
+.cedian-agent-pane > .log { padding: 14px 0 calc(var(--dock-h, 0px) + 8px); }
+.cedian-agent-pane > .dock::after { content: ""; position: absolute; z-index: -1; left: 0; right: 0; bottom: 0; height: 14px; background: var(--cedian-app); }
+.cedian-agent-pane > .dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none; }
+.cedian-agent-pane > .dock > * { pointer-events: auto; }
+.cedian-agent-pane > .dock .composer { border-radius: 18px; background: color-mix(in srgb, var(--cedian-raised) 74%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 10px 30px rgba(0, 0, 0, .14); }
+.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 2px var(--cedian-accent), 0 10px 30px rgba(0, 0, 0, .14); }
+.cedian-agent-pane > .dock .send { border-radius: 10px; }
+@media (prefers-reduced-transparency: reduce) {
+  .cedian-agent-pane > .dock .composer { background: var(--cedian-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

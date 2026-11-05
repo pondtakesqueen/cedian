@@ -16,7 +16,7 @@ import { firstTab, prListCard, type PrListTab } from "./pr-list.js";
 import { filterOf, issuesCard, issueTask, newIssuesUi, type IssuesUi } from "./issues.js";
 import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
-import { stickToBottom } from "./stick.js";
+import { dockUnder, stickToBottom } from "./stick.js";
 import { icon, type IconName } from "./icons.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
 import { prLabel, prText } from "./pr-chip.js";
@@ -195,6 +195,7 @@ export class AgentPane {
   private readonly sendButton: HTMLButtonElement;
   private readonly off: () => void;
   private readonly unstick: () => void;
+  private readonly undock: () => void;
 
   constructor(private readonly doc: Document, private readonly wire: Wire<Request, Notice>, private readonly host: PaneHost) {
     this.state = openState(host.cwd);
@@ -218,7 +219,12 @@ export class AgentPane {
     const row = el(doc, "div", "row");
     row.append(this.chips, this.sendButton);
     composer.append(this.popup, this.attachments, this.input, row);
-    this.root.append(this.header, this.log, this.queue, composer);
+    // The queue and composer float over the log's end (design/agent-panel, option D): the log
+    // runs under the composer's glass and keeps room for it.
+    const dock = el(doc, "div", "dock");
+    dock.append(this.queue, composer);
+    this.root.append(this.header, this.log, dock);
+    this.undock = dockUnder(this.root, this.log, dock);
     this.input.addEventListener("input", () => this.typed());
     this.input.addEventListener("keydown", (e) => this.key(e));
     this.input.addEventListener("paste", (e) => {
@@ -236,6 +242,7 @@ export class AgentPane {
   dispose(): void {
     this.off();
     this.unstick();
+    this.undock();
     if (this.state.thread) this.wire.request({ op: "close", thread: this.state.thread });
   }
 
