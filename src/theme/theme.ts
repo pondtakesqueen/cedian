@@ -66,8 +66,9 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "statusBarItem.focusBorder": t.accent,
     "statusBarItem.remoteBackground": t.app,
     "statusBarItem.remoteForeground": t["accent.text"],
-    // The editor as the prototype's block: a sheet header with pill tabs over a code-colored body.
-    "editorGroupHeader.tabsBackground": t.sheet,
+    // The editor as the prototype's block: its header on the app's ground, the open tab a raised
+    // pill on it (workbench.css), over a code-colored body with no rule between them.
+    "editorGroupHeader.tabsBackground": t.app,
     "editorGroupHeader.tabsBorder": clear,
     "editorGroup.border": t.line,
     "editor.border": t.line,
@@ -135,10 +136,12 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "list.focusAndSelectionOutline": t.accent,
     "list.highlightForeground": t["accent.text"],
     "quickInput.background": t.raised,
-    "quickInputList.focusBackground": t.sel,
+    "quickInputList.focusBackground": alpha(t.accent, 16),
+    "quickInputList.focusForeground": t.text,
     "menu.background": t.raised,
     "menu.foreground": t.text,
-    "menu.selectionBackground": t.sel,
+    "menu.selectionBackground": alpha(t.accent, 16),
+    "menu.selectionForeground": t.text,
     "menu.border": t.line,
     "scrollbarSlider.background": alpha(t["text.muted"], 30),
     "scrollbarSlider.hoverBackground": alpha(t["text.muted"], 50),

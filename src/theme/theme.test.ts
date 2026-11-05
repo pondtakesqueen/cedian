@@ -22,6 +22,15 @@ describe("Warm & Lime", () => {
     expect(workbenchColors("dark")["editor.selectionBackground"]).toBe("#6FB0FF47");
   });
 
+  it("marks the palette's and a menu's row in the accent, the editor header on the app's ground", () => {
+    for (const a of ["dark", "light"] as const) {
+      const c = workbenchColors(a);
+      expect(c["quickInputList.focusBackground"]).toBe(`${TOKENS[a].accent}29`);
+      expect(c["menu.selectionBackground"]).toBe(`${TOKENS[a].accent}29`);
+      expect(c["editorGroupHeader.tabsBackground"]).toBe(TOKENS[a].app);
+    }
+  });
+
   it("names a --cedian-* property for every token", () => {
     const vars = cssVars("dark");
     expect(Object.keys(vars)).toHaveLength(Object.keys(TOKENS.dark).length);

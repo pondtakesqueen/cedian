@@ -32,6 +32,10 @@ The fork is not checked in. `vscode/` holds what Cedian changes, and
   sets in code rather than CSS (the search boxes of Extensions, Settings,
   Keybindings and Testing, the SCM input's default, webviews' font), with
   the Mac's Thai faces after the platform's.
+  `0018` draws the Mac's main window on macOS's vibrancy (`vibrancy:
+  'sidebar'`, a clear background) and keeps a theme change from painting
+  that background over; the workbench clears its frame over it
+  (`cedian/electron-browser/vibrancy.ts`, `workbench.css`).
 - `vscode/product.json`: keys merged over VS Code's (`null` removes one):
   the Cedian names, bundle id `dev.cedian.app`, URL protocol `cedian`, Open
   VSX as the gallery, no voice or agents telemetry endpoints.

@@ -841,6 +841,7 @@ The agent pane in a phone's browser, so the owner can follow threads, answer the
   thread/session files stay append-only and cedia's to write.
 - **Settings mapping**: inject VS Code-required settings (font, size, theme) from cedia desktop key via ConfigurationService.
 - **Theme**: VS Code color theme (JSON) generated from Warm & Lime tokens + CSS custom properties (--cedian-*) for block UI.
+- **Glass (owner, 2026-11-05, the workbench mockup)**: on macOS the main window's frame and primary side bar are one sheet of the system's vibrancy (`vibrancy: 'sidebar'`, patch 0018), the frame colour at 68% over it; editor, terminal and diff stay solid. Editor tabs have no rule and the open tab is a raised pill; Monaco's scroll shadow becomes a 12px gradient fade under the header (a layer, never a mask). The Command Palette and context menus are VS Code's frosted glass at 72%, corners 14/8 and 12/7, the selected row the accent at 16%. Off with Reduce Transparency or a high contrast theme. Scroll cost measured by `test/smoke/glass.mjs`.
 - **Multi-repo workspace UI**: roots section in settings (draft ready).
 - **Keyboard shortcuts**: layer Cedian on top of VS Code defaults; Cedian wins on conflict; user overrides via desktop.keymap.
 - **Side chat (Cmd+;)**: floating agent block (PiP) using cedia fork; discarded on close.

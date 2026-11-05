@@ -10,3 +10,5 @@ import '../browser/cedian.contribution.js';
 import './siteBanner.js';
 // The Browser block's console strip, element select and Dev servers on the native view.
 import './nativeTools.js';
+// The main window's frame on macOS's vibrancy (patch 0018 gives the window its NSVisualEffectView).
+import './vibrancy.js';
