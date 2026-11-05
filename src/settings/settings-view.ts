@@ -9,11 +9,13 @@ import { addRoot, creatorOn, desktopOf, removeRoot, rootsOf, type Desktop } from
 import { addressOf, allowSite, hostOf, revokeSite, sitesOf } from "../browser-panel/sites.js";
 import { changeOf, EFFORTS, fallbackRows, quotaOptions, ROLE_ROWS, roleDefault, roleSuggestions } from "./cedia-settings.js";
 
-export type Section = "appearance" | "models" | "mcp" | "roots" | "browser" | "editor" | "keys";
+export type Section = "appearance" | "models" | "agent" | "safety" | "mcp" | "roots" | "browser" | "editor" | "keys";
 
 export const SECTIONS: { id: Section; label: string }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "models", label: "Models" },
+  { id: "agent", label: "Agent" },
+  { id: "safety", label: "Safety" },
   { id: "mcp", label: "MCP" },
   { id: "roots", label: "Roots" },
   { id: "browser", label: "Browser" },
@@ -174,13 +176,15 @@ export class SettingsView {
     switch (this.section) {
       case "appearance": this.appearance(content); break;
       case "models": this.modelsSection(content); break;
+      case "agent": this.agent(content); break;
+      case "safety": this.safety(content); break;
       case "mcp": this.mcpSection(content); break;
       case "roots": this.roots(content); break;
       case "browser": this.browser(content); break;
       case "editor": this.editor(content); break;
       case "keys": this.keys(content); break;
     }
-    if (this.path) content.append(el(d, "div", "small path", `Saved in ${this.path} (desktop key)`));
+    if (this.path) content.append(el(d, "div", "small path", `Saved in ${this.path}`));
     this.body.replaceChildren(content);
   }
 
@@ -319,6 +323,82 @@ export class SettingsView {
     const when = [{ value: "", label: "Auto: triage decides (default)" }, { value: "always", label: "Always" }, { value: "never", label: "Never" }];
     this.row(p, "Plan when", select(d, when, s.planWhen === "auto" ? "" : s.planWhen ?? "", (v) => set("planWhen", v)), "With a plan role set");
     this.row(p, "Read while planning", this.check(s.planOverlap !== "off", (v) => set("planOverlap", v ? "" : "off")), "The writer starts reading while the plan is written");
+  }
+
+  /** A box of one entry per line (or free text), sent whole when it loses focus. */
+  private lines(value: string, placeholder: string, key: string, rows = 3): HTMLTextAreaElement {
+    const area = el(this.doc, "textarea", "input m area");
+    area.value = value;
+    area.placeholder = placeholder;
+    area.rows = rows;
+    area.addEventListener("change", () => this.wire.request(changeOf(key, area.value)));
+    return area;
+  }
+
+  /** An on/off setting of cedia's: checked unless `fallback` says it is off by default. */
+  private toggle(value: string | null | undefined, fallback: "on" | "off", key: string): HTMLInputElement {
+    return this.check((value ?? fallback) === "on", (v) => this.wire.request(changeOf(key, v === (fallback === "on") ? "" : v ? "on" : "off")));
+  }
+
+  /** The window's note for cedia's settings; false when there are none to show. */
+  private cediaReady(p: HTMLElement): EditableSettings | undefined {
+    if (this.cediaNote) p.append(el(this.doc, "div", "small bad", this.cediaNote));
+    if (!this.cedia && !this.cediaNote) p.append(el(this.doc, "div", "small", "Reading cedia's settings…"));
+    return this.cedia;
+  }
+
+  /** How cedia's runs work: what it knows about the owner, sub-threads, handoff and the extra tools. */
+  private agent(p: HTMLElement): void {
+    const d = this.doc;
+    const s = this.cediaReady(p);
+    if (!s) return;
+    const set = (key: string, v: string) => this.wire.request(changeOf(key, v));
+    this.row(p, "About you", this.lines(s.context ?? "", "Standing facts sent at the start of every session, e.g. I review in Thai", "context", 4), "cedia tells every session this; a repository cannot");
+    const styles = s.choices.outputStyles.map((n) => ({ value: n === s.defaults.outputStyle ? "" : n, label: n === s.defaults.outputStyle ? `${n} (default)` : n }));
+    this.row(p, "Output style", select(d, styles, s.outputStyle && s.outputStyle !== s.defaults.outputStyle ? s.outputStyle : "", (v) => set("outputStyle", v)));
+    p.append(el(d, "h3", "", "Sub-threads and handoff"));
+    const spawn = [{ value: "", label: "On (default)" }, { value: "worktree", label: "On, each in a worktree of its own" }, { value: "off", label: "Off" }];
+    this.row(p, "Sub-threads", select(d, spawn, s.spawn === "on" ? "" : s.spawn ?? "", (v) => set("spawn", v)), "Whether the writer may spawn sub-threads; worktree runs several at once");
+    this.row(p, "Hand off at", this.text(s.handoffAt ?? undefined, "Default: the model's own point", (v) => set("handoffAt", v)), "Tokens of context at which a session hands off to a new one, or off");
+    const how = [{ value: "", label: "Compact (default)" }, { value: "note", label: "A note the model writes" }];
+    this.row(p, "How it hands off", select(d, how, s.handoff === "note" ? "note" : "", (v) => set("handoff", v)), "Compact keeps the newest turns, on the Claude API models");
+    p.append(el(d, "h3", "", "Extras"));
+    if (s.lsp === "custom") this.row(p, "Language servers", el(d, "span", "small", "Custom servers in settings.json"));
+    else this.row(p, "Language servers", this.toggle(s.lsp, "on", "lsp"), "Adds a language server's errors to each edit's result");
+    this.row(p, "Background jobs", this.toggle(s.jobs, "off", "jobs"), "The Job tool: a command that keeps running after the session ends");
+    this.row(p, "Prompt suggestions", this.toggle(s.promptSuggestions, "off", "promptSuggestions"), "Predicts your next prompt after each turn");
+    this.row(p, "Consolidate memory", this.toggle(s.consolidateMemory, "off", "consolidateMemory"), "Tidies the project's memory between sessions");
+    p.append(el(d, "div", "small", "Hooks, profiles and local models are kept in ~/.cedia/settings.json"));
+  }
+
+  /** What cedia's runs may do and which providers may see the code. */
+  private safety(p: HTMLElement): void {
+    const d = this.doc;
+    const s = this.cediaReady(p);
+    if (!s) return;
+    const set = (key: string, v: string) => this.wire.request(changeOf(key, v));
+    const privacy = [{ value: "", label: "No training (default)" }, { value: "zdr", label: "Zero data retention" }];
+    this.row(p, "Privacy", select(d, privacy, s.privacy === "zdr" ? "zdr" : "", (v) => set("privacy", v)), "Which providers may see your code; a repository may only tighten it");
+    p.append(el(d, "h3", "", "Sandbox"));
+    const modes = [{ value: "", label: "Auto (default): on where it can run" }, { value: "on", label: "On: refuse to run without it" }, { value: "off", label: "Off" }];
+    this.row(p, "Sandbox", select(d, modes, s.sandbox.mode && s.sandbox.mode !== "auto" ? s.sandbox.mode : "", (v) => set("sandbox.mode", v)), "The OS sandbox commands run in");
+    this.row(p, "Network allowed to", this.lines(s.sandbox.allowedDomains.join("\n"), "api.example.com\n*.example.org", "sandbox.allowedDomains"), `Always allowed: ${s.defaults.sandboxDomains.join(", ")}`);
+    p.append(el(d, "h3", "", "Rules"));
+    this.row(p, "Allow", this.lines(s.permissions.allow.join("\n"), "bash(git status*)", "permissions.allow"), "Calls cedia allows without asking, one rule a line");
+    this.row(p, "Deny", this.lines(s.permissions.deny.join("\n"), "bash(rm *)", "permissions.deny"), "Calls cedia always refuses; a repository can add to these");
+    const unlock = el(d, "div", "checks");
+    for (const g of s.choices.guards) {
+      const on = s.permissions.unlock.includes(g);
+      const label = el(d, "label", "tag");
+      label.append(
+        this.check(on, (v) => set("permissions.unlock", (v ? [...s.permissions.unlock, g] : s.permissions.unlock.filter((x) => x !== g)).join("\n"))),
+        el(d, "span", "m", g),
+      );
+      unlock.append(label);
+    }
+    const r = el(d, "div", "row");
+    r.append(el(d, "span", "label", "Unlocked guards"), unlock, el(d, "span", "small", "A guard blocks a risky kind of call even when a rule allows it; unlock only what you need"));
+    p.append(r);
   }
 
   private mcpSection(p: HTMLElement): void {

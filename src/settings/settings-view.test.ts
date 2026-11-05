@@ -1,12 +1,25 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import type { Notice, Request } from "../protocol/wire";
+import type { EditableSettings, Notice, Request } from "../protocol/wire";
 import { mcpAddRequest, SettingsView, splitCommand } from "./settings-view";
 
 function fake() {
   const sent: Request[] = [];
   let listener: (n: Notice) => void = () => {};
   return { sent, wire: { request: (r: Request) => sent.push(r), onAny: (l: (n: Notice) => void) => ((listener = l), () => {}) }, emit: (n: Notice) => listener(n) };
+}
+
+/** cedia's settings as `cedia settings get` prints them with nothing set, then `more`. */
+function editable(more: Partial<EditableSettings> = {}): EditableSettings {
+  return {
+    roles: {},
+    fallback: {},
+    sandbox: { allowedDomains: [] },
+    permissions: { allow: [], deny: [], unlock: [] },
+    choices: { outputStyles: ["default", "terse"], guards: ["force-push", "deploy"] },
+    defaults: { code: "opencode-go/claude-haiku-5-5", swarm: "opencode-go/beam", media: "anthropic/claude-haiku-5-5", fallback: { "opencode-go/claude-haiku-5-5": "anthropic/claude-haiku-5-5" }, planWhen: "auto", planOverlap: "on", onQuota: "fallback", privacy: "no-training", spawn: "on", handoff: "compact", lsp: "on", outputStyle: "default", sandboxMode: "auto", sandboxDomains: ["pypi.org"] },
+    ...more,
+  };
 }
 
 describe("settings window", () => {
@@ -110,8 +123,7 @@ describe("settings window", () => {
     view.show("models");
     const models = { default: "opencode-go/claude-haiku-5-5", models: [{ ref: "opencode-go/claude-haiku-5-5", label: "Haiku", provider: "opencode-go", available: true, contextWindow: 200000, effort: true }] };
     f.emit({ kind: "choices", models } as never);
-    const defaults = { code: "opencode-go/claude-haiku-5-5", swarm: "opencode-go/beam", media: "anthropic/claude-haiku-5-5", fallback: { "opencode-go/claude-haiku-5-5": "anthropic/claude-haiku-5-5" }, planWhen: "auto", planOverlap: "on", onQuota: "fallback" } as const;
-    f.emit({ kind: "cedia_settings", settings: { roles: { plan: "opus@high" }, fallback: {}, defaults } });
+    f.emit({ kind: "cedia_settings", settings: editable({ roles: { plan: "opus@high" } }) });
     const row = (label: string) => [...view.root.querySelectorAll("label")].find((l) => l.querySelector(".label")?.textContent === label)!;
     const plan = row("Plan").querySelector("input")!;
     expect(plan.value).toBe("opus@high");
@@ -132,7 +144,7 @@ describe("settings window", () => {
     overlap.checked = false;
     overlap.dispatchEvent(new Event("change"));
     expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "planOverlap", value: "off" });
-    f.emit({ kind: "cedia_settings", settings: { roles: {}, fallback: {}, defaults }, refused: 'roles.plan: unknown model "x"' });
+    f.emit({ kind: "cedia_settings", settings: editable(), refused: 'roles.plan: unknown model "x"' });
     expect(view.root.textContent).toContain('roles.plan: unknown model "x"');
   });
 
@@ -143,5 +155,38 @@ describe("settings window", () => {
     f.emit({ kind: "cedia_settings", refused: "this cedia does not edit its model settings yet" });
     expect(view.root.textContent).toContain("does not edit its model settings yet");
     expect(view.root.textContent).not.toContain("Roles");
+  });
+
+  it("edits cedia's agent and safety settings, a list one entry a line", () => {
+    const f = fake();
+    const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
+    view.show("agent");
+    f.emit({ kind: "cedia_settings", settings: editable({ lsp: "custom", jobs: "on", context: "I review in Thai" }) });
+    const row = (label: string) => [...view.root.querySelectorAll(".row")].find((l) => l.querySelector(".label")?.textContent === label)!;
+    expect(row("About you").querySelector("textarea")!.value).toBe("I review in Thai");
+    expect(row("Language servers").textContent).toContain("Custom servers");
+    const jobs = row("Background jobs").querySelector("input")!;
+    expect(jobs.checked).toBe(true);
+    jobs.checked = false;
+    jobs.dispatchEvent(new Event("change"));
+    // Off is the default, so turning it off unsets the key.
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "jobs" });
+    const spawn = row("Sub-threads").querySelector("select")!;
+    spawn.value = "worktree";
+    spawn.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "spawn", value: "worktree" });
+
+    view.show("safety");
+    const allow = row("Allow").querySelector("textarea")!;
+    allow.value = "bash(git status*)\nedit";
+    allow.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "permissions.allow", value: "bash(git status*)\nedit" });
+    expect(row("Network allowed to").textContent).toContain("Always allowed: pypi.org");
+    const deploy = [...row("Unlocked guards").querySelectorAll("label")].find((l) => l.textContent === "deploy")!.querySelector("input")!;
+    deploy.checked = true;
+    deploy.dispatchEvent(new Event("change"));
+    expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "permissions.unlock", value: "deploy" });
+    f.emit({ kind: "cedia_settings", settings: editable(), refused: 'permissions.deny: "rm -rf /" is not a rule' });
+    expect(view.root.textContent).toContain('"rm -rf /" is not a rule');
   });
 });

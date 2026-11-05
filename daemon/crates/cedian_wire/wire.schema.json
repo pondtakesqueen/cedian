@@ -900,8 +900,27 @@
       ]
     },
     "EditableSettings": {
-      "description": "`EditableSettings`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"defaults\", \"fallback\", \"roles\" ], \"properties\": { \"defaults\": { \"type\": \"object\", \"required\": [ \"code\", \"fallback\", \"media\", \"onQuota\", \"planOverlap\", \"planWhen\", \"swarm\" ], \"properties\": { \"code\": { \"type\": \"string\" }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\", \"const\": \"fallback\" }, \"planOverlap\": { \"type\": \"string\", \"const\": \"on\" }, \"planWhen\": { \"type\": \"string\", \"const\": \"auto\" }, \"swarm\": { \"type\": \"string\" } } }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"maxEffort\": { \"$ref\": \"#/definitions/Effort\" }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\" }, \"planOverlap\": { \"type\": \"string\" }, \"planWhen\": { \"type\": \"string\" }, \"roles\": { \"type\": \"object\", \"properties\": { \"advisor\": { \"type\": \"string\" }, \"classifier\": { \"type\": \"string\" }, \"code\": { \"type\": \"string\" }, \"complete\": { \"type\": \"string\" }, \"plan\": { \"type\": \"string\" }, \"review\": { \"type\": \"string\" }, \"swarm\": { \"type\": \"string\" }, \"triage\": { \"type\": \"string\" }, \"workers\": { \"type\": \"string\" } } }, \"subthreadEffort\": { \"$ref\": \"#/definitions/Effort\" } } } ``` </details>",
+      "description": "`EditableSettings`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"choices\", \"defaults\", \"fallback\", \"permissions\", \"roles\", \"sandbox\" ], \"properties\": { \"choices\": { \"type\": \"object\", \"required\": [ \"guards\", \"outputStyles\" ], \"properties\": { \"guards\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Guard\" } }, \"outputStyles\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } }, \"consolidateMemory\": { \"type\": \"string\", \"enum\": [ \"on\", \"off\" ] }, \"context\": { \"type\": \"string\" }, \"defaults\": { \"type\": \"object\", \"required\": [ \"code\", \"fallback\", \"handoff\", \"lsp\", \"media\", \"onQuota\", \"outputStyle\", \"planOverlap\", \"planWhen\", \"privacy\", \"sandboxDomains\", \"sandboxMode\", \"spawn\", \"swarm\" ], \"properties\": { \"code\": { \"type\": \"string\" }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"handoff\": { \"type\": \"string\", \"const\": \"compact\" }, \"lsp\": { \"type\": \"string\", \"const\": \"on\" }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\", \"const\": \"fallback\" }, \"outputStyle\": { \"type\": \"string\", \"const\": \"default\" }, \"planOverlap\": { \"type\": \"string\", \"const\": \"on\" }, \"planWhen\": { \"type\": \"string\", \"const\": \"auto\" }, \"privacy\": { \"type\": \"string\", \"const\": \"no-training\" }, \"sandboxDomains\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"sandboxMode\": { \"type\": \"string\", \"const\": \"auto\" }, \"spawn\": { \"type\": \"string\", \"const\": \"on\" }, \"swarm\": { \"type\": \"string\" } } }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"handoff\": { \"type\": \"string\", \"enum\": [ \"note\", \"compact\" ] }, \"handoffAt\": { \"type\": \"string\" }, \"jobs\": { \"type\": \"string\", \"enum\": [ \"on\", \"off\" ] }, \"lsp\": { \"type\": \"string\", \"enum\": [ \"on\", \"off\", \"custom\" ] }, \"maxEffort\": { \"$ref\": \"#/definitions/Effort\" }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\" }, \"outputStyle\": { \"type\": \"string\" }, \"permissions\": { \"type\": \"object\", \"required\": [ \"allow\", \"deny\", \"unlock\" ], \"properties\": { \"allow\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"deny\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"unlock\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Guard\" } } } }, \"planOverlap\": { \"type\": \"string\" }, \"planWhen\": { \"type\": \"string\" }, \"privacy\": { \"$ref\": \"#/definitions/PrivacyLevel\" }, \"promptSuggestions\": { \"type\": \"string\", \"enum\": [ \"on\", \"off\" ] }, \"roles\": { \"type\": \"object\", \"properties\": { \"advisor\": { \"type\": \"string\" }, \"classifier\": { \"type\": \"string\" }, \"code\": { \"type\": \"string\" }, \"complete\": { \"type\": \"string\" }, \"plan\": { \"type\": \"string\" }, \"review\": { \"type\": \"string\" }, \"swarm\": { \"type\": \"string\" }, \"triage\": { \"type\": \"string\" }, \"workers\": { \"type\": \"string\" } } }, \"sandbox\": { \"type\": \"object\", \"required\": [ \"allowedDomains\" ], \"properties\": { \"allowedDomains\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"mode\": { \"$ref\": \"#/definitions/SandboxSetting\" } } }, \"spawn\": { \"type\": \"string\", \"enum\": [ \"on\", \"off\", \"worktree\" ] }, \"subthreadEffort\": { \"$ref\": \"#/definitions/Effort\" } } } ``` </details>",
       "properties": {
+        "choices": {
+          "$ref": "#/definitions/EditableSettingsChoices"
+        },
+        "consolidateMemory": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EditableSettingsConsolidateMemory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "defaults": {
           "$ref": "#/definitions/EditableSettingsDefaults"
         },
@@ -910,6 +929,42 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "handoff": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EditableSettingsHandoff"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "handoffAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "jobs": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EditableSettingsJobs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lsp": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EditableSettingsLsp"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "maxEffort": {
           "anyOf": [
@@ -933,6 +988,15 @@
             "null"
           ]
         },
+        "outputStyle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permissions": {
+          "$ref": "#/definitions/EditableSettingsPermissions"
+        },
         "planOverlap": {
           "type": [
             "string",
@@ -945,8 +1009,41 @@
             "null"
           ]
         },
+        "privacy": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrivacyLevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "promptSuggestions": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EditableSettingsPromptSuggestions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "roles": {
           "$ref": "#/definitions/EditableSettingsRoles"
+        },
+        "sandbox": {
+          "$ref": "#/definitions/EditableSettingsSandbox"
+        },
+        "spawn": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EditableSettingsSpawn"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "subthreadEffort": {
           "anyOf": [
@@ -960,14 +1057,47 @@
         }
       },
       "required": [
+        "choices",
         "defaults",
         "fallback",
-        "roles"
+        "permissions",
+        "roles",
+        "sandbox"
       ],
       "type": "object"
     },
+    "EditableSettingsChoices": {
+      "description": "`EditableSettingsChoices`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"guards\", \"outputStyles\" ], \"properties\": { \"guards\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Guard\" } }, \"outputStyles\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } } } } ``` </details>",
+      "properties": {
+        "guards": {
+          "items": {
+            "$ref": "#/definitions/Guard"
+          },
+          "type": "array"
+        },
+        "outputStyles": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "guards",
+        "outputStyles"
+      ],
+      "type": "object"
+    },
+    "EditableSettingsConsolidateMemory": {
+      "description": "`EditableSettingsConsolidateMemory`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"on\", \"off\" ] } ``` </details>",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "type": "string"
+    },
     "EditableSettingsDefaults": {
-      "description": "`EditableSettingsDefaults`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"code\", \"fallback\", \"media\", \"onQuota\", \"planOverlap\", \"planWhen\", \"swarm\" ], \"properties\": { \"code\": { \"type\": \"string\" }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\", \"const\": \"fallback\" }, \"planOverlap\": { \"type\": \"string\", \"const\": \"on\" }, \"planWhen\": { \"type\": \"string\", \"const\": \"auto\" }, \"swarm\": { \"type\": \"string\" } } } ``` </details>",
+      "description": "`EditableSettingsDefaults`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"code\", \"fallback\", \"handoff\", \"lsp\", \"media\", \"onQuota\", \"outputStyle\", \"planOverlap\", \"planWhen\", \"privacy\", \"sandboxDomains\", \"sandboxMode\", \"spawn\", \"swarm\" ], \"properties\": { \"code\": { \"type\": \"string\" }, \"fallback\": { \"type\": \"object\", \"additionalProperties\": { \"type\": \"string\" } }, \"handoff\": { \"type\": \"string\", \"const\": \"compact\" }, \"lsp\": { \"type\": \"string\", \"const\": \"on\" }, \"media\": { \"type\": \"string\" }, \"onQuota\": { \"type\": \"string\", \"const\": \"fallback\" }, \"outputStyle\": { \"type\": \"string\", \"const\": \"default\" }, \"planOverlap\": { \"type\": \"string\", \"const\": \"on\" }, \"planWhen\": { \"type\": \"string\", \"const\": \"auto\" }, \"privacy\": { \"type\": \"string\", \"const\": \"no-training\" }, \"sandboxDomains\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"sandboxMode\": { \"type\": \"string\", \"const\": \"auto\" }, \"spawn\": { \"type\": \"string\", \"const\": \"on\" }, \"swarm\": { \"type\": \"string\" } } } ``` </details>",
       "properties": {
         "code": {
           "type": "string"
@@ -978,16 +1108,40 @@
           },
           "type": "object"
         },
+        "handoff": {
+          "type": "string"
+        },
+        "lsp": {
+          "type": "string"
+        },
         "media": {
           "type": "string"
         },
         "onQuota": {
           "type": "string"
         },
+        "outputStyle": {
+          "type": "string"
+        },
         "planOverlap": {
           "type": "string"
         },
         "planWhen": {
+          "type": "string"
+        },
+        "privacy": {
+          "type": "string"
+        },
+        "sandboxDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sandboxMode": {
+          "type": "string"
+        },
+        "spawn": {
           "type": "string"
         },
         "swarm": {
@@ -997,13 +1151,82 @@
       "required": [
         "code",
         "fallback",
+        "handoff",
+        "lsp",
         "media",
         "onQuota",
+        "outputStyle",
         "planOverlap",
         "planWhen",
+        "privacy",
+        "sandboxDomains",
+        "sandboxMode",
+        "spawn",
         "swarm"
       ],
       "type": "object"
+    },
+    "EditableSettingsHandoff": {
+      "description": "`EditableSettingsHandoff`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"note\", \"compact\" ] } ``` </details>",
+      "enum": [
+        "note",
+        "compact"
+      ],
+      "type": "string"
+    },
+    "EditableSettingsJobs": {
+      "description": "`EditableSettingsJobs`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"on\", \"off\" ] } ``` </details>",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "type": "string"
+    },
+    "EditableSettingsLsp": {
+      "description": "`EditableSettingsLsp`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"on\", \"off\", \"custom\" ] } ``` </details>",
+      "enum": [
+        "on",
+        "off",
+        "custom"
+      ],
+      "type": "string"
+    },
+    "EditableSettingsPermissions": {
+      "description": "`EditableSettingsPermissions`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"allow\", \"deny\", \"unlock\" ], \"properties\": { \"allow\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"deny\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"unlock\": { \"type\": \"array\", \"items\": { \"$ref\": \"#/definitions/Guard\" } } } } ``` </details>",
+      "properties": {
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unlock": {
+          "items": {
+            "$ref": "#/definitions/Guard"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allow",
+        "deny",
+        "unlock"
+      ],
+      "type": "object"
+    },
+    "EditableSettingsPromptSuggestions": {
+      "description": "`EditableSettingsPromptSuggestions`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"on\", \"off\" ] } ``` </details>",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "type": "string"
     },
     "EditableSettingsRoles": {
       "description": "`EditableSettingsRoles`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"properties\": { \"advisor\": { \"type\": \"string\" }, \"classifier\": { \"type\": \"string\" }, \"code\": { \"type\": \"string\" }, \"complete\": { \"type\": \"string\" }, \"plan\": { \"type\": \"string\" }, \"review\": { \"type\": \"string\" }, \"swarm\": { \"type\": \"string\" }, \"triage\": { \"type\": \"string\" }, \"workers\": { \"type\": \"string\" } } } ``` </details>",
@@ -1064,6 +1287,40 @@
         }
       },
       "type": "object"
+    },
+    "EditableSettingsSandbox": {
+      "description": "`EditableSettingsSandbox`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"allowedDomains\" ], \"properties\": { \"allowedDomains\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } }, \"mode\": { \"$ref\": \"#/definitions/SandboxSetting\" } } } ``` </details>",
+      "properties": {
+        "allowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SandboxSetting"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "allowedDomains"
+      ],
+      "type": "object"
+    },
+    "EditableSettingsSpawn": {
+      "description": "`EditableSettingsSpawn`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"on\", \"off\", \"worktree\" ] } ``` </details>",
+      "enum": [
+        "on",
+        "off",
+        "worktree"
+      ],
+      "type": "string"
     },
     "EffectStatus": {
       "description": "`EffectStatus`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"completed\", \"failed\", \"denied\", \"not_started\", \"interrupted_safe\", \"interrupted_unknown\" ] } ``` </details>",
@@ -1254,6 +1511,23 @@
         "unpushed"
       ],
       "type": "object"
+    },
+    "Guard": {
+      "description": "`Guard`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"force-push\", \"reset-hard\", \"clean-force\", \"drop-refs\", \"rm-outside\", \"deploy\", \"git-config\", \"hook-bypass\", \"secret-path\", \"secret-redaction\", \"slop-check\" ] } ``` </details>",
+      "enum": [
+        "force-push",
+        "reset-hard",
+        "clean-force",
+        "drop-refs",
+        "rm-outside",
+        "deploy",
+        "git-config",
+        "hook-bypass",
+        "secret-path",
+        "secret-redaction",
+        "slop-check"
+      ],
+      "type": "string"
     },
     "Helpers": {
       "additionalProperties": false,
@@ -4338,6 +4612,14 @@
       ],
       "type": "string"
     },
+    "PrivacyLevel": {
+      "description": "`PrivacyLevel`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"no-training\", \"zdr\" ] } ``` </details>",
+      "enum": [
+        "no-training",
+        "zdr"
+      ],
+      "type": "string"
+    },
     "Rating": {
       "description": "`Rating`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"up\", \"down\" ] } ``` </details>",
       "enum": [
@@ -6250,6 +6532,15 @@
         "prompt"
       ],
       "type": "object"
+    },
+    "SandboxSetting": {
+      "description": "`SandboxSetting`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"auto\", \"on\", \"off\" ] } ``` </details>",
+      "enum": [
+        "auto",
+        "on",
+        "off"
+      ],
+      "type": "string"
     },
     "Schedule": {
       "description": "`Schedule`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"object\", \"required\": [ \"createdAt\", \"enabled\", \"id\", \"prompt\", \"thread\" ], \"properties\": { \"by\": { \"type\": \"string\" }, \"createdAt\": { \"type\": \"string\" }, \"enabled\": { \"type\": \"boolean\" }, \"every\": { \"type\": \"number\" }, \"id\": { \"type\": \"string\" }, \"last\": { \"type\": \"string\" }, \"next\": { \"type\": \"string\" }, \"prompt\": { \"type\": \"string\" }, \"thread\": { \"type\": \"string\" } } } ``` </details>",
