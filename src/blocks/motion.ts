@@ -4,9 +4,11 @@
  * its end, and a block is drawn sliding or uncovered toward it, so nothing is laid out while it
  * moves. What opens or arrives takes OPEN_MS, coming at once and landing softly (cubic ease-out);
  * what closes or leaves takes CLOSE_MS on the same curve played backwards (cubic ease-in), so a
- * close reads as its open reversed. The side blocks (blockStretch.ts), the editor's blocks
- * (blockMove.ts), its tabs (tabMove.ts), the tool strip (toolStrip.ts) and the floating blocks
- * (layer.ts) take it from here, and the CSS from MOTION_PROPERTIES.
+ * close reads as its open reversed. The window's blocks dividing their room (the side blocks,
+ * blockStretch.ts; the editor's blocks, blockMove.ts) are the exception: opening and closing both
+ * take STRETCHING, one motion seen both ways (owner, 2026-11-05, stretch.ts). Its tabs
+ * (tabMove.ts), the tool strip (toolStrip.ts) and the floating blocks (layer.ts) take it from
+ * here too, and the CSS from MOTION_PROPERTIES.
  */
 export const OPEN_MS = 180;
 export const CLOSE_MS = 140;
@@ -20,6 +22,9 @@ export const EASE_CLOSE = "cubic-bezier(.32, 0, .67, 0)";
 /** Opening's or closing's timing, for an element's `animate`. */
 export const opening: KeyframeAnimationOptions = { duration: OPEN_MS, easing: EASE_OPEN };
 export const closing: KeyframeAnimationOptions = { duration: CLOSE_MS, easing: EASE_CLOSE };
+
+/** Blocks dividing the window's room, opening and closing alike: the opening timing both ways. */
+export const stretching: KeyframeAnimationOptions = opening;
 
 /** A press on a button: a short dip, the only scale anywhere (uiarc.dev's press feedback). */
 export const PRESS_MS = 90;
