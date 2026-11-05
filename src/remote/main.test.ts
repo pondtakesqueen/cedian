@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyBytes, pickProject, pickThread, PUSH_TEXT, pushState, socketUrl, SocketTransport, webHost } from "./main.js";
+import { keyBytes, pageStyle, pickProject, pickThread, PUSH_TEXT, pushState, socketUrl, SocketTransport, webHost } from "./main.js";
 
 class FakeSocket {
   sent: string[] = [];
@@ -97,5 +97,12 @@ describe("remote control page", () => {
     expect(pickThread("?cwd=%2Frepo&thread=t-1")).toBe("t-1");
     expect(pickThread("?cwd=%2Frepo")).toBeUndefined();
     expect(pickThread("?thread=")).toBeUndefined();
+  });
+
+  it("sets the page in the bundled Geist faces, as the desktop's pane", () => {
+    const css = pageStyle(true);
+    expect(css).toMatch(/--cedian-font-ui: 'Geist', /);
+    expect(css).toMatch(/--cedian-font-code: 'Geist Mono', /);
+    expect(css).toContain("--cedian-app:");
   });
 });

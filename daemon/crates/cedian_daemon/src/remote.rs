@@ -358,6 +358,8 @@ fn content_type(path: &Path) -> &'static str {
         Some("svg") => "image/svg+xml",
         Some("png") => "image/png",
         Some("woff2") => "font/woff2",
+        Some("ttf") => "font/ttf",
+        Some("txt") => "text/plain; charset=utf-8",
         Some("json") => "application/json",
         Some("webmanifest") => "application/manifest+json",
         _ => "application/octet-stream",
@@ -573,6 +575,12 @@ mod tests {
 
     fn head(text: &str) -> Head {
         parse_head(text).expect("head")
+    }
+
+    #[test]
+    fn serves_the_bundled_faces_as_fonts() {
+        assert_eq!(content_type(Path::new("fonts/Geist.ttf")), "font/ttf");
+        assert_eq!(content_type(Path::new("css/remote.css")), "text/css; charset=utf-8");
     }
 
     #[test]

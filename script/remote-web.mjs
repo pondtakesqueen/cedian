@@ -28,6 +28,9 @@ rmSync(config);
 const media = join(root, "vscode/contrib/cedian/browser/media");
 for (const css of ["agentPane.css", "threadList.css"]) copyFileSync(join(media, css), join(out, "css", css));
 copyFileSync(join(root, "src/remote/web/remote.css"), join(out, "css/remote.css"));
+// The faces remote.css loads, as the desktop bundles them (SIL OFL 1.1, the licence beside them).
+mkdirSync(join(out, "fonts"), { recursive: true });
+for (const font of ["Geist.ttf", "Geist-Italic.ttf", "GeistMono.ttf", "GeistMono-Italic.ttf", "OFL.txt"]) copyFileSync(join(media, "fonts", font), join(out, "fonts", font));
 for (const file of ["index.html", "sw.js", "manifest.webmanifest"]) copyFileSync(join(root, "src/remote/web", file), join(out, file));
 copyFileSync(join(root, "brand/app-icon/macos-1024.png"), join(out, "icon.png"));
 console.log(`remote web build in ${out}`);

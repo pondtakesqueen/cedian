@@ -5,6 +5,7 @@
 import { AgentPane, type PaneHost } from "../agent-pane/pane.js";
 import { DaemonClient, type ConnectionState, type Transport } from "../daemon-client/client.js";
 import { ThreadShare } from "../daemon-client/thread-share.js";
+import { paneTypography } from "../settings/desktop.js";
 import { cssText } from "../theme/theme.js";
 
 /** Lines over a WebSocket, reconnecting after a drop: a second, then up to 30 seconds apart. */
@@ -203,13 +204,21 @@ export function pickThread(search: string): string | undefined {
   return new URLSearchParams(search).get("thread") || undefined;
 }
 
+/** The page's tokens: the theme's colors and the pane's type at `desktop`'s defaults (the page has
+ * no `desktop` to read), so the agent pane and its code read in Geist and Geist Mono as on the
+ * desktop, from the faces remote.css bundles. */
+export function pageStyle(dark: boolean): string {
+  const type = Object.entries(paneTypography({})).map(([k, v]) => `  ${k}: ${v};`);
+  return `${cssText(dark ? "dark" : "light")}:root {\n${type.join("\n")}\n}\n`;
+}
+
 const REMEMBER = "cedian.remote.cwd";
 
 async function main(): Promise<void> {
   const doc = document;
   const dark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
   const theme = doc.createElement("style");
-  theme.textContent = cssText(dark ? "dark" : "light");
+  theme.textContent = pageStyle(dark);
   doc.head.append(theme);
   const config = (await (await fetch("/config.json", { credentials: "same-origin" })).json()) as { projects?: string[]; push_key?: string };
   const projects = config.projects ?? [];

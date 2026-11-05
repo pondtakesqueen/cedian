@@ -1,4 +1,10 @@
-/* The page around the agent pane in a phone's browser (spec §6.5). */
+/* The page around the agent pane in a phone's browser (spec §6.5). Cedian's faces, copied from the
+   desktop's media/fonts by script/remote-web.mjs (SIL OFL 1.1, NOTICE); main.ts names them in
+   `--cedian-font-ui` and `--cedian-font-code`, as the desktop does. */
+@font-face { font-family: 'Geist'; src: url('../fonts/Geist.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('../fonts/Geist-Italic.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('../fonts/GeistMono.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('../fonts/GeistMono-Italic.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
 html, body { margin: 0; height: 100%; background: var(--cedian-app); color: var(--cedian-text); font-family: var(--cedian-font-ui, -apple-system, system-ui, sans-serif); }
 #app { display: flex; flex-direction: column; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; }
 #app > .cedian-agent-pane { flex: 1; min-height: 0; }
