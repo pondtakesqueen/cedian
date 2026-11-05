@@ -32,6 +32,7 @@ import { devServers, LAUNCH_FILES, type DevServer } from './browser-panel/launch
 import { BrowserPanel } from './browser-panel/panel.js';
 import type { Socket } from './browser-panel/cdp.js';
 import { ICedianDaemonService } from './daemonService.js';
+import type { AgentPane } from './agent-pane/pane.js';
 import { CedianPanes, connectionBar } from './panes.js';
 
 /** The Browser block as an editor: one per window, so it splits, drags and pops out like any editor. */
@@ -152,12 +153,17 @@ export function createBrowserPanel(services: BrowserServices, folder: URI, float
 	});
 }
 
-/** Into the agent pane's composer, showing the pane first. */
+/** The agent pane on screen that had focus last: an Agent tab behind another one is out of the page. */
+function shownPane(): AgentPane | undefined {
+	return [...CedianPanes.all].reverse().find(pane => pane.root.isConnected && pane.root.offsetParent !== null);
+}
+
+/** Into the composer of the agent pane the person can see, showing the side pane when none is. */
 export async function attach(services: BrowserServices, text: string, png: Uint8Array | undefined, name: string | undefined): Promise<void> {
-	if (!CedianPanes.current) {
+	if (!shownPane()) {
 		await services.viewsService.openView(AGENT_PANE_VIEW_ID, true);
 	}
-	const pane = CedianPanes.current;
+	const pane = shownPane() ?? CedianPanes.current;
 	if (!pane) {
 		throw new Error('the agent pane did not open');
 	}
