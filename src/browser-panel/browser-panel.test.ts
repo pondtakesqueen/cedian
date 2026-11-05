@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { devServers } from "./launch.js";
-import { imageName, keyParams, loadError, modifiersOf, type PickedElement } from "./session.js";
+import { imageName, keyParams, loadError, modifiersOf, PageSession, type PickedElement } from "./session.js";
 import { addressOf, allowSite, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
 
 describe("the site allowlist (spec §6.3)", () => {
@@ -95,5 +95,35 @@ describe("the picked element's picture", () => {
     expect(imageName(picked("body > div.card.wide:nth-of-type(2)"))).toBe("div.card.wide.png");
     expect(imageName(picked("div#a\\:b"))).toBe("div#a-b.png");
     expect(imageName(picked("", "span"))).toBe("span.png");
+  });
+});
+
+describe("resizing the page", () => {
+  test("a drag's many sizes reach Chromium as the first and the latest, one at a time", async () => {
+    const calls: string[] = [];
+    const waiting: (() => void)[] = [];
+    const cdp = {
+      on: () => () => {},
+      onClose: () => () => {},
+      call: (method: string, params?: { width?: number }) => {
+        calls.push(params?.width ? `${method} ${params.width}` : method);
+        return new Promise<unknown>((done) => waiting.push(() => done({})));
+      },
+    };
+    const session = new PageSession(cdp as unknown as ConstructorParameters<typeof PageSession>[0]);
+    const done = [400, 410, 420, 430, 440].map((w) => session.resize(w, 300, 2));
+    const settle = async () => {
+      for (let i = 0; i < 20 && waiting.length; i++) {
+        waiting.shift()!();
+        await Promise.resolve();
+        await Promise.resolve();
+      }
+    };
+    await settle();
+    await Promise.all(done);
+    expect(calls.filter((c) => c.startsWith("Emulation.setDeviceMetricsOverride"))).toEqual(["Emulation.setDeviceMetricsOverride 400", "Emulation.setDeviceMetricsOverride 440"]);
+    expect(calls.filter((c) => c === "Page.startScreencast")).toHaveLength(2);
+    await session.resize(440, 300, 2);
+    expect(calls.filter((c) => c.startsWith("Emulation"))).toHaveLength(2);
   });
 });

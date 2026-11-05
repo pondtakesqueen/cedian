@@ -93,17 +93,19 @@ export interface ToolPick {
   /** Under which heading of the picker, as in the prototype's menu. */
   group: "tools" | "project";
   open: ToolOpen;
+  /** Its icon in the tool strip under "+ Tool": a VS Code codicon's id. */
+  icon: string;
 }
 
 /** The title bar's "+ Tool" menu: the tools, the Browser, then the project's own blocks. */
 export const TOOL_PICKS: readonly ToolPick[] = [
-  { label: "Files", group: "tools", open: { container: "workbench.view.explorer" } },
-  { label: "Search", group: "tools", open: { container: "workbench.view.search" } },
-  { label: "Git", group: "tools", open: { container: "workbench.view.scm" } },
-  { label: "Terminal", group: "tools", open: { container: "terminal" } },
-  { label: "Browser", group: "tools", open: { command: "cedian.openBrowser" } },
-  { label: "Run and Debug", group: "tools", open: { container: "workbench.view.debug" } },
-  { label: "Extensions", group: "tools", open: { container: "workbench.view.extensions" } },
-  { label: "Agent", group: "project", open: { container: AGENT_CONTAINER } },
-  { label: "Threads", group: "project", open: { container: THREADS_CONTAINER } },
+  { label: "Files", group: "tools", open: { container: "workbench.view.explorer" }, icon: "files" },
+  { label: "Search", group: "tools", open: { container: "workbench.view.search" }, icon: "search" },
+  { label: "Git", group: "tools", open: { container: "workbench.view.scm" }, icon: "source-control" },
+  { label: "Terminal", group: "tools", open: { container: "terminal" }, icon: "terminal" },
+  { label: "Browser", group: "tools", open: { command: "cedian.openBrowser" }, icon: "globe" },
+  { label: "Run and Debug", group: "tools", open: { container: "workbench.view.debug" }, icon: "debug-alt" },
+  { label: "Extensions", group: "tools", open: { container: "workbench.view.extensions" }, icon: "extensions" },
+  { label: "Agent", group: "project", open: { container: AGENT_CONTAINER }, icon: "sparkle" },
+  { label: "Threads", group: "project", open: { container: THREADS_CONTAINER }, icon: "list-unordered" },
 ];

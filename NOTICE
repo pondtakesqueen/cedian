@@ -8,8 +8,9 @@ Cedian uses third-party work under its own licenses.
   its own licenses, fetched by script/fetch-chromium; its notices travel
   with it.
 - cedia agent: pinned per script/pin-cedia; see its own checkout for terms.
-- Fonts: none bundled. The code font setting names Lilex (SIL OFL 1.1),
-  used only when installed on the machine.
+- Fonts: Geist and Geist Mono 1.9.0 (vercel/geist-font), SIL OFL 1.1,
+  bundled unmodified as variable fonts in
+  vscode/contrib/cedian/browser/media/fonts/ with their license (OFL.txt).
 
 Visual Studio Code license:
 

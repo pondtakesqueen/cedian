@@ -11,9 +11,10 @@
 // 25 ms (a dropped frame at 60 Hz), and such a notice paints within two frames. Prints JSON.
 // Usage: node test/smoke/scroll.mjs [--blocks 10000] [--frames 600]
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+const chromiumBin = process.env.CEDIAN_CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -148,7 +149,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     return i >= 0 ? Number(args[i + 1]) : fallback;
   };
   const { chromium } = await import("playwright-core").catch(() => import("playwright"));
-  const browser = await chromium.launch(process.env.CEDIAN_CHROMIUM ? { executablePath: process.env.CEDIAN_CHROMIUM } : {});
+  const browser = await chromium.launch(chromiumBin ? { executablePath: chromiumBin } : {});
   try {
     const page = await browser.newPage({ viewport: { width: 520, height: 900 } });
     const css = readFileSync(join(root, "vscode/contrib/cedian/browser/media/agentPane.css"), "utf8");

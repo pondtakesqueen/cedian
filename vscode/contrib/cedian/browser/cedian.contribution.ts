@@ -36,8 +36,11 @@ import { CedianBrowserEditor, CedianBrowserInput, CedianBrowserInputSerializer, 
 import { AgentPaneView, AGENT_PANE_CONTAINER_ID, AGENT_PANE_VIEW_ID } from './agentPaneView.js';
 import { CedianBlockLayer } from './blockLayer.js';
 import { CedianWindowPlaces } from './windowPlaces.js';
-import { CedianBlockExit } from './blockExit.js';
 import { CedianBlockMove } from './blockMove.js';
+import { MOTION_PROPERTIES } from './blocks/motion.js';
+import { CedianTabMove } from './tabMove.js';
+import { CedianToolStrip, openTool } from './toolStrip.js';
+import { CedianDropTarget } from './dropTarget.js';
 import { CedianBlockStretch } from './blockStretch.js';
 import { CedianProjectTabs } from './projectTabs.js';
 import { TOOL_PICKS } from './blocks/places.js';
@@ -175,9 +178,11 @@ registerAction2(class extends Action2 {
 
 registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianWindowPlaces.ID, CedianWindowPlaces, WorkbenchPhase.AfterRestored);
-registerWorkbenchContribution2(CedianBlockExit.ID, CedianBlockExit, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianBlockStretch.ID, CedianBlockStretch, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianBlockMove.ID, CedianBlockMove, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianTabMove.ID, CedianTabMove, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianToolStrip.ID, CedianToolStrip, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianDropTarget.ID, CedianDropTarget, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianProjectTabs.ID, CedianProjectTabs, WorkbenchPhase.AfterRestored);
 
 registerAction2(class extends Action2 {
@@ -373,19 +378,15 @@ registerAction2(class extends Action2 {
 		}
 		const picked = await quick.pick(items, { placeHolder: localize('cedian.addTool.pick', "Open a tool") });
 		const tool = picked?.id === undefined ? undefined : TOOL_PICKS[Number(picked.id)];
-		if (!tool) {
-			return;
-		}
-		if ('container' in tool.open) {
-			await views.openViewContainer(tool.open.container, true);
-		} else {
-			await commands.executeCommand(tool.open.command);
+		if (tool) {
+			await openTool(tool, views, commands);
 		}
 	}
 });
 
 // The prototype's "+ Tool" chip: text, not an icon, so the menu item names it apart from the
-// command's palette title.
+// command's palette title. Resting on it or clicking it opens the tool strip (toolStrip.ts); the
+// palette's "Open a Tool" keeps the picker.
 MenuRegistry.appendMenuItem(MenuId.TitleBar, { command: { id: 'cedian.addTool', title: localize('cedian.addTool.chip', "+ Tool") }, group: 'navigation', order: 1 });
 
 registerAction2(class extends Action2 {
@@ -606,7 +607,7 @@ class CedianDesktopContribution extends Disposable implements IWorkbenchContribu
 	private paint(): void {
 		const type = this.themeService.getColorTheme().type;
 		const appearance = type === ColorScheme.LIGHT || type === ColorScheme.HIGH_CONTRAST_LIGHT ? 'light' : 'dark';
-		const typography = Object.entries(paneTypography(this.desktop)).map(([k, v]) => `  ${k}: ${v};`).join('\n');
+		const typography = Object.entries({ ...paneTypography(this.desktop), ...MOTION_PROPERTIES }).map(([k, v]) => `  ${k}: ${v};`).join('\n');
 		this.style.textContent = `${cssText(appearance, '.monaco-workbench')}.monaco-workbench {\n${typography}\n}\n`;
 		const icon = appIconOf(this.desktop, appearance);
 		if (icon !== this.appIcon) {

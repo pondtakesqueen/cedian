@@ -3,8 +3,11 @@
    is a card with a header to drag it by. Moves glide unless Reduce Motion is on (spec §9 a11y). */
 .cedian-block-frame { position: relative; }
 .cedian-blocks { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; }
-.cedian-pip { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; pointer-events: auto; border-radius: 12px; overflow: hidden; background: var(--cedian-app); box-shadow: 0 0 0 1px var(--cedian-line-strong), 0 12px 32px rgba(0, 0, 0, .28); transition: transform .22s cubic-bezier(.2, .8, .2, 1), width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); }
-.cedian-pip.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 1px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }
+.cedian-pip { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; pointer-events: auto; border-radius: 12px; overflow: hidden; background: var(--cedian-app); box-shadow: 0 0 0 1px var(--cedian-line-strong), 0 12px 32px rgba(0, 0, 0, .28); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); }
+/* Only while the window moves: VS Code takes monaco-enable-motion off for the OS's reduced motion and
+   for workbench.reduceMotion alike, as every other block's motion is gated (motion.ts moving()). */
+.monaco-workbench.monaco-enable-motion .cedian-pip { transition: transform var(--cedian-motion-open, 180ms) var(--cedian-ease-open, ease-out), width var(--cedian-motion-open, 180ms) var(--cedian-ease-open, ease-out), height var(--cedian-motion-open, 180ms) var(--cedian-ease-open, ease-out); }
+.monaco-workbench .cedian-pip.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 1px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }
 .cedian-pip [hidden] { display: none !important; }
 .cedian-pip .pip-head { flex: none; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 12px; background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); cursor: grab; user-select: none; touch-action: none; }
 .cedian-pip .pip-head:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
@@ -38,7 +41,7 @@
 .cedian-pip[data-corner="br"] .g-xy, .cedian-pip[data-corner="tl"] .g-xy { cursor: nwse-resize; }
 .cedian-pip[data-corner="bl"] .g-xy, .cedian-pip[data-corner="tr"] .g-xy { cursor: nesw-resize; }
 .cedian-pip.zoomed .pip-grip, .cedian-pip.stashed .pip-grip { display: none; }
-.cedian-pip.resizing { transition: none; }
+.monaco-workbench .cedian-pip.resizing { transition: none; }
 .cedian-pip.resizing .pip-body { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }
 /* Fanned (Tern's deck of PiPs): every block a card across the middle over a dimmed frame; a click

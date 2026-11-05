@@ -204,8 +204,8 @@ The tokens ship as two Zed theme files, "cedian Dark" and "cedian Light", so the
 
 The owner first asked for type in the manner of the Claude desktop app (a sans interface, serif answers, 2026-10-22), then for a more professional look like the other tools (2026-10-23): Cursor, Codex and Zed set the whole app, answers included, in the system's sans at a tighter scale, so cedian does too. Thai stays in the system's Thai face (owner, 2026-10-22):
 
-- Interface and agent answers: the system face (`.SystemUIFont`, SF Pro on macOS), with the bundled **Inter** (OFL) where there is no such face (Linux); Thai in the system's Thai face (Thonburi on macOS, through Core Text's fallback for the script).
-- Code, tool output and terminal: **Lilex** (Zed's); Thai in the same system face.
+- Interface and agent answers: the bundled **Geist** 1.9.0 (OFL, variable; owner's pick, 2026-11-04), VS Code's own interface included; Thai in the system's Thai face (Sukhumvit Set, then Thonburi on macOS), as Geist has none.
+- Code, tool output and terminal: the bundled **Geist Mono** 1.9.0 (OFL, variable; owner's pick, 2026-11-04); Thai in the same system face. `desktop.font.ui` and `desktop.font.code` still name any other face.
 - Linux has no fixed Thai face, so there the window keeps the bundled Noto Sans Thai as the fallback; macOS needs none in the bundle. The serif faces (Source Serif 4, Noto Serif Thai) left the bundle with the serif.
 - `ui_font_size` defaults to 14 and `code_font_size` to 13, as in Cursor; Settings still goes from the range's smallest to its largest.
 

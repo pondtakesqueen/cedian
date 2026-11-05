@@ -12,7 +12,6 @@ license-file = "LICENSE"
 [workspace.dependencies]
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
-futures = "0.3"
 libc = "0.2"
 log = "0.4"
 schemars = "0.8"
@@ -27,7 +26,7 @@ codegen-units = 16
 [profile.dev.build-override]
 codegen-units = 16
 
-# What ships (script/bundle-mac): thin LTO over one codegen unit for the smallest,
+# What ships (script/vscode/build-mac): thin LTO over one codegen unit for the smallest,
 # fastest binary, and limited debug info, which on macOS goes to a dSYM beside the
 # build and is stripped from what ships. "packed" has rustc run dsymutil at link
 # time, while thin LTO's object files still exist; Cargo's macOS default leaves them

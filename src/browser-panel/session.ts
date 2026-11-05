@@ -153,6 +153,9 @@ export class PageSession {
   readonly console: ConsoleLine[] = [];
   private mainFrame = "";
   private size = { width: 0, height: 0, scale: 1 };
+  /** The size asked for while a resize is on its way, and that resize: a drag asks every frame. */
+  private wanted: { width: number; height: number; scale: number } | undefined;
+  private resizing: Promise<void> | undefined;
   private hovered: number | undefined;
   private readonly changeListeners = new Set<(view: PageView) => void>();
   private readonly frameListeners = new Set<(frame: Frame) => void>();
@@ -247,15 +250,29 @@ export class PageSession {
     await this.resize(width, height, scale);
   }
 
-  /** The page laid out at the block's size, its frames sent at the screen's pixels. */
-  async resize(width: number, height: number, scale: number): Promise<void> {
-    const w = Math.max(1, Math.round(width));
-    const h = Math.max(1, Math.round(height));
-    if (w === this.size.width && h === this.size.height && scale === this.size.scale) return;
-    this.size = { width: w, height: h, scale };
-    await this.cdp.call("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 0, mobile: false });
-    await this.cdp.call("Page.stopScreencast").catch(() => {});
-    if (!this.paused) await this.screencast();
+  /**
+   * The page laid out at the block's size, its frames sent at the screen's pixels. A drag asks on
+   * every frame; while one resize is on its way the asks wait, and only the latest is sent after
+   * it, so Chromium lays out and restarts its screencast once per round trip, not once per frame.
+   */
+  resize(width: number, height: number, scale: number): Promise<void> {
+    this.wanted = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)), scale };
+    this.resizing ??= this.applyResizes().finally(() => {
+      this.resizing = undefined;
+    });
+    return this.resizing;
+  }
+
+  private async applyResizes(): Promise<void> {
+    for (let next = this.wanted; next; next = this.wanted) {
+      this.wanted = undefined;
+      const { width: w, height: h, scale } = next;
+      if (w === this.size.width && h === this.size.height && scale === this.size.scale) continue;
+      this.size = { width: w, height: h, scale };
+      await this.cdp.call("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 0, mobile: false });
+      await this.cdp.call("Page.stopScreencast").catch(() => {});
+      if (!this.paused) await this.screencast();
+    }
   }
 
   /** Stops sending frames while the block can't be seen, and starts again once it can: a page

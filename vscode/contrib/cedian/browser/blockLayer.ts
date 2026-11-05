@@ -17,6 +17,7 @@ import { EditorsOrder } from '../../../common/editor.js';
 import { EditorGroupLayout, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { moving } from './blocks/motion.js';
 import { BlockLayer } from './blocks/layer.js';
 import { floatingIn, sameFloating, withFloating, type Floating } from './blocks/layout.js';
 import { layoutName, layoutsIn, withCurrent, withLayout, withoutLayout, type NamedLayout } from './blocks/layouts.js';
@@ -64,6 +65,12 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 					void this.editorService.openEditor(new CedianAgentInput(id), { pinned: true });
 				}
 			},
+			// It slides to the block it docks into: the active one, where the editor opens.
+			landing: () => {
+				const element = (this.editorGroups.mainPart.activeGroup as { element?: HTMLElement }).element;
+				return element?.offsetParent ? element.getBoundingClientRect() : undefined;
+			},
+			moving: () => moving(layoutService.mainContainer),
 			changed: floating => this.keep(floating),
 			// Torn off (↗, or let go outside the window): an editor of its own in a new window there.
 			tearOff: (kind, id, bounds) => { void this.tearOff(kind, id, bounds); },

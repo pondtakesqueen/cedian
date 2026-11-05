@@ -1,3 +1,19 @@
+/* Cedian's faces, bundled (fonts/, SIL OFL 1.1, NOTICE): Geist for the interface and Geist Mono for
+   code and the terminal, each one variable file for every weight. VS Code's own text takes them too,
+   in place of the platform faces it names per OS: the interface from `--cedian-font-ui` and its
+   monospace places (the hover's code, the keybinding labels) from `--cedian-font-code`, both written
+   from `desktop.font` (src/settings/desktop.ts), Thai falling through to the system's Thai face. */
+@font-face { font-family: 'Geist'; src: url('./fonts/Geist.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('./fonts/Geist-Italic.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('./fonts/GeistMono.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('./fonts/GeistMono-Italic.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
+.monaco-workbench.mac,
+.monaco-workbench.windows,
+.monaco-workbench.linux {
+	font-family: var(--cedian-font-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+	--monaco-monospace-font: var(--cedian-font-code, "SF Mono", Monaco, Menlo, monospace);
+}
+
 /* VS Code's own controls with the agent pane's corners (agentPane.css): buttons 8px, fields 6px,
    Source Control's commit message box drawn as a field. Only corners: VS Code's layout stays. */
 .monaco-workbench .monaco-text-button { border-radius: 8px; }
@@ -76,33 +92,23 @@
 .monaco-workbench .monaco-sash.hover::before,
 .monaco-workbench .monaco-sash.active::before { background: var(--cedian-line-strong, var(--vscode-sash-hoverBorder)); border-radius: 2px; }
 
-/* Motion, as the prototype's blocks: a block that appears (a side bar shown, a group opened, the
-   window's first paint) grows out of the edge it hangs from, a side bar from the window's side, the
-   panel from the bottom, an editor group from its middle, and settles with an ease that slows to a
-   stop; the focused block's top edge lights up. Only transform and opacity move, so the GPU
-   composites it and nothing lays out again; resizing stays instant. VS Code puts
+/* Motion, as a tiling window manager's, on the compositor alone: blocks never scale or fade, and
+   nothing is laid out while they move (src/blocks/motion.ts). A side block shown or hidden comes
+   out of its edge and folds back into it (blockStretch.ts); an editor group opened is uncovered
+   from the block it split from, one closed folds into its edge, and the rest slide to their new
+   places (blockMove.ts). The focused block's top edge lights up. VS Code puts
    monaco-enable-motion on the window unless the OS asks for reduced motion or
-   `workbench.reduceMotion` is on, so both turn this off. A hidden block takes display: none, which
-   restarts the animation when it shows again. blockExit.ts runs the same growth backwards when a
-   block goes. A side block shown or hidden after the first paint stretches instead (blockStretch.ts):
-   its real size moves frame by frame and its neighbours with it, and it turns this growth off. A
-   block dragged to another place slides there from where it stood instead (blockMove.ts). */
+   `workbench.reduceMotion` is on, so both turn the motion off. */
 .monaco-workbench {
-	--cedian-motion-in: 320ms;
 	--cedian-motion-focus: 120ms;
 	--cedian-ease-out: cubic-bezier(.2, .7, .3, 1);
-	--cedian-ease-grow: cubic-bezier(.3, .7, .2, 1);
 }
-/* The size eases out over the whole arrival; the fade runs evenly over its first two thirds, so
-   the block is seen growing rather than blinking in. */
-@keyframes cedian-grow-x { from { transform: scale(.84, .97); } }
-@keyframes cedian-grow-y { from { transform: scale(.97, .84); } }
-@keyframes cedian-grow { from { transform: scale(.92); } }
-@keyframes cedian-fade-in { from { opacity: 0; } }
-.monaco-workbench.monaco-enable-motion .part.sidebar { transform-origin: left center; animation: cedian-grow-x var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
-.monaco-workbench.monaco-enable-motion .part.auxiliarybar { transform-origin: right center; animation: cedian-grow-x var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
-.monaco-workbench.monaco-enable-motion .part.panel { transform-origin: center bottom; animation: cedian-grow-y var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
-.monaco-workbench.monaco-enable-motion .part.editor:not(.modal-editor-part) .editor-group-container { transform-origin: center; animation: cedian-grow var(--cedian-motion-in) var(--cedian-ease-grow), cedian-fade-in calc(var(--cedian-motion-in) * .66) linear; }
+/* A view's section (Outline, Timeline) opened or folded moves its real height, as VS Code draws it,
+   on the blocks' timing (src/blocks/motion.ts) instead of VS Code's 150ms. */
+.monaco-workbench .monaco-pane-view.animated .split-view-view {
+	transition-duration: var(--cedian-motion-open, .15s);
+	transition-timing-function: var(--cedian-ease-open, ease-out);
+}
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.sidebar,
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.auxiliarybar,
 .monaco-workbench.monaco-enable-motion.modern-ui.floating-panels .part.panel,
@@ -116,22 +122,15 @@
 	box-shadow: inset 0 2px 0 var(--cedian-text-muted, var(--vscode-focusBorder));
 }
 
-/* A block's menu as the prototype's grip: VS Code's "More Actions..." in a block's header shows as
-   ⠿ in the faint text colour, only while the pointer is on the block or it holds focus. */
+/* A block's menu: VS Code's "More Actions..." (⋯) in a block's header, in the faint text colour,
+   only while the pointer is on the block or it holds focus. It opens a menu, so it keeps VS Code's
+   ⋯ rather than a grip, which would say the block is dragged by it. */
 .monaco-workbench .part.sidebar .composite.title .codicon-toolbar-more,
 .monaco-workbench .part.auxiliarybar .composite.title .codicon-toolbar-more,
 .monaco-workbench .part.panel .composite.title .codicon-toolbar-more,
 .monaco-workbench .part.editor .editor-group-container .editor-actions .codicon-toolbar-more {
 	opacity: 0;
 	color: var(--cedian-text-faint, var(--vscode-descriptionForeground));
-}
-.monaco-workbench .part.sidebar .composite.title .codicon-toolbar-more::before,
-.monaco-workbench .part.auxiliarybar .composite.title .codicon-toolbar-more::before,
-.monaco-workbench .part.panel .composite.title .codicon-toolbar-more::before,
-.monaco-workbench .part.editor .editor-group-container .editor-actions .codicon-toolbar-more::before {
-	content: '⠿';
-	font-family: var(--cedian-font-ui, system-ui), sans-serif;
-	letter-spacing: 1px;
 }
 .monaco-workbench .part.sidebar:is(:hover, :focus-within) .composite.title .codicon-toolbar-more,
 .monaco-workbench .part.auxiliarybar:is(:hover, :focus-within) .composite.title .codicon-toolbar-more,
@@ -144,16 +143,104 @@
 }
 .monaco-workbench.monaco-enable-motion .codicon-toolbar-more { transition: opacity var(--cedian-motion-focus, 120ms) var(--cedian-ease-out, ease-out); }
 
-/* What is left of a block that went, while it fades (blockExit.ts): where it stood, above the
-   blocks that took its room, never in the pointer's way. An editor group out of the editor area
-   has lost its card, so it gets one back. */
-.cedian-block-exit { position: fixed; z-index: 30; pointer-events: none; }
-.cedian-block-exit > .editor-group-container {
+/* A side block hidden by its command, a copy of it where it stood while it folds into its edge
+   (blockStretch.ts), over the blocks that took its room, never in the pointer's way. */
+.monaco-workbench > .cedian-block-leaving { position: fixed; z-index: 30; pointer-events: none; animation: none; }
+
+/* A press on a button of the window's frame (the tool strip, the project tabs, + Tool, a floating
+   block's and a block header's buttons) dips it a little and lets it go (src/blocks/motion.ts: the
+   only scale anywhere, the length of a tap); none with reduced motion. */
+.monaco-workbench.monaco-enable-motion .cedian-tool-strip-item,
+.monaco-workbench.monaco-enable-motion .cedian-project-tab,
+.monaco-workbench.monaco-enable-motion .part.titlebar .action-item.menu-entry > .action-label,
+.monaco-workbench.monaco-enable-motion .cedian-pip .ibtn,
+.monaco-workbench.monaco-enable-motion .part > .composite.title .action-label,
+.monaco-workbench.monaco-enable-motion .editor-group-container .editor-actions .action-label {
+	transition: transform var(--cedian-motion-press, 90ms) var(--cedian-ease-open, ease-out);
+}
+.monaco-workbench.monaco-enable-motion .cedian-tool-strip-item:active,
+.monaco-workbench.monaco-enable-motion .cedian-project-tab:active,
+.monaco-workbench.monaco-enable-motion .part.titlebar .action-item.menu-entry > .action-label:active,
+.monaco-workbench.monaco-enable-motion .cedian-pip .ibtn:active,
+.monaco-workbench.monaco-enable-motion .part > .composite.title .action-label:active,
+.monaco-workbench.monaco-enable-motion .editor-group-container .editor-actions .action-label:active {
+	transform: scale(.97);
+}
+
+/* An editor group that closed, while it folds into its edge (blockMove.ts): where it stood,
+   never in the pointer's way. Out of the editor area it has lost its card's ground, so it gets it
+   back; its corners and the gaps around it are drawn by the clip it collapses with. */
+.cedian-block-closing { position: fixed; z-index: 30; pointer-events: none; }
+.cedian-block-closing > .editor-group-container {
 	background-color: var(--vscode-editor-background);
-	border: 1px solid var(--modern-ui-editor-border-color, var(--vscode-editor-border, var(--vscode-widget-border, transparent)));
-	border-radius: var(--vscode-cornerRadius-large, 12px);
 	box-sizing: border-box;
 	overflow: hidden;
+}
+
+/* The empty editor's watermark: Cedian's mark (brand/mark/cedian-mark-mono-*.svg, written by
+   script/brand/icon.py; src/theme/watermark.test.ts keeps these copies the same) in place of VS
+   Code's letterpress, as faint as VS Code's, white on dark themes and black on light ones. */
+.monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .letterpress {
+	background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%222%202%2096%2096%22%20role%3D%22img%22%20aria-label%3D%22Cedian%22%3E%3Ctitle%3ECedian%3C%2Ftitle%3E%3Ccircle%20cx%3D%2291.26%22%20cy%3D%2246.59%22%20r%3D%225.20%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2217.76%22%20cy%3D%2225.02%22%20r%3D%225.16%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2256.80%22%20cy%3D%2289.58%22%20r%3D%225.11%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2271.38%22%20cy%3D%2216.75%22%20r%3D%225.06%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2212.39%22%20cy%3D%2259.91%22%20r%3D%225.02%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2283.84%22%20cy%3D%2267.79%22%20r%3D%224.97%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2237.29%22%20cy%3D%2214.65%22%20r%3D%224.92%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2235.75%22%20cy%3D%2284.03%22%20r%3D%224.87%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2282.87%22%20cy%3D%2234.82%22%20r%3D%224.82%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2216.18%22%20cy%3D%2239.21%22%20r%3D%224.77%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2267.29%22%20cy%3D%2280.18%22%20r%3D%224.72%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2257.48%22%20cy%3D%2216.78%22%20r%3D%224.67%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2222.66%22%20cy%3D%2269.02%22%20r%3D%224.61%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2282.25%22%20cy%3D%2254.34%22%20r%3D%224.56%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2229.66%22%20cy%3D%2225.62%22%20r%3D%224.50%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2248.57%22%20cy%3D%2280.92%22%20r%3D%224.44%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2271.35%22%20cy%3D%2228.75%22%20r%3D%224.38%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2220.75%22%20cy%3D%2251.21%22%20r%3D%224.32%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2271.71%22%20cy%3D%2268.30%22%20r%3D%224.26%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2246.47%22%20cy%3D%2222.73%22%20r%3D%224.19%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2234.72%22%20cy%3D%2271.73%22%20r%3D%224.13%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2275.00%22%20cy%3D%2244.50%22%20r%3D%224.06%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2228.72%22%20cy%3D%2237.67%22%20r%3D%223.98%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2257.05%22%20cy%3D%2272.47%22%20r%3D%223.91%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2259.52%22%20cy%3D%2229.66%22%20r%3D%223.83%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2230.31%22%20cy%3D%2258.13%22%20r%3D%223.74%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2268.86%22%20cy%3D%2256.89%22%20r%3D%223.66%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2241.34%22%20cy%3D%2233.33%22%20r%3D%223.56%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2245.48%22%20cy%3D%2266.80%22%20r%3D%223.46%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2263.40%22%20cy%3D%2241.48%22%20r%3D%223.35%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2236.02%22%20cy%3D%2247.53%22%20r%3D%223.23%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2257.48%22%20cy%3D%2259.76%22%20r%3D%223.09%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2250.88%22%20cy%3D%2240.00%22%20r%3D%222.93%22%20fill%3D%22%230B0D10%22%2F%3E%3Ccircle%20cx%3D%2244.76%22%20cy%3D%2254.80%22%20r%3D%223.66%22%20fill%3D%22%230B0D10%22%2F%3E%3C%2Fsvg%3E") !important;
+	opacity: .1;
+}
+.monaco-workbench.vs-dark .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .letterpress,
+.monaco-workbench.hc-black .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .letterpress {
+	background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%222%202%2096%2096%22%20role%3D%22img%22%20aria-label%3D%22Cedian%22%3E%3Ctitle%3ECedian%3C%2Ftitle%3E%3Ccircle%20cx%3D%2291.26%22%20cy%3D%2246.59%22%20r%3D%225.20%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2217.76%22%20cy%3D%2225.02%22%20r%3D%225.16%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2256.80%22%20cy%3D%2289.58%22%20r%3D%225.11%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2271.38%22%20cy%3D%2216.75%22%20r%3D%225.06%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2212.39%22%20cy%3D%2259.91%22%20r%3D%225.02%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2283.84%22%20cy%3D%2267.79%22%20r%3D%224.97%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2237.29%22%20cy%3D%2214.65%22%20r%3D%224.92%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2235.75%22%20cy%3D%2284.03%22%20r%3D%224.87%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2282.87%22%20cy%3D%2234.82%22%20r%3D%224.82%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2216.18%22%20cy%3D%2239.21%22%20r%3D%224.77%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2267.29%22%20cy%3D%2280.18%22%20r%3D%224.72%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2257.48%22%20cy%3D%2216.78%22%20r%3D%224.67%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2222.66%22%20cy%3D%2269.02%22%20r%3D%224.61%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2282.25%22%20cy%3D%2254.34%22%20r%3D%224.56%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2229.66%22%20cy%3D%2225.62%22%20r%3D%224.50%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2248.57%22%20cy%3D%2280.92%22%20r%3D%224.44%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2271.35%22%20cy%3D%2228.75%22%20r%3D%224.38%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2220.75%22%20cy%3D%2251.21%22%20r%3D%224.32%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2271.71%22%20cy%3D%2268.30%22%20r%3D%224.26%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2246.47%22%20cy%3D%2222.73%22%20r%3D%224.19%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2234.72%22%20cy%3D%2271.73%22%20r%3D%224.13%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2275.00%22%20cy%3D%2244.50%22%20r%3D%224.06%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2228.72%22%20cy%3D%2237.67%22%20r%3D%223.98%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2257.05%22%20cy%3D%2272.47%22%20r%3D%223.91%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2259.52%22%20cy%3D%2229.66%22%20r%3D%223.83%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2230.31%22%20cy%3D%2258.13%22%20r%3D%223.74%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2268.86%22%20cy%3D%2256.89%22%20r%3D%223.66%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2241.34%22%20cy%3D%2233.33%22%20r%3D%223.56%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2245.48%22%20cy%3D%2266.80%22%20r%3D%223.46%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2263.40%22%20cy%3D%2241.48%22%20r%3D%223.35%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2236.02%22%20cy%3D%2247.53%22%20r%3D%223.23%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2257.48%22%20cy%3D%2259.76%22%20r%3D%223.09%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2250.88%22%20cy%3D%2240.00%22%20r%3D%222.93%22%20fill%3D%22%23FFFFFF%22%2F%3E%3Ccircle%20cx%3D%2244.76%22%20cy%3D%2254.80%22%20r%3D%223.66%22%20fill%3D%22%23FFFFFF%22%2F%3E%3C%2Fsvg%3E") !important;
+	opacity: .1;
+}
+.monaco-workbench.hc-black .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .letterpress,
+.monaco-workbench.hc-light .part.editor > .content .editor-group-container > .editor-group-watermark-wrapper .editor-group-watermark .letterpress { opacity: .3; }
+
+/* The drop target drawn while a tab or a block is held over a group: the whole card, its tab row
+   too, or half of it from edge to edge (dropTarget.ts sizes it over the tab row), drawn as the card
+   is, rounded at every corner and inset by the gaps between groups (`--cedian-inset-*`). It moves
+   between the whole block and its halves on the blocks' opening timing (motion.ts), not VS Code's 70ms. */
+.monaco-workbench.modern-ui.floating-panels:not(.modern-ui-compact) .part.editor:not(.modal-editor-part) #monaco-workbench-editor-drop-overlay > .editor-group-overlay-indicator {
+	clip-path: inset(var(--cedian-inset-top) var(--cedian-inset-right) var(--cedian-inset-bottom) var(--cedian-inset-left) round var(--vscode-cornerRadius-large, 12px));
+}
+.monaco-workbench.monaco-enable-motion .part.editor #monaco-workbench-editor-drop-overlay > .editor-group-overlay-indicator.overlay-move-transition {
+	transition: top var(--cedian-motion-open) var(--cedian-ease-open), left var(--cedian-motion-open) var(--cedian-ease-open), width var(--cedian-motion-open) var(--cedian-ease-open), height var(--cedian-motion-open) var(--cedian-ease-open), opacity 150ms ease-out;
+}
+
+/* A closed tab while it collapses into its left edge (tabMove.ts): over the row where it stood,
+   never in the pointer's way. */
+.monaco-workbench .part.editor .tabs-and-actions-container .cedian-tab-closing { pointer-events: none; z-index: 1; }
+
+/* The tool strip under "+ Tool" (toolStrip.ts): a raised pill of the tools' icons, a close
+   button first, above the blocks; each icon lights in the accent under the pointer or focus. */
+.monaco-workbench .cedian-tool-strip {
+	position: fixed;
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 4px;
+	background: var(--cedian-raised, var(--vscode-editorWidget-background));
+	border: 1px solid var(--cedian-line-strong, var(--vscode-widget-border));
+	border-radius: 999px;
+	box-shadow: 0 10px 28px rgba(0, 0, 0, .28), 0 1px 3px rgba(0, 0, 0, .18);
+}
+.monaco-workbench .cedian-tool-strip-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--cedian-text-muted, var(--vscode-foreground));
+	font-size: 16px;
+	cursor: pointer;
+}
+.monaco-workbench .cedian-tool-strip-item.close { color: var(--cedian-text-faint, var(--vscode-descriptionForeground)); }
+.monaco-workbench .cedian-tool-strip-item:hover,
+.monaco-workbench .cedian-tool-strip-item:focus-visible {
+	background: var(--cedian-accent, var(--vscode-focusBorder));
+	color: var(--cedian-frame, #151412);
+	outline: none;
 }
 
 /* The project tabs (projectTabs.ts) at the start of the title bar's left side, as the prototype's
@@ -177,5 +264,7 @@
 .cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; text-align: center; background: var(--cedian-accent, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }
 .cedian-project-tabs .count.working { display: inline-flex; align-items: center; gap: 4px; color: var(--cedian-working, var(--vscode-progressBar-background)); }
 .cedian-project-tabs .count.working::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.monaco-workbench.monaco-enable-motion .cedian-project-tabs .count.working::before { animation: cedian-pulse 1.4s ease-in-out infinite; }
+.monaco-workbench.monaco-enable-motion .cedian-project-tabs .count.working::before { animation: cedian-pulse 1.4s ease-in-out infinite; will-change: opacity; }
+/* Still while the window is in the background (projectTabs.ts): a pulse nobody sees is work for nothing. */
+.monaco-workbench.cedian-window-blurred .cedian-project-tabs .count.working::before { animation-play-state: paused; }
 @keyframes cedian-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }

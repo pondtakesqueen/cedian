@@ -3,53 +3,44 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { isHorizontal, IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, Parts, Position } from '../../../services/layout/browser/layoutService.js';
+import { closing, moving, opening } from './blocks/motion.js';
 
-/** How long a side block takes to open and to close. Closing is quicker: what goes is out of the way. */
-const OPEN_MS = 320;
-const CLOSE_MS = 240;
-
-/** The side blocks that stretch, each with VS Code's commands that hide it. */
+/** The side blocks, each with VS Code's commands that hide it. */
 const SIDES: readonly { part: Parts; hide: readonly string[] }[] = [
 	{ part: Parts.SIDEBAR_PART, hide: ['workbench.action.toggleSidebarVisibility', 'workbench.action.closeSidebar'] },
 	{ part: Parts.AUXILIARYBAR_PART, hide: ['workbench.action.toggleAuxiliaryBar', 'workbench.action.closeAuxiliaryBar'] },
 	{ part: Parts.PANEL_PART, hide: ['workbench.action.togglePanel', 'workbench.action.closePanel'] },
 ];
 
-/** The parts' own sizes and layout: VS Code's layout service keeps the parts to itself. */
-interface Sized { minimumWidth: number; minimumHeight: number; layout(width: number, height: number, top: number, left: number): void }
-interface PartsOf { getPart?(part: Parts): Sized }
+/** The edge a block hangs from: it comes out of it and goes back into it. */
+type Edge = 'left' | 'right' | 'top' | 'bottom';
 
-/** The side blocks closing by stretching now; blockExit.ts leaves them be. */
-export const stretching = new Set<Parts>();
-
-/** Opening eases out (cubic): it comes at once and lands softly. */
-const easeOpen = (t: number) => 1 - Math.pow(1 - t, 3);
-/** Closing eases in and out (cubic): no jump on the first frame, gone briskly at the end. */
-const easeClose = (t: number) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-interface Run { stop(): void; size(): number; target: number; closing: boolean; held: readonly number[] }
+/** All of a block shown, and none of it, folded into `edge`: the clip-paths it moves between. */
+const SHOWN = 'inset(0px 0px 0px 0px)';
+const folded = (edge: Edge) => ({
+	left: 'inset(0px 100% 0px 0px)',
+	right: 'inset(0px 0px 0px 100%)',
+	top: 'inset(0px 0px 100% 0px)',
+	bottom: 'inset(100% 0px 0px 0px)',
+})[edge];
 
 /**
- * A side block (Threads, the right panel, the bottom panel) stretches open from nothing to its
- * width, and shrinks to nothing before it goes, as a sash drag would move it: its neighbours give
- * up the room as it grows and take it back as it shrinks, and nothing is squeezed or scaled. Every
- * frame sets the block's real size, so the neighbours lay out as they move; the block's own
- * contents stay laid out at its full size, held at the window's edge, and its moving edge uncovers
- * them as a drawer's would. Its minimum size is lifted while it moves and put back after. VS Code's commands that hide a block run once it has
- * shrunk, after its size is set back to its width in the same frame, so the layout remembers that
- * width and the next opening grows back to it. A block hidden any other way fades where it stood
- * (blockExit.ts). Off with the window's reduced motion.
+ * A side block (Threads, the right panel, the bottom panel) comes out of the window's edge it hangs
+ * from and goes back into it, as a drawer: VS Code lays the window out once, at once, and only the
+ * block's clip moves (the compositor's work, nothing laid out meanwhile; owner, 2026-11-04: lean
+ * before smooth). Shown any way, it is uncovered from that edge. Hidden by VS Code's commands, a
+ * copy of it where it stood folds into the edge over the blocks that took its room; hidden any
+ * other way, it goes at once. Maximizing is VS Code's, at once. Never scaled, never faded; off with
+ * the window's reduced motion.
  */
 export class CedianBlockStretch extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.blockStretch';
-
-	private readonly runs = new Map<Parts, Run>();
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
@@ -58,10 +49,8 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 		super();
 		this._register(layout.onDidChangePartVisibility(e => {
 			const side = SIDES.find(s => s.part === e.partId);
-			if (side && e.visible && !stretching.has(side.part)) {
-				// The event comes from inside the layout's own showing: measured once it has laid out,
-				// before the frame is painted.
-				queueMicrotask(() => this.open(side.part));
+			if (side && e.visible) {
+				this.open(side.part);
 			}
 		}));
 		for (const side of SIDES) {
@@ -74,190 +63,75 @@ export class CedianBlockStretch extends Disposable implements IWorkbenchContribu
 					id,
 					metadata: own.metadata,
 					handler: (accessor, ...args) => {
-						const hide = () => instantiation.invokeFunction(own.handler, ...args);
-						// A toggle while the block shrinks turns it round.
-						if (id.includes('toggle') && this.runs.get(side.part)?.closing) {
-							this.open(side.part);
-							return undefined;
+						const leaving = this.layout.isVisible(side.part, mainWindow) ? this.copy(side.part) : undefined;
+						const result = instantiation.invokeFunction(own.handler, ...args);
+						if (leaving && !this.layout.isVisible(side.part, mainWindow)) {
+							this.fold(leaving, this.edge(side.part));
 						}
-						if (!this.layout.isVisible(side.part, mainWindow) || !this.close(side.part, hide)) {
-							return hide();
-						}
-						return undefined;
+						return result;
 					},
 				}));
 			}
 		}
-		this._register(toDisposable(() => { for (const run of this.runs.values()) { run.stop(); } }));
 	}
 
 	private moving(): boolean {
-		return this.layout.mainContainer.classList.contains('monaco-enable-motion');
+		return moving(this.layout.mainContainer) && !this.layout.isPanelMaximized() && !this.layout.isAuxiliaryBarMaximized();
 	}
 
-	/** Whether the block moves in height (a bottom or top panel) rather than width. */
-	private tall(part: Parts): boolean {
-		return part === Parts.PANEL_PART && isHorizontal(this.layout.getPanelPosition());
-	}
-
-	private still(part: Parts): boolean {
-		return (part === Parts.PANEL_PART && this.layout.isPanelMaximized())
-			|| (part === Parts.AUXILIARYBAR_PART && this.layout.isAuxiliaryBarMaximized());
-	}
-
-	/** Whether the block hangs from the window's far edge (right or bottom), its contents held there. */
-	private far(part: Parts): boolean {
-		const side = this.layout.getSideBarPosition();
+	private edge(part: Parts): Edge {
+		const left = this.layout.getSideBarPosition() === Position.LEFT;
 		switch (part) {
-			case Parts.SIDEBAR_PART: return side === Position.RIGHT;
-			case Parts.AUXILIARYBAR_PART: return side === Position.LEFT;
+			case Parts.SIDEBAR_PART: return left ? 'left' : 'right';
+			case Parts.AUXILIARYBAR_PART: return left ? 'right' : 'left';
 			default: {
 				const panel = this.layout.getPanelPosition();
-				return panel === Position.BOTTOM || panel === Position.RIGHT;
+				return panel === Position.TOP ? 'top' : panel === Position.LEFT ? 'left' : panel === Position.RIGHT ? 'right' : 'bottom';
 			}
 		}
 	}
 
-	private size(part: Parts): number {
-		const size = this.layout.getSize(part);
-		return this.tall(part) ? size.height : size.width;
-	}
-
-	private setSize(part: Parts, value: number): void {
-		const size = this.layout.getSize(part);
-		this.layout.setSize(part, this.tall(part) ? { width: size.width, height: value } : { width: value, height: size.height });
-	}
-
+	/** Uncovers a block VS Code has just laid out, from its edge. */
 	private open(part: Parts): void {
-		const running = this.runs.get(part);
-		const target = running?.target ?? this.size(part);
-		running?.stop();
-		if (!this.moving() || this.still(part) || target <= 0) {
-			return;
-		}
-		this.animate(part, running?.size() ?? 0, target, OPEN_MS, target, running?.held);
-	}
-
-	/** Shrinks the block, then hides it; false when it is not to move, so it hides at once. */
-	private close(part: Parts, hide: () => unknown): boolean {
-		if (!this.moving() || this.still(part)) {
-			return false;
-		}
-		const running = this.runs.get(part);
-		const target = running?.target ?? this.size(part);
-		const from = running?.size() ?? this.size(part);
-		const held = running?.held;
-		running?.stop();
-		stretching.add(part);
-		this.animate(part, from, 0, CLOSE_MS, target, held, () => {
-			// Its width back and hidden in one frame: the layout keeps the width for the next opening.
-			// Giving it its width back takes room from the other side blocks, so theirs are put back.
-			const others = SIDES.filter(s => s.part !== part && this.layout.isVisible(s.part, mainWindow)).map(s => ({ part: s.part, size: this.size(s.part) }));
-			this.setSize(part, target);
-			try {
-				void hide();
-				for (const other of others) {
-					if (this.size(other.part) !== other.size) {
-						this.setSize(other.part, other.size);
-					}
-				}
-			} finally {
-				stretching.delete(part);
-			}
-		});
-		return true;
-	}
-
-	private animate(part: Parts, from: number, to: number, ms: number, target: number, measured: readonly number[] | undefined, done?: () => void): void {
 		const element = this.layout.getContainer(mainWindow, part);
-		const sized = (this.layout as unknown as PartsOf).getPart?.(part);
-		if (!element || !sized) {
-			done?.();
+		if (!element || !this.moving()) {
 			return;
 		}
-		const key = this.tall(part) ? 'minimumHeight' : 'minimumWidth';
-		const minimum = sized[key];
-		sized[key] = 0;
-		// Its own fade stands in for the pop-in it would play on showing (workbench.css).
-		element.style.animation = 'none';
-		// Its contents keep their full size, held at the window's edge, so the moving edge uncovers
-		// them as a drawer's would; laid out narrow they would wrap and jump on every frame.
-		const tall = this.tall(part);
-		const far = this.far(part);
-		const inner = [...element.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
-		// Each child held at the size it has at the block's full size, as measured there: the block's
-		// size is not its children's (its card margins, its border), and holding them at the block's
-		// size would have them jump by the difference when the run ends.
-		const held = measured?.length === inner.length ? measured
-			: inner.map(c => this.size(part) === target ? (tall ? c.offsetHeight : c.offsetWidth) : target);
-		element.style.overflow = 'hidden';
-		// What is inside lays out at the full size the whole time: only the block's box moves.
-		const own = sized.layout;
-		let last: [number, number, number, number] | undefined;
-		sized.layout = (width, height, top, left) => {
-			last = [width, height, top, left];
-			own.call(sized, tall ? width : Math.max(width, target), tall ? Math.max(height, target) : height, top, left);
-		};
-		const hold = (size: number) => {
-			element.style.opacity = String(Math.min(1, size / Math.max(1, target) * 1.6));
-			inner.forEach((c, i) => {
-				c.style[tall ? 'minHeight' : 'minWidth'] = `${held[i]}px`;
-				c.style.transform = far ? `translate${tall ? 'Y' : 'X'}(${size - target}px)` : '';
-			});
-		};
-		hold(from);
-		const start = mainWindow.performance.now();
-		let current = from;
-		let frame = 0;
-		let stopped = false;
-		const finish = () => {
-			mainWindow.cancelAnimationFrame(frame);
-			sized[key] = minimum;
-			delete (sized as Partial<Sized>).layout;
-			if (last && this.layout.isVisible(part, mainWindow)) {
-				own.call(sized, ...last);
-			}
-			element.style.opacity = '';
-			element.style.overflow = '';
-			for (const c of inner) {
-				c.style.minHeight = c.style.minWidth = c.style.transform = '';
-			}
-			if (this.runs.get(part) === run) {
-				this.runs.delete(part);
-			}
-		};
-		const step = () => {
-			if (stopped) {
-				return;
-			}
-			const t = Math.min(1, (mainWindow.performance.now() - start) / ms);
-			current = from + (to - from) * (done ? easeClose(t) : easeOpen(t));
-			this.setSize(part, Math.round(current));
-			// Faint while it is narrow, so a sliver of a block never shows its insides.
-			hold(Math.round(current));
-			if (t < 1) {
-				frame = mainWindow.requestAnimationFrame(step);
-				return;
-			}
-			stopped = true;
-			finish();
-			done?.();
-		};
-		const run: Run = {
-			target,
-			held,
-			closing: !!done,
-			size: () => current,
-			stop: () => {
-				if (!stopped) {
-					stopped = true;
-					finish();
-					stretching.delete(part);
-				}
-			},
-		};
-		this.runs.set(part, run);
-		this.setSize(part, Math.round(from));
-		frame = mainWindow.requestAnimationFrame(step);
+		element.animate([{ clipPath: folded(this.edge(part)) }, { clipPath: SHOWN }], opening);
+	}
+
+	/** A copy of a block where it stands, to fold away over the window once VS Code has hidden it. */
+	private copy(part: Parts): HTMLElement | undefined {
+		const element = this.layout.getContainer(mainWindow, part);
+		if (!element || !this.moving()) {
+			return undefined;
+		}
+		const rect = element.getBoundingClientRect();
+		if (rect.width === 0 || rect.height === 0) {
+			return undefined;
+		}
+		const copy = element.cloneNode(true) as HTMLElement;
+		copy.classList.add('cedian-block-leaving');
+		copy.setAttribute('aria-hidden', 'true');
+		copy.removeAttribute('id');
+		copy.style.left = `${rect.left}px`;
+		copy.style.top = `${rect.top}px`;
+		copy.style.width = `${rect.width}px`;
+		copy.style.height = `${rect.height}px`;
+		// It keeps the part's classes, so VS Code's rules for the part apply to it too: it is hidden
+		// with !important once the part is, and the card's margin would shift it off its place by
+		// the margin. Only inline declarations are stronger.
+		copy.style.setProperty('display', 'block', 'important');
+		copy.style.setProperty('visibility', 'visible', 'important');
+		copy.style.setProperty('margin', '0', 'important');
+		return copy;
+	}
+
+	private fold(copy: HTMLElement, edge: Edge): void {
+		this.layout.mainContainer.appendChild(copy);
+		const run = copy.animate([{ clipPath: SHOWN }, { clipPath: folded(edge) }], { ...closing, fill: 'forwards' });
+		const gone = () => copy.remove();
+		run.onfinish = gone;
+		run.oncancel = gone;
 	}
 }
