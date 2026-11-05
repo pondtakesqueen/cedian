@@ -178,6 +178,27 @@
 }
 .monaco-workbench.monaco-enable-motion .codicon-toolbar-more { transition: opacity var(--cedian-motion-focus, 120ms) var(--cedian-ease-out, ease-out); }
 
+/* A block header's action with a label (the terminal's own title, "Test dev server") stays inside
+   its slot. A side block's toolbar lets every action shrink to 22px so that no button is pushed off
+   (auxiliaryBarPart.ts, toolbar.css `responsive-all`), but the label kept drawing past its slot,
+   over the +, split and trash after it. The label now ends in an ellipsis where its room ends; the
+   whole title stays in its hover. test/smoke/block-header.mjs measures it across widths. */
+.monaco-workbench .part > .title > .title-actions .monaco-toolbar.responsive .actions-container > .action-item:has(> .action-label:not(.codicon)) {
+	overflow: hidden;
+}
+.monaco-workbench .part > .title > .title-actions .monaco-action-bar .action-item .action-label.single-terminal-tab {
+	display: block !important;
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.monaco-workbench .part > .title > .title-actions .monaco-action-bar .action-item .action-label.single-terminal-tab > .codicon {
+	display: inline-flex;
+	vertical-align: -3px;
+}
+
 /* A side block hidden by its command, a copy of it where it stood while it folds into its edge
    (blockStretch.ts), over the blocks that took its room, never in the pointer's way. */
 .monaco-workbench > .cedian-block-leaving { position: fixed; z-index: 30; pointer-events: none; animation: none; }
