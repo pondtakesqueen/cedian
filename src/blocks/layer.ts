@@ -408,6 +408,7 @@ export class BlockLayer {
       pip.block.dispose();
       node.remove();
     };
+    pip.block.leaving?.();
     if (!this.host.moving?.() || typeof node.animate !== "function") return gone();
     node.style.transition = "none";
     node.style.pointerEvents = "none";

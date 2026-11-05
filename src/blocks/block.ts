@@ -47,5 +47,9 @@ export interface Block {
   /** The space the layer gives it, in CSS pixels. */
   layout(width: number, height: number): void;
   focus(): void;
+  /** It is closing, docking or tearing off, and its card is about to fold away (or go at once):
+   * a block drawn outside the DOM (the native browser page) hides itself now, so the card does not
+   * fold away under it. `dispose` follows when the card is gone. */
+  leaving?(): void;
   dispose(): void;
 }

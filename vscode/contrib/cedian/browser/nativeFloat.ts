@@ -47,6 +47,8 @@ export class NativeBrowserBlock implements Block {
 	private readonly shot: HTMLImageElement;
 	private shotUrl: string | undefined;
 	private docking = false;
+	/** Its card is folding away: the page is not laid out in it again. */
+	private left = false;
 	private live = false;
 	private capturing = false;
 	private frame: number | undefined;
@@ -103,6 +105,23 @@ export class NativeBrowserBlock implements Block {
 		void this.model.focus();
 	}
 
+	/**
+	 * Its card folds away (closed, docked, torn off): the page is drawn over the window, not in the
+	 * card, so it would stay whole over the folding card and vanish at the end. Closed, it hides
+	 * now and the card folds away empty; docked or torn off, the editor that takes it lays it out.
+	 */
+	leaving(): void {
+		this.left = true;
+		this.live = false;
+		if (this.frame !== undefined) {
+			mainWindow.cancelAnimationFrame(this.frame);
+			this.frame = undefined;
+		}
+		if (!this.docking) {
+			void this.model.setVisible(false);
+		}
+	}
+
 	/** The block docks into the editor area: the editor takes the page from here. */
 	dock(): BrowserEditorInput {
 		this.docking = true;
@@ -136,12 +155,16 @@ export class NativeBrowserBlock implements Block {
 
 	private tick(): void {
 		this.frame = undefined;
-		if (this.docking) {
+		if (this.docking || this.left) {
 			return;
 		}
 		const r = this.root.getBoundingClientRect();
 		const key = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`;
-		if (key !== this.last) {
+		// The card coming out (its clip uncovering it) holds its box still while it moves: the page
+		// waits for it, or it would show whole before the card is.
+		const card = this.root.closest<HTMLElement>('.cedian-pip');
+		const animating = !!card?.getAnimations().some(a => a.playState === 'running');
+		if (key !== this.last || animating) {
 			this.last = key;
 			this.still = 0;
 			if (this.live) {
@@ -207,7 +230,7 @@ export class NativeBrowserBlock implements Block {
 			height: r.height,
 			zoomFactor: getZoomFactor(mainWindow),
 			cornerRadius: 0,
-		}).then(() => this.model.setVisible(true)).then(() => {
+		}).then(() => this.left ? undefined : this.model.setVisible(true)).then(() => {
 			if (this.live) {
 				this.shot.hidden = true;
 			}
