@@ -28,6 +28,12 @@ export interface ConsoleLine {
   source?: string;
 }
 
+/**
+ * The screencast's bounds, in CSS pixels: past any block, so a frame is never cut to an older
+ * size's bounds and a resize never has to restart the screencast.
+ */
+const FRAME_BOUND = 8192;
+
 /** A screencast frame: a JPEG, base64, and the CSS size of the page it shows. */
 export interface Frame {
   data: string;
@@ -165,6 +171,8 @@ export class PageSession {
   private readonly closeListeners = new Set<(beforeLoad: boolean) => void>();
   private everLoaded = false;
   private paused = false;
+  /** The scale the screencast runs at; none while it is stopped. */
+  private streaming: number | undefined;
 
   constructor(private readonly cdp: Cdp) {
     cdp.on("Page.screencastFrame", (p) => {
@@ -270,8 +278,12 @@ export class PageSession {
       if (w === this.size.width && h === this.size.height && scale === this.size.scale) continue;
       this.size = { width: w, height: h, scale };
       await this.cdp.call("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 0, mobile: false });
-      await this.cdp.call("Page.stopScreencast").catch(() => {});
-      if (!this.paused) await this.screencast();
+      // The screencast's bounds are far past any block, so a new size needs no restart: Chromium
+      // sends the next frame at it. Only a new scale (a move to another screen) restarts it.
+      if (!this.paused && this.streaming !== scale) {
+        if (this.streaming !== undefined) await this.cdp.call("Page.stopScreencast").catch(() => {});
+        await this.screencast();
+      }
     }
   }
 
@@ -282,13 +294,17 @@ export class PageSession {
     if (paused === this.paused) return;
     this.paused = paused;
     if (!this.size.width) return;
-    if (paused) await this.cdp.call("Page.stopScreencast").catch(() => {});
-    else await this.screencast();
+    if (paused) {
+      this.streaming = undefined;
+      await this.cdp.call("Page.stopScreencast").catch(() => {});
+    } else await this.screencast();
   }
 
-  private screencast(): Promise<void> {
-    const { width, height, scale } = this.size;
-    return this.cdp.call("Page.startScreencast", { format: "jpeg", quality: 85, maxWidth: Math.round(width * scale), maxHeight: Math.round(height * scale), everyNthFrame: 1 });
+  private async screencast(): Promise<void> {
+    const { scale } = this.size;
+    const bound = Math.round(FRAME_BOUND * scale);
+    this.streaming = scale;
+    await this.cdp.call("Page.startScreencast", { format: "jpeg", quality: 85, maxWidth: bound, maxHeight: bound, everyNthFrame: 1 });
   }
 
   async navigate(url: string): Promise<void> {
