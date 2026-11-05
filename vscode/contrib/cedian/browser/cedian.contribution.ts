@@ -53,6 +53,7 @@ import { CedianPanes } from './panes.js';
 import { CedianSettingsEditor, CedianSettingsInput } from './settingsEditor.js';
 import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
+import { CedianNativeBrowser } from './nativeBrowser.js';
 import { THREADS_CONTAINER_ID, THREADS_VIEW_ID, ThreadsView } from './threadsView.js';
 import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
@@ -666,3 +667,4 @@ class CedianSettingsRedirect implements IWorkbenchContribution {
 registerWorkbenchContribution2(CedianSettingsRedirect.ID, CedianSettingsRedirect, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianTabCompletion.ID, CedianTabCompletion, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianWelcomeCheck.ID, CedianWelcomeCheck, WorkbenchPhase.AfterRestored);
+registerWorkbenchContribution2(CedianNativeBrowser.ID, CedianNativeBrowser, WorkbenchPhase.AfterRestored);
