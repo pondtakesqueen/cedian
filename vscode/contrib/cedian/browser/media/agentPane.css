@@ -1,11 +1,8 @@
 /* The agent pane and Cedian's settings window, after the prototype (design/cedian-prototype.html),
    drawn with the Warm & Lime --cedian-* properties the desktop contribution lays over the window.
    Thai text keeps line-height 1.6 (spec §9 Accessibility). */
-.cedian-agent-pane { display: flex; flex-direction: column; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
+.cedian-agent-pane { container: agent-pane / inline-size; display: flex; flex-direction: column; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
 .cedian-agent-pane .conn { padding: 4px 12px; font-size: 12px; color: var(--cedian-warn); background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); }
-.cedian-agent-pane .head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--cedian-line); }
-.cedian-agent-pane .head .threads { flex: 1 1 auto; min-width: 0; }
-.cedian-agent-pane .head .side-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cedian-text-muted); font-style: italic; }
 .cedian-agent-pane .log { flex: 1 1 auto; overflow-y: auto; padding: 8px 0; }
 .cedian-agent-pane .empty { padding: 24px 16px; color: var(--cedian-text-muted); text-align: center; }
 .cedian-agent-pane .conv { padding: 8px 16px 12px; }
@@ -71,6 +68,7 @@
 .cedian-agent-pane .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .cedian-agent-pane .chip { font: inherit; font-size: 12px; color: var(--cedian-text-muted); background: var(--cedian-raised); border: 1px solid var(--cedian-line); border-radius: 999px; padding: 1px 8px; max-width: 180px; }
 .cedian-agent-pane .chip.check { display: inline-flex; align-items: center; gap: 4px; }
+.cedian-agent-pane .popup:empty { display: none; }
 .cedian-agent-pane .popup { position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 4px; background: var(--cedian-raised); border-radius: 10px; box-shadow: 0 0 0 1px var(--cedian-line-strong); max-height: 240px; overflow-y: auto; z-index: 10; }
 .cedian-agent-pane .popup .opt { display: flex; gap: 8px; padding: 4px 10px; cursor: pointer; }
 .cedian-agent-pane .popup .opt.on { background: var(--cedian-sel); }
@@ -79,8 +77,8 @@
 .cedian-agent-pane .tag, .cedian-settings .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--cedian-raised); color: var(--cedian-text-muted); }
 .cedian-agent-pane .btn, .cedian-settings .btn, .cedian-settings .tab { font: inherit; font-size: 12px; color: var(--cedian-text); background: var(--cedian-raised); border: 1px solid var(--cedian-line); border-radius: 8px; padding: 2px 10px; cursor: pointer; }
 .cedian-agent-pane .btn:hover, .cedian-settings .btn:hover { background: var(--cedian-hover); }
-.cedian-agent-pane .btn.primary, .cedian-agent-pane .btn.send, .cedian-settings .tab.on { background: var(--cedian-accent); color: var(--cedian-frame); border-color: transparent; }
-.cedian-agent-pane .btn.send.stop { background: var(--cedian-raised); color: var(--cedian-text); }
+/* A fill under text takes accent.text: light accent (#5E8A00) under its frame colour is 3.6:1, #4F7500 under the app colour 5:1. */
+.cedian-agent-pane .btn.primary, .cedian-settings .tab.on { background: var(--cedian-accent-text); color: var(--cedian-app); border-color: transparent; }
 .cedian-agent-pane .btn.danger, .cedian-settings .btn.danger { color: var(--cedian-failed); }
 .cedian-agent-pane .btn.small { padding: 0 6px; }
 .cedian-agent-pane .comments .comment-resolved { opacity: 0.6; }
@@ -153,3 +151,72 @@
 .cedian-agent-pane .issue, .cedian-agent-pane .issue-new { display: flex; flex-direction: column; gap: 8px; }
 .cedian-agent-pane .tag.issue-open { color: var(--cedian-accent); }
 .cedian-agent-pane .btn:disabled { opacity: 0.45; cursor: default; }
+
+/* The header and the composer (design/agent-panel mockup, round 2). Two header rows of fixed
+   height, so resizing never moves the log; what does not fit folds away by the pane's width. */
+.cedian-agent-pane .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cedian-agent-pane svg.i { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.cedian-agent-pane svg.i-stop { fill: currentColor; stroke: none; }
+.cedian-agent-pane svg.i-chevron { width: 11px; height: 11px; color: var(--cedian-text-faint); pointer-events: none; }
+.cedian-agent-pane > .head { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 8px 12px 6px; border-bottom: 1px solid var(--cedian-line); }
+.cedian-agent-pane > .head .r1 { display: flex; align-items: center; gap: 4px; min-width: 0; height: 30px; }
+.cedian-agent-pane > .head .r2 { display: flex; align-items: center; gap: 10px; min-width: 0; height: 22px; color: var(--cedian-text-faint); font-size: 12px; }
+.cedian-agent-pane > .head .sp { flex: 1 1 0; min-width: 0; }
+.cedian-agent-pane > .head .picker { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; margin-left: -8px; padding-right: 6px; border-radius: 8px; cursor: pointer; }
+.cedian-agent-pane > .head .picker:hover { background: var(--cedian-hover); }
+.cedian-agent-pane > .head .picker .threads { appearance: none; flex: 0 1 auto; min-width: 0; max-width: 100%; field-sizing: content; background: transparent; border: 0; color: var(--cedian-text); font: inherit; font-size: 14px; font-weight: 600; padding: 3px 0 3px 8px; text-overflow: ellipsis; cursor: pointer; }
+.cedian-agent-pane > .head .picker .threads option, .cedian-agent-pane > .head .picker .threads optgroup { font-weight: 400; color: var(--cedian-text); background: var(--cedian-raised); }
+.cedian-agent-pane > .head .side-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+.cedian-agent-pane > .head .status { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; line-height: 20px; padding: 0 8px 0 7px; border-radius: 999px; white-space: nowrap; color: var(--cedian-text-muted); background: var(--cedian-field); }
+.cedian-agent-pane > .head .status .dot { width: 6px; height: 6px; }
+.cedian-agent-pane > .head .status.st-working, .cedian-agent-pane > .head .status.st-queued { color: var(--cedian-working); background: color-mix(in srgb, var(--cedian-working) 12%, transparent); }
+.cedian-agent-pane > .head .status.st-done { color: var(--cedian-accent-text); background: color-mix(in srgb, var(--cedian-accent) 10%, transparent); }
+.cedian-agent-pane > .head .status.st-failed, .cedian-agent-pane > .head .status.st-interrupted { color: var(--cedian-failed); background: color-mix(in srgb, var(--cedian-failed) 10%, transparent); }
+.cedian-agent-pane > .head .status.st-asking { color: var(--cedian-warn); background: color-mix(in srgb, var(--cedian-warn) 12%, transparent); }
+.cedian-agent-pane > .head .status.st-working .dot { animation: cedian-pulse 1.4s ease-in-out infinite; }
+@keyframes cedian-pulse { 50% { opacity: .35; } }
+.cedian-agent-pane .ib { flex: none; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--cedian-text-muted); cursor: pointer; }
+.cedian-agent-pane .ib:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-agent-pane > .head .meta { flex: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; min-width: 0; }
+.cedian-agent-pane > .head .chip { font: inherit; font-size: 12px; height: 22px; display: inline-flex; align-items: center; gap: 5px; padding: 0 5px; margin: 0 -5px; max-width: none; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-faint); cursor: pointer; white-space: nowrap; }
+.cedian-agent-pane > .head .chip:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+/* The branch gives way first: the PR and the context say more about where the thread stands. */
+.cedian-agent-pane > .head .chip.git { flex: 0 1000 auto; min-width: 64px; font-family: var(--cedian-font-code); }
+.cedian-agent-pane > .head .chip .l { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cedian-agent-pane > .head .chip.pr { flex: 0 1 auto; display: block; min-width: 0; line-height: 22px; overflow: hidden; text-overflow: ellipsis; }
+.cedian-agent-pane > .head .chip.pr-ok { color: var(--cedian-diff-add); }
+.cedian-agent-pane > .head .chip.pr-bad { color: var(--cedian-failed); }
+.cedian-agent-pane > .head .chip.view { margin-right: -5px; }
+.cedian-agent-pane > .head .ring { width: 14px; height: 14px; }
+.cedian-agent-pane > .head .ring circle { stroke-width: 2.4; }
+.cedian-agent-pane .composer { flex: none; background: var(--cedian-raised); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 1px 2px rgb(0 0 0 / 5%); padding: 10px 10px 8px 12px; gap: 8px; min-width: 0; }
+.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 1.5px var(--cedian-accent), 0 1px 2px rgb(0 0 0 / 5%); }
+.cedian-agent-pane .composer > .row { gap: 2px; height: 30px; }
+.cedian-agent-pane .composer .chips { flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: 2px; overflow: hidden; }
+.cedian-agent-pane .composer .chips > .sp { flex: 1 1 0; min-width: 0; }
+.cedian-agent-pane .pill { flex: none; position: relative; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 7px; min-width: 0; border-radius: 7px; color: var(--cedian-text-muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.cedian-agent-pane .pill:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-agent-pane .pill.model, .cedian-agent-pane .pill.permission { flex: 0 1 auto; }
+.cedian-agent-pane .pill select { appearance: none; field-sizing: content; min-width: 0; max-width: 160px; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-overflow: ellipsis; cursor: pointer; }
+.cedian-agent-pane .pill select:focus-visible { outline: none; }
+.cedian-agent-pane .pill:has(select:focus-visible) { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
+.cedian-agent-pane .composer .chip.check { flex: none; height: 26px; padding: 0 7px; border: 0; border-radius: 7px; background: transparent; }
+.cedian-agent-pane .send { flex: none; width: 30px; height: 30px; margin-left: 2px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 9px; background: var(--cedian-accent-text); color: var(--cedian-app); cursor: pointer; }
+.cedian-agent-pane .send svg.i { stroke-width: 2.2; }
+.cedian-agent-pane .send.idle { background: var(--cedian-field); color: var(--cedian-text-faint); }
+.cedian-agent-pane .send.stop { background: var(--cedian-text); color: var(--cedian-app); }
+@container agent-pane (max-width: 420px) {
+  .cedian-agent-pane > .head .chip.view .l { display: none; }
+  .cedian-agent-pane .pill.effort svg.i-chevron, .cedian-agent-pane .pill.permission svg.i-chevron { display: none; }
+}
+@container agent-pane (max-width: 360px) {
+  .cedian-agent-pane > .head .status .l { display: none; }
+  .cedian-agent-pane > .head .status { padding: 7px; }
+  .cedian-agent-pane > .head .cost { display: none; }
+  .cedian-agent-pane .pill select { max-width: 96px; }
+}
+@container agent-pane (max-width: 300px) {
+  .cedian-agent-pane > .head .ctx .l { display: none; }
+  .cedian-agent-pane .pill.effort { display: none; }
+  .cedian-agent-pane .composer { margin: 6px 8px 8px; }
+}

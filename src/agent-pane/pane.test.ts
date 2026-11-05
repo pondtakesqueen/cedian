@@ -30,6 +30,7 @@ const type = (pane: AgentPane, text: string) => {
 const enter = (pane: AgentPane) => pane.composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const buttons = (root: HTMLElement, text: string) => [...root.querySelectorAll("button")].filter((b) => b.textContent === text);
+const labelled = (root: HTMLElement, name: string) => [...root.querySelectorAll("button")].filter((b) => b.getAttribute("aria-label") === name);
 
 describe("agent pane", () => {
   it("watches the project's threads and starts a new one in a worktree", () => {
@@ -239,7 +240,8 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".chip.git")).toBeNull();
     emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "fix-login", base: "origin/main", ahead: 2, behind: 1, upstream: null, unpushed: 2, changed: 1 } } });
     const chip = pane.root.querySelector<HTMLButtonElement>(".chip.git")!;
-    expect(chip.textContent).toBe("⑂ fix-login");
+    expect(chip.textContent).toBe("fix-login");
+    expect(chip.closest(".head")).not.toBeNull();
     chip.click();
     expect(last()).toEqual({ op: "git", cwd: "/r", thread: "t-1", fetch: true });
     const card = pane.root.querySelector(".card.git")!;
@@ -371,7 +373,7 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".popup .opt")?.textContent).toBe("src/main.ts");
     enter(pane);
     expect(pane.composer.value).toBe("look at @src/main.ts ");
-    buttons(pane.root, "+ Image")[0]!.click();
+    labelled(pane.root, "Attach image")[0]!.click();
     await tick();
     expect(pane.root.querySelector(".attachments")?.textContent).toContain("shot.png");
     enter(pane);
@@ -424,10 +426,10 @@ describe("agent pane", () => {
     };
     const clip = Object.assign(new File([new Uint8Array([0])], "bug.mp4", { type: "video/mp4" }), { path: "/Users/p/bug.mp4" });
     welcome(["images"]);
-    expect(buttons(pane.root, "+ Image")).toHaveLength(1);
+    expect(labelled(pane.root, "Attach image")).toHaveLength(1);
     expect(paste(clip)).toBe(false);
     welcome(["images", "video"]);
-    buttons(pane.root, "+ Image/video")[0]!.click();
+    labelled(pane.root, "Attach image or video")[0]!.click();
     await tick();
     expect(asked).toEqual([true]);
     expect(paste(clip)).toBe(true);
@@ -773,5 +775,40 @@ describe("agent pane, from the Mac gate", () => {
     expect(pane.root.querySelector(".head .pop")).toBeNull();
     expect(pane.root.querySelector(".head .float")).toBeNull();
     expect(buttons(pane.root, "New window")).toEqual([]);
+  });
+});
+
+describe("agent pane header and composer", () => {
+  it("says how the thread stands in words, and groups the picker by what the threads need", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [
+      info({ id: "t-1", title: "Fix sum", status: "asking", needs_you: true }),
+      info({ id: "t-2", title: "Add dark mode", status: "working", updated_at: "2026-10-28T11:00:00Z" }),
+      info({ id: "t-3", title: "Bump Rust" }),
+    ] });
+    pane.openThread("t-1");
+    expect(pane.root.querySelector(".head .status")?.textContent).toBe("Waiting for you");
+    const groups = [...pane.root.querySelectorAll<HTMLOptGroupElement>("select.threads optgroup")].map((g) => [g.label, [...g.querySelectorAll("option")].map((o) => o.textContent)]);
+    expect(groups).toEqual([["Needs you", ["Fix sum"]], ["Working", ["Add dark mode"]], ["Threads", ["Bump Rust"]]]);
+  });
+
+  it("names its icon buttons for screen readers: view, send and stop", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ status: "working", state: "working" })] });
+    pane.openThread("t-1");
+    expect(pane.root.querySelector(".head .view")?.getAttribute("aria-label")).toBe("View: Answers");
+    const send = pane.root.querySelector<HTMLButtonElement>(".composer .send")!;
+    expect([send.getAttribute("aria-label"), send.textContent]).toEqual(["Stop", "Stop"]);
+    type(pane, "also log it");
+    expect(send.getAttribute("aria-label")).toBe("Queue");
+  });
+
+  it("shows the composer's pickers as pills around the native selects", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "choices", models: { default: "anthropic/claude-opus-5-5", models: [{ ref: "anthropic/claude-opus-5-5", label: "Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true }], modes: [] }, permissions: { default: "workspace", modes: [{ mode: "workspace", label: "Workspace", description: "" }] } });
+    const model = pane.root.querySelector<HTMLSelectElement>('select[data-chip="model"]')!;
+    expect(model.closest(".pill.model")).not.toBeNull();
+    expect(model.options[0]!.textContent).toBe("Opus 5.5");
+    expect(pane.root.querySelector('select[data-chip="permission"]')!.closest(".pill.permission")).not.toBeNull();
   });
 });
