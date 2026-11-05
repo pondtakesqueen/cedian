@@ -272,19 +272,21 @@ export class PageSession {
   }
 
   private async applyResizes(): Promise<void> {
+    let changed = false;
     for (let next = this.wanted; next; next = this.wanted) {
       this.wanted = undefined;
       const { width: w, height: h, scale } = next;
       if (w === this.size.width && h === this.size.height && scale === this.size.scale) continue;
       this.size = { width: w, height: h, scale };
+      changed = true;
       await this.cdp.call("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 0, mobile: false });
-      // The screencast's bounds are far past any block, so a new size needs no restart: Chromium
-      // sends the next frame at it. Only a new scale (a move to another screen) restarts it.
-      if (!this.paused && this.streaming !== scale) {
-        if (this.streaming !== undefined) await this.cdp.call("Page.stopScreencast").catch(() => {});
-        await this.screencast();
-      }
     }
+    // Once the sizes stop: a page that doesn't change sends no frame after a new size, so the
+    // screencast restarts once, and its first frame is the page at the size it ended at. The
+    // block asks only when a resize settles (panel.ts), so this is once a gesture, not once a step.
+    if (!changed || this.paused) return;
+    if (this.streaming !== undefined) await this.cdp.call("Page.stopScreencast").catch(() => {});
+    await this.screencast();
   }
 
   /** Stops sending frames while the block can't be seen, and starts again once it can: a page
