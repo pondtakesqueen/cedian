@@ -38,6 +38,23 @@ export function toolsOn(url: string, sites: string[]): boolean {
   return isLocal(host) || sites.includes(host);
 }
 
+/**
+ * The safety banner over a page (spec §8.3, §13), for the Browser block and the native view alike:
+ * none on a page that is not http(s); "off" with the host the person may allow; or "on" with the
+ * sites the agent may open, and whether the host is one the person added (and may remove).
+ */
+export type Banner =
+  | { kind: "none" }
+  | { kind: "off"; host: string }
+  | { kind: "on"; host: string; open: string; removable: boolean };
+
+export function bannerOf(url: string, sites: string[]): Banner {
+  const host = hostOf(url);
+  if (!host) return { kind: "none" };
+  if (!toolsOn(url, sites)) return { kind: "off", host };
+  return { kind: "on", host, open: ["localhost", ...sites].join(", "), removable: !isLocal(host) };
+}
+
 /** `desktop.browser_sites` with `host` added for the project. */
 export function allowSite(desktop: Desktop, root: string, host: string): Record<string, string[]> {
   const all = { ...((desktop.browser_sites as Record<string, string[]> | undefined) ?? {}) };

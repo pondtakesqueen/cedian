@@ -88,9 +88,22 @@ export class CedianBrowserInputSerializer implements IEditorSerializer {
 	}
 }
 
-/** Shows the Browser block, opening it beside the editor when it is not open. */
-export async function openBrowser(editorService: IEditorService): Promise<void> {
-	await editorService.openEditor(new CedianBrowserInput(), { pinned: true });
+/** VS Code's own browser editor (workbench/contrib/browserView): its input type and open command. */
+export const NATIVE_BROWSER_INPUT = 'workbench.editorinputs.browser';
+const NATIVE_BROWSER_OPEN = 'workbench.action.browser.open';
+
+/**
+ * Shows the Browser block: VS Code's native browser view (a WebContentsView, laid out in the same
+ * frame as a resize), one per window, revealed when it is open. The screencast block
+ * (`CedianBrowserInput`) stays registered until it is removed; nothing opens it from here.
+ */
+export async function openBrowser(editorService: IEditorService, commands: ICommandService): Promise<void> {
+	const open = editorService.editors.find(editor => editor.typeId === NATIVE_BROWSER_INPUT);
+	if (open) {
+		await editorService.openEditor(open);
+	} else {
+		await commands.executeCommand(NATIVE_BROWSER_OPEN);
+	}
 }
 
 /** A command line a shell reads back as `command` and `args`. */

@@ -10,7 +10,7 @@ import { desktopOf, type Desktop } from "../settings/desktop.js";
 import { Cdp, type Socket } from "./cdp.js";
 import type { DevServer } from "./launch.js";
 import { elementContext, imageName, modifiersOf, PageSession, type ConsoleLine, type Frame, type PageView } from "./session.js";
-import { addressOf, allowSite, hostOf, isLocal, revokeSite, sitesOf, TOOLS_OFF, toolsOn } from "./sites.js";
+import { addressOf, allowSite, bannerOf, hostOf, revokeSite, sitesOf, TOOLS_OFF } from "./sites.js";
 
 /** What the block needs from the window around it. */
 export interface BrowserHost {
@@ -466,25 +466,23 @@ export class BrowserPanel implements Block {
   /** Spec §8.3 and the safety banner (§13): whether the agent may use this page, and the way to change it. */
   private drawBanner(): void {
     const d = this.doc;
-    const url = this.session?.view.url ?? "";
-    const host = hostOf(url);
-    const sites = sitesOf(this.desktop, this.host.cwd);
+    const shown = bannerOf(this.session?.view.url ?? "", sitesOf(this.desktop, this.host.cwd));
     this.banner.replaceChildren();
     this.banner.className = "banner";
-    if (!host || !this.session) {
+    if (shown.kind === "none" || !this.session) {
       this.banner.hidden = true;
       return;
     }
     this.banner.hidden = false;
-    if (!toolsOn(url, sites)) {
+    const { host } = shown;
+    if (shown.kind === "off") {
       this.banner.classList.add("off");
       this.banner.append(el(d, "span", "ell", `${TOOLS_OFF}: ${host}`), el(d, "span", "fill"));
       this.banner.append(button(d, `Allow ${host}`, () => this.wire.request({ op: "set_desktop", key: "browser_sites", value: allowSite(this.desktop, this.host.cwd, host) }), "btn"));
       return;
     }
-    const open = ["localhost", ...sites].join(", ");
-    this.banner.append(el(d, "span", "ell small", `The agent can use this page · it may open ${open}`), el(d, "span", "fill"));
-    if (!isLocal(host)) this.banner.append(button(d, `Remove ${host}`, () => this.wire.request({ op: "set_desktop", key: "browser_sites", value: revokeSite(this.desktop, this.host.cwd, host) }), "btn flat"));
+    this.banner.append(el(d, "span", "ell small", `The agent can use this page · it may open ${shown.open}`), el(d, "span", "fill"));
+    if (shown.removable) this.banner.append(button(d, `Remove ${host}`, () => this.wire.request({ op: "set_desktop", key: "browser_sites", value: revokeSite(this.desktop, this.host.cwd, host) }), "btn flat"));
     if (this.host.openSettings) this.banner.append(button(d, "Edit sites", () => this.host.openSettings?.(), "btn flat"));
   }
 

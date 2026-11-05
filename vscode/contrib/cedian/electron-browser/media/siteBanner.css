@@ -1,0 +1,12 @@
+/* The native view's safety banner (siteBanner.ts), drawn as the Browser block's banner
+   (browser/media/browserPanel.css): one line under the address bar, warn-coloured when the
+   agent may not use the page. */
+.cedian-site-banner { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-family: var(--cedian-font-ui); font-size: 12px; line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); border-bottom: 1px solid var(--cedian-line); background: var(--cedian-sheet); }
+.cedian-site-banner[hidden] { display: none !important; }
+.cedian-site-banner.off { color: var(--cedian-warn); box-shadow: inset 2px 0 0 var(--cedian-warn); }
+.cedian-site-banner .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cedian-site-banner .fill { flex: 1 1 auto; }
+.cedian-site-banner .small { color: var(--cedian-text-muted); }
+.cedian-site-banner .btn { flex: none; height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--cedian-line-strong); background: var(--cedian-raised); color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.cedian-site-banner .btn.flat { border-color: transparent; background: transparent; color: var(--cedian-text-muted); }
+.cedian-site-banner .btn:hover { background: var(--cedian-hover); color: var(--cedian-text); }
