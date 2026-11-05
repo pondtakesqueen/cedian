@@ -8,6 +8,9 @@ describe("VS Code settings from desktop", () => {
     expect(s["editor.fontFamily"]).toMatch(/^'Geist Mono'/);
     // Geist has no Thai: the system's Thai face comes after it.
     expect(s["editor.fontFamily"]).toContain("'Thonburi'");
+    // Source Control's commit message box takes the interface's face, not VS Code's platform one.
+    expect(s["scm.inputFontFamily"]).toMatch(/^'Geist', .*'Thonburi'/);
+    expect(vscodeSettings({ font: { ui: "Inter" } }, true)["scm.inputFontFamily"]).toMatch(/^'Inter', /);
     expect(s["editor.lineHeight"]).toBeGreaterThanOrEqual(1.6);
     expect(s["files.autoSave"]).toBe("afterDelay");
     expect(s["editor.inlineSuggest.enabled"]).toBe(true);

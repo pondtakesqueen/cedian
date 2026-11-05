@@ -46,6 +46,7 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
   const appearance = appearanceOf(desktop.theme, systemDark);
   const base = BASE_THEME[appearance];
   const code = desktop.font?.code?.trim() || DEFAULT_CODE_FONT;
+  const ui = desktop.font?.ui?.trim() || DEFAULT_UI_FONT;
   const codeSize = size(desktop.code_font_size, 8, 40) ?? 13;
   return {
     "workbench.colorTheme": base,
@@ -92,6 +93,9 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     "terminal.integrated.fontFamily": `'${code}', ${CODE_FALLBACK}`,
     "terminal.integrated.fontSize": codeSize,
     "terminal.integrated.lineHeight": 1.2,
+    // Source Control's commit message box: VS Code's "default" is the platform face, not the
+    // interface's, so it names the interface's face as the rest of the workbench takes it.
+    "scm.inputFontFamily": `'${ui}', ${UI_FALLBACK}`,
     "markdown.preview.lineHeight": LINE_HEIGHT,
     "files.autoSave": desktop.editor?.auto_save === false ? "off" : "afterDelay",
     "editor.formatOnSave": desktop.editor?.format_on_save === true,
