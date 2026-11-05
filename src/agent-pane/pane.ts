@@ -1574,7 +1574,7 @@ export class AgentPane {
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : ["low", "medium", "high", "xhigh", "max"];
-        const e = select(d, [{ value: "", label: `effort: ${entry.defaultEffort ?? "default"}` }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
+        const e = select(d, [{ value: "", label: entry.defaultEffort ?? "effort" }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = "Effort (Cmd+Shift+E)";
         chips.push(this.pill(e, undefined, "effort"));

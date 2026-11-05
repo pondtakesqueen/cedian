@@ -176,6 +176,10 @@
 .cedian-agent-pane .pill { flex: none; position: relative; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 7px; min-width: 0; border-radius: 7px; color: var(--cedian-text-muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
 .cedian-agent-pane .pill:hover { background: var(--cedian-hover); color: var(--cedian-text); }
 .cedian-agent-pane .pill.model, .cedian-agent-pane .pill.permission { flex: 0 1 auto; }
+/* In a narrow pane the effort chip gives way first, so the model and the permission keep their
+   names: before, "effort: default" stayed whole while the model shrank to "Opu…" at 360 px. Its
+   default reads as the level alone ("effort" when cedia names none), as a picked level does. */
+.cedian-agent-pane .pill.effort { flex: 0 100 auto; }
 .cedian-agent-pane .pill select { appearance: none; field-sizing: content; min-width: 0; max-width: 160px; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-overflow: ellipsis; cursor: pointer; }
 .cedian-agent-pane .pill select:focus-visible { outline: none; }
 .cedian-agent-pane .pill:has(select:focus-visible) { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
