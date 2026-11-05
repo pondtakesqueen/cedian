@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { devServers } from "./launch.js";
 import { imageName, keyParams, loadError, modifiersOf, PageSession, type PickedElement } from "./session.js";
-import { addressOf, allowSite, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
+import { addressOf, allowSite, bannerOf, hostOf, revokeSite, sitesOf, toolsOn } from "./sites.js";
 
 describe("the site allowlist (spec §6.3)", () => {
+  test("the safety banner: none off the web, off with the host to allow, on with what the agent may open", () => {
+    const sites = ["docs.example.com"];
+    expect(bannerOf("about:blank", sites)).toEqual({ kind: "none" });
+    expect(bannerOf("file:///etc/passwd", sites)).toEqual({ kind: "none" });
+    expect(bannerOf("https://x.com/a", sites)).toEqual({ kind: "off", host: "x.com" });
+    expect(bannerOf("http://localhost:5173/", sites)).toEqual({ kind: "on", host: "localhost", open: "localhost, docs.example.com", removable: false });
+    expect(bannerOf("https://docs.example.com/b", sites)).toEqual({ kind: "on", host: "docs.example.com", open: "localhost, docs.example.com", removable: true });
+  });
   const root = "/Users/pond/app";
   const desktop = { browser_sites: { "Users-pond-app": ["docs.example.com"], "Users-pond-other": ["x.com"] } };
   test("localhost and a blank page need no approval; other sites only once added", () => {
