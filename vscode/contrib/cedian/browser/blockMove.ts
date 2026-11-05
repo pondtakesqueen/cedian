@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { addDisposableListener } from '../../../../base/browser/dom.js';
-import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
 import { moving, stretching } from './blocks/motion.js';
 import { edgeBox, ground, holdScroll, moved, OPPOSITE, stretchFrames, type Box, type Card, type Edge } from './blocks/stretch.js';
 
@@ -114,6 +115,14 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	/** A side block was shown or hidden, and the window is being laid out again. */
 	private resizing = false;
 	private resizeTimer: ReturnType<typeof setTimeout> | undefined;
+	/** What has scrolled, so a group's last look shows each list where it was (copy.ts). */
+	private readonly scrolls = new ScrollNotes(mainWindow.document);
+	/**
+	 * Each group's last look before its last editor closed. A group closed with its editors in it
+	 * (closing a split) has them closed first, and would fold away showing its empty page.
+	 */
+	private readonly lastLook = new WeakMap<HTMLElement, StillCopy & { at: number }>();
+	private readonly watching = this._register(new DisposableMap<number>());
 
 	constructor(
 		@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService,
@@ -132,8 +141,12 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		// Capture: measured before VS Code's own drop handlers move anything.
 		this._register(addDisposableListener(mainWindow, 'drop', () => this.drop(), true));
 		const part = groups.mainPart;
-		this._register(part.onDidAddGroup(group => { this.added.add(group); this.changed(); }));
-		this._register(part.onDidRemoveGroup(() => this.changed()));
+		this._register({ dispose: () => this.scrolls.dispose() });
+		for (const group of part.groups) {
+			this.watch(group);
+		}
+		this._register(part.onDidAddGroup(group => { this.watch(group); this.added.add(group); this.changed(); }));
+		this._register(part.onDidRemoveGroup(group => { this.watching.deleteAndDispose(group.id); this.changed(); }));
 		this._register(part.onDidMoveGroup(() => this.changed()));
 		// A side block shown or hidden. The grid tells it from within the change, before it lays the
 		// window out again; by the end of this task it has, and nothing is painted yet.
@@ -147,6 +160,28 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			}
 		}));
 		this.note();
+	}
+
+	/**
+	 * Notes a group's look as its editors start to leave it: closed, or moved out as the group is
+	 * closed with them in it (VS Code merges them into another group, one by one). Once per task,
+	 * before the first of them goes.
+	 */
+	private watch(group: IEditorGroup): void {
+		let taken = false;
+		const look = () => {
+			const element = elementOf(group);
+			if (taken || !element?.offsetParent || !moving(this.layout.mainContainer)) {
+				return;
+			}
+			taken = true;
+			queueMicrotask(() => taken = false);
+			this.lastLook.set(element, { ...stillCopy(element, this.scrolls), at: Date.now() });
+		};
+		const store = new DisposableStore();
+		store.add(group.onWillCloseEditor(look));
+		store.add(group.onWillMoveEditor(look));
+		this.watching.set(group.id, store);
 	}
 
 	/** The editor's blocks and the side blocks shown now. */
@@ -372,10 +407,26 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		holder.style.top = `${box.top}px`;
 		holder.style.width = `${box.width}px`;
 		holder.style.height = `${box.height}px`;
-		element.style.width = element.style.height = '100%';
-		element.style.animation = element.style.clipPath = 'none';
-		holder.appendChild(element);
+		// How it looked with its editors in it, if they were closed with it.
+		// Taken as the group closes; one older than that is from an editor closed before, the group
+		// kept, and is not how it looks now.
+		const noted = this.lastLook.get(element);
+		this.lastLook.delete(element);
+		const look = noted && Date.now() - noted.at < 1000 ? noted : undefined;
+		const shown = look?.copy ?? element;
+		shown.style.width = shown.style.height = '100%';
+		shown.style.animation = shown.style.clipPath = 'none';
+		// VS Code draws a group's insides by where it sits, in the editor's content: the same two
+		// boxes around it out here, or its tabs and pages lose their styles.
+		const part = mainWindow.document.createElement('div');
+		part.className = 'part editor';
+		const content = mainWindow.document.createElement('div');
+		content.className = 'content';
+		content.appendChild(shown);
+		part.appendChild(content);
+		holder.appendChild(part);
 		this.layout.mainContainer.appendChild(holder);
+		look?.settle();
 		const run = holder.animate(stretchFrames(box, box, edgeBox(box, edge), box.card), { ...stretching, fill: 'forwards' });
 		const gone = () => holder.remove();
 		run.onfinish = gone;
