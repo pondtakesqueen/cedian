@@ -50,6 +50,8 @@ pub fn serve(config: Config) -> anyhow::Result<()> {
         &state_dir,
     )));
     Daemon::adopt(&shared);
+    // A Chromium an earlier daemon left running quits too, unless a block opens in time.
+    Daemon::browser_unused(&shared);
     watch_threads(shared.clone());
     let recorder = match &config.record {
         Some(path) => match Recorder::open(path) {

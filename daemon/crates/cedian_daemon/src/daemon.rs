@@ -374,6 +374,12 @@ impl Daemon {
         });
     }
 
+    /// No Browser block is known yet: the start of a daemon, which may find a Chromium an
+    /// earlier one started, with tabs nobody shows.
+    pub fn browser_unused(shared: &Shared) {
+        lock(shared).browser_closed(shared);
+    }
+
     /// A Browser block closed. With none left open in any window, the shared Chromium quits
     /// after `BROWSER_IDLE`, once no run is going: an idle headless Chromium still holds about
     /// 200 MB and draws its page. A block that opens meanwhile keeps it.
