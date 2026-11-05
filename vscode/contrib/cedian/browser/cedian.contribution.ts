@@ -174,6 +174,37 @@ registerAction2(class extends Action2 {
 	}
 });
 
+/** VS Code's own browser editor (workbench/contrib/browserView): its input type and open command. */
+const NATIVE_BROWSER_INPUT = 'workbench.editorinputs.browser';
+const NATIVE_BROWSER_OPEN = 'workbench.action.browser.open';
+
+/**
+ * A preview of the native Browser block (docs plan, step 1): VS Code's browser, a WebContentsView
+ * Electron draws in the block, so a resize is laid out in the same frame. Measured on the Mac it
+ * resizes with no strip and uses about a tenth of the screencast's CPU. Until the CDP bridge lands
+ * the agent still drives the daemon's Chromium, not this page.
+ */
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'cedian.openNativeBrowser',
+			title: localize2('cedian.openNativeBrowser', "Open Native Browser (Preview)"),
+			category: localize2('cedian.category', "Cedian"),
+			f1: true,
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editors = accessor.get(IEditorService);
+		const commands = accessor.get(ICommandService);
+		const open = editors.editors.find(editor => editor.typeId === NATIVE_BROWSER_INPUT);
+		if (open) {
+			await editors.openEditor(open);
+		} else {
+			await commands.executeCommand(NATIVE_BROWSER_OPEN);
+		}
+	}
+});
+
 // ---- the block layer: blocks floating over the window as PiPs (spec §3.3, §4.4) ----
 
 registerWorkbenchContribution2(CedianBlockLayer.ID, CedianBlockLayer, WorkbenchPhase.AfterRestored);
