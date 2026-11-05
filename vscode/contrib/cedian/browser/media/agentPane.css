@@ -251,8 +251,10 @@
 .cedian-agent-pane .todo .step.done .mark { color: var(--cedian-diff-add); }
 .cedian-agent-pane .todo .step.doing { color: var(--cedian-text); }
 .cedian-agent-pane .todo .step.doing .mark { color: var(--cedian-working); }
-.cedian-agent-pane .card.ask { background: var(--cedian-raised); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), inset 3px 0 0 var(--cedian-warn); padding-left: 15px; gap: 8px; }
-.cedian-agent-pane .card.ask .lab { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; color: var(--cedian-warn); }
+/* cedia's question stands out by a lift, not by colour: the pane has one at most, so its shadow costs nothing. */
+.cedian-agent-pane .card.ask { background: var(--cedian-raised); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cedian-text) 20%, transparent), 0 4px 14px rgba(0, 0, 0, .1); gap: 8px; }
+.cedian-agent-pane .card.ask .lab { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; color: var(--cedian-text-muted); }
+.cedian-agent-pane .card.ask .lab svg { color: var(--cedian-accent-text); }
 .cedian-agent-pane .card.ask .q { font-weight: 500; overflow-wrap: anywhere; }
 .cedian-agent-pane .card.ask .opts { display: flex; flex-direction: column; gap: 4px; }
 .cedian-agent-pane .card.ask .opt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit; color: var(--cedian-text); background: transparent; border: 0; border-radius: 8px; padding: 6px 10px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong); cursor: pointer; overflow-wrap: anywhere; }
