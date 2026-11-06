@@ -106,14 +106,17 @@ pub struct Daemon {
 /// Threads the coordinator queues and scheduled runs keep cedia's default.
 const PERSON_CACHE_TTL: &str = "1h";
 
+/// Whether this cedia offers `capability`; one whose version could not be read offers none.
+fn offers(version: &Result<VersionInfo, String>, capability: cedian_protocol::Capability) -> bool {
+    version
+        .as_ref()
+        .is_ok_and(|v| v.capabilities.contains(&capability))
+}
+
 /// `Notice::Choices` from cedia's `models` and `permissions`, each asked only when this cedia
 /// offers it: an older cedia would read the word as a prompt.
 fn choices(cedia: &Cedia, version: &Result<VersionInfo, String>) -> Notice {
-    let can = |capability| {
-        version
-            .as_ref()
-            .is_ok_and(|v| v.capabilities.contains(&capability))
-    };
+    let can = |capability| offers(version, capability);
     fn listed<T>(list: Result<T, String>) -> Option<T> {
         list.inspect_err(|e| log::warn!("{e}")).ok()
     }
@@ -441,6 +444,11 @@ impl Daemon {
         }
     }
 
+    /// Whether this cedia offers `capability`: a word an older cedia would take as a prompt.
+    fn offers(&self, capability: cedian_protocol::Capability) -> bool {
+        offers(&self.version, capability)
+    }
+
     fn running(&self, thread: &str) -> bool {
         self.by_thread
             .get(thread)
@@ -642,14 +650,7 @@ impl Daemon {
                 }
             }
             Request::Commands { cwd } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::Commands)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::Commands);
                 // An older cedia would read the word as a prompt.
                 if !can {
                     return;
@@ -670,13 +671,7 @@ impl Daemon {
                 Self::set_schedule(shared, client, &cwd, &id, enabled)
             }
             Request::Usage { cwd, since } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities.contains(&cedian_protocol::Capability::Usage)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::Usage);
                 if !can {
                     lock(shared).error(client, "this cedia does not split its usage yet".into());
                     return;
@@ -704,14 +699,7 @@ impl Daemon {
                 helpers,
                 images,
             } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::ThreadsFork)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::ThreadsFork);
                 if !can {
                     return lock(shared).thread_error(
                         client,
@@ -1224,12 +1212,7 @@ impl Daemon {
             | Request::Pr { .. } => {
                 let (cedia, can_commit, can_pr) = {
                     let daemon = lock(shared);
-                    let can = |capability| {
-                        daemon
-                            .version
-                            .as_ref()
-                            .is_ok_and(|v| v.capabilities.contains(&capability))
-                    };
+                    let can = |capability| daemon.offers(capability);
                     (
                         daemon.cedia.clone(),
                         can(cedian_protocol::Capability::Commit),
@@ -1277,14 +1260,7 @@ impl Daemon {
             | Request::McpCheck { .. }
             | Request::McpAdd { .. }
             | Request::McpRemove { .. } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::McpManage)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::McpManage);
                 if !can {
                     lock(shared).settings_error(
                         client,
@@ -1310,14 +1286,7 @@ impl Daemon {
                 }
             }
             Request::CediaSettings | Request::SetCedia { .. } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::SettingsEdit)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::SettingsEdit);
                 if !can {
                     let refused = Some("this cedia does not edit its model settings yet".into());
                     lock(shared).send(
@@ -1876,10 +1845,7 @@ impl Daemon {
     pub fn start_queued(shared: &Shared) {
         let queued: Vec<(PathBuf, PathBuf, String, String, String, Option<String>)> = {
             let mut daemon = lock(shared);
-            if !daemon.version.as_ref().is_ok_and(|v| {
-                v.capabilities
-                    .contains(&cedian_protocol::Capability::OpenThread)
-            }) {
+            if !daemon.offers(cedian_protocol::Capability::OpenThread) {
                 return;
             }
             let mut projects: Vec<(PathBuf, String)> = daemon
@@ -2056,12 +2022,7 @@ impl Daemon {
             },
             None => (HashSet::new(), cwd),
         };
-        let can = |capability| {
-            daemon
-                .version
-                .as_ref()
-                .is_ok_and(|v| v.capabilities.contains(&capability))
-        };
+        let can = |capability| daemon.offers(capability);
         // The project's page: the native view a window holds for it, through the bridge. A run
         // opens none; with no window holding one, it has no browser.
         let page = can(cedian_protocol::Capability::Browser)
@@ -2160,11 +2121,7 @@ impl Daemon {
     /// cedia, and whether it offers `capability`.
     fn can(shared: &Shared, capability: cedian_protocol::Capability) -> (Cedia, bool) {
         let daemon = lock(shared);
-        let can = daemon
-            .version
-            .as_ref()
-            .is_ok_and(|v| v.capabilities.contains(&capability));
-        (daemon.cedia.clone(), can)
+        (daemon.cedia.clone(), daemon.offers(capability))
     }
 
     /// The person's next message to the thread, written by the daemon (line comments, a fix):

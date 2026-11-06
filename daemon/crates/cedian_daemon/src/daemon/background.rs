@@ -103,9 +103,7 @@ fn host_of(url: &str) -> String {
 
 impl Daemon {
     fn can_schedule(&self) -> bool {
-        self.version
-            .as_ref()
-            .is_ok_and(|v| v.capabilities.contains(&Capability::Schedules))
+        self.offers(Capability::Schedules)
     }
 
     fn background_notice(&self, cwd: &Path, slug: &str) -> Notice {
