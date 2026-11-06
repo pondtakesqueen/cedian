@@ -518,11 +518,7 @@ impl Unwatched {
         if let Some(dir) = self.path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let temp = self.path.with_extension("json.tmp");
-        std::fs::write(&temp, serde_json::to_vec_pretty(&self.keys)?)
-            .with_context(|| format!("writing {}", temp.display()))?;
-        std::fs::rename(&temp, &self.path)
-            .with_context(|| format!("replacing {}", self.path.display()))
+        crate::atomic::replace_json(&self.path, &serde_json::to_vec_pretty(&self.keys)?)
     }
 }
 

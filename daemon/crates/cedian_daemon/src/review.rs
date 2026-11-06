@@ -52,54 +52,6 @@ impl Changes {
     }
 }
 
-/// Each thread's decisions, one file per thread under `<state dir>/review`.
-pub struct DecisionStore {
-    dir: PathBuf,
-}
-
-impl DecisionStore {
-    pub fn new(state_dir: &Path) -> Self {
-        Self {
-            dir: state_dir.join("review"),
-        }
-    }
-
-    pub fn load(&self, thread: &str) -> Decisions {
-        let path = self.path(thread);
-        match std::fs::read(&path) {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|error| {
-                log::warn!("{}: {error}", path.display());
-                Decisions::new()
-            }),
-            Err(_) => Decisions::new(),
-        }
-    }
-
-    pub fn save(&self, thread: &str, decisions: &Decisions) -> anyhow::Result<()> {
-        std::fs::create_dir_all(&self.dir)
-            .with_context(|| format!("creating {}", self.dir.display()))?;
-        let path = self.path(thread);
-        let temp = path.with_extension("json.tmp");
-        std::fs::write(&temp, serde_json::to_vec_pretty(decisions)?)
-            .with_context(|| format!("writing {}", temp.display()))?;
-        std::fs::rename(&temp, &path).with_context(|| format!("replacing {}", path.display()))
-    }
-
-    fn path(&self, thread: &str) -> PathBuf {
-        let name: String = thread
-            .chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() || c == '-' {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        self.dir.join(format!("{name}.json"))
-    }
-}
-
 /// Applies one decision. A reject writes the worktree and returns the message for the thread.
 pub fn decide(
     review: &Review,

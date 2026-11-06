@@ -3,6 +3,7 @@
 //! rebuilds a thread's history from cedia's own files.
 
 mod anchor;
+mod atomic;
 mod auto_archive;
 mod cedia;
 mod clone_ignored;
@@ -29,6 +30,7 @@ mod run;
 mod seen;
 mod server;
 mod shell_env;
+mod thread_store;
 mod thread_watch;
 mod web_push;
 mod worktree;

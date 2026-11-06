@@ -26,9 +26,10 @@ use crate::{
     follow::{Offsets, follow},
     keep_awake::KeepAwake,
     ledger::{Ledger, RunRecord, still_running},
-    review::{Changes, DecisionStore, decide},
+    review::{Changes, decide},
     run::{Run, RunId, watch},
     seen::Seen,
+    thread_store::ThreadStore,
     thread_watch::{Fingerprints, fingerprint},
 };
 
@@ -71,9 +72,10 @@ pub struct Daemon {
     by_thread: HashMap<String, RunId>,
     keep_awake: KeepAwake,
     ledger: Ledger,
-    decisions: DecisionStore,
-    /// Line comments and code reviews, by thread (`notes`).
-    notes: crate::notes::NoteStore,
+    /// Each thread's hunk decisions, under `<state dir>/review`.
+    decisions: ThreadStore<cedian_review::Decisions>,
+    /// Each thread's line comments and code review, under `<state dir>/notes`.
+    notes: ThreadStore<cedian_wire::Notes>,
     /// The threads directories windows show, as last listed.
     prints: Fingerprints,
     seen: Seen,
@@ -151,8 +153,8 @@ impl Daemon {
             by_thread: HashMap::new(),
             keep_awake: KeepAwake::default(),
             ledger: Ledger::new(state_dir),
-            decisions: DecisionStore::new(state_dir),
-            notes: crate::notes::NoteStore::new(state_dir),
+            decisions: ThreadStore::new(state_dir, "review"),
+            notes: ThreadStore::new(state_dir, "notes"),
             prints: Fingerprints::default(),
             seen: Seen::new(state_dir),
             started: HashSet::new(),
