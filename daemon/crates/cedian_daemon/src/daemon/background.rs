@@ -200,17 +200,7 @@ impl Daemon {
             if !daemon.can_schedule() {
                 return;
             }
-            let mut projects: Vec<(PathBuf, String)> = daemon
-                .clients
-                .values()
-                .flat_map(|c| {
-                    c.watching
-                        .iter()
-                        .map(|(cwd, slug)| (cwd.clone(), slug.clone()))
-                })
-                .collect();
-            projects.sort();
-            projects.dedup_by(|a, b| a.1 == b.1);
+            let projects = daemon.watched_projects();
             let now = now();
             let mut stale = Vec::new();
             let mut due = Vec::new();

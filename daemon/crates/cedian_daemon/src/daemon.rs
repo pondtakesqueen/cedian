@@ -325,13 +325,6 @@ impl Daemon {
         let shared = shared.clone();
         std::thread::spawn(move || {
             for (cwd, thread) in sides {
-                let alive = |daemon: &Daemon| {
-                    daemon
-                        .by_thread
-                        .get(&thread)
-                        .and_then(|id| daemon.runs.get(id))
-                        .is_some_and(|run| run.alive)
-                };
                 {
                     let daemon = lock(&shared);
                     if let Some(run) = daemon
@@ -347,7 +340,7 @@ impl Daemon {
                     }
                 }
                 for _ in 0..50 {
-                    if !alive(&lock(&shared)) {
+                    if !lock(&shared).running(&thread) {
                         break;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -433,15 +426,39 @@ impl Daemon {
         );
     }
 
-    /// Sends a notice to every client that has the thread open.
-    fn tell_readers(&mut self, thread: &str, notice: &Notice) {
-        let readers: Vec<ClientId> = self
+    /// The projects windows show, once each by slug, with the first of their folders.
+    fn watched_projects(&self) -> Vec<(PathBuf, String)> {
+        let mut projects: Vec<(PathBuf, String)> = self
             .clients
+            .values()
+            .flat_map(|client| {
+                client
+                    .watching
+                    .iter()
+                    .map(|(cwd, slug)| (cwd.clone(), slug.clone()))
+            })
+            .collect();
+        projects.sort();
+        projects.dedup_by(|a, b| a.1 == b.1);
+        projects
+    }
+
+    /// The clients that have the thread open.
+    fn readers(&self, thread: &str) -> Vec<ClientId> {
+        self.clients
             .iter()
             .filter(|(_, client)| client.open.contains(thread))
             .map(|(id, _)| *id)
-            .collect();
-        for id in readers {
+            .collect()
+    }
+
+    fn read_by_anyone(&self, thread: &str) -> bool {
+        self.clients.values().any(|c| c.open.contains(thread))
+    }
+
+    /// Sends a notice to every client that has the thread open.
+    fn tell_readers(&mut self, thread: &str, notice: &Notice) {
+        for id in self.readers(thread) {
             self.send(id, notice.clone());
         }
     }
@@ -471,7 +488,7 @@ impl Daemon {
                 continue;
             }
             // A window showing the thread as it changes counts as seeing it.
-            if self.clients.values().any(|c| c.open.contains(&thread.id)) {
+            if self.read_by_anyone(&thread.id) {
                 self.seen.mark(slug, &thread.id, &thread.updated_at);
             }
             let status = Status::of(thread.state, self.running(&thread.id));
@@ -601,7 +618,7 @@ impl Daemon {
                     c.open.remove(&thread);
                     c.flows.remove(&thread);
                 }
-                if !daemon.clients.values().any(|c| c.open.contains(&thread)) {
+                if !daemon.read_by_anyone(&thread) {
                     daemon.folds.remove(&thread);
                 }
             }
@@ -1823,13 +1840,7 @@ impl Daemon {
     /// A thread's live notice to each client that has it open, through the credit of those
     /// that ack.
     fn tell_paced(&mut self, thread: &str, notice: &Notice) {
-        let readers: Vec<ClientId> = self
-            .clients
-            .iter()
-            .filter(|(_, client)| client.open.contains(thread))
-            .map(|(id, _)| *id)
-            .collect();
-        for id in readers {
+        for id in self.readers(thread) {
             let now = match self
                 .clients
                 .get_mut(&id)
@@ -1856,18 +1867,7 @@ impl Daemon {
             if !daemon.offers(cedian_protocol::Capability::OpenThread) {
                 return;
             }
-            let mut projects: Vec<(PathBuf, String)> = daemon
-                .clients
-                .values()
-                .flat_map(|client| {
-                    client
-                        .watching
-                        .iter()
-                        .map(|(cwd, slug)| (cwd.clone(), slug.clone()))
-                })
-                .collect();
-            projects.sort();
-            projects.dedup_by(|a, b| a.1 == b.1);
+            let projects = daemon.watched_projects();
             let mut found = Vec::new();
             for (cwd, slug) in projects {
                 let threads = match list_threads(&threads_dir(&daemon.home, &slug)) {
@@ -2216,7 +2216,7 @@ impl Daemon {
                 }
             },
         };
-        let read = self.clients.values().any(|c| c.open.contains(&thread));
+        let read = self.read_by_anyone(&thread);
         if !read {
             self.folds.remove(&thread);
             return;
