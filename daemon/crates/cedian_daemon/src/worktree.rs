@@ -42,7 +42,12 @@ pub fn name_from(text: &str, now_secs: u64) -> String {
 fn git(dir: &Path, args: &[&str]) -> anyhow::Result<String> {
     // A repository's hooks are code nobody has trusted yet; the daemon's git runs none.
     let output = Command::new("git")
-        .args(["-c", "core.hooksPath=/dev/null"])
+        .args([
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "core.fsmonitor=false",
+        ])
         .args(args)
         .current_dir(dir)
         .output()
@@ -129,6 +134,8 @@ pub fn uncommitted(dir: &Path) -> anyhow::Result<Vec<String>> {
         .args([
             "-c",
             "core.hooksPath=/dev/null",
+            "-c",
+            "core.fsmonitor=false",
             "status",
             "--porcelain=v1",
             "-z",

@@ -13,7 +13,12 @@ use std::{
 /// `.cedian/` (the worktrees themselves) stays out.
 pub fn ignored(root: &Path) -> Vec<PathBuf> {
     let output = Command::new("git")
-        .args(["-c", "core.hooksPath=/dev/null"])
+        .args([
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "core.fsmonitor=false",
+        ])
         .args([
             "ls-files",
             "--others",
