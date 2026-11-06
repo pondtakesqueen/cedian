@@ -1,13 +1,14 @@
 /**
  * How a block is drawn while the window divides its room (owner, 2026-11-05, the open/close
- * mockup's E): a block that opens grows out of its edge while the blocks beside it shrink to make
- * room, and one that closes shrinks back into its edge while they stretch back. VS Code lays the
- * change out once, at its end; each block is then drawn at the box it is passing through with
- * transform and clip-path alone, so nothing is laid out while it moves (motion.ts).
+ * mockup's H): the blocks beside one that opens or closes (popin.ts) move aside or back. VS Code
+ * lays the change out once; a block that shrinks is laid out once more at the size it had, so it
+ * is never drawn past its content (blockMove.ts). Each block is then drawn at the box it is
+ * passing through with transform and clip-path alone, so nothing is laid out while it moves
+ * (motion.ts).
  *
  * A block is drawn from its start corner (top left), where its content starts: moved there, and
- * cut at its far sides. A box bigger than the block is laid out at (one shrinking to make room)
- * shows its own content as far as it reaches and its card's ground beyond it (`ground`).
+ * cut at its far sides. A box bigger than the block is laid out at (one not laid out again at its
+ * old size) shows its own content as far as it reaches and its card's ground beyond it (`ground`).
  */
 
 /** Where an element is laid out or drawn, in window pixels. */
