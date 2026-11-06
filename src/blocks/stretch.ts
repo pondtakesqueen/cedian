@@ -30,8 +30,6 @@ export interface Card {
 
 export type Edge = "left" | "right" | "top" | "bottom";
 
-export const OPPOSITE: Record<Edge, Edge> = { left: "right", right: "left", top: "bottom", bottom: "top" };
-
 /** A box of no size on `edge` of `box`: where a block grows out of and shrinks back into. */
 export function edgeBox(box: Box, edge: Edge): Box {
   switch (edge) {
