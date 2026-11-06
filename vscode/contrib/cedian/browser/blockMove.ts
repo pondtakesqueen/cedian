@@ -11,6 +11,7 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
 import { moving, stretching } from './blocks/motion.js';
+import { pace } from './blocks/pace.js';
 import { pop } from './blocks/popin.js';
 import { ground, holdScroll, moved, stretchFrames, type Box, type Card } from './blocks/stretch.js';
 
@@ -514,6 +515,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		}
 		this.sliding++;
 		const run = element.animate(stretchFrames(at, from, to, own.card), stretching);
+		pace.watch(run);
 		holdScroll(element, this.layout.mainContainer, run);
 		const past = ground(at, from, to, own.card);
 		let strip: HTMLElement | undefined;
