@@ -1,0 +1,33 @@
+diff --git a/src/vs/workbench/browser/parts/views/viewPaneContainer.ts b/src/vs/workbench/browser/parts/views/viewPaneContainer.ts
+index 552fe08c..cc36de42 100644
+--- a/src/vs/workbench/browser/parts/views/viewPaneContainer.ts
++++ b/src/vs/workbench/browser/parts/views/viewPaneContainer.ts
+@@ -526,6 +526,11 @@ export class ViewPaneContainer<MementoType extends object = object> extends Comp
+ 
+ 		// Update headers after and title contributed views after available, since we read from cache in the beginning to know if the viewlet has single view or not. Ref #29609
+ 		this.extensionService.whenInstalledExtensionsRegistered().then(() => {
++			// Cedian: a container disposed before the extensions are registered (a view moved at
++			// startup) has nothing left to update, and its store takes no more listeners.
++			if (this._store.isDisposed) {
++				return;
++			}
+ 			this.areExtensionsReady = true;
+ 			if (this.panes.length) {
+ 				this.updateTitleArea();
+diff --git a/src/vs/workbench/contrib/scm/browser/scmViewPane.ts b/src/vs/workbench/contrib/scm/browser/scmViewPane.ts
+index 25a50546..37651247 100644
+--- a/src/vs/workbench/contrib/scm/browser/scmViewPane.ts
++++ b/src/vs/workbench/contrib/scm/browser/scmViewPane.ts
+@@ -1541,6 +1541,12 @@ export class SCMViewPane extends ViewPane {
+ 				this.treeOperationSequencer.queue(async () => {
+ 					await this.tree.setInput(this.scmViewService, viewState);
+ 
++					// Cedian: the pane may be disposed while this waited (a view moved at startup);
++					// its listeners would leak and fire into its disposed throttlers.
++					if (this.visibilityDisposables.isDisposed) {
++						return;
++					}
++
+ 					Event.filter(this.configurationService.onDidChangeConfiguration,
+ 						e =>
+ 							e.affectsConfiguration('scm.alwaysShowRepositories'),
