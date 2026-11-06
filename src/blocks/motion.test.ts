@@ -41,6 +41,6 @@ describe("motion", () => {
       expect(y).toBeCloseTo(1 - (1 - x) ** 5, 1);
       expect(y).toBeLessThanOrEqual(1);
     }
-    expect(stretching).toEqual({ duration: 479, easing: EASE_WINDOWS });
+    expect(stretching).toEqual({ duration: 250, easing: EASE_WINDOWS });
   });
 });

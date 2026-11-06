@@ -5,6 +5,7 @@
  * that take its room (motion.ts). Transform and opacity only, so nothing is laid out meanwhile.
  */
 import { EASE_FADE, EASE_WINDOWS, FADE_IN_MS, FADE_OUT_MS, POPIN, WINDOWS_IN_MS, WINDOWS_OUT_MS } from "./motion.js";
+import { pace } from "./pace.js";
 
 export type Way = "in" | "out";
 
@@ -34,5 +35,7 @@ export function popFrames(way: Way): [PopPart, PopPart] {
 export function pop(element: Element, way: Way): Animation {
   const fill: FillMode = way === "out" ? "forwards" : "none";
   const runs = popFrames(way).map((p) => element.animate(p.frames, { ...p.timing, fill }));
-  return runs.reduce((a, b) => (Number(b.effect?.getTiming().duration) > Number(a.effect?.getTiming().duration) ? b : a));
+  const last = runs.reduce((a, b) => (Number(b.effect?.getTiming().duration) > Number(a.effect?.getTiming().duration) ? b : a));
+  pace.watch(last);
+  return last;
 }

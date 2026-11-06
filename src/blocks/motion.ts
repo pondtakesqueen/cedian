@@ -8,8 +8,11 @@
  * (toolStrip.ts) and the floating blocks (layer.ts) take it from here, and the CSS from
  * MOTION_PROPERTIES. The window's blocks dividing their room (the side blocks, blockStretch.ts; the
  * editor's blocks, blockMove.ts) move the way Hyprland's tiled windows do (owner, 2026-11-05, the
- * open/close mockup's H, its spring taken out): see WINDOWS_MS below.
+ * open/close mockup's H, its spring taken out): see WINDOWS_MS below. A machine too busy to keep
+ * up switches at once for a while (pace.ts).
  */
+import { pace } from "./pace.js";
+
 export const OPEN_MS = 180;
 export const CLOSE_MS = 140;
 
@@ -25,16 +28,17 @@ export const closing: KeyframeAnimationOptions = { duration: CLOSE_MS, easing: E
 
 /**
  * The window's blocks dividing their room, timed as Hyprland's defaults (its example config, speed 1
- * = 100 ms), on its easeOutQuint curve in place of its spring. A block that opens grows from
+ * = 100 ms) at about half their length (owner, 2026-11-06: 0.5 s a toggle felt slow), on its
+ * easeOutQuint curve in place of its spring. A block that opens grows from
  * POPIN of its size at its own centre as it fades in; one that closes shrinks to it as it fades
  * out; the blocks beside them move over WINDOWS_MS, each laid out once at the bigger of its two
  * sizes and cut at its far sides, so its text is never stretched or wrapped again (stretch.ts).
  */
-export const WINDOWS_MS = 479;
-export const WINDOWS_IN_MS = 410;
-export const WINDOWS_OUT_MS = 149;
-export const FADE_IN_MS = 173;
-export const FADE_OUT_MS = 146;
+export const WINDOWS_MS = 250;
+export const WINDOWS_IN_MS = 215;
+export const WINDOWS_OUT_MS = 100;
+export const FADE_IN_MS = 120;
+export const FADE_OUT_MS = 100;
 export const POPIN = 0.87;
 /** Hyprland's easeOutQuint: starts fast, lands softly, never past its end. */
 export const EASE_WINDOWS = "cubic-bezier(.23, 1, .32, 1)";
@@ -56,7 +60,10 @@ export const MOTION_PROPERTIES: Record<string, string> = {
   "--cedian-ease-close": EASE_CLOSE,
 };
 
-/** Whether the window moves: VS Code takes monaco-enable-motion off for the OS's or VS Code's reduced motion. */
+/**
+ * Whether the window moves: VS Code takes monaco-enable-motion off for the OS's or VS Code's reduced
+ * motion, and a machine that just dropped frames switches at once for a while (pace.ts).
+ */
 export function moving(workbench: HTMLElement): boolean {
-  return workbench.classList.contains("monaco-enable-motion");
+  return workbench.classList.contains("monaco-enable-motion") && !pace.busy();
 }
