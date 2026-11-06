@@ -64,6 +64,16 @@ fn git(dir: &Path, args: &[&str]) -> anyhow::Result<String> {
 /// Creates the worktree for a thread whose first message is `text`, in the project `cwd`
 /// belongs to. Returns its path and branch.
 pub fn create(cwd: &Path, text: &str) -> anyhow::Result<(PathBuf, String)> {
+    make(cwd, text, true)
+}
+
+/// As `create`, for someone else's pull request: what git ignores in the project (`.env`,
+/// credentials) is not cloned in beside code nobody has trusted yet.
+pub fn create_for_review(cwd: &Path, text: &str) -> anyhow::Result<(PathBuf, String)> {
+    make(cwd, text, false)
+}
+
+fn make(cwd: &Path, text: &str, with_ignored: bool) -> anyhow::Result<(PathBuf, String)> {
     let common = PathBuf::from(
         git(
             cwd,
@@ -111,7 +121,11 @@ pub fn create(cwd: &Path, text: &str) -> anyhow::Result<(PathBuf, String)> {
             "HEAD",
         ],
     )?;
-    let cloned = crate::clone_ignored::clone_into(&root, &dir);
+    let cloned = if with_ignored {
+        crate::clone_ignored::clone_into(&root, &dir)
+    } else {
+        Vec::new()
+    };
     if !cloned.is_empty() {
         log::info!("cloned into {}: {cloned:?}", dir.display());
     }
@@ -246,5 +260,11 @@ mod tests {
         // The project itself is not a worktree of Cedian's: archiving it never asks.
         std::fs::write(root.join("a.txt"), "dirty\n").expect("write");
         assert!(uncommitted(&root).expect("status").is_empty());
+
+        // A review of someone else's PR gets none of what git ignores.
+        std::fs::write(root.join(".gitignore"), ".env\n").expect("write");
+        std::fs::write(root.join(".env"), "TOKEN=secret\n").expect("write");
+        let (review, _) = create_for_review(&root, "review pr 7").expect("review worktree");
+        assert!(!review.join(".env").exists());
     }
 }
