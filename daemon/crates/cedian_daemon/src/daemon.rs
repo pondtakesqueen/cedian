@@ -244,7 +244,7 @@ impl Daemon {
             return false;
         };
         let running = still_running(pid);
-        let sessions = match read_thread(&threads_dir(&self.home, &run.slug), &thread) {
+        let sessions = match self.summary(&run.slug, &thread) {
             Ok(summary) => summary.sessions,
             Err(error) => {
                 log::warn!("{error:#}");
@@ -446,6 +446,11 @@ impl Daemon {
         }
     }
 
+    /// The thread's summary from cedia's threads directory for the project `slug`.
+    fn summary(&self, slug: &str, thread: &str) -> anyhow::Result<ThreadSummary> {
+        read_thread(&threads_dir(&self.home, slug), thread)
+    }
+
     /// Whether this cedia offers `capability`: a word an older cedia would take as a prompt.
     fn offers(&self, capability: cedian_protocol::Capability) -> bool {
         offers(&self.version, capability)
@@ -500,7 +505,7 @@ impl Daemon {
     }
 
     fn status(&self, slug: &str, thread: &str) -> Status {
-        match read_thread(&threads_dir(&self.home, slug), thread) {
+        match self.summary(slug, thread) {
             Ok(summary) => Status::of(summary.state, self.running(thread)),
             Err(_) if self.running(thread) => Status::Working,
             Err(error) => {
@@ -1563,7 +1568,7 @@ impl Daemon {
     ) -> Option<(PathBuf, String)> {
         let slug = project_key(cwd);
         let result = (|| {
-            let summary = read_thread(&threads_dir(&self.home, &slug), thread)?;
+            let summary = self.summary(&slug, thread)?;
             let changes = Changes::of(&self.home, &slug, &summary)?;
             let mut decisions = self.decisions.load(thread);
             let mut review = changes.review(&self.home, &decisions)?;
@@ -1598,7 +1603,7 @@ impl Daemon {
     /// checks go first: the review walks cedia's shadow git.
     fn nothing_owed(&self, cwd: &Path, thread: &str) -> bool {
         let slug = project_key(cwd);
-        let Ok(summary) = read_thread(&threads_dir(&self.home, &slug), thread) else {
+        let Ok(summary) = self.summary(&slug, thread) else {
             return false;
         };
         let status = Status::of(summary.state, self.running(thread));
@@ -1646,7 +1651,7 @@ impl Daemon {
     /// The folder the thread's latest session ran in (its worktree), else the project's.
     fn folder(&self, cwd: &Path, thread: &str) -> PathBuf {
         let slug = project_key(cwd);
-        read_thread(&threads_dir(&self.home, &slug), thread)
+        self.summary(&slug, thread)
             .and_then(|summary| Changes::of(&self.home, &slug, &summary))
             .map_or_else(|_| cwd.to_owned(), |changes| changes.work_tree)
     }
@@ -1655,7 +1660,8 @@ impl Daemon {
     /// ran in the project itself, or has no session yet.
     fn uncommitted(&self, cwd: &Path, thread: &str) -> Vec<String> {
         let slug = project_key(cwd);
-        let work_tree = read_thread(&threads_dir(&self.home, &slug), thread)
+        let work_tree = self
+            .summary(&slug, thread)
             .and_then(|summary| Changes::of(&self.home, &slug, &summary));
         let Ok(changes) = work_tree else {
             return Vec::new();
@@ -1669,7 +1675,7 @@ impl Daemon {
     /// Whether the thread needs the person now, as the list would say.
     fn needs_you(&self, cwd: &Path, thread: &str) -> bool {
         let slug = project_key(cwd);
-        read_thread(&threads_dir(&self.home, &slug), thread).is_ok_and(|summary| {
+        self.summary(&slug, thread).is_ok_and(|summary| {
             let status = Status::of(summary.state, self.running(thread));
             self.seen
                 .needs_you(&slug, thread, &summary.updated_at, status)
@@ -1679,7 +1685,7 @@ impl Daemon {
     /// Marks the thread's latest change seen, and sends the list again when that changed it.
     fn mark_seen(&mut self, cwd: &Path, thread: &str) {
         let slug = project_key(cwd);
-        if let Ok(summary) = read_thread(&threads_dir(&self.home, &slug), thread)
+        if let Ok(summary) = self.summary(&slug, thread)
             && self.seen.mark(&slug, thread, &summary.updated_at)
         {
             self.refresh(&slug);
@@ -1688,7 +1694,7 @@ impl Daemon {
 
     fn open(&mut self, client: ClientId, cwd: &Path, thread: &str) {
         let slug = project_key(cwd);
-        let summary = match read_thread(&threads_dir(&self.home, &slug), thread) {
+        let summary = match self.summary(&slug, thread) {
             Ok(summary) => summary,
             // A thread this project has no record of says so (spec §8.3); other reads say why.
             Err(error) if !threads_dir(&self.home, &slug).join(thread).exists() => {
@@ -2014,7 +2020,7 @@ impl Daemon {
         // its thread under the primary root (cedia's `CEDIA_ROOTS`).
         let slug = project_key(&asked_in);
         let (before, cwd) = match &thread {
-            Some(thread) => match read_thread(&threads_dir(&daemon.home, &slug), thread) {
+            Some(thread) => match daemon.summary(&slug, thread) {
                 Ok(summary) => {
                     let own = daemon.thread_cwd(&slug, &summary).unwrap_or(cwd);
                     let before = summary.sessions.into_iter().map(|s| s.session_id).collect();
@@ -2132,15 +2138,10 @@ impl Daemon {
     fn deliver(shared: &Shared, client: ClientId, cwd: PathBuf, thread: &str, text: &str) {
         let (running, permission) = {
             let daemon = lock(shared);
-            let permission = read_thread(&threads_dir(&daemon.home, &project_key(&cwd)), thread)
+            let permission = daemon
+                .summary(&project_key(&cwd), thread)
                 .ok()
-                .and_then(|summary| {
-                    summary
-                        .runs
-                        .iter()
-                        .rev()
-                        .find_map(|run| run.permission.clone())
-                });
+                .and_then(|summary| summary.last_permission());
             (daemon.running(thread), permission)
         };
         if running {
