@@ -236,6 +236,40 @@ pub fn allowed_host(value: &str) -> bool {
     matches!(name.as_str(), "localhost" | "127.0.0.1" | "::1") || name.ends_with(".ts.net")
 }
 
+/// Whether an Origin is the page this request is for: an allowed host whose `host:port` is
+/// the request's own Host. Cookies and SameSite do not tell ports or tailnet machines apart, so
+/// a page on `127.0.0.1:<another port>`, or on another machine of the tailnet, would otherwise
+/// carry the owner's cookie onto the socket. When `tailscale serve` hands the request on with
+/// a loopback Host, the page's own `https://*.ts.net` origin is the one that reached it.
+pub fn same_origin(origin: &str, host: Option<&str>) -> bool {
+    let Some(host) = host else {
+        return false;
+    };
+    if !allowed_host(origin) || !allowed_host(host) {
+        return false;
+    }
+    let (secure, authority) = if let Some(rest) = origin.strip_prefix("https://") {
+        (true, rest)
+    } else if let Some(rest) = origin.strip_prefix("http://") {
+        (false, rest)
+    } else {
+        return false;
+    };
+    let authority = authority.to_ascii_lowercase();
+    let host = host.to_ascii_lowercase();
+    if authority == host {
+        return true;
+    }
+    let host_name = if let Some(rest) = host.strip_prefix('[') {
+        rest.split(']').next().unwrap_or("")
+    } else {
+        host.split(':').next().unwrap_or("")
+    };
+    secure
+        && authority.ends_with(".ts.net")
+        && matches!(host_name, "localhost" | "127.0.0.1" | "::1")
+}
+
 /// Equal in time that does not depend on where they differ.
 fn same(a: &str, b: &str) -> bool {
     a.len() == b.len()
@@ -320,7 +354,10 @@ fn push_route(head: &Head, token: &str) -> Reply {
     if !has_token(head, token) {
         return Reply::Status(401, "no token");
     }
-    if !head.header("origin").is_some_and(allowed_host) {
+    if !head
+        .header("origin")
+        .is_some_and(|origin| same_origin(origin, head.header("host")))
+    {
         return Reply::Status(403, "only the remote page may change its subscription");
     }
     if !head
@@ -434,7 +471,10 @@ fn read_head(stream: &mut TcpStream) -> anyhow::Result<Option<Head>> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut text = String::new();
     loop {
-        let read = reader.read_line(&mut text)?;
+        // Never buffer more than MAX_HEAD: a line that does not end would otherwise grow
+        // without bound before the size is checked.
+        let room = (MAX_HEAD + 1).saturating_sub(text.len()) as u64;
+        let read = (&mut reader).take(room).read_line(&mut text)?;
         if read == 0 || text.len() > MAX_HEAD {
             return Ok(None);
         }
@@ -475,8 +515,11 @@ fn connection(
         );
     }
     let host_ok = head.header("host").is_some_and(allowed_host);
-    // A browser always sends Origin on a socket; a page on another site cannot fake it.
-    let origin_ok = head.header("origin").is_none_or(allowed_host);
+    // A browser always sends Origin on a socket; a page elsewhere cannot fake it. It must be
+    // this page's own origin, not just any page on this machine or the tailnet.
+    let origin_ok = head
+        .header("origin")
+        .is_none_or(|origin| same_origin(origin, head.header("host")));
     let upgrade = head
         .header("upgrade")
         .is_some_and(|u| u.eq_ignore_ascii_case("websocket"));
@@ -580,7 +623,10 @@ mod tests {
     #[test]
     fn serves_the_bundled_faces_as_fonts() {
         assert_eq!(content_type(Path::new("fonts/Geist.ttf")), "font/ttf");
-        assert_eq!(content_type(Path::new("css/remote.css")), "text/css; charset=utf-8");
+        assert_eq!(
+            content_type(Path::new("css/remote.css")),
+            "text/css; charset=utf-8"
+        );
     }
 
     #[test]
@@ -616,6 +662,54 @@ mod tests {
         ] {
             assert!(!allowed_host(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_head_line_that_never_ends_is_dropped_at_the_limit() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind");
+        let mut client = TcpStream::connect(listener.local_addr().expect("addr")).expect("connect");
+        // More than the limit and no newline; the socket stays open, so only the limit ends it.
+        client.write_all(&vec![b'a'; MAX_HEAD * 4]).expect("write");
+        let (mut server, _) = listener.accept().expect("accept");
+        assert!(matches!(read_head(&mut server), Ok(None)));
+    }
+
+    #[test]
+    fn a_socket_or_push_call_needs_this_page_s_own_origin() {
+        let local = Some("127.0.0.1:7421");
+        assert!(same_origin("http://127.0.0.1:7421", local));
+        assert!(same_origin("http://localhost:7421", Some("localhost:7421")));
+        // Another port on this machine: same site for cookies, not this page.
+        assert!(!same_origin("http://127.0.0.1:3000", local));
+        assert!(!same_origin("http://localhost:7421", local));
+        assert!(!same_origin("http://127.0.0.1", local));
+        // Another machine on the same tailnet.
+        let tailnet = Some("mac.tail1234.ts.net");
+        assert!(same_origin("https://mac.tail1234.ts.net", tailnet));
+        assert!(!same_origin("https://other.tail1234.ts.net", tailnet));
+        // tailscale serve handing the request on with a loopback Host.
+        assert!(same_origin("https://mac.tail1234.ts.net", local));
+        assert!(!same_origin("http://mac.tail1234.ts.net", local));
+        assert!(!same_origin("https://evil.example", local));
+        assert!(!same_origin("http://127.0.0.1:7421", None));
+
+        let push = |origin: &str| {
+            route(
+                &head(&format!(
+                    "POST /push/unsubscribe HTTP/1.1\r\nHost: 127.0.0.1:7421\r\nOrigin: {origin}\r\nCookie: cedian_remote=t\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n"
+                )),
+                "t",
+                None,
+            )
+        };
+        assert!(matches!(
+            push("http://127.0.0.1:3000"),
+            Reply::Status(403, _)
+        ));
+        assert!(!matches!(
+            push("http://127.0.0.1:7421"),
+            Reply::Status(403, _)
+        ));
     }
 
     #[test]
