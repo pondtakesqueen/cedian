@@ -14,6 +14,7 @@ import { IStorageService } from '../../../../platform/storage/common/storage.js'
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { projectFolder } from './projectFolder.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { EditorInputCapabilities, IEditorOpenContext } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
@@ -77,9 +78,8 @@ export class CedianSettingsEditor extends EditorPane {
 		if (token.isCancellationRequested || !this.container || this.view) {
 			return;
 		}
-		const folder = this.workspace.getWorkspace().folders[0];
 		this.view = new SettingsView(this.container.ownerDocument, this.daemon.client, {
-			primary: folder?.uri.scheme === 'file' ? folder.uri.fsPath : undefined,
+			primary: projectFolder(this.workspace)?.uri.fsPath,
 			isGitRepo: path => this.fileService.exists(joinPath(URI.file(path), '.git')),
 		});
 		this.container.append(this.view.root);

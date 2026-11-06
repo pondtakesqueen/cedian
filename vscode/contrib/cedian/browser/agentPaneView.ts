@@ -16,6 +16,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { projectFolder } from './projectFolder.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -59,8 +60,8 @@ export class AgentPaneView extends ViewPane {
 
 	protected override renderBody(parent: HTMLElement): void {
 		super.renderBody(parent);
-		const folder = this.workspace.getWorkspace().folders[0];
-		if (!folder || folder.uri.scheme !== 'file') {
+		const folder = projectFolder(this.workspace);
+		if (!folder) {
 			const empty = append(parent, $('.cedian-agent-pane'));
 			append(empty, $('.empty')).textContent = 'Open the project\'s folder first, then give the agent work here';
 			return;
