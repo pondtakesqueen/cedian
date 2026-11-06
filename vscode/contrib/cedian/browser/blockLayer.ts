@@ -13,6 +13,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { projectFolder } from './projectFolder.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorGroupLayout, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
@@ -32,6 +33,7 @@ import { ICedianDaemonService } from './daemonService.js';
 import { createPaneHost } from './paneHost.js';
 import { CedianPanes, connectionBar } from './panes.js';
 import { desktopOf, type Desktop } from './settings/desktop.js';
+import { groupElement } from './workbenchParts.js';
 
 /**
  * The main window's block layer (spec §3.3, §4.4): blocks floating over the editor area as PiPs.
@@ -79,7 +81,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 			},
 			// It slides to the block it docks into: the active one, where the editor opens.
 			landing: () => {
-				const element = (this.editorGroups.mainPart.activeGroup as { element?: HTMLElement }).element;
+				const element = groupElement(this.editorGroups.mainPart.activeGroup);
 				return element?.offsetParent ? element.getBoundingClientRect() : undefined;
 			},
 			moving: () => moving(layoutService.mainContainer),
@@ -115,8 +117,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 
 	/** The project's folder: the primary root, which keys its layout. */
 	private folder(): URI | undefined {
-		const folder = this.workspace.getWorkspace().folders[0];
-		return folder && folder.uri.scheme === 'file' ? folder.uri : undefined;
+		return projectFolder(this.workspace)?.uri;
 	}
 
 	/** Floats the Browser block, closing its editor: the page moves, it is not copied. */
@@ -171,11 +172,11 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 
 	/** Floats `thread` (a new thread when none) in an agent pane of its own over the window. */
 	floatThread(thread: string | undefined): void {
-		const folder = this.workspace.getWorkspace().folders[0];
-		if (!folder || folder.uri.scheme !== 'file') {
+		const folder = this.folder();
+		if (!folder) {
 			return;
 		}
-		const saved = floatingIn(this.desktop, folder.uri.fsPath).find(f => f.kind === 'agent');
+		const saved = floatingIn(this.desktop, folder.fsPath).find(f => f.kind === 'agent');
 		// Its own corner by default: the Browser block rests bottom right.
 		this.floatAgentAt(thread, saved ? { ...saved, id: thread } : { corner: 'tr', width: 400, height: 560 }, false);
 	}

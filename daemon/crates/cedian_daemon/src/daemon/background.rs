@@ -103,9 +103,7 @@ fn host_of(url: &str) -> String {
 
 impl Daemon {
     fn can_schedule(&self) -> bool {
-        self.version
-            .as_ref()
-            .is_ok_and(|v| v.capabilities.contains(&Capability::Schedules))
+        self.offers(Capability::Schedules)
     }
 
     fn background_notice(&self, cwd: &Path, slug: &str) -> Notice {
@@ -202,17 +200,7 @@ impl Daemon {
             if !daemon.can_schedule() {
                 return;
             }
-            let mut projects: Vec<(PathBuf, String)> = daemon
-                .clients
-                .values()
-                .flat_map(|c| {
-                    c.watching
-                        .iter()
-                        .map(|(cwd, slug)| (cwd.clone(), slug.clone()))
-                })
-                .collect();
-            projects.sort();
-            projects.dedup_by(|a, b| a.1 == b.1);
+            let projects = daemon.watched_projects();
             let now = now();
             let mut stale = Vec::new();
             let mut due = Vec::new();

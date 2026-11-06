@@ -122,6 +122,14 @@ impl ThreadSummary {
             .find(|s| s.role.is_empty() || s.role == "code")
             .map(|s| s.model.as_str())
     }
+
+    /// The permission the thread's latest run had that named one.
+    pub fn last_permission(&self) -> Option<String> {
+        self.runs
+            .iter()
+            .rev()
+            .find_map(|run| run.permission.clone())
+    }
 }
 
 /// The model a thread opened by `by` (the coordinator, or any thread with `open_thread`) runs

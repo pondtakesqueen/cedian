@@ -28,9 +28,7 @@ pub fn session_lines(path: &Path) -> anyhow::Result<Vec<String>> {
             continue;
         }
         match serde_json::from_str::<serde_json::Value>(line) {
-            Ok(event) => {
-                lines.push(serde_json::json!({"type": "event", "event": event}).to_string())
-            }
+            Ok(event) => lines.push(cedian_protocol::Line::event_text(event)),
             Err(error) => log::warn!("{} line {}: {error}", path.display(), n + 1),
         }
     }

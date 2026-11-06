@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isKey, KEYBINDINGS, parseKey, withKeymap } from "./keybindings";
+import { isKey, KEYBINDINGS, keyLabel, parseKey, withKeymap } from "./keybindings";
 
 describe("keybinding layer", () => {
   it("names each command once; Cmd+K is inline edit in an editor only", () => {
@@ -18,5 +18,12 @@ describe("keybinding layer", () => {
   it("parses", () => {
     expect(parseKey("ctrl+shift+tab")).toEqual({ cmd: false, ctrl: true, shift: true, alt: false, key: "tab" });
     expect(parseKey("cmd")).toBeUndefined();
+  });
+
+  it("names a command's key as a tooltip does, with the person's keymap applied", () => {
+    expect(keyLabel("cedian.modelMenu")).toBe("Cmd+Shift+I");
+    expect(keyLabel("cedian.cycleViewMode")).toBe("Ctrl+O");
+    expect(keyLabel("cedian.modelMenu", { "cedian.modelMenu": "cmd+alt+m" })).toBe("Cmd+Alt+M");
+    expect(keyLabel("cedian.nothing")).toBeUndefined();
   });
 });

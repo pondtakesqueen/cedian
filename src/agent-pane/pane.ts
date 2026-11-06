@@ -22,6 +22,10 @@ import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, star
 import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
+import { isBusy, newestFirst, statusLabel } from "./status.js";
+import { EFFORTS } from "../settings/cedia-settings.js";
+import { keyLabel } from "../keybindings/keybindings.js";
+import { chosenModel, chosenPermission, desktopOf, type Desktop } from "../settings/desktop.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
 
@@ -78,9 +82,12 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 /** Videos cedia shows a model as frames, once it says `video`. */
 const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska", "video/x-msvideo"];
 
+/** A daemon answer's value, or its error, which the cards show in its place. */
+const either = <T, E>(r: { Ok: T } | { Err: E }): T | E => ("Ok" in r ? r.Ok : r.Err);
+
 /** Threads newest first; archived ones and side chats stay out of the list. */
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
-  return threads.filter((t) => !t.archived).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  return threads.filter((t) => !t.archived).sort(newestFirst);
 }
 
 /** What the composer takes as the review card's command. */
@@ -103,16 +110,6 @@ const ISSUES_ENTRY: CommandEntry = { name: "issues", description: "The repositor
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
 
-const STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  working: "Working",
-  done: "Done",
-  failed: "Failed",
-  stopped: "Stopped",
-  interrupted: "Interrupted",
-  asking: "Waiting for you",
-};
-
 export interface ThreadSearchItem {
   /** A thread's id, or `CHAT` for the project chat. */
   id: string;
@@ -131,11 +128,11 @@ export function threadSearch(threads: ThreadInfo[]): ThreadSearchItem[] {
   const item = (t: ThreadInfo): ThreadSearchItem => {
     const title = t.title || t.task;
     const progress = todoCard(t)?.progress;
-    const state = t.archived ? "Archived" : t.needs_you ? `${STATUS_LABEL[t.status] ?? t.status} · needs you` : STATUS_LABEL[t.status] ?? t.status;
+    const state = t.archived ? "Archived" : t.needs_you ? `${statusLabel(t.status)} · needs you` : statusLabel(t.status);
     return { id: t.id, label: title, description: [state, progress, t.pr ? prText(t.pr) : undefined].filter(Boolean).join(" · "), ...(t.task && t.task !== title ? { detail: t.task } : {}) };
   };
-  const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || b.updated_at.localeCompare(a.updated_at));
-  return [{ id: CHAT, label: "Project chat", description: coordinator ? STATUS_LABEL[coordinator.status] ?? coordinator.status : "" }, ...rest.map(item)];
+  const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || newestFirst(a, b));
+  return [{ id: CHAT, label: "Project chat", description: coordinator ? statusLabel(coordinator.status) : "" }, ...rest.map(item)];
 }
 
 export class AgentPane {
@@ -164,7 +161,7 @@ export class AgentPane {
   private permissions?: PermissionList;
   private commands: CommandEntry[] = [];
   private capabilities: Capability[] = [];
-  private desktop: Record<string, unknown> = {};
+  private desktop: Desktop = {};
   private choices: RunChoices = { worktree: false };
   private chosen = new Set<keyof RunChoices>();
   private viewMode: ViewMode = "answers";
@@ -332,10 +329,9 @@ export class AgentPane {
     this.pr = undefined;
     this.prUi = newPrUi();
     if (info?.pr) {
-      this.pr = null;
-      this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: id });
+      this.readPr(id);
     }
-    this.wire.request({ op: "git", cwd: this.host.cwd, thread: id });
+    this.readGit(id);
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
     this.followRepository();
@@ -493,8 +489,7 @@ export class AgentPane {
         if (n.cwd === this.host.cwd) this.threads = n.threads;
         // The PR watch found the open thread's PR since it opened: draw its block.
         if (this.state.thread && this.state.info?.pr && this.pr === undefined) {
-          this.pr = null;
-          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: this.state.thread });
+          this.readPr(this.state.thread);
         }
         break;
       case "choices":
@@ -506,20 +501,20 @@ export class AgentPane {
         if (n.cwd === this.host.cwd) this.commands = n.commands;
         break;
       case "settings":
-        this.desktop = (typeof n.desktop === "object" && n.desktop) ? (n.desktop as Record<string, unknown>) : {};
+        this.desktop = desktopOf(n.desktop);
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
         break;
       case "pr_view":
         if (n.thread !== this.state.thread) break;
-        this.pr = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        this.pr = either(n.view);
         if (n.acted) this.prUi.busy = undefined;
         break;
       case "prs":
-        if (n.cwd === this.host.cwd) this.prs = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        if (n.cwd === this.host.cwd) this.prs = either(n.list);
         break;
       case "issues":
-        if (n.cwd === this.host.cwd && this.issues && JSON.stringify(n.filter) === JSON.stringify(filterOf(this.issues))) this.issues.list = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        if (n.cwd === this.host.cwd && this.issues && JSON.stringify(n.filter) === JSON.stringify(filterOf(this.issues))) this.issues.list = either(n.list);
         break;
       case "issue": {
         const ui = this.issues;
@@ -536,7 +531,7 @@ export class AgentPane {
           ui.newTitle = ui.newBody = "";
           ui.open = n.number;
         }
-        if (n.number != null && n.number === ui.open) ui.view = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        if (n.number != null && n.number === ui.open) ui.view = either(n.view);
         break;
       }
       case "pr_log":
@@ -544,19 +539,18 @@ export class AgentPane {
         break;
       case "git":
         if (n.thread !== this.state.thread) break;
-        this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
+        this.git = either(n.state);
         if (n.fetched) this.gitFetching = false;
         // A pushed branch may have a PR the watch does not follow: read it, so the block shows
         // without arming the watch's fixes.
         if ("Ok" in n.state && n.state.Ok.upstream && this.pr === undefined) {
-          this.pr = null;
-          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
+          this.readPr(n.thread);
         }
         // A read that lands mid-push leaves the push's button busy until its own answer.
         if (n.after && n.after === this.gitBusy) this.gitBusy = undefined;
         break;
       case "committed":
-        if (n.thread === this.state.thread) this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+        if (n.thread === this.state.thread) this.readGit(n.thread);
         break;
       case "archive_guard":
         void this.archiveGuard(n.cwd, n.thread, n.files);
@@ -567,7 +561,7 @@ export class AgentPane {
       case "status":
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
-          this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+          this.readGit(n.thread);
           if (this.state.info?.pr || (this.pr && typeof this.pr === "object")) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
@@ -595,14 +589,8 @@ export class AgentPane {
 
   /** The chips start from `desktop` (Settings), else cedia's own defaults. */
   private defaults(): void {
-    if (!this.chosen.has("model")) {
-      const model = typeof this.desktop.model === "string" ? this.desktop.model : undefined;
-      this.choices.model = model;
-    }
-    if (!this.chosen.has("permission")) {
-      const permission = typeof this.desktop.permission === "string" ? this.desktop.permission : undefined;
-      this.choices.permission = permission;
-    }
+    if (!this.chosen.has("model")) this.choices.model = chosenModel(this.desktop);
+    if (!this.chosen.has("permission")) this.choices.permission = chosenPermission(this.desktop);
   }
 
   private leave(): void {
@@ -767,8 +755,24 @@ export class AgentPane {
     if (await this.host.confirmArchive(files)) this.wire.request({ op: "archive", cwd, thread, archived: true, force: true });
   }
 
+  /** Whether this cedia offers `cap`; one that lists no capabilities predates the list and offers all. */
   private can(cap: Capability): boolean {
     return this.capabilities.length === 0 || this.capabilities.includes(cap);
+  }
+
+  /** The key for a Cedian command, as `desktop.keymap` has it now. */
+  private keyOf(command: string): string {
+    return keyLabel(command, this.desktop.keymap) ?? "";
+  }
+
+  /** Reads the thread's PR again; its block shows as loading until the answer. */
+  private readPr(thread: string): void {
+    this.pr = null;
+    this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread });
+  }
+
+  private readGit(thread: string): void {
+    this.wire.request({ op: "git", cwd: this.host.cwd, thread });
   }
 
   /**
@@ -780,7 +784,7 @@ export class AgentPane {
     const to = addressed(this.input.value, this.threads, this.state.thread!);
     if (!to) return false;
     const t = to.thread;
-    const running = t.status === "working" || t.status === "queued";
+    const running = isBusy(t.status);
     const permission = threadPermission(t);
     const requests = submit({ text: to.text, images: this.images }, { cwd: t.cwd ?? this.host.cwd, thread: t.id, running }, { worktree: false, ...(permission ? { permission } : {}) });
     this.sent(requests);
@@ -913,11 +917,10 @@ export class AgentPane {
       return o;
     };
     picker.append(option(CHAT, "Project chat"), option("", "New thread"));
-    const busy = (t: ThreadInfo) => t.status === "working" || t.status === "queued";
     const groups: [string, ThreadInfo[]][] = [
       ["Needs you", list.filter((t) => t.needs_you)],
-      ["Working", list.filter((t) => !t.needs_you && busy(t))],
-      ["Threads", list.filter((t) => !t.needs_you && !busy(t))],
+      ["Working", list.filter((t) => !t.needs_you && isBusy(t.status))],
+      ["Threads", list.filter((t) => !t.needs_you && !isBusy(t.status))],
     ];
     for (const [label, threads] of groups) {
       if (threads.length === 0) continue;
@@ -936,7 +939,7 @@ export class AgentPane {
   private statusPill(): HTMLElement[] {
     const status = this.state.status;
     if (!status) return [];
-    const label = STATUS_LABEL[status] ?? status;
+    const label = statusLabel(status);
     const pill = el(this.doc, "span", `status st-${status}`);
     pill.title = label;
     pill.append(el(this.doc, "span", `dot st-${status}`), el(this.doc, "span", "l", label));
@@ -1004,7 +1007,7 @@ export class AgentPane {
     const d = this.doc;
     const label = VIEW_MODES.find((v) => v.mode === this.viewMode)!.label;
     const mode = button(d, "", () => this.cycleViewMode(), "chip view");
-    mode.title = `View: ${label}. Switch view (Ctrl+O)`;
+    mode.title = `View: ${label}. Switch view (${this.keyOf("cedian.cycleViewMode")})`;
     mode.setAttribute("aria-label", `View: ${label}`);
     mode.append(icon(d, "eye"), el(d, "span", "l", label));
     return mode;
@@ -1067,7 +1070,7 @@ export class AgentPane {
       const row = el(d, "div", `thread-card st-${c.status}${c.archived ? " archived" : ""}`);
       row.dataset.thread = c.id;
       const head = el(d, "div", "row");
-      const state = c.archived ? "Archived" : STATUS_LABEL[c.status] ?? c.status;
+      const state = c.archived ? "Archived" : statusLabel(c.status);
       head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")));
       if (c.pr) head.append(this.prChip(c.pr));
       head.append(button(d, "Open", () => this.openThread(c.id), "btn small"));
@@ -1347,7 +1350,7 @@ export class AgentPane {
     }
     if (this.host.openSourceControl) row.append(button(d, "Source Control", () => this.host.openSourceControl!(this.cwd), "btn small"));
     // Commit as the receipt does (`cedia commit` drafts the message), from where git says what is uncommitted.
-    if (git.changed > 0 && this.ship.commit.step === "idle" && !isRunning(this.state) && (this.capabilities.length === 0 || this.capabilities.includes("commit"))) {
+    if (git.changed > 0 && this.ship.commit.step === "idle" && !isRunning(this.state) && this.can("commit")) {
       row.append(button(d, "Commit", () => {
         const r = startCommit(this.ship, this.cwd, thread);
         this.ship = r.ship;
@@ -1370,10 +1373,9 @@ export class AgentPane {
     };
     const c = this.ship.commit;
     const p = this.ship.pr;
-    const can = (cap: Capability) => this.capabilities.length === 0 || this.capabilities.includes(cap);
     switch (c.step) {
       case "idle":
-        if (can("commit")) card.append(button(d, "Commit", () => go(startCommit(this.ship, this.cwd, thread)), "btn primary"));
+        if (this.can("commit")) card.append(button(d, "Commit", () => go(startCommit(this.ship, this.cwd, thread)), "btn primary"));
         break;
       case "drafting":
         card.append(el(d, "div", "small", "Drafting the commit message…"));
@@ -1418,7 +1420,7 @@ export class AgentPane {
         card.append(el(d, "div", "bad", c.error), button(d, "Try again", () => go(startCommit(cancel(this.ship, "commit"), this.cwd, thread))));
         break;
     }
-    if (can("pr") && (c.step === "committed" || c.step === "idle")) {
+    if (this.can("pr") && (c.step === "committed" || c.step === "idle")) {
       switch (p.step) {
         case "idle":
           card.append(button(d, "Open PR", () => go(startPr(this.ship, this.cwd, thread))));
@@ -1571,14 +1573,14 @@ export class AgentPane {
       const shown = threadModel ?? this.choices.model ?? "";
       const s = select(d, [{ value: "", label: this.models.models.find((m) => m.ref === this.models!.default)?.label ?? this.models.default }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
       s.dataset.chip = "model";
-      s.title = "Model (Cmd+Shift+I)";
+      s.title = `Model (${this.keyOf("cedian.modelMenu")})`;
       chips.push(this.pill(s, "model", "model"));
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
-        const levels = entry.effortLevels?.length ? entry.effortLevels : ["low", "medium", "high", "xhigh", "max"];
+        const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
         const e = select(d, [{ value: "", label: entry.defaultEffort ?? "effort" }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
-        e.title = "Effort (Cmd+Shift+E)";
+        e.title = `Effort (${this.keyOf("cedian.effortMenu")})`;
         chips.push(this.pill(e, "effort", "effort"));
       }
     }
@@ -1586,7 +1588,7 @@ export class AgentPane {
       const threadMode = this.state.thread && !this.chosen.has("permission") ? threadPermission(this.state.info) : undefined;
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
-      s.title = "Permission (Cmd+Shift+M)";
+      s.title = `Permission (${this.keyOf("cedian.permissionMenu")})`;
       chips.push(this.pill(s, "shield", "permission"));
     }
     if (!this.state.thread) {
@@ -1598,7 +1600,7 @@ export class AgentPane {
       label.append(box, el(d, "span", "", "New worktree"));
       chips.push(label);
     }
-    if (this.capabilities.length === 0 || this.capabilities.includes("images")) {
+    if (this.can("images")) {
       const video = this.takesVideo();
       const attach = video ? "Attach image or video" : "Attach image";
       const pick = button(d, "", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "ib attach");

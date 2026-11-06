@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-use cedian_index::{project_key, read_thread, threads_dir};
+use cedian_index::project_key;
 use cedian_wire::{Helpers, PrState};
 
 use super::{Daemon, Shared, lock};
@@ -61,7 +61,7 @@ impl Daemon {
                 return;
             }
             let slug = project_key(project);
-            let Ok(summary) = read_thread(&threads_dir(&daemon.home, &slug), thread) else {
+            let Ok(summary) = daemon.summary(&slug, thread) else {
                 return;
             };
             // Where its latest session ran, else the project itself.
@@ -228,14 +228,11 @@ impl Daemon {
             if let Some(watch) = daemon.prs.get_mut(thread) {
                 watch.asked = true;
             }
-            let summary =
-                read_thread(&threads_dir(&daemon.home, &project_key(project)), thread).ok();
+            let summary = daemon.summary(&project_key(project), thread).ok();
             let model = summary
                 .as_ref()
                 .and_then(|s| s.writer_model().map(str::to_string));
-            let permission = summary
-                .as_ref()
-                .and_then(|s| s.runs.iter().rev().find_map(|r| r.permission.clone()));
+            let permission = summary.as_ref().and_then(|s| s.last_permission());
             (
                 daemon.running(thread),
                 daemon.cedia.clone(),

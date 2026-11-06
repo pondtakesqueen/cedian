@@ -3,63 +3,12 @@
 //! Kept per thread under the daemon's state directory, so a window that opens the thread later,
 //! or after a restart, sees the same notes.
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
-use anyhow::Context as _;
 use cedian_protocol::{CodeFinding, CodeReview};
 use cedian_wire::{CommentState, LineComment, Notes};
 
 use crate::anchor::{anchor_at, follow};
-
-pub struct NoteStore {
-    dir: PathBuf,
-}
-
-impl NoteStore {
-    pub fn new(state_dir: &Path) -> Self {
-        Self {
-            dir: state_dir.join("notes"),
-        }
-    }
-
-    pub fn load(&self, thread: &str) -> Notes {
-        let path = self.path(thread);
-        match std::fs::read(&path) {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|error| {
-                log::warn!("{}: {error}", path.display());
-                Notes::default()
-            }),
-            Err(_) => Notes::default(),
-        }
-    }
-
-    pub fn save(&self, thread: &str, notes: &Notes) -> anyhow::Result<()> {
-        std::fs::create_dir_all(&self.dir)
-            .with_context(|| format!("creating {}", self.dir.display()))?;
-        let path = self.path(thread);
-        let temp = path.with_extension("json.tmp");
-        std::fs::write(&temp, serde_json::to_vec_pretty(notes)?)
-            .with_context(|| format!("writing {}", temp.display()))?;
-        std::fs::rename(&temp, &path).with_context(|| format!("replacing {}", path.display()))
-    }
-
-    fn path(&self, thread: &str) -> PathBuf {
-        let name: String = thread
-            .chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() || c == '-' {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        self.dir.join(format!("{name}.json"))
-    }
-}
 
 /// Whether there is anything to show: a window opening the thread is sent notes only then.
 pub fn any(notes: &Notes) -> bool {
@@ -160,6 +109,7 @@ pub fn fix_message(review: &CodeReview, findings: &[&CodeFinding]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::thread_store::ThreadStore;
 
     fn finding(id: &str, text: &str) -> CodeFinding {
         CodeFinding {
@@ -285,7 +235,7 @@ mod tests {
     #[test]
     fn notes_last_across_a_restart() {
         let dir = tempfile::tempdir().unwrap();
-        let store = NoteStore::new(dir.path());
+        let store = ThreadStore::<Notes>::new(dir.path(), "notes");
         assert!(!any(&store.load("t-1")));
         let notes = Notes {
             dismissed: vec!["f1".into()],
@@ -293,7 +243,7 @@ mod tests {
             ..Notes::default()
         };
         store.save("t-1", &notes).unwrap();
-        let back = NoteStore::new(dir.path()).load("t-1");
+        let back = ThreadStore::<Notes>::new(dir.path(), "notes").load("t-1");
         assert_eq!(back.dismissed, ["f1"]);
         assert!(any(&back));
     }

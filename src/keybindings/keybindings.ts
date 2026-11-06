@@ -68,3 +68,9 @@ export function parseKey(text: string): { cmd: boolean; ctrl: boolean; shift: bo
   const key = parts.pop()!;
   return { cmd: parts.includes("cmd"), ctrl: parts.includes("ctrl"), shift: parts.includes("shift"), alt: parts.includes("alt"), key };
 }
+
+/** The key that runs `command`, as a tooltip names it (`Cmd+Shift+I`), the person's keymap applied. */
+export function keyLabel(command: string, keymap?: unknown): string | undefined {
+  const key = withKeymap(KEYBINDINGS, keymap).find((b) => b.command === command)?.mac;
+  return key?.split("+").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join("+");
+}

@@ -12,6 +12,7 @@ import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { closing, moving, opening } from './blocks/motion.js';
+import { groupElement } from './workbenchParts.js';
 
 
 /** Where a tab was laid out in its row, and a copy of it to show if it closes. */
@@ -71,8 +72,7 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 	}
 
 	private tabsOf(group: IEditorGroup): HTMLElement[] {
-		const element = (group as IEditorGroup & { element?: HTMLElement }).element;
-		const row = element?.querySelector<HTMLElement>('.tabs-container');
+		const row = this.rowOf(group);
 		return row ? [...row.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.classList.contains('tab')) : [];
 	}
 
@@ -152,7 +152,7 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 	}
 
 	private rowOf(group: IEditorGroup): HTMLElement | null {
-		return (group as IEditorGroup & { element?: HTMLElement }).element?.querySelector<HTMLElement>('.tabs-container') ?? null;
+		return groupElement(group)?.querySelector<HTMLElement>('.tabs-container') ?? null;
 	}
 
 	/** A closed tab's copy, where it stood, collapsing into its left edge as the tabs after it slide over. */

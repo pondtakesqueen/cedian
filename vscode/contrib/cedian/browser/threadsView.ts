@@ -15,6 +15,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { projectFolder } from './projectFolder.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { EditorsOrder } from '../../../common/editor.js';
@@ -82,8 +83,8 @@ export class ThreadsView extends ViewPane {
 
 	protected override renderBody(parent: HTMLElement): void {
 		super.renderBody(parent);
-		const folder = this.workspace.getWorkspace().folders[0];
-		if (!folder || folder.uri.scheme !== 'file') {
+		const folder = projectFolder(this.workspace);
+		if (!folder) {
 			append(parent, $('.cedian-thread-list')).textContent = 'Open the project\'s folder first';
 			return;
 		}

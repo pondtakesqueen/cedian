@@ -4,7 +4,6 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -45,11 +44,7 @@ impl Ledger {
 
     /// Replaces the file in one rename, so a crash mid-write leaves the old list.
     pub fn save(&self, runs: &[RunRecord]) -> anyhow::Result<()> {
-        let temporary = self.path.with_extension("json.tmp");
-        std::fs::write(&temporary, serde_json::to_vec(runs)?)
-            .with_context(|| format!("writing {}", temporary.display()))?;
-        std::fs::rename(&temporary, &self.path)
-            .with_context(|| format!("replacing {}", self.path.display()))
+        crate::atomic::replace_json(&self.path, &serde_json::to_vec(runs)?)
     }
 }
 

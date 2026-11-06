@@ -16,6 +16,7 @@ import { IStorageService } from '../../../../platform/storage/common/storage.js'
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { projectFolder } from './projectFolder.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { EditorInputCapabilities, EditorsOrder, IEditorOpenContext, IEditorSerializer } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
@@ -147,8 +148,8 @@ export class CedianAgentEditor extends EditorPane {
 	}
 
 	private draw(container: HTMLElement): void {
-		const folder = this.workspace.getWorkspace().folders[0];
-		if (!folder || folder.uri.scheme !== 'file') {
+		const folder = projectFolder(this.workspace);
+		if (!folder) {
 			return;
 		}
 		// Reviews from here open in the main window, beside the code, not over this pane: in another

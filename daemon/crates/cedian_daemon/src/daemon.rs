@@ -26,9 +26,10 @@ use crate::{
     follow::{Offsets, follow},
     keep_awake::KeepAwake,
     ledger::{Ledger, RunRecord, still_running},
-    review::{Changes, DecisionStore, decide},
+    review::{Changes, decide},
     run::{Run, RunId, watch},
     seen::Seen,
+    thread_store::ThreadStore,
     thread_watch::{Fingerprints, fingerprint},
 };
 
@@ -71,9 +72,10 @@ pub struct Daemon {
     by_thread: HashMap<String, RunId>,
     keep_awake: KeepAwake,
     ledger: Ledger,
-    decisions: DecisionStore,
-    /// Line comments and code reviews, by thread (`notes`).
-    notes: crate::notes::NoteStore,
+    /// Each thread's hunk decisions, under `<state dir>/review`.
+    decisions: ThreadStore<cedian_review::Decisions>,
+    /// Each thread's line comments and code review, under `<state dir>/notes`.
+    notes: ThreadStore<cedian_wire::Notes>,
     /// The threads directories windows show, as last listed.
     prints: Fingerprints,
     seen: Seen,
@@ -106,14 +108,17 @@ pub struct Daemon {
 /// Threads the coordinator queues and scheduled runs keep cedia's default.
 const PERSON_CACHE_TTL: &str = "1h";
 
+/// Whether this cedia offers `capability`; one whose version could not be read offers none.
+fn offers(version: &Result<VersionInfo, String>, capability: cedian_protocol::Capability) -> bool {
+    version
+        .as_ref()
+        .is_ok_and(|v| v.capabilities.contains(&capability))
+}
+
 /// `Notice::Choices` from cedia's `models` and `permissions`, each asked only when this cedia
 /// offers it: an older cedia would read the word as a prompt.
 fn choices(cedia: &Cedia, version: &Result<VersionInfo, String>) -> Notice {
-    let can = |capability| {
-        version
-            .as_ref()
-            .is_ok_and(|v| v.capabilities.contains(&capability))
-    };
+    let can = |capability| offers(version, capability);
     fn listed<T>(list: Result<T, String>) -> Option<T> {
         list.inspect_err(|e| log::warn!("{e}")).ok()
     }
@@ -148,8 +153,8 @@ impl Daemon {
             by_thread: HashMap::new(),
             keep_awake: KeepAwake::default(),
             ledger: Ledger::new(state_dir),
-            decisions: DecisionStore::new(state_dir),
-            notes: crate::notes::NoteStore::new(state_dir),
+            decisions: ThreadStore::new(state_dir, "review"),
+            notes: ThreadStore::new(state_dir, "notes"),
             prints: Fingerprints::default(),
             seen: Seen::new(state_dir),
             started: HashSet::new(),
@@ -239,7 +244,7 @@ impl Daemon {
             return false;
         };
         let running = still_running(pid);
-        let sessions = match read_thread(&threads_dir(&self.home, &run.slug), &thread) {
+        let sessions = match self.summary(&run.slug, &thread) {
             Ok(summary) => summary.sessions,
             Err(error) => {
                 log::warn!("{error:#}");
@@ -320,13 +325,6 @@ impl Daemon {
         let shared = shared.clone();
         std::thread::spawn(move || {
             for (cwd, thread) in sides {
-                let alive = |daemon: &Daemon| {
-                    daemon
-                        .by_thread
-                        .get(&thread)
-                        .and_then(|id| daemon.runs.get(id))
-                        .is_some_and(|run| run.alive)
-                };
                 {
                     let daemon = lock(&shared);
                     if let Some(run) = daemon
@@ -342,7 +340,7 @@ impl Daemon {
                     }
                 }
                 for _ in 0..50 {
-                    if !alive(&lock(&shared)) {
+                    if !lock(&shared).running(&thread) {
                         break;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -428,17 +426,51 @@ impl Daemon {
         );
     }
 
-    /// Sends a notice to every client that has the thread open.
-    fn tell_readers(&mut self, thread: &str, notice: &Notice) {
-        let readers: Vec<ClientId> = self
+    /// The projects windows show, once each by slug, with the first of their folders.
+    fn watched_projects(&self) -> Vec<(PathBuf, String)> {
+        let mut projects: Vec<(PathBuf, String)> = self
             .clients
+            .values()
+            .flat_map(|client| {
+                client
+                    .watching
+                    .iter()
+                    .map(|(cwd, slug)| (cwd.clone(), slug.clone()))
+            })
+            .collect();
+        projects.sort();
+        projects.dedup_by(|a, b| a.1 == b.1);
+        projects
+    }
+
+    /// The clients that have the thread open.
+    fn readers(&self, thread: &str) -> Vec<ClientId> {
+        self.clients
             .iter()
             .filter(|(_, client)| client.open.contains(thread))
             .map(|(id, _)| *id)
-            .collect();
-        for id in readers {
+            .collect()
+    }
+
+    fn read_by_anyone(&self, thread: &str) -> bool {
+        self.clients.values().any(|c| c.open.contains(thread))
+    }
+
+    /// Sends a notice to every client that has the thread open.
+    fn tell_readers(&mut self, thread: &str, notice: &Notice) {
+        for id in self.readers(thread) {
             self.send(id, notice.clone());
         }
+    }
+
+    /// The thread's summary from cedia's threads directory for the project `slug`.
+    fn summary(&self, slug: &str, thread: &str) -> anyhow::Result<ThreadSummary> {
+        read_thread(&threads_dir(&self.home, slug), thread)
+    }
+
+    /// Whether this cedia offers `capability`: a word an older cedia would take as a prompt.
+    fn offers(&self, capability: cedian_protocol::Capability) -> bool {
+        offers(&self.version, capability)
     }
 
     fn running(&self, thread: &str) -> bool {
@@ -456,7 +488,7 @@ impl Daemon {
                 continue;
             }
             // A window showing the thread as it changes counts as seeing it.
-            if self.clients.values().any(|c| c.open.contains(&thread.id)) {
+            if self.read_by_anyone(&thread.id) {
                 self.seen.mark(slug, &thread.id, &thread.updated_at);
             }
             let status = Status::of(thread.state, self.running(&thread.id));
@@ -490,7 +522,7 @@ impl Daemon {
     }
 
     fn status(&self, slug: &str, thread: &str) -> Status {
-        match read_thread(&threads_dir(&self.home, slug), thread) {
+        match self.summary(slug, thread) {
             Ok(summary) => Status::of(summary.state, self.running(thread)),
             Err(_) if self.running(thread) => Status::Working,
             Err(error) => {
@@ -586,7 +618,7 @@ impl Daemon {
                     c.open.remove(&thread);
                     c.flows.remove(&thread);
                 }
-                if !daemon.clients.values().any(|c| c.open.contains(&thread)) {
+                if !daemon.read_by_anyone(&thread) {
                     daemon.folds.remove(&thread);
                 }
             }
@@ -642,14 +674,7 @@ impl Daemon {
                 }
             }
             Request::Commands { cwd } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::Commands)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::Commands);
                 // An older cedia would read the word as a prompt.
                 if !can {
                     return;
@@ -670,13 +695,7 @@ impl Daemon {
                 Self::set_schedule(shared, client, &cwd, &id, enabled)
             }
             Request::Usage { cwd, since } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities.contains(&cedian_protocol::Capability::Usage)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::Usage);
                 if !can {
                     lock(shared).error(client, "this cedia does not split its usage yet".into());
                     return;
@@ -704,14 +723,7 @@ impl Daemon {
                 helpers,
                 images,
             } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::ThreadsFork)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::ThreadsFork);
                 if !can {
                     return lock(shared).thread_error(
                         client,
@@ -1224,12 +1236,7 @@ impl Daemon {
             | Request::Pr { .. } => {
                 let (cedia, can_commit, can_pr) = {
                     let daemon = lock(shared);
-                    let can = |capability| {
-                        daemon
-                            .version
-                            .as_ref()
-                            .is_ok_and(|v| v.capabilities.contains(&capability))
-                    };
+                    let can = |capability| daemon.offers(capability);
                     (
                         daemon.cedia.clone(),
                         can(cedian_protocol::Capability::Commit),
@@ -1277,14 +1284,7 @@ impl Daemon {
             | Request::McpCheck { .. }
             | Request::McpAdd { .. }
             | Request::McpRemove { .. } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::McpManage)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::McpManage);
                 if !can {
                     lock(shared).settings_error(
                         client,
@@ -1310,14 +1310,7 @@ impl Daemon {
                 }
             }
             Request::CediaSettings | Request::SetCedia { .. } => {
-                let (cedia, can) = {
-                    let daemon = lock(shared);
-                    let can = daemon.version.as_ref().is_ok_and(|v| {
-                        v.capabilities
-                            .contains(&cedian_protocol::Capability::SettingsEdit)
-                    });
-                    (daemon.cedia.clone(), can)
-                };
+                let (cedia, can) = Self::can(shared, cedian_protocol::Capability::SettingsEdit);
                 if !can {
                     let refused = Some("this cedia does not edit its model settings yet".into());
                     lock(shared).send(
@@ -1592,7 +1585,7 @@ impl Daemon {
     ) -> Option<(PathBuf, String)> {
         let slug = project_key(cwd);
         let result = (|| {
-            let summary = read_thread(&threads_dir(&self.home, &slug), thread)?;
+            let summary = self.summary(&slug, thread)?;
             let changes = Changes::of(&self.home, &slug, &summary)?;
             let mut decisions = self.decisions.load(thread);
             let mut review = changes.review(&self.home, &decisions)?;
@@ -1627,7 +1620,7 @@ impl Daemon {
     /// checks go first: the review walks cedia's shadow git.
     fn nothing_owed(&self, cwd: &Path, thread: &str) -> bool {
         let slug = project_key(cwd);
-        let Ok(summary) = read_thread(&threads_dir(&self.home, &slug), thread) else {
+        let Ok(summary) = self.summary(&slug, thread) else {
             return false;
         };
         let status = Status::of(summary.state, self.running(thread));
@@ -1675,7 +1668,7 @@ impl Daemon {
     /// The folder the thread's latest session ran in (its worktree), else the project's.
     fn folder(&self, cwd: &Path, thread: &str) -> PathBuf {
         let slug = project_key(cwd);
-        read_thread(&threads_dir(&self.home, &slug), thread)
+        self.summary(&slug, thread)
             .and_then(|summary| Changes::of(&self.home, &slug, &summary))
             .map_or_else(|_| cwd.to_owned(), |changes| changes.work_tree)
     }
@@ -1684,7 +1677,8 @@ impl Daemon {
     /// ran in the project itself, or has no session yet.
     fn uncommitted(&self, cwd: &Path, thread: &str) -> Vec<String> {
         let slug = project_key(cwd);
-        let work_tree = read_thread(&threads_dir(&self.home, &slug), thread)
+        let work_tree = self
+            .summary(&slug, thread)
             .and_then(|summary| Changes::of(&self.home, &slug, &summary));
         let Ok(changes) = work_tree else {
             return Vec::new();
@@ -1698,7 +1692,7 @@ impl Daemon {
     /// Whether the thread needs the person now, as the list would say.
     fn needs_you(&self, cwd: &Path, thread: &str) -> bool {
         let slug = project_key(cwd);
-        read_thread(&threads_dir(&self.home, &slug), thread).is_ok_and(|summary| {
+        self.summary(&slug, thread).is_ok_and(|summary| {
             let status = Status::of(summary.state, self.running(thread));
             self.seen
                 .needs_you(&slug, thread, &summary.updated_at, status)
@@ -1708,7 +1702,7 @@ impl Daemon {
     /// Marks the thread's latest change seen, and sends the list again when that changed it.
     fn mark_seen(&mut self, cwd: &Path, thread: &str) {
         let slug = project_key(cwd);
-        if let Ok(summary) = read_thread(&threads_dir(&self.home, &slug), thread)
+        if let Ok(summary) = self.summary(&slug, thread)
             && self.seen.mark(&slug, thread, &summary.updated_at)
         {
             self.refresh(&slug);
@@ -1717,7 +1711,7 @@ impl Daemon {
 
     fn open(&mut self, client: ClientId, cwd: &Path, thread: &str) {
         let slug = project_key(cwd);
-        let summary = match read_thread(&threads_dir(&self.home, &slug), thread) {
+        let summary = match self.summary(&slug, thread) {
             Ok(summary) => summary,
             // A thread this project has no record of says so (spec §8.3); other reads say why.
             Err(error) if !threads_dir(&self.home, &slug).join(thread).exists() => {
@@ -1846,13 +1840,7 @@ impl Daemon {
     /// A thread's live notice to each client that has it open, through the credit of those
     /// that ack.
     fn tell_paced(&mut self, thread: &str, notice: &Notice) {
-        let readers: Vec<ClientId> = self
-            .clients
-            .iter()
-            .filter(|(_, client)| client.open.contains(thread))
-            .map(|(id, _)| *id)
-            .collect();
-        for id in readers {
+        for id in self.readers(thread) {
             let now = match self
                 .clients
                 .get_mut(&id)
@@ -1876,24 +1864,10 @@ impl Daemon {
     pub fn start_queued(shared: &Shared) {
         let queued: Vec<(PathBuf, PathBuf, String, String, String, Option<String>)> = {
             let mut daemon = lock(shared);
-            if !daemon.version.as_ref().is_ok_and(|v| {
-                v.capabilities
-                    .contains(&cedian_protocol::Capability::OpenThread)
-            }) {
+            if !daemon.offers(cedian_protocol::Capability::OpenThread) {
                 return;
             }
-            let mut projects: Vec<(PathBuf, String)> = daemon
-                .clients
-                .values()
-                .flat_map(|client| {
-                    client
-                        .watching
-                        .iter()
-                        .map(|(cwd, slug)| (cwd.clone(), slug.clone()))
-                })
-                .collect();
-            projects.sort();
-            projects.dedup_by(|a, b| a.1 == b.1);
+            let projects = daemon.watched_projects();
             let mut found = Vec::new();
             for (cwd, slug) in projects {
                 let threads = match list_threads(&threads_dir(&daemon.home, &slug)) {
@@ -2046,7 +2020,7 @@ impl Daemon {
         // its thread under the primary root (cedia's `CEDIA_ROOTS`).
         let slug = project_key(&asked_in);
         let (before, cwd) = match &thread {
-            Some(thread) => match read_thread(&threads_dir(&daemon.home, &slug), thread) {
+            Some(thread) => match daemon.summary(&slug, thread) {
                 Ok(summary) => {
                     let own = daemon.thread_cwd(&slug, &summary).unwrap_or(cwd);
                     let before = summary.sessions.into_iter().map(|s| s.session_id).collect();
@@ -2056,12 +2030,7 @@ impl Daemon {
             },
             None => (HashSet::new(), cwd),
         };
-        let can = |capability| {
-            daemon
-                .version
-                .as_ref()
-                .is_ok_and(|v| v.capabilities.contains(&capability))
-        };
+        let can = |capability| daemon.offers(capability);
         // The project's page: the native view a window holds for it, through the bridge. A run
         // opens none; with no window holding one, it has no browser.
         let page = can(cedian_protocol::Capability::Browser)
@@ -2160,11 +2129,7 @@ impl Daemon {
     /// cedia, and whether it offers `capability`.
     fn can(shared: &Shared, capability: cedian_protocol::Capability) -> (Cedia, bool) {
         let daemon = lock(shared);
-        let can = daemon
-            .version
-            .as_ref()
-            .is_ok_and(|v| v.capabilities.contains(&capability));
-        (daemon.cedia.clone(), can)
+        (daemon.cedia.clone(), daemon.offers(capability))
     }
 
     /// The person's next message to the thread, written by the daemon (line comments, a fix):
@@ -2173,15 +2138,10 @@ impl Daemon {
     fn deliver(shared: &Shared, client: ClientId, cwd: PathBuf, thread: &str, text: &str) {
         let (running, permission) = {
             let daemon = lock(shared);
-            let permission = read_thread(&threads_dir(&daemon.home, &project_key(&cwd)), thread)
+            let permission = daemon
+                .summary(&project_key(&cwd), thread)
                 .ok()
-                .and_then(|summary| {
-                    summary
-                        .runs
-                        .iter()
-                        .rev()
-                        .find_map(|run| run.permission.clone())
-                });
+                .and_then(|summary| summary.last_permission());
             (daemon.running(thread), permission)
         };
         if running {
@@ -2256,7 +2216,7 @@ impl Daemon {
                 }
             },
         };
-        let read = self.clients.values().any(|c| c.open.contains(&thread));
+        let read = self.read_by_anyone(&thread);
         if !read {
             self.folds.remove(&thread);
             return;
