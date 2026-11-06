@@ -22,6 +22,7 @@ import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, star
 import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
+import { isBusy, newestFirst, statusLabel } from "./status.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
 
@@ -80,7 +81,7 @@ const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matr
 
 /** Threads newest first; archived ones and side chats stay out of the list. */
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
-  return threads.filter((t) => !t.archived).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  return threads.filter((t) => !t.archived).sort(newestFirst);
 }
 
 /** What the composer takes as the review card's command. */
@@ -103,16 +104,6 @@ const ISSUES_ENTRY: CommandEntry = { name: "issues", description: "The repositor
 /** The thread picker's value for the project chat. */
 export const CHAT = "@chat";
 
-const STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  working: "Working",
-  done: "Done",
-  failed: "Failed",
-  stopped: "Stopped",
-  interrupted: "Interrupted",
-  asking: "Waiting for you",
-};
-
 export interface ThreadSearchItem {
   /** A thread's id, or `CHAT` for the project chat. */
   id: string;
@@ -131,11 +122,11 @@ export function threadSearch(threads: ThreadInfo[]): ThreadSearchItem[] {
   const item = (t: ThreadInfo): ThreadSearchItem => {
     const title = t.title || t.task;
     const progress = todoCard(t)?.progress;
-    const state = t.archived ? "Archived" : t.needs_you ? `${STATUS_LABEL[t.status] ?? t.status} · needs you` : STATUS_LABEL[t.status] ?? t.status;
+    const state = t.archived ? "Archived" : t.needs_you ? `${statusLabel(t.status)} · needs you` : statusLabel(t.status);
     return { id: t.id, label: title, description: [state, progress, t.pr ? prText(t.pr) : undefined].filter(Boolean).join(" · "), ...(t.task && t.task !== title ? { detail: t.task } : {}) };
   };
-  const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || b.updated_at.localeCompare(a.updated_at));
-  return [{ id: CHAT, label: "Project chat", description: coordinator ? STATUS_LABEL[coordinator.status] ?? coordinator.status : "" }, ...rest.map(item)];
+  const rest = threads.filter((t) => t.id !== coordinator?.id && t.profile !== COORDINATOR).sort((a, b) => Number(a.archived) - Number(b.archived) || newestFirst(a, b));
+  return [{ id: CHAT, label: "Project chat", description: coordinator ? statusLabel(coordinator.status) : "" }, ...rest.map(item)];
 }
 
 export class AgentPane {
@@ -780,7 +771,7 @@ export class AgentPane {
     const to = addressed(this.input.value, this.threads, this.state.thread!);
     if (!to) return false;
     const t = to.thread;
-    const running = t.status === "working" || t.status === "queued";
+    const running = isBusy(t.status);
     const permission = threadPermission(t);
     const requests = submit({ text: to.text, images: this.images }, { cwd: t.cwd ?? this.host.cwd, thread: t.id, running }, { worktree: false, ...(permission ? { permission } : {}) });
     this.sent(requests);
@@ -913,11 +904,10 @@ export class AgentPane {
       return o;
     };
     picker.append(option(CHAT, "Project chat"), option("", "New thread"));
-    const busy = (t: ThreadInfo) => t.status === "working" || t.status === "queued";
     const groups: [string, ThreadInfo[]][] = [
       ["Needs you", list.filter((t) => t.needs_you)],
-      ["Working", list.filter((t) => !t.needs_you && busy(t))],
-      ["Threads", list.filter((t) => !t.needs_you && !busy(t))],
+      ["Working", list.filter((t) => !t.needs_you && isBusy(t.status))],
+      ["Threads", list.filter((t) => !t.needs_you && !isBusy(t.status))],
     ];
     for (const [label, threads] of groups) {
       if (threads.length === 0) continue;
@@ -936,7 +926,7 @@ export class AgentPane {
   private statusPill(): HTMLElement[] {
     const status = this.state.status;
     if (!status) return [];
-    const label = STATUS_LABEL[status] ?? status;
+    const label = statusLabel(status);
     const pill = el(this.doc, "span", `status st-${status}`);
     pill.title = label;
     pill.append(el(this.doc, "span", `dot st-${status}`), el(this.doc, "span", "l", label));
@@ -1067,7 +1057,7 @@ export class AgentPane {
       const row = el(d, "div", `thread-card st-${c.status}${c.archived ? " archived" : ""}`);
       row.dataset.thread = c.id;
       const head = el(d, "div", "row");
-      const state = c.archived ? "Archived" : STATUS_LABEL[c.status] ?? c.status;
+      const state = c.archived ? "Archived" : statusLabel(c.status);
       head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")));
       if (c.pr) head.append(this.prChip(c.pr));
       head.append(button(d, "Open", () => this.openThread(c.id), "btn small"));

@@ -5,6 +5,7 @@ import { button, el, type Wire } from "../dom/el.js";
 import type { Notice, Request, ThreadInfo } from "../protocol/wire.js";
 import { todoCard } from "./cards.js";
 import { COORDINATOR, coordinatorThread } from "./project-chat.js";
+import { isBusy, newestFirst } from "./status.js";
 
 export type ThreadGroup = "needs" | "working" | "done";
 
@@ -28,7 +29,7 @@ const NOTE: Partial<Record<ThreadInfo["status"], string>> = { asking: "asking", 
 /** Which section a thread is in: waiting on the person, at work, or finished. */
 export function groupOf(t: ThreadInfo): ThreadGroup {
   if (t.needs_you || t.status === "asking" || t.status === "failed" || t.status === "interrupted") return "needs";
-  if (t.status === "working" || t.status === "queued") return "working";
+  if (isBusy(t.status)) return "working";
   return "done";
 }
 
@@ -43,7 +44,7 @@ export function threadSections(threads: ThreadInfo[], query = ""): ThreadSection
   const shown = threads
     .filter((t) => !t.archived && !t.parent && t.id !== coordinator && t.profile !== COORDINATOR)
     .filter((t) => !q || `${t.title} ${t.task}`.toLowerCase().includes(q))
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    .sort(newestFirst);
   const groups: ThreadGroup[] = ["needs", "working", "done"];
   return groups
     .map((group) => ({

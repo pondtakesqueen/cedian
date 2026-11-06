@@ -3,6 +3,7 @@
 // it all again on open or reconnect, so nothing here is ever the only copy.
 import type { Notes, Notice, Review, Status, ThreadInfo } from "../protocol/wire.js";
 import type { Block } from "./block.js";
+import { isBusy } from "./status.js";
 import { applyBlocks, applyText, emptyView, type BlocksNotice, type TextNotice, type ThreadView } from "./view.js";
 
 export interface ThreadState {
@@ -64,7 +65,7 @@ export function reduce(state: ThreadState, notice: Notice): ThreadState {
   }
 }
 
-export const isRunning = (state: ThreadState) => state.status === "working" || state.status === "queued";
+export const isRunning = (state: ThreadState) => isBusy(state.status);
 
 /**
  * The writer's model, which the header and the model chip name: the latest `code` session's, from

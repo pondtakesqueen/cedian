@@ -5,6 +5,7 @@
 import type { PrChip, Status, ThreadInfo } from "../protocol/wire.js";
 import { type Completion, score } from "../composer/complete.js";
 import { todoCard } from "./cards.js";
+import { newestFirst } from "./status.js";
 
 export const COORDINATOR = "coordinator";
 
@@ -12,7 +13,7 @@ export const COORDINATOR = "coordinator";
 export function coordinatorThread(threads: ThreadInfo[]): ThreadInfo | undefined {
   return threads
     .filter((t) => t.profile === COORDINATOR && !t.archived)
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+    .sort(newestFirst)[0];
 }
 
 export interface ChatCard {
@@ -43,7 +44,7 @@ const ORDER: Partial<Record<Status, number>> = { asking: 0, working: 1, queued: 
 export function chatCards(threads: ThreadInfo[], coordinator: string): ChatCard[] {
   return threads
     .filter((t) => t.by === coordinator)
-    .sort((a, b) => Number(a.archived) - Number(b.archived) || (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9) || b.updated_at.localeCompare(a.updated_at))
+    .sort((a, b) => Number(a.archived) - Number(b.archived) || (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9) || newestFirst(a, b))
     .map((t) => {
       const todo = todoCard(t);
       const step = t.todo?.find((s) => s.state === "doing")?.text;
