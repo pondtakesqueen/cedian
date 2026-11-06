@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadInfo } from "../protocol/wire.js";
-import { counts, isScratch, nextAfterClose, projectName, projectsOf, projectTabs, withoutProject, withProject } from "./project-tabs.js";
+import { cacheText, counts, isScratch, nextAfterClose, tabsFromCache, projectName, projectsOf, projectTabs, withoutProject, withProject } from "./project-tabs.js";
 
 const thread = (id: string, status: ThreadInfo["status"], extra: Partial<ThreadInfo> = {}): ThreadInfo =>
   ({ id, status, archived: false, messages: [], pending: [], title: id, task: "", updated_at: "2026-11-04T00:00:00Z", ...extra }) as unknown as ThreadInfo;
@@ -74,5 +74,24 @@ describe("the title bar's window title", () => {
     const { readFileSync } = await import("node:fs");
     const css = readFileSync(new URL("../../vscode/contrib/cedian/browser/media/workbench.css", import.meta.url), "utf8");
     expect(css).toMatch(/\.titlebar-center > \.window-title \{ visibility: hidden; \}/);
+  });
+});
+
+describe("the tabs a loading window draws first", () => {
+  it("are the last window's tabs, with this window's marked", () => {
+    const last = projectTabs("/a", ["/a", "/b"], new Map([["/b", [thread("x", "asking")]]]));
+    const tabs = tabsFromCache(cacheText(last), "/b");
+    expect(tabs?.map((t) => [t.root, t.on, t.needs])).toEqual([["/a", false, 0], ["/b", true, 1]]);
+  });
+
+  it("put this window's project first when the cache doesn't list it", () => {
+    expect(tabsFromCache(cacheText(projectTabs("/a", [], new Map())), "/z")?.map((t) => t.root)).toEqual(["/z", "/a"]);
+  });
+
+  it("are nothing when the cache is missing or not a tab list", () => {
+    expect(tabsFromCache(undefined, "/a")).toBeUndefined();
+    expect(tabsFromCache("{", "/a")).toBeUndefined();
+    expect(tabsFromCache("{}", "/a")).toBeUndefined();
+    expect(tabsFromCache('[{"root":3},{"root":"/b","needs":-1}]', "/b")).toEqual([{ root: "/b", name: "b", on: true, needs: 0, working: 0 }]);
   });
 });

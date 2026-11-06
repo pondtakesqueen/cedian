@@ -11,6 +11,7 @@
  * open/close mockup's H, its spring taken out): see WINDOWS_MS below. A machine too busy to keep
  * up switches at once for a while (pace.ts).
  */
+import { curtainDown } from "./curtain.js";
 import { pace } from "./pace.js";
 
 export const OPEN_MS = 180;
@@ -62,8 +63,9 @@ export const MOTION_PROPERTIES: Record<string, string> = {
 
 /**
  * Whether the window moves: VS Code takes monaco-enable-motion off for the OS's or VS Code's reduced
- * motion, and a machine that just dropped frames switches at once for a while (pace.ts).
+ * motion, and a machine that just dropped frames switches at once for a while (pace.ts). Nothing
+ * moves while the window loads behind its curtain (curtain.ts).
  */
 export function moving(workbench: HTMLElement): boolean {
-  return workbench.classList.contains("monaco-enable-motion") && !pace.busy();
+  return workbench.classList.contains("monaco-enable-motion") && !pace.busy() && !curtainDown(workbench);
 }

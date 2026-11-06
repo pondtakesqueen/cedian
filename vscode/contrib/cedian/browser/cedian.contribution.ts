@@ -44,6 +44,7 @@ import { CedianDropTarget } from './dropTarget.js';
 import { CedianBlockStretch } from './blockStretch.js';
 import { CedianBlockTitle } from './blockTitle.js';
 import { CedianProjectTabs } from './projectTabs.js';
+import { CedianCurtain, CedianCurtainUp } from './curtain.js';
 import { TOOL_PICKS } from './blocks/places.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
@@ -195,7 +196,9 @@ registerWorkbenchContribution2(CedianBlockMove.ID, CedianBlockMove, WorkbenchPha
 registerWorkbenchContribution2(CedianTabMove.ID, CedianTabMove, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianToolStrip.ID, CedianToolStrip, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianDropTarget.ID, CedianDropTarget, WorkbenchPhase.AfterRestored);
-registerWorkbenchContribution2(CedianProjectTabs.ID, CedianProjectTabs, WorkbenchPhase.AfterRestored);
+// The curtain and the project tabs from the first frame: a tab switch loads the window again.
+registerWorkbenchContribution2(CedianCurtain.ID, CedianCurtain, WorkbenchPhase.BlockRestore);
+registerWorkbenchContribution2(CedianProjectTabs.ID, CedianProjectTabs, WorkbenchPhase.BlockRestore);
 
 registerAction2(class extends Action2 {
 	constructor() {
@@ -648,3 +651,6 @@ registerWorkbenchContribution2(CedianSettingsRedirect.ID, CedianSettingsRedirect
 registerWorkbenchContribution2(CedianTabCompletion.ID, CedianTabCompletion, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianWelcomeCheck.ID, CedianWelcomeCheck, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(CedianNativeBrowser.ID, CedianNativeBrowser, WorkbenchPhase.AfterRestored);
+
+// Last of the restored phase: the window is laid out by now (curtain.ts).
+registerWorkbenchContribution2(CedianCurtainUp.ID, CedianCurtainUp, WorkbenchPhase.AfterRestored);
