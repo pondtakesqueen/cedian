@@ -2,7 +2,8 @@
 // §13 Telemetry gate (spec §9): the built app sends nothing on its own. Launches it with VS
 // Code's own defaults for telemetry and updates (none of the smoke launch's "off" settings),
 // opens a file, types and idles, and lists every connection the app's processes hold to a
-// host that is not this machine, sampled with lsof. No model is asked, so none is expected.
+// host that is not this machine, sampled with lsof. No model is asked, so none is expected:
+// tab completion, which asks cedia's model as the person types, is off for this launch.
 // Also checks that crash reporting points at ~/Library/Logs/Cedian (patch 0004).
 // Prints what it saw and a JSON summary (also to --out); exits 1 on any outside connection.
 // Usage: node test/smoke/offline.mjs <Cedian.app> [--seconds 60] [--out file.json]
@@ -67,7 +68,14 @@ function outside(pids) {
 // A state dir of its own, so the app starts its own daemon inside the watched process tree
 // (a daemon already running would be outside it, with its cedia children).
 process.env.CEDIAN_STATE_DIR = mkdtempSync(join(tmpdir(), "cedian-offline-state-"));
-const { electronApp, window } = await launch(app, { "telemetry.telemetryLevel": undefined, "update.mode": undefined, "extensions.autoCheckUpdates": undefined });
+const { electronApp, window } = await launch(app, {
+  "telemetry.telemetryLevel": undefined,
+  "update.mode": undefined,
+  "extensions.autoCheckUpdates": undefined,
+  // desktop.editor.tab_completion's VS Code setting (src/settings/desktop.ts): typing into
+  // README.md below would otherwise run `cedia complete`, a model call by design.
+  "editor.inlineSuggest.enabled": false,
+});
 const pid = electronApp.process().pid;
 const endpoints = new Map();
 const sample = () => {
