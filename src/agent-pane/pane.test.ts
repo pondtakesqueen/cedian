@@ -298,6 +298,23 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "pr_view", cwd: "/r", thread: "t-1" });
   });
 
+  it("a PR opened after the push is read again, so its block shows without reopening", () => {
+    const { pane, emit, sent } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a" })] });
+    pane.openThread("t-1");
+    emit({ kind: "git", thread: "t-1", state: { Ok: { branch: "b", base: "origin/main", ahead: 1, behind: 0, upstream: "origin/b", unpushed: 0, changed: 0 } } });
+    // Pushed, no PR yet: the daemon answers none.
+    emit({ kind: "pr_view", thread: "t-1", view: { Ok: null } });
+    const reads = () => sent.filter((r) => r.op === "pr_view").length;
+    const before = reads();
+    emit({ kind: "pr_opened", thread: "t-1", result: { branch: "b", base: "main", url: "https://x/pr/5", out: "" } });
+    expect(reads()).toBe(before + 1);
+    // A failed open, or one for another thread, asks for nothing.
+    emit({ kind: "pr_opened", thread: "t-1", result: { error: "gh: no" } });
+    emit({ kind: "pr_opened", thread: "t-2", result: { branch: "c", out: "" } });
+    expect(reads()).toBe(before + 1);
+  });
+
   it("/prs opens the Pull requests card, and Review in a thread starts one", () => {
     const { pane, emit, last } = setup();
     type(pane, "/prs");

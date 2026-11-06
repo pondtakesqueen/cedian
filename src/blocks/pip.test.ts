@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { arrange, fan, FAN_HEIGHT, FAN_SHOWN, FAN_TILT, fit, GAP, nearest, place, PIP_MIN, resized, settle, sideOf, STASH_TAB, step, velocityOf, type Card } from "./pip.js";
+import { arrange, fan, FAN_HEIGHT, FAN_SHOWN, FAN_TILT, fit, GAP, nativePageShown, nearest, place, PIP_MIN, resized, settle, sideOf, STASH_TAB, step, velocityOf, type Card } from "./pip.js";
 
 const frame = { width: 1200, height: 800 };
 const size = { width: 400, height: 300 };
@@ -170,5 +170,22 @@ describe("the fan (a deck of the floating blocks)", () => {
       const shown = boxes[i].left - boxes[i - 1].left;
       expect(shown).toBeGreaterThanOrEqual(440 * cards[i].scale * FAN_SHOWN - 1);
     }
+  });
+});
+
+describe("a floating Browser's native page (drawn above the window, never clipped)", () => {
+  const win = { width: 1400, height: 900 };
+  test("shows where the block rests in the window", () => {
+    expect(nativePageShown({ left: 900, top: 500, width: 440, height: 300 }, win, false)).toBe(true);
+  });
+  test("hides while the block is stashed, so it never covers the Explorer beside the frame", () => {
+    // Stashed left: all but the tab is past the editor area's side, over the side bar.
+    expect(nativePageShown({ left: 300 + STASH_TAB - 440, top: 500, width: 440, height: 300 }, win, true)).toBe(false);
+    expect(nativePageShown({ left: 1400 - 12 - STASH_TAB, top: 500, width: 440, height: 300 }, win, true)).toBe(false);
+  });
+  test("hides with no size or out of the window", () => {
+    expect(nativePageShown({ left: 10, top: 10, width: 0, height: 300 }, win, false)).toBe(false);
+    expect(nativePageShown({ left: 1500, top: 10, width: 440, height: 300 }, win, false)).toBe(false);
+    expect(nativePageShown({ left: -500, top: 10, width: 440, height: 300 }, win, false)).toBe(false);
   });
 });
