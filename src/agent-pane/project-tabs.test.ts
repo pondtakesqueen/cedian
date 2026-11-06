@@ -68,3 +68,11 @@ describe("project tabs in the title bar", () => {
     expect(rule).toMatch(/-webkit-app-region:\s*no-drag/);
   });
 });
+
+describe("the title bar's window title", () => {
+  it("is hidden: the tabs name the project", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("../../vscode/contrib/cedian/browser/media/workbench.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.titlebar-center > \.window-title \{ visibility: hidden; \}/);
+  });
+});

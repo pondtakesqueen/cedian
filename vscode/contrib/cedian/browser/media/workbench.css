@@ -329,6 +329,10 @@
 /* The project tabs (projectTabs.ts) at the start of the title bar's left side, as the prototype's
    .ptab row: quiet until hovered, this window's project filled. What needs the person is a badge in
    the accent colour, what is at work a dot and a count in the working colour. */
+/* No window title in the title bar: the project tabs already name this window's project, and the
+   prototype's title bar has none. window.title (desktop.ts) still names the window for the Dock,
+   Mission Control and the Window menu. */
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-center > .window-title { visibility: hidden; }
 /* Above VS Code's drag region, as its menubar is (z-index 2500): the region is an absolutely placed
    sibling over the whole title bar, so a row without its own layer sits under it and a click on a
    tab drags the window instead. */
