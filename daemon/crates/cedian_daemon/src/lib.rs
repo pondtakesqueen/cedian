@@ -14,6 +14,7 @@ mod environment;
 mod flow;
 mod follow;
 mod git_state;
+mod graphql;
 mod issues;
 mod keep_awake;
 pub mod launch_agent;

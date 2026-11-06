@@ -12,7 +12,10 @@ use cedian_wire::{
 };
 use serde_json::Value;
 
-use crate::pr_watch::{Check, Gh, Pr};
+use crate::{
+    graphql::{self, login, nodes, s},
+    pr_watch::{Check, Gh, Pr},
+};
 
 const QUERY: &str = r#"query($owner: String!, $repo: String!, $number: Int!) {
   viewer { login }
@@ -46,46 +49,12 @@ pub fn read(gh: &Gh, dir: &Path) -> anyhow::Result<Option<PrView>> {
     let Some(pr) = gh.view(dir, &branch)? else {
         return Ok(None);
     };
-    let text = gh.run(
-        dir,
-        &[
-            "api",
-            "graphql",
-            "-F",
-            "owner={owner}",
-            "-F",
-            "repo={repo}",
-            "-F",
-            &format!("number={}", pr.number),
-            "-f",
-            &format!("query={QUERY}"),
-        ],
-    )?;
-    let value: Value = serde_json::from_str(&text).context("reading gh api graphql")?;
+    let value = graphql::read(gh, dir, pr.number, QUERY)?;
     parse(&value).map(Some)
-}
-
-fn s(v: &Value, key: &str) -> String {
-    v.get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned()
 }
 
 fn n(v: &Value, key: &str) -> u32 {
     v.get(key).and_then(Value::as_u64).unwrap_or_default() as u32
-}
-
-fn login(v: &Value) -> String {
-    v.get("author").map(|a| s(a, "login")).unwrap_or_default()
-}
-
-fn nodes<'a>(v: &'a Value, key: &str) -> impl Iterator<Item = &'a Value> {
-    v.get(key)
-        .and_then(|c| c.get("nodes"))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
 }
 
 fn comment(v: &Value) -> PrComment {
