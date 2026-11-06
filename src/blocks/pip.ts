@@ -266,3 +266,22 @@ export function fan(sizes: readonly Size[], frame: Size): Card[] {
     return card;
   });
 }
+
+/** A box in window pixels, as `getBoundingClientRect` gives it. */
+export interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Whether a floating block's native page (drawn above the window's DOM, never clipped by it) may
+ * show at `box`: not when the block is stashed, since all but its tab is past the frame's side and
+ * the page would cover the window there (the Explorer, the side bar); not when the box has no
+ * size or is out of the window.
+ */
+export function nativePageShown(box: Box, window: Size, stashed: boolean): boolean {
+  if (stashed) return false;
+  return box.width >= 1 && box.height >= 1 && box.left + box.width > 0 && box.top + box.height > 0 && box.left < window.width && box.top < window.height;
+}
