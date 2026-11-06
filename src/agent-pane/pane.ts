@@ -24,6 +24,7 @@ import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { isBusy, newestFirst, statusLabel } from "./status.js";
 import { EFFORTS } from "../settings/cedia-settings.js";
+import { keyLabel } from "../keybindings/keybindings.js";
 import { chosenModel, chosenPermission, desktopOf, type Desktop } from "../settings/desktop.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
@@ -80,6 +81,9 @@ export interface PaneHost {
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 /** Videos cedia shows a model as frames, once it says `video`. */
 const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska", "video/x-msvideo"];
+
+/** A daemon answer's value, or its error, which the cards show in its place. */
+const either = <T, E>(r: { Ok: T } | { Err: E }): T | E => ("Ok" in r ? r.Ok : r.Err);
 
 /** Threads newest first; archived ones and side chats stay out of the list. */
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
@@ -325,10 +329,9 @@ export class AgentPane {
     this.pr = undefined;
     this.prUi = newPrUi();
     if (info?.pr) {
-      this.pr = null;
-      this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: id });
+      this.readPr(id);
     }
-    this.wire.request({ op: "git", cwd: this.host.cwd, thread: id });
+    this.readGit(id);
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
     this.followRepository();
@@ -486,8 +489,7 @@ export class AgentPane {
         if (n.cwd === this.host.cwd) this.threads = n.threads;
         // The PR watch found the open thread's PR since it opened: draw its block.
         if (this.state.thread && this.state.info?.pr && this.pr === undefined) {
-          this.pr = null;
-          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: this.state.thread });
+          this.readPr(this.state.thread);
         }
         break;
       case "choices":
@@ -505,14 +507,14 @@ export class AgentPane {
         break;
       case "pr_view":
         if (n.thread !== this.state.thread) break;
-        this.pr = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        this.pr = either(n.view);
         if (n.acted) this.prUi.busy = undefined;
         break;
       case "prs":
-        if (n.cwd === this.host.cwd) this.prs = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        if (n.cwd === this.host.cwd) this.prs = either(n.list);
         break;
       case "issues":
-        if (n.cwd === this.host.cwd && this.issues && JSON.stringify(n.filter) === JSON.stringify(filterOf(this.issues))) this.issues.list = "Ok" in n.list ? n.list.Ok : n.list.Err;
+        if (n.cwd === this.host.cwd && this.issues && JSON.stringify(n.filter) === JSON.stringify(filterOf(this.issues))) this.issues.list = either(n.list);
         break;
       case "issue": {
         const ui = this.issues;
@@ -529,7 +531,7 @@ export class AgentPane {
           ui.newTitle = ui.newBody = "";
           ui.open = n.number;
         }
-        if (n.number != null && n.number === ui.open) ui.view = "Ok" in n.view ? n.view.Ok : n.view.Err;
+        if (n.number != null && n.number === ui.open) ui.view = either(n.view);
         break;
       }
       case "pr_log":
@@ -537,19 +539,18 @@ export class AgentPane {
         break;
       case "git":
         if (n.thread !== this.state.thread) break;
-        this.git = "Ok" in n.state ? n.state.Ok : n.state.Err;
+        this.git = either(n.state);
         if (n.fetched) this.gitFetching = false;
         // A pushed branch may have a PR the watch does not follow: read it, so the block shows
         // without arming the watch's fixes.
         if ("Ok" in n.state && n.state.Ok.upstream && this.pr === undefined) {
-          this.pr = null;
-          this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
+          this.readPr(n.thread);
         }
         // A read that lands mid-push leaves the push's button busy until its own answer.
         if (n.after && n.after === this.gitBusy) this.gitBusy = undefined;
         break;
       case "committed":
-        if (n.thread === this.state.thread) this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+        if (n.thread === this.state.thread) this.readGit(n.thread);
         break;
       case "archive_guard":
         void this.archiveGuard(n.cwd, n.thread, n.files);
@@ -560,7 +561,7 @@ export class AgentPane {
       case "status":
         if (n.thread === this.state.thread && !isRunning(this.state) && isRunning(before)) {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
-          this.wire.request({ op: "git", cwd: this.host.cwd, thread: n.thread });
+          this.readGit(n.thread);
           if (this.state.info?.pr || (this.pr && typeof this.pr === "object")) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
@@ -754,8 +755,24 @@ export class AgentPane {
     if (await this.host.confirmArchive(files)) this.wire.request({ op: "archive", cwd, thread, archived: true, force: true });
   }
 
+  /** Whether this cedia offers `cap`; one that lists no capabilities predates the list and offers all. */
   private can(cap: Capability): boolean {
     return this.capabilities.length === 0 || this.capabilities.includes(cap);
+  }
+
+  /** The key for a Cedian command, as `desktop.keymap` has it now. */
+  private keyOf(command: string): string {
+    return keyLabel(command, this.desktop.keymap) ?? "";
+  }
+
+  /** Reads the thread's PR again; its block shows as loading until the answer. */
+  private readPr(thread: string): void {
+    this.pr = null;
+    this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread });
+  }
+
+  private readGit(thread: string): void {
+    this.wire.request({ op: "git", cwd: this.host.cwd, thread });
   }
 
   /**
@@ -990,7 +1007,7 @@ export class AgentPane {
     const d = this.doc;
     const label = VIEW_MODES.find((v) => v.mode === this.viewMode)!.label;
     const mode = button(d, "", () => this.cycleViewMode(), "chip view");
-    mode.title = `View: ${label}. Switch view (Ctrl+O)`;
+    mode.title = `View: ${label}. Switch view (${this.keyOf("cedian.cycleViewMode")})`;
     mode.setAttribute("aria-label", `View: ${label}`);
     mode.append(icon(d, "eye"), el(d, "span", "l", label));
     return mode;
@@ -1333,7 +1350,7 @@ export class AgentPane {
     }
     if (this.host.openSourceControl) row.append(button(d, "Source Control", () => this.host.openSourceControl!(this.cwd), "btn small"));
     // Commit as the receipt does (`cedia commit` drafts the message), from where git says what is uncommitted.
-    if (git.changed > 0 && this.ship.commit.step === "idle" && !isRunning(this.state) && (this.capabilities.length === 0 || this.capabilities.includes("commit"))) {
+    if (git.changed > 0 && this.ship.commit.step === "idle" && !isRunning(this.state) && this.can("commit")) {
       row.append(button(d, "Commit", () => {
         const r = startCommit(this.ship, this.cwd, thread);
         this.ship = r.ship;
@@ -1356,10 +1373,9 @@ export class AgentPane {
     };
     const c = this.ship.commit;
     const p = this.ship.pr;
-    const can = (cap: Capability) => this.capabilities.length === 0 || this.capabilities.includes(cap);
     switch (c.step) {
       case "idle":
-        if (can("commit")) card.append(button(d, "Commit", () => go(startCommit(this.ship, this.cwd, thread)), "btn primary"));
+        if (this.can("commit")) card.append(button(d, "Commit", () => go(startCommit(this.ship, this.cwd, thread)), "btn primary"));
         break;
       case "drafting":
         card.append(el(d, "div", "small", "Drafting the commit message…"));
@@ -1404,7 +1420,7 @@ export class AgentPane {
         card.append(el(d, "div", "bad", c.error), button(d, "Try again", () => go(startCommit(cancel(this.ship, "commit"), this.cwd, thread))));
         break;
     }
-    if (can("pr") && (c.step === "committed" || c.step === "idle")) {
+    if (this.can("pr") && (c.step === "committed" || c.step === "idle")) {
       switch (p.step) {
         case "idle":
           card.append(button(d, "Open PR", () => go(startPr(this.ship, this.cwd, thread))));
@@ -1557,14 +1573,14 @@ export class AgentPane {
       const shown = threadModel ?? this.choices.model ?? "";
       const s = select(d, [{ value: "", label: this.models.models.find((m) => m.ref === this.models!.default)?.label ?? this.models.default }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
       s.dataset.chip = "model";
-      s.title = "Model (Cmd+Shift+I)";
+      s.title = `Model (${this.keyOf("cedian.modelMenu")})`;
       chips.push(this.pill(s, "model", "model"));
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
         const e = select(d, [{ value: "", label: entry.defaultEffort ?? "effort" }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
-        e.title = "Effort (Cmd+Shift+E)";
+        e.title = `Effort (${this.keyOf("cedian.effortMenu")})`;
         chips.push(this.pill(e, "effort", "effort"));
       }
     }
@@ -1572,7 +1588,7 @@ export class AgentPane {
       const threadMode = this.state.thread && !this.chosen.has("permission") ? threadPermission(this.state.info) : undefined;
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
-      s.title = "Permission (Cmd+Shift+M)";
+      s.title = `Permission (${this.keyOf("cedian.permissionMenu")})`;
       chips.push(this.pill(s, "shield", "permission"));
     }
     if (!this.state.thread) {
@@ -1584,7 +1600,7 @@ export class AgentPane {
       label.append(box, el(d, "span", "", "New worktree"));
       chips.push(label);
     }
-    if (this.capabilities.length === 0 || this.capabilities.includes("images")) {
+    if (this.can("images")) {
       const video = this.takesVideo();
       const attach = video ? "Attach image or video" : "Attach image";
       const pick = button(d, "", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "ib attach");
