@@ -55,3 +55,16 @@ describe("project tabs", () => {
     expect(isScratch("/Users/p/tmp/x")).toBe(false);
   });
 });
+
+describe("project tabs in the title bar", () => {
+  // VS Code's .titlebar-drag-region is an absolutely placed layer over the whole title bar; a row
+  // without a z-index of its own sits under it, so a click on a tab drags the window instead.
+  it("sit above VS Code's drag region, as its menubar does", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("../../vscode/contrib/cedian/browser/media/workbench.css", import.meta.url), "utf8");
+    const rule = css.match(/\.part\.titlebar \.cedian-project-tabs \{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/position:\s*relative/);
+    expect(rule).toMatch(/z-index:\s*2500/);
+    expect(rule).toMatch(/-webkit-app-region:\s*no-drag/);
+  });
+});
