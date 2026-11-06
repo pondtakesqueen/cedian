@@ -28,6 +28,11 @@ impl std::fmt::Display for LineError {
 impl std::error::Error for LineError {}
 
 impl Line {
+    /// A session log's event as the stream-json line `parse` reads back as `Line::Event`.
+    pub fn event_text(event: serde_json::Value) -> String {
+        serde_json::json!({"type": "event", "event": event}).to_string()
+    }
+
     pub fn parse(text: &str) -> Result<Self, LineError> {
         let mut value: serde_json::Value =
             serde_json::from_str(text).map_err(|e| LineError(format!("not JSON: {e}")))?;

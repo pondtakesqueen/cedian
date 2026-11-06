@@ -38,9 +38,7 @@ impl Offsets {
             .filter(|line| !line.trim().is_empty())
             .filter_map(
                 |line| match serde_json::from_str::<serde_json::Value>(line) {
-                    Ok(event) => {
-                        Some(serde_json::json!({"type": "event", "event": event}).to_string())
-                    }
+                    Ok(event) => Some(cedian_protocol::Line::event_text(event)),
                     Err(error) => {
                         log::warn!("{}: {error}", path.display());
                         None
