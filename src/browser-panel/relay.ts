@@ -28,14 +28,32 @@ export interface BrowserChannel {
 /**
  * The domains a run's browser tool may call on the page: reading it, its console, input, and the
  * request interception that keeps it to the project's sites. Nothing that reaches past the page
- * (`Target`, `Browser`, `Storage`, `SystemInfo`, `IO`) passes, so a run holding the bridge's
- * socket drives that one page and nothing else in the window.
+ * (`Target`, `Browser`, `Storage`, `SystemInfo`, `IO`, and `AGENT_DENIED` below) passes, so a run
+ * holding the bridge's socket drives that one page and nothing else in the window.
  */
 export const AGENT_DOMAINS: ReadonlySet<string> = new Set(["Page", "Runtime", "Log", "Fetch", "Input", "DOM", "Network", "Emulation", "Overlay", "Accessibility"]);
 
+/**
+ * Methods of those domains that still reach past the page: the cookies of every site the owner is
+ * signed in to (`Network.getAllCookies` and the rest act on the whole browser session), a fetch
+ * with the page's credentials that no site list sees (`Network.loadNetworkResource`), and where
+ * downloads land. Neither cedia's browser tool nor the block calls them.
+ */
+export const AGENT_DENIED: ReadonlySet<string> = new Set([
+  "Network.getAllCookies",
+  "Network.getCookies",
+  "Network.setCookie",
+  "Network.setCookies",
+  "Network.deleteCookies",
+  "Network.clearBrowserCookies",
+  "Network.clearBrowserCache",
+  "Network.loadNetworkResource",
+  "Page.setDownloadBehavior",
+]);
+
 /** Whether a run may call `method` through the bridge. */
 export function agentMay(method: string): boolean {
-  return AGENT_DOMAINS.has(method.split(".")[0] ?? "");
+  return AGENT_DOMAINS.has(method.split(".")[0] ?? "") && !AGENT_DENIED.has(method);
 }
 
 /** The relay's own calls use ids no page-level client reaches. */

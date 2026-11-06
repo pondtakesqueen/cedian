@@ -83,7 +83,7 @@ describe("a native page as a page-level socket", () => {
     for (const method of ["Page.navigate", "Runtime.evaluate", "Input.dispatchMouseEvent", "Fetch.failRequest", "DOM.getNodeForLocation", "Emulation.setDeviceMetricsOverride", "Log.enable", "Overlay.highlightNode"]) {
       expect(agentMay(method), method).toBe(true);
     }
-    for (const method of ["Target.attachToTarget", "Browser.getVersion", "Storage.clearDataForOrigin", "SystemInfo.getInfo", "IO.read"]) {
+    for (const method of ["Target.attachToTarget", "Browser.getVersion", "Storage.clearDataForOrigin", "SystemInfo.getInfo", "IO.read", "Network.getAllCookies", "Network.getCookies", "Network.setCookie", "Network.clearBrowserCookies", "Network.loadNetworkResource", "Page.setDownloadBehavior"]) {
       expect(agentMay(method), method).toBe(false);
     }
   });

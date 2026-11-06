@@ -25,7 +25,12 @@ fn git_remote(dir: &Path, args: &[&str]) -> anyhow::Result<String> {
 /// Never waits on a terminal prompt for credentials: a remote that wants them fails instead.
 fn run(dir: &Path, args: &[&str], limit: Option<Duration>) -> anyhow::Result<String> {
     let mut child = Command::new("git")
-        .args(["-c", "core.hooksPath=/dev/null"])
+        .args([
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "core.fsmonitor=false",
+        ])
         .args(args)
         .current_dir(dir)
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -223,6 +228,28 @@ mod tests {
         let mut all = vec!["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q"];
         all.extend_from_slice(args);
         run(dir, &all);
+    }
+
+    #[test]
+    fn a_repository_s_fsmonitor_command_is_not_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let repo = dir.path().join("repo");
+        std::fs::create_dir_all(&repo).expect("repo");
+        run(&repo, &["init", "-q", "-b", "main"]);
+        commit(&repo, &["--allow-empty", "-m", "start"]);
+        let ran = dir.path().join("ran");
+        // A folder that came with its own .git (an archive, say) names a command to run.
+        run(
+            &repo,
+            &[
+                "config",
+                "core.fsmonitor",
+                &format!("touch '{}'; false", ran.display()),
+            ],
+        );
+        std::fs::write(repo.join("a.txt"), "a\n").expect("write");
+        read(&repo, false).expect("state");
+        assert!(!ran.exists(), "git ran the repository's fsmonitor command");
     }
 
     #[test]

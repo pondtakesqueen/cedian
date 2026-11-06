@@ -1959,7 +1959,7 @@ impl Daemon {
                 step: format!("checking out PR #{number}"),
             },
         );
-        let made = crate::worktree::create(&asked_in, &format!("review pr {number}"))
+        let made = crate::worktree::create_for_review(&asked_in, &format!("review pr {number}"))
             .and_then(|(dir, _)| crate::pr_view::checkout(gh, &dir, number).map(|()| dir));
         match made {
             Ok(dir) => {
@@ -2032,13 +2032,15 @@ impl Daemon {
         };
         let can = |capability| daemon.offers(capability);
         // The project's page: the native view a window holds for it, through the bridge. A run
-        // opens none; with no window holding one, it has no browser.
-        let page = can(cedian_protocol::Capability::Browser)
-            .then(|| daemon.native.url(&slug))
-            .flatten();
+        // opens none; with no window holding one, it has no browser. Nor does a cedia that cannot
+        // hold the project's allowlist: it would use the page under its general web rules.
+        let page = (can(cedian_protocol::Capability::Browser)
+            && can(cedian_protocol::Capability::BrowserSites))
+        .then(|| daemon.native.url(&slug))
+        .flatten();
         let shows_images = can(cedian_protocol::Capability::Images);
-        // The project's allowlist holds for the agent too, when this cedia can hold it.
-        let sites = (page.is_some() && can(cedian_protocol::Capability::BrowserSites)).then(|| {
+        // The project's allowlist holds for the agent too.
+        let sites = page.is_some().then(|| {
             read_desktop(&settings_path(&daemon.home))
                 .map(|desktop| browser_sites(&desktop, &slug))
                 .unwrap_or_default()

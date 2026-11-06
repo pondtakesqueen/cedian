@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# Checks read the code and nothing else.
+permissions:
+  contents: read
+
 jobs:
   rust:
     runs-on: macos-15
@@ -12,8 +16,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.98.1
-      - run: cd daemon && cargo build -p cedian_daemon
-      - run: cd daemon && cargo test --workspace
+      - run: cd daemon && cargo build --locked -p cedian_daemon
+      - run: cd daemon && cargo test --locked --workspace
 
   typescript:
     runs-on: ubuntu-latest
