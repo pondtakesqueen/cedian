@@ -79,3 +79,33 @@ export function nextAfterClose(tabs: readonly ProjectTab[], root: string): strin
   if (at < 0) return undefined;
   return (tabs[at + 1] ?? tabs[at - 1])?.root;
 }
+
+/**
+ * The tabs as this window last drew them, read back by the next window to load (a tab switch loads
+ * the window again), so the title bar shows its tabs from the first frame, before the daemon
+ * answers. This window's own is marked; one it doesn't list goes first. Undefined when the text is
+ * not such a list.
+ */
+export function tabsFromCache(text: string | undefined, current: string): ProjectTab[] | undefined {
+  if (!text) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+  const tabs: ProjectTab[] = [];
+  for (const item of parsed) {
+    const root = (item as { root?: unknown } | null)?.root;
+    if (typeof root !== "string" || !root || tabs.some((t) => t.root === root)) continue;
+    const { needs, working } = item as { needs?: unknown; working?: unknown };
+    tabs.push({ root, name: projectName(root), on: root === current, needs: count(needs), working: count(working) });
+  }
+  if (!tabs.some((t) => t.on)) tabs.unshift({ root: current, name: projectName(current), on: true, needs: 0, working: 0 });
+  return tabs;
+}
+
+/** What tabsFromCache reads: each tab's folder and counts. */
+export const cacheText = (tabs: readonly ProjectTab[]): string => JSON.stringify(tabs.map(({ root, needs, working }) => ({ root, needs, working })));
