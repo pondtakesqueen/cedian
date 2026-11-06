@@ -193,8 +193,9 @@
   notices into the pane at their times in Chromium and times the frames; on
   a synthetic 3k-block thread streaming 250 deltas at 50 a second: median
   frame 16.7 ms, 2 frames over 25 ms (the first draw)
-- [ ] Line comments on diffs; `/code-review` card (built 2026-10-29, not yet
-  tried in the app): a `+` beside the line under the pointer in a review diff
+- [x] Line comments on diffs; `/code-review` card (built 2026-10-29, tried in
+  the app on the owner's Mac 2026-11-06 at 8c6c259: comments, Send all, Walk
+  through, Dismiss/Restore and Fix this one work): a `+` beside the line under the pointer in a review diff
   opens a comment box (Enter adds, Cmd+Enter adds and sends all); the
   comments wait in the daemon (`Request::Comments`, kept per thread under its
   state dir) and show under their lines and on the pane's card, and go to the
@@ -211,8 +212,9 @@
   the run ends each sent one is Resolved (collapsed, Reopen) if the run
   changed its line or a line next to it, else Still open, which the next
   batch carries again and says so
-- [ ] Git pane (built 2026-10-29; Source Control and the Git card tried on
-  the owner's Mac against local remotes, not yet against GitHub): VS Code's own
+- [x] Git pane (built 2026-10-29; Source Control and the Git card tried on
+  the owner's Mac against local remotes, and against GitHub 2026-11-06:
+  commit, push and pull): VS Code's own
   Source Control follows the agent pane's open thread: `git.openRepository`
   on its worktree (else the project), then focused and pinned in the SCM
   view (`vscode/contrib/cedian/browser/sourceControl.ts`), so Changes,
@@ -225,8 +227,10 @@
   `cedian_daemon::git_state`). Pull autostashes and aborts a rebase that
   conflicts; opening the card fetches, off the window's reader thread with
   a 120 s limit and no credential prompt
-- [ ] Review, merge and issues in Cedian (built 2026-10-29, not yet tried in
-  the app), through the person's own `gh`, each action the command a person
+- [ ] Review, merge and issues in Cedian (built 2026-10-29, tried in the app
+  2026-11-06: description, comments, Reply, Resolve, Checks, Fix in thread and
+  Issues work; the block missing after Open PR on a pushed branch is fixed;
+  Merge and the archive after it not yet tried, the test repo's CI cannot run), through the person's own `gh`, each action the command a person
   would type. The PR block under a thread's receipt (`pr-block.ts`,
   `cedian_daemon::pr_view`, one GraphQL read): description, comments and
   line-comment threads with their hunk (Reply, Resolve, Fix in thread,
@@ -292,7 +296,10 @@
   to do: capture-and-draw. Tern's float, stash and zoom over the block are
   the block layer's (below)
 - [ ] Block layer, Tern's PiP over any block (built 2026-11-04 in the cloud,
-  not yet tried in the app; spec §3.3, §4.4, §5.5). `src/blocks/layer.ts`
+  tried in the app 2026-11-06: float, corners, stash, expand, dock in both
+  themes and Reduce Motion work; a stashed Browser's page over the Explorer is
+  fixed, to check again; Float Thread did nothing with the agent pane as an
+  editor; spec §3.3, §4.4, §5.5). `src/blocks/layer.ts`
   floats a `Block` over the main window's editor area (so the side pane's
   composer stays clear): it rests in a corner, drags by its
   header and settles in the nearest corner or flings on (a pause before
