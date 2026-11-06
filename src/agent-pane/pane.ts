@@ -552,6 +552,10 @@ export class AgentPane {
       case "committed":
         if (n.thread === this.state.thread) this.readGit(n.thread);
         break;
+      case "pr_opened":
+        // A push read the PR before it existed; read it again so its block shows now.
+        if (n.thread === this.state.thread && !("error" in n.result)) this.readPr(n.thread);
+        break;
       case "archive_guard":
         void this.archiveGuard(n.cwd, n.thread, n.files);
         break;
