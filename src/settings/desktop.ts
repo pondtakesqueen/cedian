@@ -14,6 +14,9 @@ export interface Desktop {
   code_font_size?: number;
   density?: "comfortable" | "compact";
   view_mode?: string;
+  /** The model and permission new threads start with; unset takes cedia's defaults. */
+  model?: unknown;
+  permission?: unknown;
   notifications?: { sound?: boolean };
   keymap?: Record<string, string>;
   roots?: Record<string, string[]>;
@@ -35,13 +38,32 @@ export const LINE_HEIGHT = 1.6;
 const CODE_FALLBACK = "Menlo, Monaco, 'Courier New', 'Sukhumvit Set', 'Thonburi', monospace";
 const UI_FALLBACK = "-apple-system, BlinkMacSystemFont, 'Sukhumvit Set', 'Thonburi', sans-serif";
 
+/** A JSON object, or undefined for anything else (an array, a string, null). */
+export const recordOf = (value: unknown): Record<string, unknown> | undefined =>
+  typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+
 /** `desktop`, or nothing usable as one, as a Desktop. */
 export function desktopOf(value: unknown): Desktop {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Desktop) : {};
+  return recordOf(value) ?? {};
 }
 
-const size = (value: unknown, min: number, max: number): number | undefined =>
-  typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : undefined;
+/** A font size's range, and what an unset or out-of-range size takes. */
+export interface SizeRange {
+  fallback: number;
+  min: number;
+  max: number;
+}
+export const UI_FONT_SIZE: SizeRange = { fallback: 14, min: 10, max: 24 };
+export const CODE_FONT_SIZE: SizeRange = { fallback: 13, min: 8, max: 40 };
+
+const size = (value: unknown, { fallback, min, max }: SizeRange): number =>
+  typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+
+/** `desktop.model`: the model new threads start with, unless it is unset. */
+export const chosenModel = (desktop: Desktop): string | undefined => (typeof desktop.model === "string" ? desktop.model : undefined);
+
+/** `desktop.permission`: the permission new threads start with, unless it is unset. */
+export const chosenPermission = (desktop: Desktop): string | undefined => (typeof desktop.permission === "string" ? desktop.permission : undefined);
 
 /** VS Code's settings as `desktop` says them, given whether the system is dark now. */
 export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<string, unknown> {
@@ -49,7 +71,7 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
   const base = BASE_THEME[appearance];
   const code = desktop.font?.code?.trim() || DEFAULT_CODE_FONT;
   const ui = desktop.font?.ui?.trim() || DEFAULT_UI_FONT;
-  const codeSize = size(desktop.code_font_size, 8, 40) ?? 13;
+  const codeSize = size(desktop.code_font_size, CODE_FONT_SIZE);
   return {
     "workbench.colorTheme": base,
     // Unset follows the Mac as "system" does. VS Code paints a placeholder theme until the real
@@ -183,8 +205,8 @@ export function paneTypography(desktop: Desktop): Record<string, string> {
   return {
     "--cedian-font-ui": `'${ui}', ${UI_FALLBACK}`,
     "--cedian-font-code": `'${desktop.font?.code?.trim() || DEFAULT_CODE_FONT}', ${CODE_FALLBACK}`,
-    "--cedian-ui-size": `${size(desktop.ui_font_size, 10, 24) ?? 14}px`,
-    "--cedian-code-size": `${size(desktop.code_font_size, 8, 40) ?? 13}px`,
+    "--cedian-ui-size": `${size(desktop.ui_font_size, UI_FONT_SIZE)}px`,
+    "--cedian-code-size": `${size(desktop.code_font_size, CODE_FONT_SIZE)}px`,
     "--cedian-line-height": String(LINE_HEIGHT),
     "--cedian-gap": desktop.density === "compact" ? "8px" : "12px",
   };

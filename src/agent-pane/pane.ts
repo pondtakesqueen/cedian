@@ -23,6 +23,8 @@ import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { isBusy, newestFirst, statusLabel } from "./status.js";
+import { EFFORTS } from "../settings/cedia-settings.js";
+import { chosenModel, chosenPermission, desktopOf, type Desktop } from "../settings/desktop.js";
 import { nextViewMode, VIEW_MODES, viewModeOf, visibleBlocks, withoutTriage, type ViewMode } from "./view-modes.js";
 import type { Block } from "./block.js";
 
@@ -155,7 +157,7 @@ export class AgentPane {
   private permissions?: PermissionList;
   private commands: CommandEntry[] = [];
   private capabilities: Capability[] = [];
-  private desktop: Record<string, unknown> = {};
+  private desktop: Desktop = {};
   private choices: RunChoices = { worktree: false };
   private chosen = new Set<keyof RunChoices>();
   private viewMode: ViewMode = "answers";
@@ -497,7 +499,7 @@ export class AgentPane {
         if (n.cwd === this.host.cwd) this.commands = n.commands;
         break;
       case "settings":
-        this.desktop = (typeof n.desktop === "object" && n.desktop) ? (n.desktop as Record<string, unknown>) : {};
+        this.desktop = desktopOf(n.desktop);
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
         break;
@@ -586,14 +588,8 @@ export class AgentPane {
 
   /** The chips start from `desktop` (Settings), else cedia's own defaults. */
   private defaults(): void {
-    if (!this.chosen.has("model")) {
-      const model = typeof this.desktop.model === "string" ? this.desktop.model : undefined;
-      this.choices.model = model;
-    }
-    if (!this.chosen.has("permission")) {
-      const permission = typeof this.desktop.permission === "string" ? this.desktop.permission : undefined;
-      this.choices.permission = permission;
-    }
+    if (!this.chosen.has("model")) this.choices.model = chosenModel(this.desktop);
+    if (!this.chosen.has("permission")) this.choices.permission = chosenPermission(this.desktop);
   }
 
   private leave(): void {
@@ -1565,7 +1561,7 @@ export class AgentPane {
       chips.push(this.pill(s, "model", "model"));
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
-        const levels = entry.effortLevels?.length ? entry.effortLevels : ["low", "medium", "high", "xhigh", "max"];
+        const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
         const e = select(d, [{ value: "", label: entry.defaultEffort ?? "effort" }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = "Effort (Cmd+Shift+E)";

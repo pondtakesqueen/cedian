@@ -3,9 +3,9 @@
 // `desktop`), or a `cedia mcp` request; nothing is kept here that the daemon does not send back.
 import { button, el, select, type Wire } from "../dom/el.js";
 import type { EditableSettings, McpEntry, ModelList, Notice, PermissionList, Request, ThreadInfo } from "../protocol/wire.js";
-import { VIEW_MODES } from "../agent-pane/view-modes.js";
+import { VIEW_MODES, viewModeOf } from "../agent-pane/view-modes.js";
 import { KEYBINDINGS } from "../keybindings/keybindings.js";
-import { addRoot, creatorOn, desktopOf, removeRoot, rootsOf, type Desktop } from "./desktop.js";
+import { addRoot, chosenModel, chosenPermission, CODE_FONT_SIZE, creatorOn, DEFAULT_CODE_FONT, DEFAULT_UI_FONT, desktopOf, removeRoot, rootsOf, UI_FONT_SIZE, type Desktop, type SizeRange } from "./desktop.js";
 import { addressOf, allowSite, hostOf, revokeSite, sitesOf } from "../browser-panel/sites.js";
 import { changeOf, EFFORTS, fallbackRows, quotaOptions, ROLE_ROWS, roleDefault, roleSuggestions } from "./cedia-settings.js";
 
@@ -204,7 +204,7 @@ export class SettingsView {
     return input;
   }
 
-  private number(value: number | undefined, fallback: number, min: number, max: number, commit: (value: number) => void): HTMLInputElement {
+  private number(value: number | undefined, { fallback, min, max }: SizeRange, commit: (value: number) => void): HTMLInputElement {
     const input = el(this.doc, "input", "input num");
     input.type = "number";
     input.min = String(min);
@@ -230,12 +230,12 @@ export class SettingsView {
     const desk = this.desktop;
     this.row(p, "Theme", select(d, [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" }], desk.theme ?? "dark", (v) => this.set("theme", v)));
     this.row(p, "App icon", select(d, [{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }, { value: "theme", label: "Match theme" }], desk.app_icon ?? "light", (v) => this.set("app_icon", v)));
-    this.row(p, "UI font", this.text(desk.font?.ui, "Geist", (v) => this.set("font", { ...(desk.font ?? {}), ui: v || undefined })));
-    this.row(p, "Code font", this.text(desk.font?.code, "Geist Mono", (v) => this.set("font", { ...(desk.font ?? {}), code: v || undefined })));
-    this.row(p, "UI size", this.number(desk.ui_font_size, 14, 10, 24, (v) => this.set("ui_font_size", v)));
-    this.row(p, "Code size", this.number(desk.code_font_size, 13, 8, 40, (v) => this.set("code_font_size", v)));
+    this.row(p, "UI font", this.text(desk.font?.ui, DEFAULT_UI_FONT, (v) => this.set("font", { ...(desk.font ?? {}), ui: v || undefined })));
+    this.row(p, "Code font", this.text(desk.font?.code, DEFAULT_CODE_FONT, (v) => this.set("font", { ...(desk.font ?? {}), code: v || undefined })));
+    this.row(p, "UI size", this.number(desk.ui_font_size, UI_FONT_SIZE, (v) => this.set("ui_font_size", v)));
+    this.row(p, "Code size", this.number(desk.code_font_size, CODE_FONT_SIZE, (v) => this.set("code_font_size", v)));
     this.row(p, "Density", select(d, [{ value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" }], desk.density ?? "comfortable", (v) => this.set("density", v)));
-    this.row(p, "Default view", select(d, VIEW_MODES.map((v) => ({ value: v.mode, label: v.label })), (desk.view_mode as string | undefined) ?? "answers", (v) => this.set("view_mode", v)));
+    this.row(p, "Default view", select(d, VIEW_MODES.map((v) => ({ value: v.mode, label: v.label })), viewModeOf(desk.view_mode), (v) => this.set("view_mode", v)));
     this.row(p, "Notification sound", this.check(desk.notifications?.sound !== false, (v) => this.set("notifications", { ...(desk.notifications ?? {}), sound: v })));
   }
 
@@ -253,7 +253,7 @@ export class SettingsView {
       this.cediaModels(p, this.cedia?.roles.code ?? this.cedia?.defaults.code ?? "");
       return;
     }
-    const chosen = typeof this.desktop.model === "string" ? this.desktop.model : this.models.default;
+    const chosen = chosenModel(this.desktop) ?? this.models.default;
     this.row(
       p,
       "Model for new threads",
@@ -261,7 +261,7 @@ export class SettingsView {
       `cedia default: ${this.models.default}`,
     );
     if (this.permissions) {
-      const perm = typeof this.desktop.permission === "string" ? this.desktop.permission : this.permissions.default;
+      const perm = chosenPermission(this.desktop) ?? this.permissions.default;
       this.row(p, "Permission for new threads", select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), perm, (v) => this.set("permission", v)));
     }
     const list = el(d, "ul", "list");

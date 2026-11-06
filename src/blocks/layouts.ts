@@ -4,8 +4,8 @@
 // as the workbench gives it) and the blocks floating over it. Kept in `desktop.layout` beside
 // `pip`, per project slug: `layouts` and the `current` one's name. The daemon writes it; the window
 // reads it and asks for a write.
-import { projectSlug, type Desktop } from "../settings/desktop.js";
-import { floatingOf, type Floating, type ProjectLayout } from "./layout.js";
+import { recordOf as record, type Desktop } from "../settings/desktop.js";
+import { floatingList, projectLayout, withProjectLayout, type Floating } from "./layout.js";
 
 export interface NamedLayout {
   name: string;
@@ -48,9 +48,6 @@ const OLD_STARTER_NAMES: Readonly<Record<string, string>> = {
 };
 const renamed = (name: string): string => OLD_STARTER_NAMES[name] ?? name;
 
-const record = (value: unknown): Record<string, unknown> | undefined =>
-  typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
-
 /** A name as kept: trimmed, one line, at most 40 characters; empty when nothing is left. */
 export function layoutName(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 40);
@@ -60,20 +57,7 @@ function layoutOf(value: unknown): NamedLayout | undefined {
   const r = record(value);
   const name = typeof r?.name === "string" ? renamed(layoutName(r.name)) : "";
   if (!r || !name) return undefined;
-  const seen = new Set<string>();
-  const pip: Floating[] = [];
-  for (const item of Array.isArray(r.pip) ? r.pip : []) {
-    const f = floatingOf(item);
-    if (f && !seen.has(f.kind)) {
-      seen.add(f.kind);
-      pip.push(f);
-    }
-  }
-  return { name, pip, ...(record(r.groups) ? { groups: r.groups } : {}) };
-}
-
-function projectOf(desktop: Desktop, root: string): ProjectLayout {
-  return { ...(record(record(desktop.layout)?.[projectSlug(root)]) ?? {}) };
+  return { name, pip: floatingList(r.pip), ...(record(r.groups) ? { groups: r.groups } : {}) };
 }
 
 /**
@@ -81,7 +65,7 @@ function projectOf(desktop: Desktop, root: string): ProjectLayout {
  * none. Anything malformed, and a second layout of one name, is left out.
  */
 export function layoutsIn(desktop: Desktop, root: string): { layouts: NamedLayout[]; current?: string } {
-  const project = projectOf(desktop, root);
+  const project = projectLayout(desktop, root);
   const saved = Array.isArray(project.layouts) ? project.layouts : undefined;
   const layouts: NamedLayout[] = [];
   for (const item of saved ?? STARTERS) {
@@ -91,14 +75,6 @@ export function layoutsIn(desktop: Desktop, root: string): { layouts: NamedLayou
   const named = typeof project.current === "string" ? renamed(project.current) : undefined;
   const current = named !== undefined && layouts.some((l) => l.name === named) ? named : undefined;
   return { layouts, ...(current ? { current } : {}) };
-}
-
-function withProject(desktop: Desktop, root: string, change: (project: ProjectLayout) => void): Record<string, unknown> {
-  const all = { ...(record(desktop.layout) ?? {}) };
-  const project = projectOf(desktop, root);
-  change(project);
-  all[projectSlug(root)] = project;
-  return all;
 }
 
 /**
@@ -111,7 +87,7 @@ export function withLayout(desktop: Desktop, root: string, layout: NamedLayout):
   const kept: NamedLayout = { name, pip: layout.pip.map((f) => ({ ...f })), ...(layout.groups !== undefined ? { groups: layout.groups } : {}) };
   const at = layouts.findIndex((l) => l.name === name);
   const next = at >= 0 ? layouts.map((l, i) => (i === at ? kept : l)) : [...layouts, kept].slice(-MAX_LAYOUTS);
-  return withProject(desktop, root, (p) => {
+  return withProjectLayout(desktop, root, (p) => {
     p.layouts = next;
     p.current = name;
   });
@@ -120,7 +96,7 @@ export function withLayout(desktop: Desktop, root: string, layout: NamedLayout):
 /** `desktop.layout` with the layout `name` gone from the project (the current one no longer). */
 export function withoutLayout(desktop: Desktop, root: string, name: string): Record<string, unknown> {
   const { layouts, current } = layoutsIn(desktop, root);
-  return withProject(desktop, root, (p) => {
+  return withProjectLayout(desktop, root, (p) => {
     p.layouts = layouts.filter((l) => l.name !== name);
     if (current === name || p.current === name) delete p.current;
   });
@@ -128,7 +104,7 @@ export function withoutLayout(desktop: Desktop, root: string, name: string): Rec
 
 /** `desktop.layout` with `name` the project's current layout. */
 export function withCurrent(desktop: Desktop, root: string, name: string): Record<string, unknown> {
-  return withProject(desktop, root, (p) => {
+  return withProjectLayout(desktop, root, (p) => {
     p.current = name;
   });
 }
