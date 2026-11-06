@@ -7,7 +7,7 @@
 //    findings, Walk through opens the diff at one, and Dismiss turns into Restore.
 // 3. In the review diff, the `+` beside a line opens a comment box; Enter adds the comment (under
 //    the line and on the pane's card), Cmd+Enter adds another and sends them all as the
-//    thread's next run.
+//    thread's next run. The card stays with each comment's state; Send all goes once none waits.
 // Runs a real model through the person's cedia (its default unless --model), a few cents.
 // Prints what it saw and a JSON summary (also to --out); exits 1 on any failure.
 // Usage: node test/smoke/code-review.mjs <Cedian.app> [--model <ref>] [--shots <dir>] [--out file.json]
@@ -240,7 +240,9 @@ try {
   step("c.comment", true, { note: (await note.first().textContent())?.trim(), card: (await comments.textContent())?.trim() });
 
   await commentOn(5, "Add a comment saying why the loop starts where it does.", "Meta+Enter", "c2");
-  await comments.waitFor({ state: "detached", timeout: 15_000 });
+  // Sent, the card keeps the comments with their state; only Send all goes, as none waits now.
+  const sendAll = comments.getByRole("button", { name: "Send all" });
+  await sendAll.waitFor({ state: "detached", timeout: 15_000 });
   await shot(window, "c2-sent");
   // The comments go as the thread's next run.
   await threadWhen((t) => !atRest(t), 1).catch(() => undefined);
@@ -250,7 +252,7 @@ try {
   summary.runs = runs;
   const sent = runs.texts.find((t) => t.startsWith("I left comments on lines of your diff"));
   summary.sent = sent;
-  step("c.send", Boolean(sent) && (await comments.count()) === 0, { status: thread.status, message: sent });
+  step("c.send", Boolean(sent) && (await sendAll.count()) === 0, { status: thread.status, message: sent, card: (await comments.textContent().catch(() => ""))?.trim() });
   // The run the comments started goes on with the thread's model (cedia#176), not cedia's default.
   step("c.model", runs.models.length === 1, { models: runs.models });
   summary.after = execFileSync("git", ["-C", work, "diff"], { encoding: "utf8" });
