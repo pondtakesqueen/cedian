@@ -6,11 +6,9 @@
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { closing, moving, opening } from './blocks/motion.js';
-
-/** The blocks whose header can carry a terminal's own title (VS Code's single-tab action). */
-const PARTS: readonly Parts[] = [Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART];
+import { SIDE_PARTS } from './workbenchParts.js';
 
 /** VS Code's single-tab action: the terminal's icon and title, in the block's header. */
 const LABEL = '.action-label.single-terminal-tab';
@@ -31,7 +29,8 @@ export class CedianBlockTitle extends Disposable implements IWorkbenchContributi
 	constructor(@IWorkbenchLayoutService private readonly layout: IWorkbenchLayoutService) {
 		super();
 		const observer = new MutationObserver(() => this.check());
-		for (const part of PARTS) {
+		// The side blocks' headers can carry a terminal's own title (VS Code's single-tab action).
+		for (const part of SIDE_PARTS) {
 			// The title area is the part's own and lives as long as it; the labels inside it come and go.
 			const title = layout.getContainer(mainWindow, part)?.querySelector(':scope > .title');
 			if (title) {

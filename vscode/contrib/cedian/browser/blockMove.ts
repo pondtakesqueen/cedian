@@ -7,16 +7,14 @@ import { addDisposableListener } from '../../../../base/browser/dom.js';
 import { Disposable, DisposableMap, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { ScrollNotes, stillCopy, type StillCopy } from './blocks/copy.js';
 import { moving, stretching } from './blocks/motion.js';
 import { pace } from './blocks/pace.js';
 import { pop } from './blocks/popin.js';
 import { ground, holdScroll, moved, stretchFrames, type Box, type Card } from './blocks/stretch.js';
-
-/** The side blocks, which make room for each other and for the editor's blocks as they come and go. */
-const SIDE_PARTS = [Parts.SIDEBAR_PART, Parts.AUXILIARYBAR_PART, Parts.PANEL_PART];
+import { groupElement, SIDE_PARTS } from './workbenchParts.js';
 
 /** Where a block stood, its card (workbench.css: the gaps between groups, and its corners) and its card's ground. */
 type Noted = Box & { card: Card; ground: string };
@@ -53,12 +51,6 @@ function cardOf(element: HTMLElement): Card {
 	cards.set(element, card);
 	return card;
 }
-
-/** A group's element, which IEditorGroup does not say it has. */
-const elementOf = (group: IEditorGroup): HTMLElement | undefined => {
-	const element = (group as IEditorGroup & { element?: unknown }).element;
-	return element instanceof HTMLElement ? element : undefined;
-};
 
 /** Where an element is laid out, leaving out any transform on it or above it (a block in flight). */
 function boxOf(element: HTMLElement): Box {
@@ -169,7 +161,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	private watch(group: IEditorGroup): void {
 		let taken = false;
 		const look = () => {
-			const element = elementOf(group);
+			const element = groupElement(group);
 			if (taken || !element?.offsetParent || !moving(this.layout.mainContainer)) {
 				return;
 			}
@@ -187,7 +179,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 	private blocks(): HTMLElement[] {
 		const out: HTMLElement[] = [];
 		for (const group of this.groups.mainPart.groups) {
-			const element = elementOf(group);
+			const element = groupElement(group);
 			if (element?.offsetParent) {
 				out.push(element);
 			}
@@ -237,7 +229,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		}
 		this.byEditor = new Map();
 		for (const group of this.groups.mainPart.groups) {
-			const box = this.boxes.get(elementOf(group) as HTMLElement);
+			const box = this.boxes.get(groupElement(group) as HTMLElement);
 			if (box) {
 				for (const editor of group.editors) {
 					this.byEditor.set(editor, box);
@@ -275,7 +267,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 		const groups = this.groups.mainPart.groups;
 		const now = new Map<HTMLElement, Box>();
 		for (const group of groups) {
-			const element = elementOf(group);
+			const element = groupElement(group);
 			const box = element && this.boxes.get(element);
 			if (element && box) {
 				now.set(element, box);
@@ -292,7 +284,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			}
 		}
 		for (const group of groups) {
-			const element = elementOf(group);
+			const element = groupElement(group);
 			const to = element && now.get(element);
 			if (!element || !to) {
 				continue;
@@ -300,7 +292,7 @@ export class CedianBlockMove extends Disposable implements IWorkbenchContributio
 			const fromDrop = group.activeEditor ? this.byEditor.get(group.activeEditor) : undefined;
 			if (this.added.has(group) && !fromDrop) {
 				// Out of a block that stood where it stands now: it pops in there.
-				if (groups.some(other => !this.added.has(other) && overlap(before.get(elementOf(other) as HTMLElement) ?? { left: 0, top: 0, width: 0, height: 0 }, to) > 0)) {
+				if (groups.some(other => !this.added.has(other) && overlap(before.get(groupElement(other) as HTMLElement) ?? { left: 0, top: 0, width: 0, height: 0 }, to) > 0)) {
 					this.grow(element);
 				}
 				continue;

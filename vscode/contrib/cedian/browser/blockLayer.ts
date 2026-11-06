@@ -33,6 +33,7 @@ import { ICedianDaemonService } from './daemonService.js';
 import { createPaneHost } from './paneHost.js';
 import { CedianPanes, connectionBar } from './panes.js';
 import { desktopOf, type Desktop } from './settings/desktop.js';
+import { groupElement } from './workbenchParts.js';
 
 /**
  * The main window's block layer (spec §3.3, §4.4): blocks floating over the editor area as PiPs.
@@ -80,7 +81,7 @@ export class CedianBlockLayer extends Disposable implements IWorkbenchContributi
 			},
 			// It slides to the block it docks into: the active one, where the editor opens.
 			landing: () => {
-				const element = (this.editorGroups.mainPart.activeGroup as { element?: HTMLElement }).element;
+				const element = groupElement(this.editorGroups.mainPart.activeGroup);
 				return element?.offsetParent ? element.getBoundingClientRect() : undefined;
 			},
 			moving: () => moving(layoutService.mainContainer),
