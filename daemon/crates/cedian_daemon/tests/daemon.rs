@@ -2451,7 +2451,7 @@ fn a_cedia_without_inline_edit_or_completion_answers_the_ask_with_why() {
 
 #[test]
 fn a_run_drives_the_native_page_a_window_holds_through_the_bridge() {
-    let harness = start_with("edit-and-check", "\"browser\"");
+    let harness = start_with("edit-and-check", "\"browser\",\"browser.sites\"");
     let mut window = Window::connect(&harness);
     window.ask(Request::BrowserNative {
         cwd: harness.cwd.clone(),
@@ -2513,6 +2513,31 @@ fn a_run_drives_the_native_page_a_window_holds_through_the_bridge() {
         .rsplit_once('/')
         .map(|(base, _)| format!("{base}/{}", "0".repeat(32)));
     assert!(tungstenite::connect(wrong.expect("base").as_str()).is_err());
+}
+
+#[test]
+fn a_cedia_that_cannot_hold_the_site_list_gets_no_browser() {
+    let harness = start_with("edit-and-check", "\"browser\"");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::BrowserNative {
+        cwd: harness.cwd.clone(),
+        open: true,
+    });
+    window.ask(Request::Prompt {
+        cwd: harness.cwd.clone(),
+        text: "look at the page".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+    });
+    window.until(status_is(Status::Done));
+    let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
+    assert!(!args.lines().any(|line| line == "--browser"), "{args}");
 }
 
 #[test]
