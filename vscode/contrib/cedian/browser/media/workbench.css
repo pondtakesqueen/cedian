@@ -471,12 +471,3 @@
 		background: color-mix(in srgb, var(--cedian-text) 9%, transparent);
 	}
 }
-
-/* The curtain (curtain.ts, src/blocks/curtain.ts): while the main window loads or shuts down (a
-   project tab switch does both), every part but the title bar is hidden, so the frame and the
-   project tabs show and the rest appears once, laid out as Cedian's. Should the curtain never be
-   lifted, it lifts itself after 4 s. As it lifts, the parts fade in when the window moves. */
-.monaco-workbench.cedian-curtain .part:not(.titlebar) { visibility: hidden; animation: cedian-curtain-fail 0s 4s forwards; }
-@keyframes cedian-curtain-fail { to { visibility: visible; } }
-.monaco-workbench.monaco-enable-motion.cedian-curtain-lifting .part:not(.titlebar) { animation: cedian-curtain-lift 120ms cubic-bezier(.5, .5, .75, 1); }
-@keyframes cedian-curtain-lift { from { opacity: 0; } }

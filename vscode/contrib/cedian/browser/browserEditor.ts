@@ -11,7 +11,6 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IWorkspaceTrustRequestService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
@@ -58,7 +57,6 @@ export interface BrowserServices {
 	readonly terminalService: ITerminalService;
 	readonly viewsService: IViewsService;
 	readonly commands: ICommandService;
-	readonly trust: IWorkspaceTrustRequestService;
 }
 
 /** The services the Browser block's tools draw with, read from `accessor` while it is valid. */
@@ -70,7 +68,6 @@ export function browserServices(accessor: ServicesAccessor): BrowserServices {
 		terminalService: accessor.get(ITerminalService),
 		viewsService: accessor.get(IViewsService),
 		commands: accessor.get(ICommandService),
-		trust: accessor.get(IWorkspaceTrustRequestService),
 	};
 }
 
@@ -101,24 +98,12 @@ export async function devServersIn(services: BrowserServices, folder: URI): Prom
 	return [];
 }
 
-/**
- * In a terminal of its own, named after the server, so its output and Ctrl+C are the person's.
- * The command comes from the repository's launch.json, so it runs only in a trusted workspace,
- * as VS Code's own tasks do; an untrusted one asks first, naming the command.
- */
-export async function runDevServer(services: BrowserServices, folder: URI, server: DevServer): Promise<boolean> {
-	const line = shellLine(server.command, server.args);
-	const trusted = await services.trust.requestWorkspaceTrust({
-		message: `${server.name} runs a command from this folder's launch.json:\n\n${line}`,
-	});
-	if (!trusted) {
-		return false;
-	}
+/** In a terminal of its own, named after the server, so its output and Ctrl+C are the person's. */
+export async function runDevServer(services: BrowserServices, folder: URI, server: DevServer): Promise<void> {
 	const terminal = await services.terminalService.createTerminal({
 		config: { name: server.name, env: server.env },
 		cwd: server.cwd ? joinPath(folder, server.cwd) : folder,
 	});
-	await terminal.sendText(line, true);
+	await terminal.sendText(shellLine(server.command, server.args), true);
 	await services.terminalService.revealTerminal(terminal, true);
-	return true;
 }

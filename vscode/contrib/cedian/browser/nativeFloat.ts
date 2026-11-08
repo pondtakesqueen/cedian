@@ -11,7 +11,6 @@ import type { IBrowserViewModel } from '../../browserView/common/browserView.js'
 import type { BrowserEditorInput } from '../../browserView/common/browserEditorInput.js';
 import { BrowserOverlayManager } from '../../browserView/electron-browser/overlayManager.js';
 import type { Block } from './blocks/block.js';
-import { nativePageShown } from './blocks/pip.js';
 
 /** The native page floating over the window, when one does: the bridge counts it as held. */
 export const NativeFloat = new class {
@@ -209,10 +208,7 @@ export class NativeBrowserBlock implements Block {
 
 	/** The page laid out where the block came to rest, and shown. */
 	private toLive(r: DOMRect): void {
-		// Stashed, the card's body is hidden past the frame's side, but the page is not clipped: it
-		// would cover the Explorer there.
-		const stashed = !!this.root.closest('.cedian-pip.stashed');
-		const shown = this.root.isConnected && nativePageShown(r, { width: mainWindow.innerWidth, height: mainWindow.innerHeight }, stashed);
+		const shown = this.root.isConnected && r.width >= 1 && r.height >= 1 && r.right > 0 && r.bottom > 0 && r.left < mainWindow.innerWidth && r.top < mainWindow.innerHeight;
 		if (!shown) {
 			this.live = false;
 			void this.model.setVisible(false);

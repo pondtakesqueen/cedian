@@ -13,12 +13,11 @@ import { IContextMenuService } from '../../../../platform/contextview/browser/co
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { cacheText, nextAfterClose, projectName, projectsOf, projectTabs, tabsFromCache, withoutProject, withProject, type ProjectTab } from './agent-pane/project-tabs.js';
+import { nextAfterClose, projectName, projectsOf, projectTabs, withoutProject, withProject, type ProjectTab } from './agent-pane/project-tabs.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { CedianPanes } from './panes.js';
 import type { ThreadInfo } from './protocol/wire.js';
@@ -31,13 +30,8 @@ import { addRoot, desktopOf, rootsOf, type Desktop } from './settings/desktop.js
  * window; its × takes it off the bar (this window's own moves to the next tab first). The + after
  * them opens another project or adds a repo to this one (`desktop.roots`). The folder a window
  * opens joins the bar. VS Code's title bar menus all sit on its right, so the tabs are a row of
- * their own at the start of its left side. A switch loads the window again (behind the curtain,
- * curtain.ts), so the tabs are drawn from the restore phase, from what the last window drew, until
- * the daemon answers, and are left in place as the window shuts down.
+ * their own at the start of its left side.
  */
-/** The tabs as the last window drew them (tabsFromCache). */
-const CACHE_KEY = 'cedian.projectTabs';
-
 export class CedianProjectTabs extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.cedian.projectTabs';
 
@@ -48,8 +42,6 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 	private row?: HTMLElement;
 	private readonly watched = new Set<string>();
 	private readonly wire: ReturnType<typeof CedianPanes.wire>;
-	/** What the last window drew, until the daemon has said what this one draws. */
-	private readonly cached: ProjectTab[] | undefined;
 
 	constructor(
 		@IWorkspaceContextService private readonly workspace: IWorkspaceContextService,
@@ -60,11 +52,8 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		@IContextMenuService private readonly menus: IContextMenuService,
 		@INotificationService private readonly notifications: INotificationService,
 		@ICedianDaemonService private readonly daemon: ICedianDaemonService,
-		@IStorageService private readonly storage: IStorageService,
 	) {
 		super();
-		const current = this.current();
-		this.cached = current ? tabsFromCache(storage.get(CACHE_KEY, StorageScope.APPLICATION), current) : undefined;
 		const wire = this.wire = CedianPanes.wire(daemon.client);
 		this._register({ dispose: () => wire.dispose() });
 		this._register({
@@ -92,7 +81,6 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		const focus = (on: boolean) => this.layout.mainContainer.classList.toggle('cedian-window-blurred', !on);
 		this._register(host.onDidChangeFocus(focus));
 		focus(host.hasFocus);
-		this.show();
 	}
 
 	private current(): string | undefined {
@@ -106,17 +94,7 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 
 	private tabs(): ProjectTab[] {
 		const current = this.current();
-		if (!current) {
-			return [];
-		}
-		if (!this.desktop) {
-			return this.cached ?? projectTabs(current, [], this.threads);
-		}
-		// A project whose threads the daemon hasn't sent yet keeps the counts the last window drew.
-		return projectTabs(current, this.projects(), this.threads).map(tab => {
-			const last = this.threads.has(tab.root) ? undefined : this.cached?.find(c => c.root === tab.root);
-			return last ? { ...tab, needs: last.needs, working: last.working } : tab;
-		});
+		return current ? projectTabs(current, this.projects(), this.threads) : [];
 	}
 
 	/** Asks the daemon to keep `projects` as `desktop.projects`; until its notice, it is what is kept. */
@@ -207,9 +185,6 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 			return;
 		}
 		this.shown = key;
-		if (this.desktop) {
-			this.storage.store(CACHE_KEY, cacheText(tabs), StorageScope.APPLICATION, StorageTarget.MACHINE);
-		}
 		for (const tab of tabs) {
 			if (!this.watched.has(tab.root)) {
 				this.watched.add(tab.root);
@@ -220,8 +195,8 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 			this.row = append(left, $('.cedian-project-tabs'));
 			this.row.setAttribute('role', 'tablist');
 			this.row.setAttribute('aria-label', 'Projects');
-			// Never taken out: it goes with the window, and a window shutting down for a tab switch
-			// keeps its tabs on show until the next one draws them.
+			const row = this.row;
+			this._register({ dispose: () => row.remove() });
 		}
 		clearNode(this.row);
 		const closable = tabs.length > 1;
@@ -250,11 +225,6 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 			}
 			button.addEventListener('click', () => {
 				if (!tab.on) {
-					// Marked at once: the window takes a moment to start loading the project.
-					for (const other of this.row?.querySelectorAll<HTMLElement>('.cedian-project-tab') ?? []) {
-						other.classList.toggle('on', other === button);
-						other.setAttribute('aria-selected', String(other === button));
-					}
 					this.open(tab.root);
 				}
 			});
