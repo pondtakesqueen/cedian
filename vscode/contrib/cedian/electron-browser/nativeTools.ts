@@ -186,8 +186,11 @@ class CedianNativeTools extends BrowserEditorContribution {
 	}
 
 	private async startServer(folder: URI, server: DevServer): Promise<void> {
-		await runDevServer(this.services, folder, server).catch(e => this.services.notifications.warn(`Couldn't start ${server.name}: ${e instanceof Error ? e.message : e}`));
-		if (!server.url || !this.session) {
+		const started = await runDevServer(this.services, folder, server).catch(e => {
+			this.services.notifications.warn(`Couldn't start ${server.name}: ${e instanceof Error ? e.message : e}`);
+			return false;
+		});
+		if (!started || !server.url || !this.session) {
 			return;
 		}
 		this.waiting = { url: server.url, until: Date.now() + DEV_SERVER_WAIT_MS };
