@@ -4,9 +4,6 @@
     "CoreMessage": {
       "$ref": "#/definitions/CoreMessage"
     },
-    "Command": {
-      "$ref": "#/definitions/Command"
-    },
     "SessionEvent": {
       "$ref": "#/definitions/SessionEvent"
     },
@@ -607,78 +604,6 @@
         }
       ]
     },
-    "Command": {
-      "anyOf": [
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "prompt"
-            },
-            "text": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "text"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "abort"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "resume"
-            },
-            "sessionId": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "sessionId"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "fork"
-            },
-            "sessionId": {
-              "type": "string"
-            },
-            "at": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "sessionId",
-            "at"
-          ],
-          "additionalProperties": false
-        }
-      ]
-    },
     "CommandEntry": {
       "type": "object",
       "properties": {
@@ -1006,6 +931,23 @@
           "additionalProperties": false
         },
         {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "prompt_suggestion"
+            },
+            "suggestion": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "suggestion"
+          ],
+          "additionalProperties": false
+        },
+        {
           "$ref": "#/definitions/HeadlessResult"
         }
       ]
@@ -1175,13 +1117,6 @@
           ]
         },
         "promptSuggestions": {
-          "type": "string",
-          "enum": [
-            "on",
-            "off"
-          ]
-        },
-        "consolidateMemory": {
           "type": "string",
           "enum": [
             "on",
