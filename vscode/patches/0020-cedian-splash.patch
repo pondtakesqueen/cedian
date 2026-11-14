@@ -1,0 +1,81 @@
+diff --git a/src/vs/code/electron-browser/workbench/workbench.ts b/src/vs/code/electron-browser/workbench/workbench.ts
+--- a/src/vs/code/electron-browser/workbench/workbench.ts
++++ b/src/vs/code/electron-browser/workbench/workbench.ts
+@@ -101,6 +101,7 @@
+ 
+ 			const splash = document.createElement('div');
+ 			splash.id = 'monaco-parts-splash';
++			let cedianTitle: HTMLElement | undefined; // Cedian: the title bar, for its project tabs
+ 			splash.className = baseTheme ?? 'vs-dark';
+ 
+ 			if (layoutInfo.windowBorder && colorInfo.windowBorder) {
+@@ -260,6 +261,7 @@
+ 				titleDiv.style.backgroundColor = splashColors?.titleBarBackground ?? '';
+ 				(titleDiv.style as CSSStyleDeclaration & { '-webkit-app-region': string })['-webkit-app-region'] = 'drag';
+ 				splash.appendChild(titleDiv);
++				cedianTitle = titleDiv;
+ 
+ 				if (!modernUI && colorInfo.titleBarBorder) {
+ 					const titleBorder = document.createElement('div');
+@@ -473,10 +475,61 @@
+ 				}
+ 			}
+ 
++			cedianSplash(splash, cedianTitle);
+ 			window.document.body.appendChild(splash);
+ 		}
+ 	}
+ 
++	/**
++	 * Cedian: a project tab switch loads the window again. The last window left its title bar's
++	 * project tabs in localStorage (cedian/src/agent-pane/splash.ts, which this mirrors); the splash
++	 * draws them in the title bar, over the backgrounds Cedian drew, and leaves out VS Code's part
++	 * outlines, so the tabs stay on show and the frame keeps Cedian's colours. Plain boxes and text
++	 * only, built with DOM calls: the window's Trusted Types policy refuses markup.
++	 */
++	interface CedianSplashNode { style: string; text?: string; children?: CedianSplashNode[] }
++	function cedianSplash(splash: HTMLElement, title: HTMLElement | undefined): void {
++		let snapshot: { background: string; titleBackground: string; top: number; left: number; height: number; row: CedianSplashNode } | undefined;
++		try {
++			snapshot = JSON.parse(window.localStorage.getItem('cedian.splash') ?? 'null');
++		} catch {
++			return;
++		}
++		const isNode = (n: CedianSplashNode | undefined): boolean => !!n && typeof n === 'object' && typeof n.style === 'string'
++			&& (n.text === undefined || typeof n.text === 'string') && (n.children === undefined || (Array.isArray(n.children) && n.children.every(isNode)));
++		const num = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
++		if (!title || !snapshot || typeof snapshot !== 'object' || !num(snapshot.top) || !num(snapshot.left) || !num(snapshot.height)
++			|| typeof snapshot.background !== 'string' || typeof snapshot.titleBackground !== 'string' || !isNode(snapshot.row)) {
++			return;
++		}
++		const build = (node: CedianSplashNode): HTMLElement => {
++			const el = document.createElement('div');
++			el.style.cssText = node.style;
++			if (node.children) {
++				for (const child of node.children) {
++					el.appendChild(build(child));
++				}
++			} else if (node.text) {
++				el.textContent = node.text;
++			}
++			return el;
++		};
++		for (const part of Array.from(splash.children)) {
++			if (part !== title) {
++				(part as HTMLElement).style.display = 'none';
++			}
++		}
++		window.document.body.style.backgroundColor = snapshot.background;
++		title.style.backgroundColor = snapshot.titleBackground;
++		const row = build(snapshot.row);
++		row.style.position = 'absolute';
++		row.style.top = `${snapshot.top}px`;
++		row.style.left = `${snapshot.left}px`;
++		row.style.height = `${snapshot.height}px`;
++		row.style.margin = '0';
++		title.appendChild(row);
++	}
++
+ 	//#endregion
+ 
+ 	//#region Window Helpers

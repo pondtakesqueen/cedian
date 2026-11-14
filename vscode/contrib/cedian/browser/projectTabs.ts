@@ -6,6 +6,7 @@
 import { $, append, clearNode } from '../../../../base/browser/dom.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { toAction } from '../../../../base/common/actions.js';
+import { Event } from '../../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -20,6 +21,7 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { cacheText, nextAfterClose, projectName, projectsOf, projectTabs, recentFrom, RECENT_KEY, tabsFromCache, touched, withoutProject, withProject, type ProjectTab } from './agent-pane/project-tabs.js';
+import { snapshotNode, SPLASH_KEY, splashText } from './agent-pane/splash.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { CedianPanes } from './panes.js';
 import type { ThreadInfo } from './protocol/wire.js';
@@ -36,7 +38,9 @@ import { addRoot, desktopOf, rootsOf, type Desktop } from './settings/desktop.js
  * open (the last few used keep theirs, electron-browser/projectWindows.ts), as a browser shows a
  * tab; else a new window loads it, behind the curtain (curtain.ts), so the tabs are drawn from the
  * restore phase, from what the last window drew, until the daemon answers, and are left in place
- * as a window shuts down.
+ * as a window shuts down. Before the workbench is drawn at all, the window's splash draws them
+ * from the snapshot the last window left (src/agent-pane/splash.ts,
+ * vscode/patches/0020-cedian-splash.patch).
  */
 /** The tabs as the last window drew them (tabsFromCache). */
 const CACHE_KEY = 'cedian.projectTabs';
@@ -107,6 +111,38 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		this._register(host.onDidChangeFocus(focus));
 		focus(host.hasFocus);
 		this.show();
+		// The contributions start before the title bar is drawn; the first layout is when it is there.
+		this._register(Event.once(layout.onDidLayoutMainContainer)(() => this.show()));
+	}
+
+	/**
+	 * Leaves the tabs as drawn for the next window's splash: the row's boxes and where it sits, and the
+	 * backgrounds under it. Taken again as the person picks a tab, so the splash shows the one picked.
+	 */
+	private saveSplash(): void {
+		const row = this.row;
+		const titlebar = this.layout.getContainer(mainWindow, Parts.TITLEBAR_PART);
+		if (!row?.isConnected || !titlebar) {
+			return;
+		}
+		const box = row.getBoundingClientRect();
+		const styleOf = (el: Element) => mainWindow.getComputedStyle(el);
+		const node = box.width ? snapshotNode(row, styleOf) : undefined;
+		if (!node) {
+			return;
+		}
+		try {
+			mainWindow.localStorage.setItem(SPLASH_KEY, splashText({
+				background: styleOf(this.layout.mainContainer).backgroundColor,
+				titleBackground: styleOf(titlebar).backgroundColor,
+				top: box.top,
+				left: box.left,
+				height: box.height,
+				row: node,
+			}));
+		} catch {
+			// No splash snapshot: the next window starts with VS Code's own splash.
+		}
 	}
 
 	private current(): string | undefined {
@@ -270,7 +306,20 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 			}
 			button.addEventListener('click', () => {
 				if (!tab.on) {
-					// This window stays on its project: the one picked shows in its own window.
+					// The splash of a window that loads it shows the picked tab on; this window stays
+					// on its project, the one picked shows in its own window.
+					const mark = (on: HTMLElement) => {
+						for (const other of this.row?.querySelectorAll<HTMLElement>('.cedian-project-tab') ?? []) {
+							other.classList.toggle('on', other === on);
+							other.setAttribute('aria-selected', String(other === on));
+						}
+					};
+					const was = this.row?.querySelector<HTMLElement>('.cedian-project-tab.on');
+					mark(button);
+					this.saveSplash();
+					if (was) {
+						mark(was);
+					}
 					this.showProject(tab.root);
 				}
 			});
@@ -294,5 +343,7 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		add.title = 'Open a project or add a repo';
 		add.setAttribute('aria-label', 'Open a project or add a repo');
 		add.addEventListener('click', () => this.addMenu(add));
+		// Once the browser has laid the row out.
+		mainWindow.requestAnimationFrame(() => this.saveSplash());
 	}
 }

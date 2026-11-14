@@ -367,7 +367,6 @@ export class SettingsView {
     else this.row(p, "Language servers", this.toggle(s.lsp, "on", "lsp"), "Adds a language server's errors to each edit's result");
     this.row(p, "Background jobs", this.toggle(s.jobs, "off", "jobs"), "The Job tool: a command that keeps running after the session ends");
     this.row(p, "Prompt suggestions", this.toggle(s.promptSuggestions, "off", "promptSuggestions"), "Predicts your next prompt after each turn");
-    this.row(p, "Consolidate memory", this.toggle(s.consolidateMemory, "off", "consolidateMemory"), "Tidies the project's memory between sessions");
     p.append(el(d, "div", "small", "Hooks, profiles and local models are kept in ~/.cedia/settings.json"));
   }
 
