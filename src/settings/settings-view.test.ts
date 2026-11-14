@@ -36,6 +36,13 @@ describe("settings window", () => {
     expect(view.root.textContent).toContain("/h/.cedia/settings.json");
   });
 
+  it("shows System for a theme that is not set, as the window follows the Mac then", () => {
+    const f = fake();
+    const view = new SettingsView(document, f.wire, { isGitRepo: async () => true });
+    f.emit({ kind: "settings", desktop: {}, path: "/h/.cedia/settings.json" });
+    expect(view.root.querySelector("select")!.value).toBe("system");
+  });
+
   it("adds a root only when it is a git repository, and never removes the primary", async () => {
     const f = fake();
     const view = new SettingsView(document, f.wire, { primary: "/r/main", isGitRepo: async (p) => p === "/r/lib" });
@@ -182,7 +189,11 @@ describe("settings window", () => {
     allow.dispatchEvent(new Event("change"));
     expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "permissions.allow", value: "bash(git status*)\nedit" });
     expect(row("Network allowed to").textContent).toContain("Always allowed: pypi.org");
-    const deploy = [...row("Unlocked guards").querySelectorAll("label")].find((l) => l.textContent === "deploy")!.querySelector("input")!;
+    const guards = [...row("Unlocked guards").querySelectorAll("label")];
+    // Guards read as what they stop; the id stays in the hover.
+    expect(guards.map((l) => l.textContent)).toEqual(["Force push", "Deploy or publish"]);
+    expect(guards[1]!.title).toContain("deploy");
+    const deploy = guards.find((l) => l.textContent === "Deploy or publish")!.querySelector("input")!;
     deploy.checked = true;
     deploy.dispatchEvent(new Event("change"));
     expect(f.sent.at(-1)).toEqual({ op: "set_cedia", key: "permissions.unlock", value: "deploy" });
