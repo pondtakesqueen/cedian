@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadInfo } from "../protocol/wire.js";
-import { cacheText, counts, isScratch, nextAfterClose, tabsFromCache, projectName, projectsOf, projectTabs, withoutProject, withProject } from "./project-tabs.js";
+import { cacheText, coldWindows, counts, isScratch, nextAfterClose, recentFrom, tabsFromCache, projectName, projectsOf, projectTabs, touched, withoutProject, withProject } from "./project-tabs.js";
 
 const thread = (id: string, status: ThreadInfo["status"], extra: Partial<ThreadInfo> = {}): ThreadInfo =>
   ({ id, status, archived: false, messages: [], pending: [], title: id, task: "", updated_at: "2026-11-04T00:00:00Z", ...extra }) as unknown as ThreadInfo;
@@ -93,5 +93,46 @@ describe("the tabs a loading window draws first", () => {
     expect(tabsFromCache("{", "/a")).toBeUndefined();
     expect(tabsFromCache("{}", "/a")).toBeUndefined();
     expect(tabsFromCache('[{"root":3},{"root":"/b","needs":-1}]', "/b")).toEqual([{ root: "/b", name: "b", on: true, needs: 0, working: 0 }]);
+  });
+});
+
+describe("warm project windows", () => {
+  const win = (id: number, root?: string, dirty = false) => ({ id, root, dirty });
+
+  it("keeps the shown project first in the recent list, each once", () => {
+    expect(touched(["/a", "/b", "/c"], "/c/")).toEqual(["/c", "/a", "/b"]);
+    expect(touched([], "/a")).toEqual(["/a"]);
+    expect(touched(Array.from({ length: 25 }, (_, i) => `/p${i}`), "/x")).toHaveLength(20);
+  });
+
+  it("reads back only a list of folders", () => {
+    expect(recentFrom('["/a","/b"]')).toEqual(["/a", "/b"]);
+    expect(recentFrom('["/a",3,""]')).toEqual(["/a"]);
+    expect(recentFrom("{")).toEqual([]);
+    expect(recentFrom(undefined)).toEqual([]);
+  });
+
+  it("closes nothing while three projects or fewer have windows", () => {
+    expect(coldWindows([win(1, "/a"), win(2, "/b"), win(3, "/c")], ["/a", "/b"], "/c")).toEqual([]);
+  });
+
+  it("closes the windows of projects shown longest ago, past the three kept", () => {
+    const windows = [win(1, "/a"), win(2, "/b"), win(3, "/c"), win(4, "/d")];
+    // /d is shown now; /c and /a were before it; /b longest ago.
+    expect(coldWindows(windows, ["/c", "/a", "/b"], "/d")).toEqual([2]);
+  });
+
+  it("closes a window the recent list never saw before one it did", () => {
+    const windows = [win(1, "/a"), win(2, "/b"), win(3, "/c"), win(4, "/old")];
+    expect(coldWindows(windows, ["/a", "/b"], "/c")).toEqual([4]);
+  });
+
+  it("never closes the target's window, an empty window or one with unsaved changes", () => {
+    const windows = [win(1, "/a"), win(2, "/b", true), win(3, "/c"), win(4, "/d"), win(5)];
+    expect(coldWindows(windows, ["/d", "/c", "/a", "/b"], "/a", 1)).toEqual([4, 3]);
+  });
+
+  it("counts a project with two windows once", () => {
+    expect(coldWindows([win(1, "/a"), win(2, "/a"), win(3, "/b"), win(4, "/c")], ["/a", "/b", "/c"], "/a")).toEqual([]);
   });
 });

@@ -5,11 +5,15 @@
 //            own timestamp to the frame after the new file's text is in the editor. Median, p95.
 //   press    what the window does on any press before VS Code sees it: a pointerdown dispatched
 //            50 times with N tabs open (tabMove.ts notes every tab of every group on each press).
-//   project  a project tab switch reloads the window (projectTabs.ts → openWindow with
-//            forceReuseWindow): Reload Window, from Enter to the curtain lifted, 3 times.
+//   reload   what a project tab switch cost before projects kept their windows: Reload Window,
+//            from Enter to the curtain lifted, 3 times.
+//   project  a project tab switch through `cedian.showProject` (bound to a key here): to a project
+//            with no window (a new one loads, to its curtain lifted), then back and forth between
+//            the two (the window picked has the focus), 6 times. Null on a build without it.
 //   frames   long animation frames (> 50 ms) seen during the editor clicks, with the scripts in them.
 // Prints JSON. Usage: node test/smoke/tab-switch.mjs <app> [--out file.json] [--reduce-motion]
-import { writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { launch } from "./app.mjs";
 
@@ -36,7 +40,22 @@ const stats = (xs) => {
 
 const settings = { "workbench.editor.enablePreview": false, "workbench.editor.enablePreviewFromQuickOpen": false };
 if (args.includes("--reduce-motion")) settings["workbench.reduceMotion"] = "on";
-const { electronApp, window, folder } = await launch(app, settings);
+// Two projects, and a key for each that shows it as its project tab does.
+const scratch = mkdtempSync(join(tmpdir(), "cedian-tabs-"));
+const user = join(scratch, "user");
+const folder = join(scratch, "one");
+const other = join(scratch, "two");
+for (const dir of [join(user, "User"), folder, other]) mkdirSync(dir, { recursive: true });
+writeFileSync(join(folder, "README.md"), "# one\n");
+writeFileSync(join(other, "README.md"), "# two\n");
+writeFileSync(
+  join(user, "User", "keybindings.json"),
+  JSON.stringify([
+    { key: "ctrl+alt+1", command: "cedian.showProject", args: folder },
+    { key: "ctrl+alt+2", command: "cedian.showProject", args: other },
+  ]),
+);
+const { electronApp, window } = await launch(app, settings, { user, folder });
 const name = (i) => `f${String(i).padStart(2, "0")}.ts`;
 // Files written after launch: the window opened the folder already, so it sees them on Quick Open.
 {
@@ -48,8 +67,8 @@ const name = (i) => `f${String(i).padStart(2, "0")}.ts`;
   }
 }
 
-const curtainUp = () =>
-  window.waitForFunction(() => {
+const curtainUp = (page = window) =>
+  page.waitForFunction(() => {
     const w = document.querySelector(".monaco-workbench");
     return !!w && !w.classList.contains("cedian-curtain") && !w.classList.contains("cedian-curtain-lifting") && !!document.querySelector(".part.editor");
   }, null, { timeout: 60_000, polling: 50 });
@@ -121,7 +140,7 @@ const open = async (file) => {
   await window.locator(".part.editor .tabs-container > .tab", { hasText: file }).first().waitFor();
 };
 
-const result = { app, at: new Date().toISOString(), reduceMotion: args.includes("--reduce-motion"), editor: {}, press: {}, project: null, frames: [] };
+const result = { app, at: new Date().toISOString(), reduceMotion: args.includes("--reduce-motion"), editor: {}, press: {}, reload: null, project: null, frames: [] };
 let opened = 0;
 for (const count of COUNTS) {
   while (opened < count) await open(name(++opened));
@@ -161,7 +180,35 @@ for (let i = 0; i < 3; i++) {
   reloads.push(performance.now() - t0);
   await window.waitForTimeout(1500);
 }
-result.project = stats(reloads);
+result.reload = stats(reloads);
+
+// A project tab switch: to a project with no window, then between the two.
+{
+  const focused = (page, ms) => page.waitForFunction(() => document.hasFocus(), null, { timeout: ms, polling: 5 });
+  await window.bringToFront();
+  const t0 = performance.now();
+  const opened = electronApp.waitForEvent("window", { timeout: 15_000 }).catch(() => undefined);
+  await window.keyboard.press("Control+Alt+2");
+  const second = await opened;
+  if (second) {
+    await second.waitForSelector(".monaco-workbench .part.editor", { timeout: 60_000 });
+    await curtainUp(second);
+    const cold = performance.now() - t0;
+    await second.waitForTimeout(1500);
+    const warm = [];
+    let from = second;
+    let to = window;
+    for (let i = 0; i < 6; i++) {
+      const t = performance.now();
+      await from.keyboard.press(to === window ? "Control+Alt+1" : "Control+Alt+2");
+      await focused(to, 10_000);
+      warm.push(performance.now() - t);
+      await to.waitForTimeout(500);
+      [from, to] = [to, from];
+    }
+    result.project = { cold: +cold.toFixed(1), warm: stats(warm), windows: electronApp.windows().length };
+  }
+}
 
 const json = JSON.stringify(result, null, 2) + "\n";
 process.stdout.write(json);

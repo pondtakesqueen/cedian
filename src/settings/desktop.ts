@@ -98,6 +98,9 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     // picker), not VS Code's command center and side bar toggles.
     "window.title": "${rootName}",
     "window.commandCenter": false,
+    // A project tab opens a project that has no window in a new one (projectWindows.ts), which
+    // stands where this one does, so the switch reads as one window changing projects.
+    "window.newWindowDimensions": "inherit",
     "workbench.layoutControl.enabled": false,
     "workbench.colorCustomizations": {
       // Unkeyed, the appearance showing now: VS Code paints a placeholder theme of its own

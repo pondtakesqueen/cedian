@@ -22,6 +22,7 @@ describe("VS Code settings from desktop", () => {
     expect(s["workbench.secondarySideBar.showLabels"]).toBe(true);
     expect(s["window.title"]).toBe("${rootName}");
     expect(s["window.commandCenter"]).toBe(false);
+    expect(s["window.newWindowDimensions"]).toBe("inherit");
     expect(s["workbench.layoutControl.enabled"]).toBe(false);
     expect(s["window.density.layout"]).toBe("default");
     expect(vscodeSettings({ density: "compact" }, true)["window.density.layout"]).toBe("compact");

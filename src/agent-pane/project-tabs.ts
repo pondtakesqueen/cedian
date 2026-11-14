@@ -109,3 +109,64 @@ export function tabsFromCache(text: string | undefined, current: string): Projec
 
 /** What tabsFromCache reads: each tab's folder and counts. */
 export const cacheText = (tabs: readonly ProjectTab[]): string => JSON.stringify(tabs.map(({ root, needs, working }) => ({ root, needs, working })));
+
+/**
+ * How many projects keep a window open, so switching to them shows the window at once (as a
+ * browser shows a tab it keeps) instead of loading it again: the shown one and the two used before
+ * it (owner, 2026-11-14). A project past them loads when it is picked, and its window closes again
+ * once three newer ones are open.
+ */
+export const WARM_PROJECTS = 3;
+
+/** Where the windows keep which projects were shown last, most recent first (application storage). */
+export const RECENT_KEY = "cedian.projectRecent";
+
+/** The list with `root` first, each once, at most 20 long. */
+export function touched(recent: readonly string[], root: string): string[] {
+  const r = trimSlash(root);
+  return [r, ...recent.filter((x) => x !== r)].slice(0, 20);
+}
+
+/** The recent list as stored, or none when the text is not one. */
+export function recentFrom(text: string | undefined): string[] {
+  if (!text) return [];
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed.filter((r): r is string => typeof r === "string" && r !== "") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** A window of the app: its id, the project it shows (none for an empty one) and whether it has unsaved changes. */
+export interface ProjectWindow {
+  id: number;
+  root?: string;
+  dirty: boolean;
+}
+
+/**
+ * The windows to close once `target` shows: project windows past the `keep` most recently shown
+ * projects. The target's own is never one, nor a window with unsaved changes (closing it would ask
+ * the person), nor a window with no project.
+ */
+export function coldWindows(windows: readonly ProjectWindow[], recent: readonly string[], target: string, keep = WARM_PROJECTS): number[] {
+  const order = touched(recent, target);
+  const rank = (root: string) => {
+    const at = order.indexOf(trimSlash(root));
+    return at < 0 ? order.length : at;
+  };
+  const projects = windows.filter((w): w is ProjectWindow & { root: string } => w.root !== undefined);
+  const byRecent = [...projects].sort((a, b) => rank(a.root) - rank(b.root));
+  const warm = new Set<string>();
+  const cold: number[] = [];
+  for (const w of byRecent) {
+    const root = trimSlash(w.root);
+    if (root === trimSlash(target) || warm.has(root) || warm.size < keep) {
+      warm.add(root);
+      continue;
+    }
+    if (!w.dirty) cold.push(w.id);
+  }
+  return cold;
+}
