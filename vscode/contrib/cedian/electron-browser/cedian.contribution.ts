@@ -12,3 +12,5 @@ import './siteBanner.js';
 import './nativeTools.js';
 // The main window's frame on macOS's vibrancy (patch 0018 gives the window its NSVisualEffectView).
 import './vibrancy.js';
+// A project tab shows its project's window when it is open still, as a browser shows a tab.
+import './projectWindows.js';

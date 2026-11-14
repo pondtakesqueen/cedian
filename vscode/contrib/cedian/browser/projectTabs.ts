@@ -10,6 +10,7 @@ import { Event } from '../../../../base/common/event.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -19,7 +20,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { cacheText, nextAfterClose, projectName, projectsOf, projectTabs, tabsFromCache, withoutProject, withProject, type ProjectTab } from './agent-pane/project-tabs.js';
+import { cacheText, nextAfterClose, projectName, projectsOf, projectTabs, recentFrom, RECENT_KEY, tabsFromCache, touched, withoutProject, withProject, type ProjectTab } from './agent-pane/project-tabs.js';
 import { snapshotNode, SPLASH_KEY, splashText } from './agent-pane/splash.js';
 import { ICedianDaemonService } from './daemonService.js';
 import { CedianPanes } from './panes.js';
@@ -33,11 +34,13 @@ import { addRoot, desktopOf, rootsOf, type Desktop } from './settings/desktop.js
  * window; its × takes it off the bar (this window's own moves to the next tab first). The + after
  * them opens another project or adds a repo to this one (`desktop.roots`). The folder a window
  * opens joins the bar. VS Code's title bar menus all sit on its right, so the tabs are a row of
- * their own at the start of its left side. A switch loads the window again (behind the curtain,
- * curtain.ts), so the tabs are drawn from the restore phase, from what the last window drew, until
- * the daemon answers, and are left in place as the window shuts down. Before the workbench is
- * drawn at all, the window's splash draws them from the snapshot the last window left
- * (src/agent-pane/splash.ts, vscode/patches/0020-cedian-splash.patch).
+ * their own at the start of its left side. A switch shows the project's window if it has one still
+ * open (the last few used keep theirs, electron-browser/projectWindows.ts), as a browser shows a
+ * tab; else a new window loads it, behind the curtain (curtain.ts), so the tabs are drawn from the
+ * restore phase, from what the last window drew, until the daemon answers, and are left in place
+ * as a window shuts down. Before the workbench is drawn at all, the window's splash draws them
+ * from the snapshot the last window left (src/agent-pane/splash.ts,
+ * vscode/patches/0020-cedian-splash.patch).
  */
 /** The tabs as the last window drew them (tabsFromCache). */
 const CACHE_KEY = 'cedian.projectTabs';
@@ -65,6 +68,7 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		@INotificationService private readonly notifications: INotificationService,
 		@ICedianDaemonService private readonly daemon: ICedianDaemonService,
 		@IStorageService private readonly storage: IStorageService,
+		@ICommandService private readonly commands: ICommandService,
 	) {
 		super();
 		const current = this.current();
@@ -93,7 +97,17 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		daemon.client.request({ op: 'settings' });
 		// A working project's dot pulses only while the window has the focus: no work for a window
 		// in the background.
-		const focus = (on: boolean) => this.layout.mainContainer.classList.toggle('cedian-window-blurred', !on);
+		const focus = (on: boolean) => {
+			this.layout.mainContainer.classList.toggle('cedian-window-blurred', !on);
+			// The project in front is the one used last: its window is the last to close.
+			const root = this.current();
+			if (on && root) {
+				const recent = recentFrom(storage.get(RECENT_KEY, StorageScope.APPLICATION));
+				if (recent[0] !== root) {
+					storage.store(RECENT_KEY, JSON.stringify(touched(recent, root)), StorageScope.APPLICATION, StorageTarget.MACHINE);
+				}
+			}
+		};
 		this._register(host.onDidChangeFocus(focus));
 		focus(host.hasFocus);
 		this.show();
@@ -162,8 +176,14 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 		this.show();
 	}
 
+	/** Loads `root` in this window instead of its project. */
 	private open(root: string): void {
 		void this.host.openWindow([{ folderUri: URI.file(root) }], { forceReuseWindow: true });
+	}
+
+	/** Shows `root`: its window when it has one open, else a new one; this one stays as it is. */
+	private showProject(root: string): void {
+		this.commands.executeCommand('cedian.showProject', root).catch(() => this.open(root));
 	}
 
 	/** Takes a tab off the bar; this window's own first moves the window to the next tab. */
@@ -196,7 +216,7 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 			this.writeProjects(joined);
 		}
 		if (root !== this.current()) {
-			this.open(root);
+			this.showProject(root);
 		}
 	}
 
@@ -286,13 +306,21 @@ export class CedianProjectTabs extends Disposable implements IWorkbenchContribut
 			}
 			button.addEventListener('click', () => {
 				if (!tab.on) {
-					// Marked at once: the window takes a moment to start loading the project.
-					for (const other of this.row?.querySelectorAll<HTMLElement>('.cedian-project-tab') ?? []) {
-						other.classList.toggle('on', other === button);
-						other.setAttribute('aria-selected', String(other === button));
-					}
+					// The splash of a window that loads it shows the picked tab on; this window stays
+					// on its project, the one picked shows in its own window.
+					const mark = (on: HTMLElement) => {
+						for (const other of this.row?.querySelectorAll<HTMLElement>('.cedian-project-tab') ?? []) {
+							other.classList.toggle('on', other === on);
+							other.setAttribute('aria-selected', String(other === on));
+						}
+					};
+					const was = this.row?.querySelector<HTMLElement>('.cedian-project-tab.on');
+					mark(button);
 					this.saveSplash();
-					this.open(tab.root);
+					if (was) {
+						mark(was);
+					}
+					this.showProject(tab.root);
 				}
 			});
 			// A middle click closes, as on a browser tab; Delete does from the keyboard.
