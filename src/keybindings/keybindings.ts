@@ -21,6 +21,7 @@ export const KEYBINDINGS: Binding[] = [
   { command: "cedian.newThread", mac: "cmd+n", label: "New thread" },
   // ⌘K is the inline edit (owner, 2026-10-28), so the thread search takes ⌘T, "go to".
   { command: "cedian.searchThreads", mac: "cmd+t", label: "Search threads" },
+  { command: "cedian.findInThread", mac: "cmd+f", label: "Find in thread", when: PANE_FOCUS },
   { command: "cedian.closeThread", mac: "cmd+w", label: "Close thread", when: PANE_FOCUS },
   { command: "cedian.nextThread", mac: "ctrl+tab", label: "Next thread", when: PANE_FOCUS },
   { command: "cedian.previousThread", mac: "ctrl+shift+tab", label: "Previous thread", when: PANE_FOCUS },

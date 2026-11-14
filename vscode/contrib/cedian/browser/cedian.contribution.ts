@@ -472,6 +472,7 @@ const COMMANDS: Record<string, (accessor: ServicesAccessor) => unknown> = {
 	'cedian.previousThread': a => withPane(a, p => p.stepThread(-1)),
 	'cedian.toggleReview': a => withPane(a, p => p.toggleReview()),
 	'cedian.cycleViewMode': a => withPane(a, p => p.cycleViewMode()),
+	'cedian.findInThread': a => withPane(a, p => p.find()),
 	'cedian.permissionMenu': a => withPane(a, p => p.menu('permission')),
 	'cedian.modelMenu': a => withPane(a, p => p.menu('model')),
 	'cedian.effortMenu': a => withPane(a, p => p.menu('effort')),

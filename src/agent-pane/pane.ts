@@ -2,6 +2,7 @@
 // thread drawn from the daemon's notices, its cards (question, todo, review, commit and PR), and
 // the composer with its chips. A viewer: every change is a request to the daemon, and what shows
 // is only what the daemon sent back, so a reconnect or a restarted daemon redraws it whole.
+import { FindBar } from "./find.js";
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
@@ -20,7 +21,7 @@ import { dockUnder, stickToBottom } from "./stick.js";
 import { icon, type IconName } from "./icons.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
 import { prLabel, prText } from "./pr-chip.js";
-import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard } from "./project-chat.js";
+import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard, subthreadCards } from "./project-chat.js";
 import { currentModel, isRunning, openState, queued, reduce, threadPermission, type ThreadState } from "./thread-state.js";
 import { isBusy, newestFirst, statusLabel } from "./status.js";
 import { EFFORTS } from "../settings/cedia-settings.js";
@@ -158,6 +159,7 @@ export class AgentPane {
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
+  private readonly findBar: FindBar;
   private permissions?: PermissionList;
   private commands: CommandEntry[] = [];
   private capabilities: Capability[] = [];
@@ -222,6 +224,7 @@ export class AgentPane {
     dock.append(this.queue, composer);
     this.root.append(this.header, this.log, dock);
     this.undock = dockUnder(this.root, this.log, dock);
+    this.findBar = new FindBar(doc, this.root, this.log, () => this.input.focus());
     this.input.addEventListener("input", () => this.typed());
     this.input.addEventListener("keydown", (e) => this.key(e));
     this.input.addEventListener("paste", (e) => {
@@ -380,6 +383,11 @@ export class AgentPane {
     this.viewMode = nextViewMode(this.viewMode);
     this.viewModeChosen = true;
     this.render();
+  }
+
+  /** ⌘F: find in the open thread, in a bar over the log. */
+  find(): void {
+    this.findBar.open();
   }
 
   focusComposer(): void {
@@ -1030,9 +1038,10 @@ export class AgentPane {
       parts.push(this.itemsView.update(items(visibleBlocks(withoutTriage(this.state.view.blocks as Block[]), this.viewMode))));
       if (!this.state.caught) parts.push(el(d, "div", "small loading", "Loading thread…"));
     }
-    if (this.chat && this.state.thread) {
-      const cards = chatCards(this.threads, this.state.thread);
-      if (cards.length) parts.push(this.threadCards(cards));
+    if (this.state.thread) {
+      // The project chat's threads, or an ordinary thread's sub-threads.
+      const cards = this.chat ? chatCards(this.threads, this.state.thread) : subthreadCards(this.threads, this.state.thread);
+      if (cards.length) parts.push(this.threadCards(cards, this.chat));
     }
     const todo = todoCard(this.state.info);
     if (todo) parts.push(this.todoCard(todo));
@@ -1050,6 +1059,7 @@ export class AgentPane {
     if (this.state.error) parts.push(el(d, "div", "error bad", this.state.error));
     setChildren(this.log, parts);
     if (nearBottom) this.log.scrollTop = this.log.scrollHeight;
+    this.findBar.refresh();
   }
 
   /** The thread's PR: where it stands; a click opens it. */
@@ -1067,7 +1077,7 @@ export class AgentPane {
   }
 
   /** The coordinator's threads, one card each: open it, or answer its question here. */
-  private threadCards(cards: ChatCard[]): HTMLElement {
+  private threadCards(cards: ChatCard[], chat: boolean): HTMLElement {
     const d = this.doc;
     const box = el(d, "div", "card threads");
     for (const c of cards) {
@@ -1076,6 +1086,12 @@ export class AgentPane {
       const head = el(d, "div", "row");
       const state = c.archived ? "Archived" : statusLabel(c.status);
       head.append(el(d, "span", `dot st-${c.status}`), el(d, "span", "title ell", c.title), el(d, "span", "small", [state, c.progress].filter(Boolean).join(" · ")));
+      if (c.model) {
+        // The model's own name as the row says it; the whole reference on hover.
+        const model = el(d, "span", "small model", this.models?.models.find((m) => m.ref === c.model)?.label ?? c.model.slice(c.model.lastIndexOf("/") + 1));
+        model.title = c.model;
+        head.append(model);
+      }
       if (c.pr) head.append(this.prChip(c.pr));
       head.append(button(d, "Open", () => this.openThread(c.id), "btn small"));
       row.append(head);
@@ -1095,7 +1111,7 @@ export class AgentPane {
       }
       box.append(row);
     }
-    box.append(el(d, "div", "small hint", "Type @ and a thread to message that thread directly"));
+    if (chat) box.append(el(d, "div", "small hint", "Type @ and a thread to message that thread directly"));
     return box;
   }
 
@@ -1466,7 +1482,9 @@ export class AgentPane {
     this.queue.replaceChildren();
     if (!thread || waiting.length === 0) return;
     const target = { cwd: this.cwd, thread };
-    this.queue.append(el(d, "div", "small", `${waiting.length} queued`));
+    // cedia shows a queued message to the model at the run's next step (after the tool calls in
+    // flight), so the run is steered without being stopped.
+    this.queue.append(el(d, "div", "small", `${waiting.length} message${waiting.length === 1 ? " goes" : "s go"} in at the next step`));
     for (const q of waiting) {
       const row = el(d, "div", "queued row");
       row.append(
@@ -1477,11 +1495,11 @@ export class AgentPane {
           this.input.value = r.draft.text;
           this.input.focus();
         }, "btn small"),
-        button(d, "Send now", () => {
+        button(d, "Stop and send", () => {
           const r = sendNow(q, target, this.choices);
           for (const req of r.now) this.wire.request(req);
           this.then = r.then;
-        }, "btn small primary"),
+        }, "btn small"),
         button(d, "×", () => this.wire.request(dropQueued(q, target)), "btn small"),
       );
       this.queue.append(row);

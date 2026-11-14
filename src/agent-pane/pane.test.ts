@@ -70,7 +70,10 @@ describe("agent pane", () => {
     expect(last()).toEqual({ op: "send", cwd: "/r/.cedian/worktrees/a", thread: "t-1", text: "also docs" });
     emit({ kind: "threads", cwd: "/r", threads: [info({ cwd: "/r/.cedian/worktrees/a", status: "working", state: "working", pending: ["m-1"], messages: [{ id: "m-1", from: "user", text: "also docs", at: "" }] })] });
     expect(pane.root.querySelector(".queued")?.textContent).toContain("also docs");
-    buttons(pane.root, "Send now")[0]!.click();
+    // The message goes in at the run's next step on its own; stopping the run for it is the other button.
+    expect(pane.root.querySelector(".queue")?.textContent).toContain("1 message goes in at the next step");
+    expect(buttons(pane.root, "Send now")).toEqual([]);
+    buttons(pane.root, "Stop and send")[0]!.click();
     expect(last()).toEqual({ op: "stop", thread: "t-1" });
     // The send button stops an empty composer's running thread.
     expect(pane.root.querySelector(".send")?.textContent).toBe("Stop");
@@ -458,6 +461,37 @@ describe("agent pane", () => {
     expect(paste(clip)).toBe(true);
     await tick();
     expect([...pane.root.querySelectorAll(".tag .ell")].map((e) => e.textContent)).toEqual(["bug.mov", "bug.mp4"]);
+  });
+
+  it("a thread shows a card per sub-thread it spawned, each with the model it runs on", () => {
+    const { pane, emit, sent } = setup();
+    const parent = info({ id: "t-1", title: "Split the parser work", status: "working", state: "working" });
+    const lexer = info({ id: "t-2", title: "Port the lexer", parent: "t-1", status: "working", state: "working", sessions: [{ id: "s-1", role: "code", model: "anthropic/claude-haiku-5-5" }] as never });
+    const tests = info({ id: "t-3", title: "Write parser tests", parent: "t-1", status: "done", state: "done", sessions: [{ id: "s-2", role: "code", model: "openrouter/deepseek-v4.1-flash" }] as never });
+    emit({ kind: "threads", cwd: "/r", threads: [parent, lexer, tests, info({ id: "t-9", title: "Unrelated", parent: "t-8" })] });
+    pane.openThread("t-1");
+    emit({ kind: "caught", thread: "t-1" } as never);
+    const cards = [...pane.root.querySelectorAll<HTMLElement>(".thread-card")];
+    expect(cards.map((c) => c.dataset.thread)).toEqual(["t-2", "t-3"]);
+    expect(cards[0]!.querySelector(".model")!.textContent).toBe("claude-haiku-5-5");
+    expect(cards[0]!.querySelector<HTMLElement>(".model")!.title).toBe("anthropic/claude-haiku-5-5");
+    expect(cards[1]!.querySelector(".model")!.textContent).toBe("deepseek-v4.1-flash");
+    // The `@` hint is the project chat's.
+    expect(pane.root.querySelector(".card.threads")!.textContent).not.toContain("Type @");
+    buttons(cards[0]!, "Open")[0]!.click();
+    expect(sent).toContainEqual({ op: "open", cwd: "/r", thread: "t-2" });
+  });
+
+  it("⌘F opens find over the thread, and Escape gives the composer the focus back", () => {
+    const { pane, emit } = setup();
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-1" })] });
+    pane.openThread("t-1");
+    pane.find();
+    const input = pane.root.querySelector<HTMLInputElement>(".find input")!;
+    expect(pane.root.ownerDocument.activeElement).toBe(input);
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(pane.root.querySelector(".find")).toBeNull();
+    expect(pane.root.ownerDocument.activeElement).toBe(pane.composer);
   });
 
   it("⌘0 starts the project chat as the coordinator, then shows a card per thread it opened", () => {

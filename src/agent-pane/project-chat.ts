@@ -6,6 +6,7 @@ import type { PrChip, Status, ThreadInfo } from "../protocol/wire.js";
 import { type Completion, score } from "../composer/complete.js";
 import { todoCard } from "./cards.js";
 import { newestFirst } from "./status.js";
+import { currentModel } from "./thread-state.js";
 
 export const COORDINATOR = "coordinator";
 
@@ -31,6 +32,8 @@ export interface ChatCard {
   archived?: boolean;
   /** Its pull request, while the daemon follows it. */
   pr?: PrChip;
+  /** The model its writer runs on (`anthropic/claude-haiku-5-5`), once it has a session. */
+  model?: string;
 }
 
 // A question first, then work going on, then what is finished.
@@ -42,12 +45,25 @@ const ORDER: Partial<Record<Status, number>> = { asking: 0, working: 1, queued: 
  * owed").
  */
 export function chatCards(threads: ThreadInfo[], coordinator: string): ChatCard[] {
+  return cards(threads.filter((t) => t.by === coordinator));
+}
+
+/**
+ * One card per sub-thread `parent` spawned (cedia's `spawn`), so the thread shows who is working
+ * for it and on which model: a writer on `auto` or with a cheaper sub-thread role does not say
+ * otherwise.
+ */
+export function subthreadCards(threads: ThreadInfo[], parent: string): ChatCard[] {
+  return cards(threads.filter((t) => t.parent === parent));
+}
+
+function cards(threads: ThreadInfo[]): ChatCard[] {
   return threads
-    .filter((t) => t.by === coordinator)
     .sort((a, b) => Number(a.archived) - Number(b.archived) || (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9) || newestFirst(a, b))
     .map((t) => {
       const todo = todoCard(t);
       const step = t.todo?.find((s) => s.state === "doing")?.text;
+      const model = currentModel([], t);
       return {
         id: t.id,
         title: t.title || t.task,
@@ -58,6 +74,7 @@ export function chatCards(threads: ThreadInfo[], coordinator: string): ChatCard[
         ...(t.cwd ? { cwd: t.cwd } : {}),
         ...(t.archived ? { archived: true } : {}),
         ...(t.pr ? { pr: t.pr } : {}),
+        ...(model ? { model } : {}),
       };
     });
 }

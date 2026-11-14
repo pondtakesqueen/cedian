@@ -1,7 +1,8 @@
 // The composer's rules (prototype `composer()`; spec §3.1, §3.7): what Enter does depends on the
 // thread. No thread yet starts one (in a new worktree when asked); a thread at rest takes the
-// text as its next run; a running thread queues it, and cedia shows it at the run's next turn
-// (`cedia threads send`) until "Send now" stops the run and sends it as the next one instead.
+// text as its next run; a running thread is steered: the text is queued (`cedia threads send`)
+// and cedia shows it to the model at the run's next step, without stopping the run. "Stop and
+// send" is the other way: it stops the run and sends the text as the next one.
 import type { CommandEntry, Request } from "../protocol/wire.js";
 
 export interface Draft {
@@ -63,7 +64,7 @@ export interface Queued {
 }
 
 /**
- * "Send now" on a queued message: take it back from the queue, stop the run, and send it as the
+ * "Stop and send" on a queued message, for when the run should not go on as it is: take it back from the queue, stop the run, and send it as the
  * next run once the run has stopped (the caller sends `then` when the thread's status leaves
  * `working`).
  */
