@@ -12,7 +12,7 @@ exports[`agent pane > denied-call > draws 1`] = `
 [ubub] publish the package
 [tools fail] 1 tool · bash | 1 failed | bash | npm publish | denied by deny-list:deploy: npm publish publishes or deploys; ask the user to run it
 [ans] Publishing is on the deny list, so I left it for you.
-[receipt unv] unverified | Publishing is on the deny list, so I left it for you. | 2 turns · 0s · $0.00"
+[receipt unv] no changes | 2 turns · 0s · $0.00"
 `;
 
 exports[`agent pane > edit-and-check > draws 1`] = `
@@ -20,7 +20,7 @@ exports[`agent pane > edit-and-check > draws 1`] = `
 [ubub] make f.txt say good
 [tools] 3 tools · write, edit, bash | 30ms | write | f.txt | 15ms | edit | f.txt | 10ms | bash | grep -q good f.txt | 5ms
 [ans] f.txt now says good, and grep -q good f.txt passes.
-[receipt] verified | f.txt now says good, and grep -q good f.txt passes. | 4 turns · 0s · $0.00 | grep -q good f.txt | exit 0"
+[receipt] verified | 4 turns · 0s · $0.00 | grep -q good f.txt | exit 0"
 `;
 
 exports[`agent pane > handoff > draws 1`] = `
@@ -32,7 +32,7 @@ exports[`agent pane > handoff > draws 1`] = `
 [ubub] make f.txt say good
 [tools] 1 tool · bash | 4ms | bash | grep -q good f.txt | 4ms
 [ans] done
-[receipt] verified | done | 5 turns · 0s · $0.01 | grep -q good f.txt | exit 0"
+[receipt] verified | 5 turns · 0s · $0.01 | grep -q good f.txt | exit 0"
 `;
 
 exports[`agent pane > subthread > draws 1`] = `
@@ -40,7 +40,7 @@ exports[`agent pane > subthread > draws 1`] = `
 [ubub] make f.txt say good
 [tools] 2 tools · spawn, bash | 50ms | spawn | Write good to f.txt, then run grep -q good f.txt. | 47ms | bash | grep -q good f.txt | 3ms
 [ans] done, checked
-[receipt] verified | done, checked | 6 turns · 0s · $0.01 | grep -q good f.txt | exit 0 | grep -q good f.txt | exit 0
+[receipt] verified | 6 turns · 0s · $0.01 | grep -q good f.txt | exit 0 | grep -q good f.txt | exit 0
 t-00000002:
 [ubub] You are a sub-thread of thread t-00000001: another session handed you this task and will see only your final message. Do this task and nothing else. Time matters: an earlier correct report beats a later polished one; do not spend turns beyond what the report needs. <task> Write good to f.txt, then run grep -q good f.txt. </task> End with the report it asked for: findings or changes with paths and line numbers, how you confirmed them, and anything left undone. Keep it short; leave out the steps you took to get there.
 [tools] 2 tools · bash ×2 | 17ms | bash | echo good > f.txt | 14ms | bash | grep -q good f.txt | 3ms

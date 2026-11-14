@@ -37,6 +37,8 @@ export type Item =
       seconds: number | null;
       costUsd: number;
       checks: Check[];
+      /** Files the run changed; null when cedia sent no evidence, as a run that changed and checked nothing. */
+      changed: number | null;
     };
 
 export function items(blocks: Block[]): Item[] {
@@ -78,17 +80,20 @@ export function items(blocks: Block[]): Item[] {
       case "result": {
         const evidence = block.evidence;
         const unverified = (evidence?.unverified.length ?? 0) + (evidence?.flags?.length ?? 0);
+        const before = out[out.length - 1];
         out.push({
           k: "receipt",
           subtype: block.subtype,
           // As `cedian_agent::Block::verified`: a success whose evidence leaves nothing open.
           verified: block.subtype === "success" && evidence !== null && unverified === 0,
           unverified,
-          verdict: block.text,
+          // The verdict is the answer's first line; with that answer just above, it is said already.
+          verdict: before?.k === "answer" && firstLine(before.text) === firstLine(block.text) ? "" : block.text,
           turns: block.turns,
           seconds: block.wall_ms === null ? null : Math.round(block.wall_ms / 1000),
           costUsd: block.cost_usd,
           checks: (evidence?.checks ?? []).map((c) => ({ command: c.command, exitCode: c.exitCode })),
+          changed: evidence ? evidence.changed.length : null,
         });
         break;
       }
@@ -129,3 +134,6 @@ function failure(call: ToolCall): string {
 export function shownText(text: string): string {
   return text.replace(/\s*<plan-pending\b[^>]*>[\s\S]*?<\/plan-pending>\s*/g, "\n").trim();
 }
+
+/** A text's first line that says something, as the receipt's verdict shows it. */
+const firstLine = (text: string): string => text.split("\n").map((l) => l.trim()).find((l) => l !== "") ?? "";
