@@ -75,6 +75,21 @@ export function mcpAddRequest(name: string, target: string, pairs: string, readO
   return { op: "mcp_add", name: n, server: { target: { kind: "command", command, args }, pairs: kv, read_only: readOnly } };
 }
 
+/** cedia's guards (core/safety/policy.ts `GUARDS`) as a person reads them: a name, and what it stops. */
+const GUARD_LABELS: Record<string, [string, string]> = {
+  "force-push": ["Force push", "stops force-push, branch deletion and mirror push, which rewrite shared history"],
+  "reset-hard": ["git reset --hard", "stops a hard reset, which throws work away with no way back"],
+  "clean-force": ["git clean -f", "stops deleting untracked files with no way back"],
+  "drop-refs": ["Delete commits or refs", "stops git commands that delete commits or their record, which snapshots cannot bring back"],
+  "rm-outside": ["Delete outside the repo", "stops rm -r, find -delete and git -C that reach outside the working directory"],
+  deploy: ["Deploy or publish", "stops commands that publish or deploy"],
+  "git-config": ["Change git config", "stops git config writes, which can run code later or move remotes"],
+  "hook-bypass": ["Skip git hooks", "stops --no-verify and other ways around the repository's hooks"],
+  "secret-path": ["Read credentials", "stops reads of credential files and the Keychain"],
+  "secret-redaction": ["Show secrets to the model", "turns off hiding secrets in tool results before the model sees them"],
+  "slop-check": ["Skip the slop check", "turns off the check that flags shortcuts that only look done, such as weakened tests, in a run's changes"],
+};
+
 export class SettingsView {
   readonly root: HTMLElement;
   private section: Section = "appearance";
@@ -228,7 +243,7 @@ export class SettingsView {
   private appearance(p: HTMLElement): void {
     const d = this.doc;
     const desk = this.desktop;
-    this.row(p, "Theme", select(d, [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" }], desk.theme ?? "dark", (v) => this.set("theme", v)));
+    this.row(p, "Theme", select(d, [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }, { value: "system", label: "System" }], desk.theme ?? "system", (v) => this.set("theme", v)));
     this.row(p, "App icon", select(d, [{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }, { value: "theme", label: "Match theme" }], desk.app_icon ?? "light", (v) => this.set("app_icon", v)));
     this.row(p, "UI font", this.text(desk.font?.ui, DEFAULT_UI_FONT, (v) => this.set("font", { ...(desk.font ?? {}), ui: v || undefined })));
     this.row(p, "Code font", this.text(desk.font?.code, DEFAULT_CODE_FONT, (v) => this.set("font", { ...(desk.font ?? {}), code: v || undefined })));
@@ -391,8 +406,9 @@ export class SettingsView {
       const label = el(d, "label", "tag");
       label.append(
         this.check(on, (v) => set("permissions.unlock", (v ? [...s.permissions.unlock, g] : s.permissions.unlock.filter((x) => x !== g)).join("\n"))),
-        el(d, "span", "m", g),
+        el(d, "span", "", GUARD_LABELS[g]?.[0] ?? g),
       );
+      label.title = GUARD_LABELS[g] ? `${g}: ${GUARD_LABELS[g][1]}` : g;
       unlock.append(label);
     }
     const r = el(d, "div", "row");

@@ -116,7 +116,7 @@ describe("agent pane", () => {
     const groups = [...root.querySelectorAll('[role="group"]')];
     expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual(["You, with 1 image", "cedia is answering", "2 tool calls, 1 failed"]);
     expect(groups[1]!.getAttribute("aria-busy")).toBe("true");
-    expect(itemLabel({ k: "receipt", subtype: "success", verified: false, unverified: 2, verdict: "", turns: 1, seconds: null, costUsd: 0, checks: [] })).toBe("Run ended: unverified 2");
+    expect(itemLabel({ k: "receipt", subtype: "success", verified: false, unverified: 2, verdict: "", turns: 1, seconds: null, costUsd: 0, checks: [], changed: 1 })).toBe("Run ended: unverified 2");
   });
 
   it("the receipt's verdict is one line of the final answer, not all of it", () => {
@@ -126,6 +126,29 @@ describe("agent pane", () => {
     const receipt = { k: "receipt" as const, subtype: "success", verified: false, unverified: 1, verdict: "First line.\n\nThe rest of a long answer.", turns: 6, seconds: 34, costUsd: 0.01, checks: [] };
     const drawn = renderItems(document, [receipt as never]);
     expect(drawn.querySelector(".verdict")?.textContent).toBe("First line.");
+  });
+
+  it("a run that changed nothing says so, not unverified, and its receipt does not repeat the answer above it", () => {
+    const said = "Hi. I'm cedia, the coding agent for this repo.\n\nWhat would you like to work on?";
+    const drawn = items([
+      { kind: "user", text: "say hi", images: [] },
+      { kind: "text", text: said, streaming: false },
+      { kind: "result", subtype: "success", text: said, cost_usd: 0, turns: 1, wall_ms: 1000, evidence: null },
+    ] as never);
+    const receipt = drawn.find((i) => i.k === "receipt")!;
+    expect(receipt).toMatchObject({ verified: false, verdict: "" });
+    expect(itemLabel(receipt)).toBe("Run ended: no changes");
+    const root = renderItems(document, drawn);
+    expect(root.querySelector(".receipt .ubadge")?.textContent).toBe("no changes");
+    expect(root.querySelector(".receipt .verdict")).toBeNull();
+    expect(root.querySelector(".receipt .stats")?.textContent).toBe("1 turn · 1s · $0.00");
+  });
+
+  it("explains an unverified badge on hover", () => {
+    const receipt = { k: "receipt" as const, subtype: "success", verified: false, unverified: 2, verdict: "Fixed it.", turns: 3, seconds: 4, costUsd: 0.01, checks: [], changed: 2 };
+    const badge = renderItems(document, [receipt as never]).querySelector<HTMLElement>(".ubadge")!;
+    expect(badge.textContent).toBe("unverified 2");
+    expect(badge.title).toContain("no check");
   });
 
   it("puts text in as text", () => {

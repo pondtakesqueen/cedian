@@ -85,6 +85,34 @@ const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-matr
 /** A daemon answer's value, or its error, which the cards show in its place. */
 const either = <T, E>(r: { Ok: T } | { Err: E }): T | E => ("Ok" in r ? r.Ok : r.Err);
 
+/**
+ * The model picker's options, each model once. cedia's default stands in its own place with the
+ * value "" (no choice: cedia's default), not as a second row on top; a label two providers share
+ * says its provider. `shown` is kept as a row when cedia does not list it (a thread's own model).
+ */
+export function modelOptions(models: ModelList, shown: string): { value: string; label: string; disabled?: boolean; title?: string }[] {
+  const count = new Map<string, number>();
+  for (const m of models.models) count.set(m.label, (count.get(m.label) ?? 0) + 1);
+  const listed = models.models.some((m) => m.ref === models.default);
+  return [
+    ...(listed ? [] : [{ value: "", label: models.default }]),
+    ...models.models.map((m) => ({
+      value: m.ref === models.default ? "" : m.ref,
+      label: (count.get(m.label) ?? 0) > 1 ? `${m.label} · ${m.provider}` : m.label,
+      disabled: !m.available,
+      title: m.reason ?? m.ref,
+    })),
+    ...models.modes.map((m) => ({ value: m.name, label: m.label })),
+    ...(shown && !models.models.some((m) => m.ref === shown) && !models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : []),
+  ];
+}
+
+/** The effort picker's options in level order; the model's default effort is the "" row, not a second one. */
+export function effortOptions(levels: readonly string[], defaultEffort?: string | null): { value: string; label: string }[] {
+  const own = defaultEffort && levels.includes(defaultEffort);
+  return [...(own ? [] : [{ value: "", label: defaultEffort ?? "effort" }]), ...levels.map((l) => ({ value: l === defaultEffort ? "" : l, label: l }))];
+}
+
 /** Threads newest first; archived ones and side chats stay out of the list. */
 export function threadList(threads: ThreadInfo[]): ThreadInfo[] {
   return threads.filter((t) => !t.archived).sort(newestFirst);
@@ -1575,14 +1603,15 @@ export class AgentPane {
     if (this.models) {
       const threadModel = this.state.thread && !this.chosen.has("model") ? currentModel(this.state.view.blocks as Block[], this.state.info) : undefined;
       const shown = threadModel ?? this.choices.model ?? "";
-      const s = select(d, [{ value: "", label: this.models.models.find((m) => m.ref === this.models!.default)?.label ?? this.models.default }, ...this.models.models.map((m) => ({ value: m.ref, label: m.label, disabled: !m.available, title: m.reason ?? m.ref })), ...this.models.modes.map((m) => ({ value: m.name, label: m.label })), ...(shown && !this.models.models.some((m) => m.ref === shown) && !this.models.modes.some((m) => m.name === shown) ? [{ value: shown, label: shown }] : [])], shown, pick("model"), "chip");
+      const s = select(d, modelOptions(this.models, shown), shown === this.models.default ? "" : shown, pick("model"), "chip");
       s.dataset.chip = "model";
       s.title = `Model (${this.keyOf("cedian.modelMenu")})`;
       chips.push(this.pill(s, "model", "model"));
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
-        const e = select(d, [{ value: "", label: entry.defaultEffort ?? "effort" }, ...levels.map((l) => ({ value: l, label: l }))], this.choices.effort ?? "", pick("effort"), "chip");
+        const effort = this.choices.effort ?? "";
+        const e = select(d, effortOptions(levels, entry.defaultEffort), effort === entry.defaultEffort ? "" : effort, pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = `Effort (${this.keyOf("cedian.effortMenu")})`;
         chips.push(this.pill(e, "effort", "effort"));

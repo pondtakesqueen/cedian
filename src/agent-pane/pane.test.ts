@@ -835,6 +835,26 @@ describe("agent pane header and composer", () => {
     expect(pane.root.querySelector('select[data-chip="permission"]')!.closest(".pill.permission")).not.toBeNull();
   });
 
+  it("lists each model and effort once: cedia's default is its own row, and a label two providers share says which", () => {
+    const { pane, emit } = setup();
+    const haiku = { label: "Claude Haiku 5.5", available: true, contextWindow: 200000, effort: true, defaultEffort: "medium" as const, effortLevels: ["low" as const, "medium" as const, "high" as const] };
+    emit({ kind: "choices", models: { default: "anthropic/claude-haiku-5-5", models: [
+      { ref: "anthropic/claude-opus-5-5", label: "Claude Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: false },
+      { ...haiku, ref: "anthropic/claude-haiku-5-5", provider: "anthropic" },
+      { ...haiku, ref: "opencode-go/claude-haiku-5-5", provider: "opencode-go" },
+    ], modes: [] } });
+    const model = pane.root.querySelector<HTMLSelectElement>('select[data-chip="model"]')!;
+    expect([...model.options].map((o) => [o.value, o.textContent])).toEqual([
+      ["anthropic/claude-opus-5-5", "Claude Opus 5.5"],
+      ["", "Claude Haiku 5.5 · anthropic"],
+      ["opencode-go/claude-haiku-5-5", "Claude Haiku 5.5 · opencode-go"],
+    ]);
+    expect(model.value).toBe("");
+    const effort = pane.root.querySelector<HTMLSelectElement>('select[data-chip="effort"]')!;
+    expect([...effort.options].map((o) => [o.value, o.textContent])).toEqual([["low", "low"], ["", "medium"], ["high", "high"]]);
+    expect(effort.value).toBe("");
+  });
+
   it("gives each picker pill an icon and a hover with its value, for a narrow pane that shows the icons alone", () => {
     const { pane, emit } = setup();
     emit({ kind: "choices", models: { default: "anthropic/claude-opus-5-5", models: [{ ref: "anthropic/claude-opus-5-5", label: "Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true, effortLevels: ["low", "high"] }], modes: [] }, permissions: { default: "workspace", modes: [{ mode: "workspace", label: "Workspace", description: "" }] } });

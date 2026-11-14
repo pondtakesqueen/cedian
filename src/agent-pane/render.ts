@@ -95,7 +95,12 @@ function renderItem(doc: Document, item: Item): HTMLElement {
       // The verdict gets its own line after the badge; the stats go under it, so a narrow pane
       // wraps neither (the stats once squeezed to a word a line, seen on the Mac at 419 px).
       const head = el(doc, "div", "row rhead");
-      head.append(item.verified ? el(doc, "span", "vbadge", "verified") : el(doc, "span", "ubadge", badge(item)), el(doc, "span", "verdict ell", verdictLine(item.verdict)));
+      const mark = item.verified ? el(doc, "span", "vbadge", "verified") : el(doc, "span", "ubadge", badge(item));
+      const why = badgeTitle(item);
+      if (why) mark.title = why;
+      head.append(mark);
+      const verdict = verdictLine(item.verdict);
+      if (verdict) head.append(el(doc, "span", "verdict ell", verdict));
       const stats = el(doc, "div", "stats m num", meta(item));
       card.append(head, stats);
       if (item.checks.length) {
@@ -148,7 +153,17 @@ function labelled(node: HTMLElement, item: Item): HTMLElement {
 /** Why a receipt is not verified: how the run ended, or what its evidence left open. */
 function badge(item: Extract<Item, { k: "receipt" }>): string {
   if (item.subtype !== "success") return item.subtype.replace(/^error_/, "").replace(/_/g, " ");
+  // No evidence: the run changed no file and ran no check, so there is nothing to verify.
+  if (item.changed === null) return "no changes";
   return item.unverified ? `unverified ${item.unverified}` : "unverified";
+}
+
+/** What the badge means, on hover. */
+function badgeTitle(item: Extract<Item, { k: "receipt" }>): string {
+  if (item.verified) return "Every changed file is covered by a check that passed";
+  if (item.subtype !== "success") return "";
+  if (item.changed === null) return "This run changed no file and ran no check";
+  return "Files changed with no check covering them, or checks that flagged something; open the review to see them";
 }
 
 /** A call's own note: its exit code when it failed with one, else how long it took. */
@@ -167,7 +182,7 @@ export function duration(ms: number): string {
 }
 
 function meta(item: Extract<Item, { k: "receipt" }>): string {
-  const parts = [`${item.turns} turns`];
+  const parts = [`${item.turns} ${item.turns === 1 ? "turn" : "turns"}`];
   if (item.seconds !== null) parts.push(`${item.seconds}s`);
   parts.push(`$${item.costUsd.toFixed(2)}`);
   return parts.join(" · ");
