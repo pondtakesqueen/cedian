@@ -30,7 +30,7 @@ describe("submit", () => {
 
 describe("the queue", () => {
   const target = { cwd: "/r", thread: "t-1" };
-  it("Send now takes the message back, stops the run, then runs it", () => {
+  it("Stop and send takes the message back, stops the run, then runs it", () => {
     const r = sendNow({ id: "m-1", text: "do this first" }, target, choices);
     expect(r.now).toEqual([{ op: "unsend", cwd: "/r", thread: "t-1", ids: ["m-1"] }, { op: "stop", thread: "t-1" }]);
     expect(r.then).toMatchObject({ op: "prompt", thread: "t-1", text: "do this first", worktree: false });

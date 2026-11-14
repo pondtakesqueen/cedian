@@ -6,10 +6,13 @@
 import { URI } from '../../../../base/common/uri.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { isSingleFolderWorkspaceIdentifier } from '../../../../platform/workspace/common/workspace.js';
 import { IHostService } from '../../../services/host/browser/host.js';
+import { logPhases } from '../browser/launchTiming.js';
+import { PhaseLog } from '../browser/timing/phases.js';
 import { coldWindows, recentFrom, RECENT_KEY, touched, type ProjectWindow } from '../browser/agent-pane/project-tabs.js';
 
 /** The command a project tab runs to show its project (projectTabs.ts). */
@@ -29,11 +32,17 @@ CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor
 	const native = accessor.get(INativeHostService);
 	const host = accessor.get(IHostService);
 	const storage = accessor.get(IStorageService);
+	const log = accessor.get(ILogService);
+	// Where the switch's time goes on this side; a project without a window then loads one, and that
+	// window's own launch line (launchTiming.ts) says where the rest went.
+	const phases = new PhaseLog('tab switch');
+	phases.mark('pressed');
 	const windows: ProjectWindow[] = (await native.getWindows({ includeAuxiliaryWindows: false })).map(w => ({
 		id: w.id,
 		root: w.workspace && isSingleFolderWorkspaceIdentifier(w.workspace) && w.workspace.uri.scheme === 'file' ? w.workspace.uri.fsPath : undefined,
 		dirty: w.dirty,
 	}));
+	phases.mark('windows listed');
 	const recent = recentFrom(storage.get(RECENT_KEY, StorageScope.APPLICATION));
 	storage.store(RECENT_KEY, JSON.stringify(touched(recent, root)), StorageScope.APPLICATION, StorageTarget.MACHINE);
 	const strip = (path: string) => path.length > 1 ? path.replace(/[\\/]+$/, '') : path;
@@ -44,11 +53,17 @@ CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor
 		if (at) {
 			await native.positionWindow(at, { targetWindowId: warm.id });
 		}
+		phases.mark('window placed');
 		await native.focusWindow({ targetWindowId: warm.id });
+		phases.mark('window focused');
 	} else {
 		await host.openWindow([{ folderUri: URI.file(root) }], { forceNewWindow: true });
+		phases.mark('new window asked for');
 	}
 	for (const id of coldWindows(windows, recent, root)) {
 		await native.closeWindow({ targetWindowId: id });
 	}
+	phases.mark('old windows closed');
+	const report = phases.report();
+	logPhases(log, { ...report, what: warm ? 'tab switch (kept window)' : 'tab switch (new window)' });
 });

@@ -356,3 +356,12 @@
 .cedian-agent-pane .blk.run::before { background: var(--cedian-working); }
 .cedian-agent-pane .card > .row:first-child > .grow { flex-basis: 8em; }
 .cedian-agent-pane .card > .row:first-child > .btn:first-of-type:not(:first-child) { margin-left: auto; }
+
+/* Find in thread (⌘F): a bar over the log's top right; the matches are CSS highlights (find.ts). */
+.cedian-agent-pane { position: relative; }
+.cedian-agent-pane .find { position: absolute; top: 44px; right: 12px; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: var(--cedian-sheet); border: 1px solid var(--cedian-line); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); }
+.cedian-agent-pane .find .query { width: 180px; background: transparent; border: 0; outline: 0; color: inherit; font: inherit; }
+.cedian-agent-pane .find .count { min-width: 56px; text-align: right; color: var(--cedian-text-muted); }
+::highlight(cedian-find) { background-color: color-mix(in srgb, var(--cedian-accent) 28%, transparent); }
+::highlight(cedian-find-current) { background-color: var(--cedian-accent); color: var(--cedian-on-accent, #fff); }
+.cedian-agent-pane .thread-card .model { color: var(--cedian-text-muted); white-space: nowrap; }
