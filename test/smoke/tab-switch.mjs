@@ -28,6 +28,7 @@ const COUNTS = [2, 10, 30];
 const CLICKS = 20;
 
 const stats = (xs) => {
+  if (!xs.length) return { median: null, p95: null, max: null, n: 0 };
   const s = [...xs].sort((a, b) => a - b);
   const at = (q) => s[Math.min(s.length - 1, Math.floor(q * s.length))];
   return { median: +at(0.5).toFixed(1), p95: +at(0.95).toFixed(1), max: +s[s.length - 1].toFixed(1), n: s.length };
@@ -81,7 +82,8 @@ const install = () =>
           const t0 = e.timeStamp;
           const check = () => {
             const lines = document.querySelector(".part.editor .editor-group-container.active .monaco-editor .view-lines");
-            if (lines?.textContent?.includes(want)) requestAnimationFrame(() => resolve(performance.now() - t0));
+            // Monaco draws spaces as U+00A0.
+            if (lines?.textContent?.replace(/\u00a0/g, " ").includes(want)) requestAnimationFrame(() => resolve(performance.now() - t0));
             else if (performance.now() - t0 > 5000) resolve(-1);
             else requestAnimationFrame(check);
           };
