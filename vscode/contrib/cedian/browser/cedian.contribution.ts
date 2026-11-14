@@ -45,6 +45,7 @@ import { CedianBlockStretch } from './blockStretch.js';
 import { CedianBlockTitle } from './blockTitle.js';
 import { CedianProjectTabs } from './projectTabs.js';
 import { CedianCurtain, CedianCurtainUp } from './curtain.js';
+import { CedianLaunchTiming } from './launchTiming.js';
 import { TOOL_PICKS } from './blocks/places.js';
 import { CheckForUpdatesAction } from './checkForUpdates.js';
 import { ICedianDaemonService } from './daemonService.js';
@@ -199,6 +200,8 @@ registerWorkbenchContribution2(CedianDropTarget.ID, CedianDropTarget, WorkbenchP
 // The curtain and the project tabs from the first frame: a tab switch loads the window again.
 registerWorkbenchContribution2(CedianCurtain.ID, CedianCurtain, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(CedianProjectTabs.ID, CedianProjectTabs, WorkbenchPhase.BlockRestore);
+// From the first frame too: it marks where the launch's time goes and logs one line (launchTiming.ts).
+registerWorkbenchContribution2(CedianLaunchTiming.ID, CedianLaunchTiming, WorkbenchPhase.BlockRestore);
 
 registerAction2(class extends Action2 {
 	constructor() {
