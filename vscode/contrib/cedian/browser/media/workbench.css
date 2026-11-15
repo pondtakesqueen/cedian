@@ -492,3 +492,13 @@
 }
 .monaco-workbench.vs:not(.hc-light) .part.statusbar { box-shadow: none !important; }
 .monaco-workbench.vs:not(.hc-light) .cedian-project-tabs .cedian-project-tab.on { background: var(--cedian-sel); }
+
+/* Concentric corners: a block is a card of 12 px corners, and the first tab in its header sits
+   5 px in from the card's edge (1 px edge, 4 px inset), so a tab's corners are 12 - 5 = 7 px and
+   follow the card's curve instead of a full pill's. The same for a panel's open tab. */
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor .tabs-container > .tab,
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor .tabs-container > .tab > .tab-fill,
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part .composite-bar .action-item > .active-item-indicator,
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part .composite-bar .action-item > .active-item-indicator::before {
+	border-radius: calc(12px - 5px) !important;
+}
