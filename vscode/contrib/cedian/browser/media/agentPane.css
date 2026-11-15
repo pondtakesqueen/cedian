@@ -143,7 +143,7 @@
 .cedian-agent-pane > .head .sp { flex: 1 1 0; min-width: 0; }
 .cedian-agent-pane > .head .picker { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; margin-left: -8px; padding-right: 6px; border-radius: 8px; cursor: pointer; }
 .cedian-agent-pane > .head .picker:hover { background: var(--cedian-hover); }
-.cedian-agent-pane > .head .picker .threads { appearance: none; flex: 0 1 auto; min-width: 0; max-width: 100%; field-sizing: content; background: transparent; border: 0; color: var(--cedian-text); font: inherit; font-size: 14px; font-weight: 600; padding: 3px 0 3px 8px; text-overflow: ellipsis; cursor: pointer; }
+.cedian-agent-pane > .head .picker .threads { appearance: none; flex: 0 1 auto; min-width: 0; max-width: 100%; field-sizing: content; background: transparent; border: 0; color: var(--cedian-text); font: inherit; font-size: 14px; font-weight: 600; padding: 3px 8px; text-overflow: ellipsis; cursor: pointer; }
 .cedian-agent-pane > .head .picker .threads option, .cedian-agent-pane > .head .picker .threads optgroup { font-weight: 400; color: var(--cedian-text); background: var(--cedian-raised); }
 .cedian-agent-pane > .head .side-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
 .cedian-agent-pane > .head .status { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; line-height: 20px; padding: 0 8px 0 7px; border-radius: 999px; white-space: nowrap; color: var(--cedian-text-muted); background: var(--cedian-field); }
@@ -446,3 +446,8 @@
 .cedian-agent-pane .model-picker .mp-dot.in::after { background: color-mix(in srgb, var(--cedian-app) 75%, transparent); }
 /* Synara's send: the text colour filled, round, the page colour arrow; grey until there is text. */
 .cedian-agent-pane .send:not(.idle):not(.stop) { background: var(--cedian-text); color: var(--cedian-app); }
+/* A narrow composer keeps the permission and the effort whole; the model's name is what gives
+   way (the audit found "May …" and "medi…" at 380 px while the model kept its full name). */
+.cedian-agent-pane .composer .pill.permission { flex: none; }
+.cedian-agent-pane .composer .pill.merged > select[data-chip="effort"] { flex: none; }
+.cedian-agent-pane .composer .pill.merged > select[data-chip="model"] { flex: 0 1 auto; min-width: 24px; }
