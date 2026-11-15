@@ -142,7 +142,7 @@
 .cedian-agent-pane > .head .r2 { display: flex; align-items: center; gap: 10px; min-width: 0; height: 22px; color: var(--cedian-text-faint); font-size: 12px; }
 .cedian-agent-pane > .head .sp { flex: 1 1 0; min-width: 0; }
 .cedian-agent-pane > .head .picker { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; margin-left: -8px; padding-right: 8px; border-radius: 7px; cursor: pointer; }
-.cedian-agent-pane > .head .picker:hover { background: var(--cedian-hover); }
+.cedian-agent-pane > .head .picker:hover { background: var(--cedian-sel); }
 .cedian-agent-pane > .head .picker .threads { appearance: none; flex: 0 1 auto; min-width: 0; max-width: 100%; field-sizing: content; background: transparent; border: 0; color: var(--cedian-text); font: inherit; font-size: 14px; font-weight: 600; padding: 3px 0 3px 8px; text-overflow: ellipsis; cursor: pointer; box-shadow: none; border-radius: 0; }
 .cedian-agent-pane > .head .picker .threads option, .cedian-agent-pane > .head .picker .threads optgroup { font-weight: 400; color: var(--cedian-text); background: var(--cedian-raised); }
 .cedian-agent-pane > .head .side-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
@@ -454,6 +454,6 @@
 /* The thread's title is one quiet control, as the tabs above it are: the title and its chevron
    inside one fill that shows on hover, with the tab's 7 px corners; no edge of its own (it drew
    the field's inset line before, a box around the title alone with the chevron left outside). */
-.cedian-agent-pane > .head .picker:focus-within { background: var(--cedian-hover); }
+.cedian-agent-pane > .head .picker:focus-within { background: var(--cedian-sel); }
 .cedian-agent-pane > .head .picker .threads:focus-visible { outline: none; }
 .cedian-agent-pane > .head .r1 > .picker { margin-right: auto; }
