@@ -202,9 +202,9 @@
    so all three stay. The native select stays over the whole pill, so a click or the keyboard
    opens it as before; the pill's hover says what each is set to. */
 @container agent-pane (max-width: 380px) {
-  .cedian-agent-pane .composer .pill:has(> svg.i + select) { width: 28px; padding: 0; justify-content: center; }
-  .cedian-agent-pane .composer .pill:has(> svg.i + select) > select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
-  .cedian-agent-pane .composer .pill:has(> svg.i + select) > svg.i-chevron { display: none; }
+  .cedian-agent-pane .composer .pill:not(.merged):has(> svg.i + select) { width: 28px; padding: 0; justify-content: center; }
+  .cedian-agent-pane .composer .pill:not(.merged):has(> svg.i + select) > select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
+  .cedian-agent-pane .composer .pill:not(.merged):has(> svg.i + select) > svg.i-chevron { display: none; }
 }
 @container agent-pane (max-width: 300px) {
   .cedian-agent-pane > .head .ctx .l { display: none; }
@@ -394,3 +394,11 @@
 .cedian-agent-pane .card.review .edited .counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
 .cedian-agent-pane .card.review > .file { padding: 7px 12px; border-top: 1px solid var(--cedian-line); }
 .cedian-agent-pane .card.review > .file:hover { background: var(--cedian-hover); }
+/* The model and its effort as one chip (Synara's model picker): the bolt sits between them, the
+   effort in the muted colour; under 380 px the model's name gives way and the effort stays. */
+.cedian-agent-pane .composer .pill.merged { gap: 3px; }
+.cedian-agent-pane .composer .pill.merged > svg.i-bolt { margin-left: 4px; width: 13px; height: 13px; }
+.cedian-agent-pane .composer .pill.merged > select[data-chip="effort"] { color: var(--cedian-text-faint); }
+@container agent-pane (max-width: 380px) {
+  .cedian-agent-pane .composer .pill.merged > select[data-chip="model"] { max-width: 64px; }
+}

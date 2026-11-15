@@ -32,16 +32,18 @@ TOKENS = {
         "ansi.magenta": "#CFA6FF", "ansi.cyan": "#76D3DB",
     },
     "light": {
-        # Neutral, after Synara's light theme (owner, 2026-11-15): no warmth, black as the accent.
-        "frame": "#F3F3F3", "app": "#F5F5F5", "sheet": "#FCFCFC", "raised": "#FFFFFF",
-        "field": "#EFEFEF", "code": "#FCFCFC",
-        "hover": rgba(0, 0, 0, 0.035), "sel": rgba(0, 0, 0, 0.05),
-        "line": rgba(0, 0, 0, 0.06), "line.strong": rgba(0, 0, 0, 0.11),
-        "text": "#262626", "text.muted": "#5E5E5E", "text.faint": "#666666",
-        "accent": "#171717", "accent.text": "#171717", "diff.add": "#2F7D3F",
-        "working": "#1B63BE", "failed": "#C23A22", "warn": "#C2410C",
-        "function": "#4A4FC4", "type": "#00796B", "tag": "#B23A1E", "constant": "#8F5D00",
-        "ansi.magenta": "#8A3FC9", "ansi.cyan": "#007C8A",
+        # macOS's own light colours, as Finder draws them (owner, 2026-11-15): a grey sidebar and
+        # window, white content, labels in black at 85%, separators at 10%, the system blue as
+        # the accent (its darker selection blue under white text).
+        "frame": "#E8E8E8", "app": "#F0F0F0", "sheet": "#FFFFFF", "raised": "#FFFFFF",
+        "field": "#E9E9E9", "code": "#FFFFFF",
+        "hover": rgba(0, 0, 0, 0.05), "sel": rgba(0, 0, 0, 0.08),
+        "line": rgba(0, 0, 0, 0.1), "line.strong": rgba(0, 0, 0, 0.16),
+        "text": "#262626", "text.muted": "#595959", "text.faint": "#6B6B6B",
+        "accent": "#007AFF", "accent.text": "#0064E1", "diff.add": "#1E7B34",
+        "working": "#0064E1", "failed": "#D70015", "warn": "#C93400",
+        "function": "#8944AB", "type": "#0071A4", "tag": "#C93400", "constant": "#A05A00",
+        "ansi.magenta": "#8944AB", "ansi.cyan": "#0071A4",
     },
 }
 

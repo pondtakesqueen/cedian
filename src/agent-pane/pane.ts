@@ -1704,7 +1704,8 @@ export class AgentPane {
       const s = select(d, modelOptions(this.models, shown), shown === this.models.default ? "" : shown, pick("model"), "chip");
       s.dataset.chip = "model";
       s.title = `Model (${this.keyOf("cedian.modelMenu")})`;
-      end.push(this.pill(s, "model", "model"));
+      const modelPill = this.pill(s, "model", "model");
+      end.push(modelPill);
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
@@ -1712,7 +1713,10 @@ export class AgentPane {
         const e = select(d, effortOptions(levels, entry.defaultEffort), effort === entry.defaultEffort ? "" : effort, pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = `Effort (${this.keyOf("cedian.effortMenu")})`;
-        end.push(this.pill(e, "effort", "effort"));
+        // One chip for both, as Synara's model picker: the model, a bolt and the effort, one chevron.
+        modelPill.classList.add("merged");
+        modelPill.lastElementChild?.before(icon(d, "bolt"), e);
+        modelPill.title = `${modelPill.title} · ${e.title}: ${e.selectedOptions[0]?.textContent ?? ""}`;
       }
     }
     if (this.permissions && !this.sideOf) {

@@ -54,7 +54,7 @@ describe("Warm & Lime", () => {
     expect(Object.keys(vars)).toHaveLength(Object.keys(TOKENS.dark).length);
     expect(vars["--cedian-accent"]).toBe("#C6F432");
     expect(vars["--cedian-text-muted"]).toBe("#ADA99F");
-    expect(cssText("light", ".x")).toContain(".x {\n  --cedian-frame: #F3F3F3;");
+    expect(cssText("light", ".x")).toContain(".x {\n  --cedian-frame: #E8E8E8;");
   });
 
   it("follows desktop.theme, else the system", () => {
