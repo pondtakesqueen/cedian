@@ -322,6 +322,7 @@ fn the_window_gets_the_projects_memory_and_outputs() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     window.ask(Request::Outputs {
@@ -622,6 +623,7 @@ fn line_comments_and_a_code_review_are_kept_for_the_thread_and_sent_as_its_next_
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     let thread = || "t-00000001".to_owned();
@@ -782,6 +784,85 @@ fn a_cedia_without_commit_says_so() {
 }
 
 #[test]
+fn a_cold_thread_is_priced_before_the_prompt_and_the_answer_goes_with_the_run() {
+    let harness = start_with("edit-and-check", "\"threads.resume-cost\"");
+    std::fs::create_dir_all(harness.threads.join("..")).expect("state");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::ResumeCost {
+        cwd: harness.cwd.clone(),
+        thread: "t-00000001".into(),
+        model: Some("faux/a".into()),
+    });
+    match window.next() {
+        Notice::ResumeCost {
+            thread,
+            cost: Some(cost),
+        } => {
+            assert_eq!(thread, "t-00000001");
+            assert!(cost.ask && cost.cold);
+            assert_eq!(cost.context_tokens, 150000.0);
+        }
+        other => panic!("{other:?}"),
+    }
+    // Nothing to ask is an answer too: the window sends without a question.
+    window.ask(Request::ResumeCost {
+        cwd: harness.cwd.clone(),
+        thread: "t-warm".into(),
+        model: None,
+    });
+    assert!(matches!(
+        window.next(),
+        Notice::ResumeCost { cost: None, .. }
+    ));
+    let calls = std::fs::read_to_string(harness.threads.join("../resume-calls")).expect("calls");
+    assert!(
+        calls.starts_with("threads resume-cost t-00000001 --model=faux/a --cwd"),
+        "{calls}"
+    );
+    window.ask(Request::Prompt {
+        cwd: harness.cwd.clone(),
+        text: "go on".into(),
+        thread: None,
+        worktree: false,
+        profile: None,
+        model: None,
+        permission: None,
+        effort: None,
+        helpers: Default::default(),
+        images: Vec::new(),
+        cold_resume: Some("keep".into()),
+    });
+    let args_file = harness.threads.join("../args");
+    for _ in 0..100 {
+        if std::fs::read_to_string(&args_file).is_ok_and(|a| a.contains("go on")) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let args = std::fs::read_to_string(&args_file).expect("args");
+    let args: Vec<&str> = args.lines().collect();
+    assert!(
+        args.windows(2).any(|w| w == ["--cold-resume", "keep"]),
+        "{args:?}"
+    );
+}
+
+#[test]
+fn a_cedia_without_resume_cost_answers_none_so_the_window_just_sends() {
+    let harness = start("edit-and-check");
+    let mut window = Window::connect(&harness);
+    window.ask(Request::ResumeCost {
+        cwd: harness.cwd.clone(),
+        thread: "t-00000001".into(),
+        model: None,
+    });
+    assert!(matches!(
+        window.next(),
+        Notice::ResumeCost { cost: None, .. }
+    ));
+}
+
+#[test]
 fn a_cedia_without_mcp_manage_says_so() {
     let harness = start("edit-and-check");
     let mut window = Window::connect(&harness);
@@ -894,6 +975,7 @@ fn an_edited_message_forks_the_thread_and_runs_there() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     window.ask(Request::Fork {
@@ -1085,6 +1167,7 @@ fn a_prompt_runs_and_a_second_window_rebuilds_it() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     let (view, seen) = window.until(status_is(Status::Done));
     assert!(
@@ -1168,6 +1251,7 @@ fn a_window_that_acks_has_at_most_two_notices_undrawn_and_the_rest_merged() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     let paced = |n: &Notice| matches!(n, Notice::Blocks { .. } | Notice::Text { .. });
     let (mut view, _) = window.until(paced);
@@ -1238,6 +1322,7 @@ fn stop_ends_a_run_and_send_reaches_the_thread() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(|n| matches!(n, Notice::Blocks { .. }));
 
@@ -1253,6 +1338,7 @@ fn stop_ends_a_run_and_send_reaches_the_thread() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.ask(Request::Stop {
         thread: "t-00000001".into(),
@@ -1280,6 +1366,7 @@ fn a_rating_reaches_the_thread_and_the_list() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     window.ask(Request::Rate {
@@ -1314,6 +1401,7 @@ fn a_queued_message_can_be_taken_back() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(|n| matches!(n, Notice::Blocks { .. }));
     window.ask(Request::Send {
@@ -1593,6 +1681,7 @@ fn a_new_thread_can_run_in_its_own_worktree() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     let (_, seen) = window.until(status_is(Status::Done));
     assert!(
@@ -1657,6 +1746,7 @@ fn rejecting_a_hunk_puts_the_file_back_and_tells_the_thread() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     let (_, seen) = window.until(status_is(Status::Done));
     let thread = seen
@@ -1790,6 +1880,7 @@ fn a_verified_thread_with_nothing_to_review_archives_itself() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(|n| {
         matches!(n, Notice::Threads { threads, .. }
@@ -1816,6 +1907,7 @@ fn an_unverified_thread_stays() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     // A list after the run ended, which an archive would have come before.
@@ -1961,6 +2053,7 @@ fn a_red_ci_on_the_thread_s_pr_becomes_its_next_run() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     // The run ended on a branch with a PR whose CI is red: the daemon's next look gives the
@@ -2075,6 +2168,7 @@ fn a_prompt_that_names_a_model_and_a_mode_runs_on_them() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
@@ -2105,6 +2199,7 @@ fn a_prompt_with_images_shows_them_to_the_writer() {
         effort: None,
         helpers: Default::default(),
         images: vec![shot.clone()],
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
@@ -2131,6 +2226,7 @@ fn a_cedia_that_cannot_show_images_is_not_sent_one() {
         effort: None,
         helpers: Default::default(),
         images: vec![harness.cwd.join("shot.png")],
+        cold_resume: None,
     });
     assert!(matches!(window.next(), Notice::Error { .. }));
     assert!(!harness.threads.join("../args").exists());
@@ -2152,6 +2248,7 @@ fn a_person_s_prompt_keeps_its_cache_an_hour_when_cedia_can() {
             effort: None,
             helpers: Default::default(),
             images: Vec::new(),
+            cold_resume: None,
         });
         window.until(status_is(Status::Done));
         let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
@@ -2180,6 +2277,7 @@ fn the_window_gets_the_schedules_and_a_due_one_wakes_its_thread() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     let state = harness.threads.join("..");
@@ -2468,6 +2566,7 @@ fn a_run_drives_the_native_page_a_window_holds_through_the_bridge() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
@@ -2534,6 +2633,7 @@ fn a_cedia_that_cannot_hold_the_site_list_gets_no_browser() {
         effort: None,
         helpers: Default::default(),
         images: Vec::new(),
+        cold_resume: None,
     });
     window.until(status_is(Status::Done));
     let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
@@ -2562,6 +2662,7 @@ fn creator_mode_gives_a_run_creator_on_only_when_the_owner_turned_it_on_and_cedi
             effort: None,
             helpers: Default::default(),
             images: Vec::new(),
+            cold_resume: None,
         });
         window.until(status_is(Status::Done));
         let args = std::fs::read_to_string(harness.threads.join("../args")).expect("args");
