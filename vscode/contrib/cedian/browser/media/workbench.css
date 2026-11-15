@@ -16,14 +16,14 @@
 
 /* VS Code's own controls with the agent pane's corners (agentPane.css): buttons 8px, fields 6px,
    Source Control's commit message box drawn as a field. Only corners: VS Code's layout stays. */
-.monaco-workbench .monaco-text-button { border-radius: 7px; }
-.monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-text-button { border-radius: 7px 0 0 7px; }
+.monaco-workbench .monaco-text-button { border-radius: 8px; }
+.monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-text-button { border-radius: 8px 0 0 8px; }
 .monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-dropdown-button { border-radius: 0 8px 8px 0; }
-.monaco-workbench .monaco-inputbox, .monaco-workbench .monaco-select-box { border-radius: 7px; }
+.monaco-workbench .monaco-inputbox, .monaco-workbench .monaco-select-box { border-radius: 8px; }
 .monaco-workbench .scm-view .scm-editor,
 .monaco-workbench .scm-view .scm-editor-container .monaco-editor,
-.monaco-workbench .scm-view .scm-editor-container .monaco-editor .overflow-guard { border-radius: 7px; }
-.monaco-workbench .scm-history-view .scm-provider .state-label.monaco-count-badge.long { border-radius: 7px; }
+.monaco-workbench .scm-view .scm-editor-container .monaco-editor .overflow-guard { border-radius: 8px; }
+.monaco-workbench .scm-history-view .scm-provider .state-label.monaco-count-badge.long { border-radius: 8px; }
 /* Modern UI's cards (the editor, side bars, panel) take the prototype's block corners, 12px, and
    so do the widgets drawn inside them (suggest, hover). Only corners: the gaps are VS Code's, which
    its layout measures. */
@@ -78,7 +78,7 @@
 	height: 22px;
 	padding: 0 10px;
 	border: 1px solid var(--vscode-widget-border, var(--vscode-contrast-border, rgba(128, 128, 128, 0.35)));
-	border-radius: 7px;
+	border-radius: 8px;
 	line-height: 22px;
 	font-size: 12px;
 }
@@ -144,7 +144,7 @@
 .monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part > .title > .title-label > h2 {
 	margin-left: -6px;
 	padding: 1px 6px;
-	border-radius: 7px;
+	border-radius: 8px;
 }
 .monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part:focus-within > .title > .title-label > h2 {
 	background-color: var(--cedian-focus-fill);
@@ -342,7 +342,7 @@
 .monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar .cedian-project-tabs { margin-left: 70px; }
 .cedian-project-tabs .cedian-project-tab {
 	display: inline-flex; align-items: center; gap: 8px; height: 26px; max-width: 220px; min-width: 64px; padding: 0 10px;
-	border: 0; border-radius: 7px; background: transparent; cursor: pointer;
+	border: 0; border-radius: 8px; background: transparent; cursor: pointer;
 	color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); font: inherit; font-size: 12px;
 	-webkit-app-region: no-drag;
 }
@@ -357,7 +357,7 @@
 .cedian-project-tabs .cedian-project-tab:focus-visible .close { display: inline-block; }
 .cedian-project-tabs .close:hover { background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); color: var(--cedian-text, var(--vscode-foreground)); }
 .cedian-project-tabs .cedian-project-add {
-	flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: transparent; cursor: pointer;
+	flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
 	color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); font: inherit; font-size: 16px; line-height: 26px;
 	-webkit-app-region: no-drag;
 }
@@ -409,7 +409,7 @@
 	box-shadow: 0 16px 40px var(--cedian-glass-drop, rgba(0, 0, 0, .14));
 }
 .monaco-workbench.vs-dark { --cedian-glass-drop: rgba(0, 0, 0, .45); }
-.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget .quick-input-list .monaco-list-row { border-radius: 7px; }
+.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget .quick-input-list .monaco-list-row { border-radius: 8px; }
 /* Its filter as the glass's own first line: no field, no ring, a hairline under it. */
 .monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget:not(.hidden-input) .quick-input-header {
 	border-bottom: 1px solid var(--cedian-line, var(--vscode-widget-border));
@@ -494,13 +494,13 @@
 .monaco-workbench.vs:not(.hc-light) .cedian-project-tabs .cedian-project-tab.on { background: var(--cedian-sel); }
 
 /* Concentric corners: a block is a card of 12 px corners, and the first tab in its header sits
-   5 px in from the card's edge (1 px edge, 4 px inset), so a tab's corners are 12 - 5 = 7 px and
-   follow the card's curve instead of a full pill's. The same for a panel's open tab. */
+   4 px in from the card's edge on every side, so a tab's corners are 12 - 4 = 8 px and follow the
+   card's curve instead of a full pill's. The same for a panel's open tab. */
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor .tabs-container > .tab,
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor .tabs-container > .tab > .tab-fill,
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part .composite-bar .action-item > .active-item-indicator,
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part .composite-bar .action-item > .active-item-indicator::before {
-	border-radius: calc(12px - 5px) !important;
+	border-radius: calc(12px - 4px) !important;
 }
 /* A group beside another draws its card 2 px in from the side they share (the gap between the
    cards), so its first tab sat 2 px nearer the card's edge than in the first group. The groups
@@ -517,12 +517,12 @@
 
 /* One corner scale across the window (owner, 2026-11-16): a card (a block, a card in the
    conversation, the composer, a menu) has 12 px corners, and a control on one (a tab, a row, a
-   button, a field, a chip in the title bar) has 7 px, so a control 5 px in from a card's edge
+   button, a field, a chip in the title bar) has 8 px, so a control 4 px in from a card's edge
    follows its curve. Pills (a status, a badge, the round send) stay round: they are a shape of
    their own, not a corner. VS Code's own corner variables follow the same two steps. */
 .monaco-workbench {
 	--cedian-radius-card: 12px;
-	--cedian-radius-control: 7px;
+	--cedian-radius-control: 8px;
 	--vscode-cornerRadius-small: var(--cedian-radius-control);
 	--vscode-cornerRadius-medium: var(--cedian-radius-control);
 	--vscode-cornerRadius-large: var(--cedian-radius-card);
@@ -536,3 +536,22 @@
 .cedian-thread-list :is(.row-btn, .thread-row, .search) {
 	border-radius: var(--cedian-radius-control) !important;
 }
+
+/* No edge inside an edge: the open tab of a block is a fill alone, as a panel's open tab is, so
+   no outline runs 3 px inside the card's own; the block holding focus fills it a step darker.
+   The right panel's tabs sit 4 px in from its edge like the editor's (its 1 px border put them
+   at 5). */
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) {
+	--modern-ui-editor-tab-active-background: var(--cedian-sel);
+	--modern-ui-editor-tab-unfocused-active-background: var(--cedian-sel);
+	--modern-ui-editor-tab-active-hover-background: var(--cedian-sel);
+	--modern-ui-editor-tab-unfocused-active-hover-background: var(--cedian-sel);
+}
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor .tabs-container > .tab.active > .tab-fill,
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor:focus-within .editor-group-container.active .tabs-container > .tab.active > .tab-fill {
+	box-shadow: none !important;
+}
+.monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .part.editor:focus-within .editor-group-container.active .tabs-container > .tab.active > .tab-fill {
+	background-color: var(--cedian-focus-fill) !important;
+}
+.monaco-workbench .part.auxiliarybar > .title > .composite-bar-container { margin-left: -1px; margin-top: -1px; }

@@ -4,10 +4,10 @@
    and, under it, its PR and worktree. */
 .cedian-thread-list { display: flex; flex-direction: column; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); color: var(--cedian-text); }
 .cedian-thread-list .top { flex: none; display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 4px; }
-.cedian-thread-list .search { height: 28px; margin-top: 6px; padding: 0 10px; border: 0; border-radius: 7px; background: var(--cedian-hover); color: inherit; font: inherit; font-size: 12.5px; }
+.cedian-thread-list .search { height: 28px; margin-top: 6px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--cedian-hover); color: inherit; font: inherit; font-size: 12.5px; }
 .cedian-thread-list .search::placeholder { color: var(--cedian-text-faint); }
 .cedian-thread-list .search:focus { outline: 2px solid var(--cedian-accent); outline-offset: -1px; background: var(--cedian-sheet); }
-.cedian-thread-list .row-btn, .cedian-thread-list .thread-row { display: flex; width: 100%; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cedian-thread-list .row-btn, .cedian-thread-list .thread-row { display: flex; width: 100%; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .cedian-thread-list .row-btn { align-items: center; gap: 9px; min-height: 30px; }
 .cedian-thread-list .row-btn svg.i { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; color: var(--cedian-text-muted); }
 .cedian-thread-list .row-btn:hover, .cedian-thread-list .thread-row:hover { background: var(--cedian-hover); }
