@@ -157,30 +157,30 @@ Threads go on working and check their own work, and ask only when something trul
 
 ### Color
 
-Warm & Lime, chosen by the owner on 2026-10-22 over Ink & Lime: warm grays in the manner of the Claude desktop app, with the app icon's lime as the only accent, meaning verified or primary; nothing decorative uses it. Dark is the default theme. Light sits between Codex and Claude (owner, 2026-10-22): near white, a trace of warmth, never ivory.
+Warm & Lime, chosen by the owner on 2026-10-22 over Ink & Lime: warm grays in the manner of the Claude desktop app, with the app icon's lime as the only accent, meaning verified or primary; nothing decorative uses it. Dark is the default theme. Light sits between Codex and Claude (owner, 2026-10-22): near white, a trace of warmth, never ivory. Since 2026-11-15 (owner) light follows Synara's light theme instead: neutral grays with no warmth, and black where dark has lime (the primary button, send, the accent); strings take the green of additions.
 
 | Token | Dark | Light |
 | --- | --- | --- |
-| frame (tab strip) | `#151412` | `#EAEAE6` |
-| app (window, sidebar, active tab) | `#1C1B19` | `#F4F4F1` |
-| sheet (panes and tools) | `#252421` | `#FCFCFB` |
+| frame (tab strip) | `#151412` | `#F3F3F3` |
+| app (window, sidebar, active tab) | `#1C1B19` | `#F5F5F5` |
+| sheet (panes and tools) | `#252421` | `#FCFCFC` |
 | raised (cards, composer) | `#2C2B28` | `#FFFFFF` |
-| field (search, chips, inline code) | `#262522` | `#ECECE8` |
-| code (editor, terminal, diff) | `#1E1D1B` | `#F7F7F5` |
-| hover | `rgba(255,248,235,.045)` | `rgba(28,28,20,.04)` |
-| sel | `rgba(255,248,235,.075)` | `rgba(28,28,20,.065)` |
-| line | `rgba(255,248,235,.07)` | `rgba(28,28,20,.08)` |
-| line.strong | `rgba(255,248,235,.13)` | `rgba(28,28,20,.14)` |
-| text | `#EDEBE5` (13.0:1) | `#1C1C1A` (16.6:1) |
-| text.muted | `#ADA99F` (6.6:1) | `#5B5B56` (6.7:1) |
-| text.faint | `#99958B` (5.2:1) | `#6C6C66` (5.2:1) |
-| accent fill | `#C6F432` | `#5E8A00` |
-| accent text | `#C6F432` (12.1:1) | `#4F7500` (5.3:1) |
-| diff add | `#7BD88F` (9.7:1 on code) | `#2F7D3F` (4.7:1 on code) |
+| field (search, chips, inline code) | `#262522` | `#EFEFEF` |
+| code (editor, terminal, diff) | `#1E1D1B` | `#FCFCFC` |
+| hover | `rgba(255,248,235,.045)` | `rgba(0,0,0,.035)` |
+| sel | `rgba(255,248,235,.075)` | `rgba(0,0,0,.05)` |
+| line | `rgba(255,248,235,.07)` | `rgba(0,0,0,.06)` |
+| line.strong | `rgba(255,248,235,.13)` | `rgba(0,0,0,.11)` |
+| text | `#EDEBE5` (13.0:1) | `#262626` (14.8:1) |
+| text.muted | `#ADA99F` (6.6:1) | `#5E5E5E` (6.3:1) |
+| text.faint | `#99958B` (5.2:1) | `#666666` (5.6:1) |
+| accent fill | `#C6F432` | `#171717` |
+| accent text | `#C6F432` (12.1:1) | `#171717` (17.9:1) |
+| diff add | `#7BD88F` (9.7:1 on code) | `#2F7D3F` (5.0:1 on code) |
 | primary button | `#C6F432`, ink text | `#1A1C1E`, white text |
 | working | `#6FB0FF` | `#1B63BE` |
 | failed | `#FF7A66` | `#C23A22` |
-| warn (interrupted, stale) | `#E8B931` | `#8F5D00` |
+| warn (interrupted, stale) | `#E8B931` | `#C2410C` |
 | user.bubble | `#32302C` | `#EFEFEB` |
 | count badge | `text` fill, `app` digits | `text` fill, `app` digits |
 

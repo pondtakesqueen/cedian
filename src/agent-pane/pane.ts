@@ -241,7 +241,7 @@ export class AgentPane {
     this.popup.setAttribute("role", "listbox");
     this.attachments = el(doc, "div", "attachments");
     this.input = el(doc, "textarea", "input");
-    this.input.rows = 3;
+    this.input.rows = 2;
     this.input.setAttribute("aria-label", "Message to the agent");
     this.chips = el(doc, "div", "chips");
     this.sendButton = button(doc, "Send", () => this.primary(), "send");
@@ -1667,7 +1667,7 @@ export class AgentPane {
   private renderComposer(): void {
     const d = this.doc;
     const running = isRunning(this.state);
-    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Continue this thread" : "Ask anything, @ to add files, / for commands";
+    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Ask anything, @tag files/folders, or use / to show available commands" : "Ask anything, @tag files/folders, or use / to show available commands";
     this.renderSend();
     this.attachments.replaceChildren(
       ...this.images.map((path) => {
@@ -1720,7 +1720,10 @@ export class AgentPane {
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
       s.title = `Permission (${this.keyOf("cedian.permissionMenu")})`;
-      start.push(this.pill(s, "shield", "permission"));
+      // The mode that may write anywhere in the project reads in the warning colour, as Synara's
+      // "Full access" does.
+      const mode = threadMode ?? this.choices.permission ?? this.permissions.default;
+      start.push(this.pill(s, "shield", mode === "workspace" ? "permission wide" : "permission"));
     }
     if (!this.state.thread) {
       const label = el(d, "label", "chip check");
