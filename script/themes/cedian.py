@@ -32,12 +32,12 @@ TOKENS = {
         "ansi.magenta": "#CFA6FF", "ansi.cyan": "#76D3DB",
     },
     "light": {
-        # macOS's own light colours, as Finder draws them (owner, 2026-11-15): a grey sidebar and
-        # window, white content, labels in black at 85%, separators at 10%, the system blue as
+        # macOS's own white, as Finder draws it (owner, 2026-11-15): white window and content, the
+        # chrome a step off white, labels in black at 85%, separators at 10%, the system blue as
         # the accent (its darker selection blue under white text).
-        "frame": "#E8E8E8", "app": "#F0F0F0", "sheet": "#FFFFFF", "raised": "#FFFFFF",
-        "field": "#E9E9E9", "code": "#FFFFFF",
-        "hover": rgba(0, 0, 0, 0.05), "sel": rgba(0, 0, 0, 0.08),
+        "frame": "#F6F6F6", "app": "#FFFFFF", "sheet": "#FFFFFF", "raised": "#FFFFFF",
+        "field": "#F2F2F2", "code": "#FFFFFF",
+        "hover": rgba(0, 0, 0, 0.04), "sel": rgba(0, 0, 0, 0.07),
         "line": rgba(0, 0, 0, 0.1), "line.strong": rgba(0, 0, 0, 0.16),
         "text": "#262626", "text.muted": "#595959", "text.faint": "#6B6B6B",
         "accent": "#007AFF", "accent.text": "#0064E1", "diff.add": "#1E7B34",

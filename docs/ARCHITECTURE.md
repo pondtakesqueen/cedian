@@ -157,18 +157,18 @@ Threads go on working and check their own work, and ask only when something trul
 
 ### Color
 
-Warm & Lime, chosen by the owner on 2026-10-22 over Ink & Lime: warm grays in the manner of the Claude desktop app, with the app icon's lime as the only accent, meaning verified or primary; nothing decorative uses it. Dark is the default theme. Light sits between Codex and Claude (owner, 2026-10-22): near white, a trace of warmth, never ivory. Since 2026-11-15 (owner) light takes macOS's own colours as Finder draws them: a grey window and sidebar, white content, labels in black at 85%, separators at 10%, and the system blue where dark has lime (its darker selection blue under white text); strings take the green of additions.
+Warm & Lime, chosen by the owner on 2026-10-22 over Ink & Lime: warm grays in the manner of the Claude desktop app, with the app icon's lime as the only accent, meaning verified or primary; nothing decorative uses it. Dark is the default theme. Light sits between Codex and Claude (owner, 2026-10-22): near white, a trace of warmth, never ivory. Since 2026-11-15 (owner) light takes macOS's own white as Finder draws it: white window and content, the chrome a step off white, labels in black at 85%, separators at 10%, and the system blue where dark has lime (its darker selection blue under white text); strings take the green of additions.
 
 | Token | Dark | Light |
 | --- | --- | --- |
-| frame (tab strip) | `#151412` | `#E8E8E8` |
-| app (window, sidebar, active tab) | `#1C1B19` | `#F0F0F0` |
+| frame (tab strip) | `#151412` | `#F6F6F6` |
+| app (window, sidebar, active tab) | `#1C1B19` | `#FFFFFF` |
 | sheet (panes and tools) | `#252421` | `#FFFFFF` |
 | raised (cards, composer) | `#2C2B28` | `#FFFFFF` |
-| field (search, chips, inline code) | `#262522` | `#E9E9E9` |
+| field (search, chips, inline code) | `#262522` | `#F2F2F2` |
 | code (editor, terminal, diff) | `#1E1D1B` | `#FFFFFF` |
-| hover | `rgba(255,248,235,.045)` | `rgba(0,0,0,.05)` |
-| sel | `rgba(255,248,235,.075)` | `rgba(0,0,0,.08)` |
+| hover | `rgba(255,248,235,.045)` | `rgba(0,0,0,.04)` |
+| sel | `rgba(255,248,235,.075)` | `rgba(0,0,0,.07)` |
 | line | `rgba(255,248,235,.07)` | `rgba(0,0,0,.1)` |
 | line.strong | `rgba(255,248,235,.13)` | `rgba(0,0,0,.16)` |
 | text | `#EDEBE5` (13.0:1) | `#262626` (15.1:1) |
