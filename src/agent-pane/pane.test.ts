@@ -975,10 +975,41 @@ describe("agent pane header and composer", () => {
     expect(effort.value).toBe("");
   });
 
+  it("opens Synara's model picker from the model chip: search, pick a model, pick an effort", () => {
+    const { pane, emit, sent } = setup();
+    emit({ kind: "choices", models: { default: "anthropic/opus", models: [{ ref: "anthropic/opus", label: "Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true, effortLevels: ["low", "high"] }, { ref: "anthropic/haiku", label: "Haiku 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true, effortLevels: ["low", "high"] }, { ref: "openrouter/k", label: "Kimi K2", provider: "openrouter", available: true, contextWindow: 200000, effort: false }], modes: [] }, permissions: { default: "workspace", modes: [{ mode: "workspace", label: "Workspace", description: "" }] } });
+    const chip = () => pane.root.querySelector<HTMLElement>(".composer .pill.model")!;
+    chip().click();
+    const panel = () => pane.root.querySelector<HTMLElement>(".model-picker");
+    expect([...panel()!.querySelectorAll(".mp-tab")].map((g) => g.textContent)).toEqual(["All", "anthropic", "openrouter"]);
+    expect([...panel()!.querySelectorAll(".mp-group")].map((g) => g.textContent)).toEqual(["anthropic", "openrouter"]);
+    expect([...panel()!.querySelectorAll(".mp-dot")].map((b) => b.getAttribute("aria-label"))).toEqual(["low", "high"]);
+    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-tab")][2]!.click();
+    expect([...panel()!.querySelectorAll(".mp-row .mp-label")].map((r) => r.textContent)).toEqual(["Kimi K2"]);
+    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-tab")][0]!.click();
+    const field = panel()!.querySelector<HTMLInputElement>("input")!;
+    field.value = "haiku";
+    field.dispatchEvent(new Event("input"));
+    expect([...panel()!.querySelectorAll(".mp-row .mp-label")].map((r) => r.textContent)).toEqual(["Haiku 5.5"]);
+    panel()!.querySelector<HTMLButtonElement>(".mp-row")!.click();
+    expect(panel()).toBeNull();
+    expect(pane.root.querySelector<HTMLSelectElement>('select[data-chip="model"]')!.value).toBe("anthropic/haiku");
+    chip().click();
+    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-dot")].find((b) => b.getAttribute("aria-label") === "high")!.click();
+    expect(pane.root.querySelector<HTMLSelectElement>('select[data-chip="effort"]')!.value).toBe("high");
+    pane.menu("model");
+    panel()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(panel()).toBeNull();
+    type(pane, "go");
+    enter(pane);
+    expect(sent.at(-1)).toMatchObject({ op: "prompt", model: "anthropic/haiku", effort: "high" });
+  });
+
   it("gives each picker pill an icon and a hover with its value, for a narrow pane that shows the icons alone", () => {
     const { pane, emit } = setup();
     emit({ kind: "choices", models: { default: "anthropic/claude-opus-5-5", models: [{ ref: "anthropic/claude-opus-5-5", label: "Opus 5.5", provider: "anthropic", available: true, contextWindow: 200000, effort: true, effortLevels: ["low", "high"] }], modes: [] }, permissions: { default: "workspace", modes: [{ mode: "workspace", label: "Workspace", description: "" }] } });
-    for (const [cls, icon, title] of [["model", "i-model", "Model (Cmd+Shift+I): Opus 5.5"], ["effort", "i-effort", "Effort (Cmd+Shift+E): effort"], ["permission", "i-shield", "Permission (Cmd+Shift+M): Workspace"]]) {
+    // The model and its effort share one pill, as Synara's model picker does.
+    for (const [cls, icon, title] of [["model.merged", "i-bolt", "Model (Cmd+Shift+I): Opus 5.5 · Effort (Cmd+Shift+E): effort"], ["permission", "i-shield", "Permission (Cmd+Shift+M): Workspace"]]) {
       const pill = pane.root.querySelector<HTMLElement>(`.composer .pill.${cls}`)!;
       expect(pill.querySelector(`svg.${icon}`)).not.toBeNull();
       expect(pill.title).toBe(title);

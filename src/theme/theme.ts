@@ -45,7 +45,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "activityBar.border": t.line,
     "activityBar.activeBorder": t.accent,
     // A fill under text takes accent.text and the app colour on it, as the agent pane's primary
-    // button does: dark text on the light accent is 4.5:1, the app colour on accent.text 5:1.
+    // button does, at 4.5:1 or more in both appearances.
     "activityBarBadge.background": t["accent.text"],
     "activityBarBadge.foreground": t.app,
     "sideBar.background": t.app,
@@ -192,7 +192,8 @@ export function syntaxRules(appearance: Appearance): { scope: string[]; settings
     { scope: ["comment", "punctuation.definition.comment"], settings: { foreground: t["text.faint"], fontStyle: "" } },
     rule(t.working, "keyword", "storage", "storage.type", "keyword.control"),
     rule(t["text.muted"], "keyword.operator", "punctuation"),
-    rule(t["accent.text"], "string", "markup.inline.raw"),
+    // Light's accent is black, so its strings take the green of additions.
+    rule(appearance === "light" ? t["diff.add"] : t["accent.text"], "string", "markup.inline.raw"),
     rule(t.constant, "constant", "constant.numeric", "constant.language", "string.regexp"),
     rule(t.function, "entity.name.function", "support.function", "meta.function-call"),
     rule(t.type, "entity.name.type", "entity.name.class", "support.type", "support.class"),

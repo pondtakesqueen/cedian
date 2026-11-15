@@ -17,6 +17,9 @@ export interface Placed {
 /** The agent pane's container (`AGENT_PANE_CONTAINER_ID`). */
 export const AGENT_CONTAINER = "workbench.view.cedian.agent";
 
+/** The PR panel's container (`PR_PANEL_CONTAINER_ID`): the thread's pull request beside the agent. */
+export const PR_CONTAINER = "workbench.view.cedian.pr";
+
 /** The Threads list's container (`THREADS_CONTAINER_ID`). */
 export const THREADS_CONTAINER = "workbench.view.cedian.threads";
 
@@ -104,6 +107,7 @@ export const TOOL_PICKS: readonly ToolPick[] = [
   { label: "Git", group: "tools", open: { container: "workbench.view.scm" }, icon: "source-control" },
   { label: "Terminal", group: "tools", open: { container: "terminal" }, icon: "terminal" },
   { label: "Browser", group: "tools", open: { command: "cedian.openBrowser" }, icon: "globe" },
+  { label: "Pull request", group: "tools", open: { container: PR_CONTAINER }, icon: "git-pull-request" },
   { label: "Run and Debug", group: "tools", open: { container: "workbench.view.debug" }, icon: "debug-alt" },
   { label: "Extensions", group: "tools", open: { container: "workbench.view.extensions" }, icon: "extensions" },
   { label: "Agent", group: "project", open: { container: AGENT_CONTAINER }, icon: "sparkle" },

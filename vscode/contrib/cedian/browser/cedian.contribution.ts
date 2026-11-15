@@ -58,6 +58,7 @@ import { CedianTabCompletion } from './tabCompletion.js';
 import { CedianWelcomeCheck } from './welcomeCheck.js';
 import { CedianNativeBrowser } from './nativeBrowser.js';
 import { THREADS_CONTAINER_ID, THREADS_VIEW_ID, ThreadsView } from './threadsView.js';
+import { PR_PANEL_CONTAINER_ID, PR_PANEL_VIEW_ID, PrPanelView } from './prPanelView.js';
 import { appIconOf, desktopOf, paneTypography, vscodeSettings, type Desktop } from './settings/desktop.js';
 import { cssText } from './theme/theme.js';
 import type { AgentPane, SideSource } from './agent-pane/pane.js';
@@ -108,6 +109,28 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 	// Threads stays on the left (windowPlaces.ts locks the side blocks).
 	canMoveView: false,
 }], threadsContainer);
+
+// ---- the PR panel: the thread's pull request beside the agent (Synara's PR panel) ----
+
+const prIcon = registerIcon('cedian-pr-view-icon', Codicon.gitPullRequest, localize('cedianPrIcon', 'View icon of the Cedian pull request panel.'));
+
+const prContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
+	id: PR_PANEL_CONTAINER_ID,
+	title: localize2('cedian.pr.container', "Pull request"),
+	icon: prIcon,
+	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [PR_PANEL_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
+	storageId: PR_PANEL_CONTAINER_ID,
+	order: 5,
+}, ViewContainerLocation.AuxiliaryBar);
+
+Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
+	id: PR_PANEL_VIEW_ID,
+	name: localize2('cedian.pr.view', "Pull request"),
+	containerIcon: prIcon,
+	ctorDescriptor: new SyncDescriptor(PrPanelView),
+	canToggleVisibility: false,
+	canMoveView: true,
+}], prContainer);
 
 // ---- the settings window ----
 

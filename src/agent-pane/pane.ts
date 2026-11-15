@@ -19,6 +19,7 @@ import { items } from "./items.js";
 import { ItemsView, setChildren } from "./render.js";
 import { dockUnder, stickToBottom } from "./stick.js";
 import { icon, type IconName } from "./icons.js";
+import { modelPicker, pickerModels } from "./model-picker.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr, type Ship } from "./ship.js";
 import { prLabel, prText } from "./pr-chip.js";
 import { addressed, chatCards, COORDINATOR, coordinatorThread, threadCompletions, type ChatCard, subthreadCards } from "./project-chat.js";
@@ -67,6 +68,8 @@ export interface PaneHost {
    */
   sideChat?(from: SideSource, text?: string): void;
   openUrl(url: string): void;
+  /** Shows the PR panel beside the agent (Synara's PR panel), which follows this thread. */
+  openPrPanel?(): void;
   /**
    * Whether to archive a thread whose worktree has uncommitted changes in `files`, which go when
    * the worktree is removed after archive. Without it the pane says so inline and archives nothing.
@@ -193,6 +196,10 @@ export class AgentPane {
   private permissions?: PermissionList;
   private commands: CommandEntry[] = [];
   private capabilities: Capability[] = [];
+  /** The model picker's panel: whether it is open, and what its search holds. */
+  private picker = false;
+  private pickerQuery = "";
+  private pickerTab = "";
   private desktop: Desktop = {};
   private choices: RunChoices = { worktree: false };
   private chosen = new Set<keyof RunChoices>();
@@ -223,6 +230,7 @@ export class AgentPane {
   private readonly input: HTMLTextAreaElement;
   private readonly sendButton: HTMLButtonElement;
   private readonly off: () => void;
+  private readonly offPicker: () => void;
   private readonly unstick: () => void;
   private readonly undock: () => void;
 
@@ -241,7 +249,7 @@ export class AgentPane {
     this.popup.setAttribute("role", "listbox");
     this.attachments = el(doc, "div", "attachments");
     this.input = el(doc, "textarea", "input");
-    this.input.rows = 3;
+    this.input.rows = 2;
     this.input.setAttribute("aria-label", "Message to the agent");
     this.chips = el(doc, "div", "chips");
     this.sendButton = button(doc, "Send", () => this.primary(), "send");
@@ -264,6 +272,15 @@ export class AgentPane {
       void this.paste(files);
     });
     this.off = wire.onAny((n) => this.notice(n));
+    // A press outside the model picker and its chip closes the picker.
+    const outside = (e: MouseEvent) => {
+      if (!this.picker) return;
+      const t = e.target as Node | null;
+      if (t && (this.root.querySelector(".model-picker")?.contains(t) || this.root.querySelector(".pill.model")?.contains(t))) return;
+      this.closePicker();
+    };
+    doc.addEventListener("mousedown", outside, true);
+    this.offPicker = () => doc.removeEventListener("mousedown", outside, true);
     // A pane opened after the daemon's welcome still needs what this cedia offers (the cold-cache
     // question asks only when cedia can price the prompt).
     if (wire.welcome?.kind === "welcome") this.capabilities = "Ok" in wire.welcome.cedia ? wire.welcome.cedia.Ok.capabilities : [];
@@ -274,6 +291,7 @@ export class AgentPane {
 
   dispose(): void {
     this.off();
+    this.offPicker();
     this.unstick();
     this.undock();
     if (this.state.thread) this.wire.request({ op: "close", thread: this.state.thread });
@@ -454,8 +472,18 @@ export class AgentPane {
     this.render();
   }
 
+  /** The PR panel's Open diff: this thread's own diff when it has one, else GitHub's. */
+  openPrDiff(thread: string, view: PrView): void {
+    if (this.state.thread === thread && this.state.review?.files.length) this.host.openReview(thread, this.cwd, this.state.review);
+    else this.host.openUrl(`${view.url}/files`);
+  }
+
   /** Opens one of the chips' menus, for Cmd+Shift+M, I and E. */
   menu(which: "permission" | "model" | "effort"): void {
+    if (which !== "permission" && this.chips.querySelector(".pill.model")) {
+      this.openPicker();
+      return;
+    }
     const s = this.chips.querySelector<HTMLSelectElement>(`select[data-chip="${which}"]`);
     if (!s) return;
     s.focus();
@@ -1407,6 +1435,7 @@ export class AgentPane {
         this.render();
       },
       openUrl: (url) => this.host.openUrl(url),
+      ...(this.host.openPrPanel ? { openPanel: () => this.host.openPrPanel?.() } : {}),
       // The thread's own diff when it has one; else GitHub's, since this thread did not write it.
       openDiff: () => (this.state.review?.files.length ? this.host.openReview(thread, this.cwd, this.state.review) : this.host.openUrl(`${view.url}/files`)),
       redraw: () => this.render(),
@@ -1635,6 +1664,56 @@ export class AgentPane {
     this.header.replaceChildren(top, meta);
   }
 
+  private openPicker(): void {
+    this.picker = true;
+    this.pickerQuery = "";
+    this.renderComposer();
+    this.root.querySelector<HTMLInputElement>(".model-picker input")?.focus();
+  }
+
+  private closePicker(focusComposer = false): void {
+    if (!this.picker) return;
+    this.picker = false;
+    this.renderComposer();
+    if (focusComposer) this.input.focus();
+  }
+
+  /** The model picker's panel over the composer, from the two selects it stands for. */
+  private renderPicker(model: HTMLSelectElement | undefined, effort: HTMLSelectElement | undefined): void {
+    const composer = this.input.parentElement!;
+    composer.querySelector(":scope > .model-picker")?.remove();
+    if (!this.picker || !model || !this.models) return;
+    const choose = (s: HTMLSelectElement, value: string) => {
+      s.value = value;
+      this.picker = false;
+      s.dispatchEvent(new Event("change"));
+      this.input.focus();
+    };
+    const panel = modelPicker(this.doc, {
+      models: pickerModels(this.models),
+      model: model.value,
+      efforts: effort ? [...effort.options].map((o) => ({ value: o.value, label: o.textContent ?? o.value })) : [],
+      effort: effort?.value ?? "",
+      query: this.pickerQuery,
+      tab: this.pickerTab,
+      onTab: (t) => {
+        this.pickerTab = t;
+        this.renderComposer();
+      },
+      onQuery: (q) => {
+        this.pickerQuery = q;
+        this.renderComposer();
+        const field = this.root.querySelector<HTMLInputElement>(".model-picker input");
+        field?.focus();
+        field?.setSelectionRange(q.length, q.length);
+      },
+      onModel: (v) => choose(model, v),
+      onEffort: (v) => effort && choose(effort, v),
+      onClose: () => this.closePicker(true),
+    });
+    composer.append(panel);
+  }
+
   /** A composer picker as a pill: an icon, the native select (keyboard and VoiceOver as is), a chevron. */
   private pill(select: HTMLSelectElement, name: IconName | undefined, cls: string): HTMLElement {
     const d = this.doc;
@@ -1667,7 +1746,7 @@ export class AgentPane {
   private renderComposer(): void {
     const d = this.doc;
     const running = isRunning(this.state);
-    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Continue this thread" : "Ask anything, @ to add files, / for commands";
+    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Ask anything, @tag files/folders, or use / to show available commands" : "Ask anything, @tag files/folders, or use / to show available commands";
     this.renderSend();
     this.attachments.replaceChildren(
       ...this.images.map((path) => {
@@ -1704,7 +1783,18 @@ export class AgentPane {
       const s = select(d, modelOptions(this.models, shown), shown === this.models.default ? "" : shown, pick("model"), "chip");
       s.dataset.chip = "model";
       s.title = `Model (${this.keyOf("cedian.modelMenu")})`;
-      end.push(this.pill(s, "model", "model"));
+      const modelPill = this.pill(s, "model", "model");
+      // The chip opens the model picker; the selects inside stay for the keys and the tests.
+      modelPill.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        if (this.picker) this.closePicker();
+        else this.openPicker();
+      });
+      modelPill.setAttribute("role", "button");
+      modelPill.setAttribute("aria-haspopup", "dialog");
+      modelPill.setAttribute("aria-expanded", String(this.picker));
+      end.push(modelPill);
+      let effortSelect: HTMLSelectElement | undefined;
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
@@ -1712,15 +1802,23 @@ export class AgentPane {
         const e = select(d, effortOptions(levels, entry.defaultEffort), effort === entry.defaultEffort ? "" : effort, pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = `Effort (${this.keyOf("cedian.effortMenu")})`;
-        end.push(this.pill(e, "effort", "effort"));
+        // One chip for both, as Synara's model picker: the model, a bolt and the effort, one chevron.
+        modelPill.classList.add("merged");
+        modelPill.lastElementChild?.before(icon(d, "bolt"), e);
+        modelPill.title = `${modelPill.title} · ${e.title}: ${e.selectedOptions[0]?.textContent ?? ""}`;
+        effortSelect = e;
       }
+      this.renderPicker(s, effortSelect);
     }
     if (this.permissions && !this.sideOf) {
       const threadMode = this.state.thread && !this.chosen.has("permission") ? threadPermission(this.state.info) : undefined;
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
       s.title = `Permission (${this.keyOf("cedian.permissionMenu")})`;
-      start.push(this.pill(s, "shield", "permission"));
+      // The mode that may write anywhere in the project reads in the warning colour, as Synara's
+      // "Full access" does.
+      const mode = threadMode ?? this.choices.permission ?? this.permissions.default;
+      start.push(this.pill(s, "shield", mode === "workspace" ? "permission wide" : "permission"));
     }
     if (!this.state.thread) {
       const label = el(d, "label", "chip check");

@@ -32,15 +32,18 @@ TOKENS = {
         "ansi.magenta": "#CFA6FF", "ansi.cyan": "#76D3DB",
     },
     "light": {
-        "frame": "#EAEAE6", "app": "#F4F4F1", "sheet": "#FCFCFB", "raised": "#FFFFFF",
-        "field": "#ECECE8", "code": "#F7F7F5",
-        "hover": rgba(28, 28, 20, 0.04), "sel": rgba(28, 28, 20, 0.065),
-        "line": rgba(28, 28, 20, 0.08), "line.strong": rgba(28, 28, 20, 0.14),
-        "text": "#1C1C1A", "text.muted": "#5B5B56", "text.faint": "#6C6C66",
-        "accent": "#5E8A00", "accent.text": "#4F7500", "diff.add": "#2F7D3F",
-        "working": "#1B63BE", "failed": "#C23A22", "warn": "#8F5D00",
-        "function": "#4A4FC4", "type": "#00796B", "tag": "#B23A1E", "constant": "#8F5D00",
-        "ansi.magenta": "#8A3FC9", "ansi.cyan": "#007C8A",
+        # macOS's own white, as Finder draws it (owner, 2026-11-15): white window and content, the
+        # chrome a step off white, labels in black at 85%, separators at 10%, the system blue as
+        # the accent (its darker selection blue under white text).
+        "frame": "#F6F6F6", "app": "#FFFFFF", "sheet": "#FFFFFF", "raised": "#FFFFFF",
+        "field": "#F2F2F2", "code": "#FFFFFF",
+        "hover": rgba(0, 0, 0, 0.04), "sel": rgba(0, 0, 0, 0.07),
+        "line": rgba(0, 0, 0, 0.1), "line.strong": rgba(0, 0, 0, 0.16),
+        "text": "#262626", "text.muted": "#595959", "text.faint": "#6B6B6B",
+        "accent": "#007AFF", "accent.text": "#0064E1", "diff.add": "#1E7B34",
+        "working": "#0064E1", "failed": "#D70015", "warn": "#C93400",
+        "function": "#8944AB", "type": "#0071A4", "tag": "#C93400", "constant": "#A05A00",
+        "ansi.magenta": "#8944AB", "ansi.cyan": "#0071A4",
     },
 }
 
