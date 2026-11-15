@@ -1403,6 +1403,19 @@ impl Daemon {
                     Err(error) => daemon.error(client, format!("{error:#}")),
                 }
             }
+            Request::Turn { cwd, thread } => {
+                let cedia = lock(shared).cedia.clone();
+                // A thread whose turns changed no file has nothing to show: cedia says so and
+                // exits 1, which is an empty card here, not an error.
+                let files = match cedia.turn_diff(&cwd, &thread) {
+                    Ok(patch) => cedian_wire::turn_files(&patch),
+                    Err(error) => {
+                        log::info!("no turn diff for {thread}: {error:#}");
+                        Vec::new()
+                    }
+                };
+                lock(shared).send(client, Notice::Turn { thread, files });
+            }
             Request::Outputs { cwd } => {
                 let home = lock(shared).home.clone();
                 let outputs = project_outputs(&home, &project_key(&cwd));

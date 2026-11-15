@@ -3085,6 +3085,33 @@
         },
         {
           "additionalProperties": false,
+          "description": "The files the thread's latest turn changed; empty when it changed none.",
+          "properties": {
+            "files": {
+              "items": {
+                "$ref": "#/definitions/TurnFile"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "enum": [
+                "turn"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "files",
+            "kind",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "What `Request::Restore` moved, and what it left.",
           "properties": {
             "cwd": {
@@ -5387,6 +5414,30 @@
         },
         {
           "additionalProperties": false,
+          "description": "The files the thread's latest turn changed (`cedia threads diff`), answered with `Notice::Turn`: the edited-files card under the turn, with Undo.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "turn"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "A decision on one hunk of the thread's review, answered with the review again.",
           "properties": {
             "cwd": {
@@ -7100,6 +7151,30 @@
           ]
         }
       },
+      "type": "object"
+    },
+    "TurnFile": {
+      "description": "One file the thread's latest turn changed, with its line counts (`cedia threads diff`).",
+      "properties": {
+        "added": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "removed": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "added",
+        "path",
+        "removed"
+      ],
       "type": "object"
     },
     "UsageReport": {

@@ -605,7 +605,7 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".thread-card")).toBeNull();
     // ⌘0 goes back to the chat.
     pane.projectChat();
-    expect(sent.at(-3)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
+    expect(sent.at(-4)).toEqual({ op: "open", cwd: "/r", thread: "c-1" });
     expect(pane.root.querySelector<HTMLSelectElement>("select.threads")!.value).toBe("@chat");
   });
 
@@ -973,6 +973,30 @@ describe("agent pane header and composer", () => {
     const effort = pane.root.querySelector<HTMLSelectElement>('select[data-chip="effort"]')!;
     expect([...effort.options].map((o) => [o.value, o.textContent])).toEqual([["low", "low"], ["", "medium"], ["high", "high"]]);
     expect(effort.value).toBe("");
+  });
+
+  it("shows the latest turn's edited files under it, with Undo and then Redo", () => {
+    const { pane, emit, sent } = setup();
+    emit({ kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities: ["threads.restore-json"] } } } as Notice);
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-1" })] });
+    pane.openThread("t-1");
+    emit({ kind: "caught", thread: "t-1" } as never);
+    expect(sent).toContainEqual({ op: "turn", cwd: "/r", thread: "t-1" });
+    emit({ kind: "turn", thread: "t-1", files: [{ path: "src/a.ts", added: 3, removed: 1 }, { path: "README.md", added: 1, removed: 0 }] } as Notice);
+    const card = () => pane.root.querySelector<HTMLElement>(".card.turn")!;
+    expect(card().textContent).toContain("Edited 2 files");
+    expect(card().textContent).toContain("+4");
+    expect([...card().querySelectorAll(".file .m.ell")].map((n) => n.textContent)).toEqual(["src/a.ts", "README.md"]);
+    buttons(card(), "Undo")[0]!.click();
+    expect(sent.at(-1)).toEqual({ op: "restore", cwd: "/r", thread: "t-1" });
+    expect(buttons(card(), "Undoing…")[0]!.disabled).toBe(true);
+    emit({ kind: "restored", cwd: "/r", thread: "t-1", result: { action: "undo", restored: ["src/a.ts", "README.md"], skipped: [] } } as Notice);
+    expect(card().textContent).toContain("Undid 2 files");
+    buttons(card(), "Redo")[0]!.click();
+    expect(sent.at(-1)).toEqual({ op: "restore", cwd: "/r", thread: "t-1", redo: true });
+    // A turn that changed nothing draws no card.
+    emit({ kind: "turn", thread: "t-1", files: [] } as Notice);
+    expect(pane.root.querySelector(".card.turn")).toBeNull();
   });
 
   it("opens Synara's model picker from the model chip: search, pick a model, pick an effort", () => {

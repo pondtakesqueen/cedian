@@ -385,15 +385,18 @@
 .cedian-agent-pane .cold { background: var(--cedian-sheet); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--cedian-accent); }
 .cedian-agent-pane .cold .held { color: var(--cedian-text-muted); }
 .cedian-agent-pane .cold .row { display: flex; gap: 6px; flex-wrap: wrap; }
-/* Synara's edited-files card (github.com/Emanuele-web04/synara, MIT): "Edited N files" over its
-   line counts, the actions on the right, each file a row under a hairline. */
-.cedian-agent-pane .card.review { gap: 0; padding: 0; overflow: hidden; }
-.cedian-agent-pane .card.review > .row:first-child { flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; }
-.cedian-agent-pane .card.review > .row:first-child > .sp { flex: 1 1 0; }
-.cedian-agent-pane .card.review .edited { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
-.cedian-agent-pane .card.review .edited .counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
-.cedian-agent-pane .card.review > .file { padding: 7px 12px; border-top: 1px solid var(--cedian-line); }
-.cedian-agent-pane .card.review > .file:hover { background: var(--cedian-hover); }
+/* Synara's edited-files card (github.com/Emanuele-web04/synara, MIT), for the latest turn (.turn,
+   with Undo) and the thread's review (.review): "Edited N files" over its line counts, the actions
+   on the right, each file a row under a hairline. */
+.cedian-agent-pane :is(.card.review, .card.turn) { gap: 0; padding: 0; overflow: hidden; }
+.cedian-agent-pane :is(.card.review, .card.turn) > .row:first-child { flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; }
+.cedian-agent-pane :is(.card.review, .card.turn) > .row:first-child > .sp { flex: 1 1 0; }
+.cedian-agent-pane :is(.card.review, .card.turn) .edited { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.cedian-agent-pane :is(.card.review, .card.turn) .edited .counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.cedian-agent-pane :is(.card.review, .card.turn) > .file { padding: 7px 12px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane :is(.card.review, .card.turn) > .file:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .card.turn.undone .edited > span:first-child { color: var(--cedian-text-muted); }
+.cedian-agent-pane .card.turn > .small.warn { padding: 6px 12px 10px; }
 /* The model and its effort as one chip (Synara's model picker): the bolt sits between them, the
    effort in the muted colour; under 380 px the model's name gives way and the effort stays. */
 .cedian-agent-pane .composer .pill.merged { gap: 3px; }
