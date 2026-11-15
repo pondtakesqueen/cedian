@@ -481,17 +481,14 @@
 .monaco-workbench.monaco-enable-motion.cedian-curtain-lifting .part:not(.titlebar) { animation: cedian-curtain-lift 120ms cubic-bezier(.5, .5, .75, 1); }
 @keyframes cedian-curtain-lift { from { opacity: 0; } }
 
-/* Light as Finder draws it (owner, 2026-11-15): the side bar is the system's sidebar material
-   alone, and everything else (title bar, status bar, the blocks and the gaps between them) is
-   plain white, with no card edges or corners; one hairline parts the right panel from the
-   middle, as Finder's sidebar edge does. Dark keeps its frame and cards. */
+/* Light on macOS's white (owner, 2026-11-15), after Synara: the frame is white at 90% over the
+   system's sidebar material, so the title bar, status bar, side bar and the gaps between blocks
+   are near white with the material just showing; the blocks stay cards (corners, gaps, a hairline
+   edge) in plain white. Dark keeps its frame at 68%. */
 @media (prefers-reduced-transparency: no-preference) {
-	body.cedian-vibrancy > .monaco-workbench.vs:not(.hc-light) { background-color: transparent !important; }
+	body.cedian-vibrancy > .monaco-workbench.vs:not(.hc-light) {
+		background-color: color-mix(in srgb, var(--cedian-frame) 90%, transparent) !important;
+	}
 }
-.monaco-workbench.vs:not(.hc-light) .part.titlebar,
-.monaco-workbench.vs:not(.hc-light) .part.statusbar { background-color: var(--cedian-app) !important; box-shadow: none !important; }
-.monaco-workbench.vs:not(.hc-light) .monaco-grid-view .split-view-view:has(> .part:is(.editor, .auxiliarybar, .panel)) { background-color: var(--cedian-app); }
-.monaco-workbench.vs:not(.hc-light) .part:is(.editor, .auxiliarybar, .panel) { border-radius: 0 !important; border-color: transparent !important; box-shadow: none !important; background-color: var(--cedian-app) !important; }
-.monaco-workbench.vs:not(.hc-light) .part.auxiliarybar { border-left-color: var(--cedian-line) !important; }
-.monaco-workbench.vs:not(.hc-light) .part.sidebar { border-radius: 0 !important; }
+.monaco-workbench.vs:not(.hc-light) .part.statusbar { box-shadow: none !important; }
 .monaco-workbench.vs:not(.hc-light) .cedian-project-tabs .cedian-project-tab.on { background: var(--cedian-sel); }

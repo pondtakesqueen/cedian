@@ -20,7 +20,7 @@ const alpha = (color: string, percent: number) => `${color.slice(0, 7)}${Math.ro
 export function workbenchColors(appearance: Appearance): Record<string, string> {
   const t = TOKENS[appearance];
   const clear = "#00000000";
-  // Light draws no edges between the window's parts, as Finder draws none (workbench.css).
+  // The title bar and status bar sit on the frame with no rule in light (workbench.css).
   const edge = appearance === "light" ? clear : t.line;
   return {
     focusBorder: t.accent,
@@ -44,7 +44,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "activityBar.background": t.frame,
     "activityBar.foreground": t.text,
     "activityBar.inactiveForeground": t["text.faint"],
-    "activityBar.border": edge,
+    "activityBar.border": t.line,
     "activityBar.activeBorder": t.accent,
     // A fill under text takes accent.text and the app colour on it, as the agent pane's primary
     // button does, at 4.5:1 or more in both appearances.
@@ -52,12 +52,12 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "activityBarBadge.foreground": t.app,
     "sideBar.background": t.app,
     "sideBar.foreground": t.text,
-    "sideBar.border": edge,
+    "sideBar.border": t.line,
     "sideBarTitle.foreground": t["text.muted"],
     "sideBarSectionHeader.background": t.app,
-    "sideBarSectionHeader.border": edge,
+    "sideBarSectionHeader.border": t.line,
     "panel.background": t.app,
-    "panel.border": edge,
+    "panel.border": t.line,
     "panelTitle.activeForeground": t.text,
     "panelTitle.inactiveForeground": t["text.muted"],
     "panelTitle.activeBorder": t.accent,
@@ -74,9 +74,9 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     // pill on it (workbench.css), over a code-colored body with no rule between them.
     "editorGroupHeader.tabsBackground": t.app,
     "editorGroupHeader.tabsBorder": clear,
-    "editorGroup.border": edge,
-    "editor.border": edge,
-    "surface.border": edge,
+    "editorGroup.border": t.line,
+    "editor.border": t.line,
+    "surface.border": t.line,
     "modernUI.shellBackground": t.frame,
     "tab.activeBackground": t.sel,
     "tab.inactiveBackground": clear,
