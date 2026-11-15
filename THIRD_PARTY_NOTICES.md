@@ -6,6 +6,9 @@ original locations and/or in `daemon/` dependency manifests.
 - VS Code portions: MIT (see `NOTICE`)
 - Rust crate dependencies: see `daemon/Cargo.lock`
 - TypeScript dependencies: see `package-lock.json`
+- Synara (https://github.com/Emanuele-web04/synara): MIT, Copyright (c) 2026
+  T3 Tools Inc. and Emanuele Di Pietro. The composer, the Threads sidebar and the
+  edited-files card follow its layout; no code is copied, the colours are Cedian's.
 
 Cedian.app also ships the npm packages of VS Code 1.143.1, listed with their
 licenses in the app's own `ThirdPartyNotices.txt`. `python3

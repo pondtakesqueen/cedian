@@ -1252,11 +1252,18 @@ export class AgentPane {
     const sum = summarize(review.files);
     const card = el(d, "div", "card review");
     const head = el(d, "div", "row");
-    head.append(el(d, "span", "", `${sum.files} ${sum.files === 1 ? "file" : "files"}`), el(d, "span", "ok m", `+${sum.added}`), el(d, "span", "bad m", `−${sum.removed}`));
-    if (sum.pending) head.append(el(d, "span", "small", `${sum.pending} to review`));
+    // Synara's edited-files card: what changed as its title with the line counts under it, the
+    // actions on its right, each file a row under a rule.
+    const title = el(d, "div", "edited");
+    const counts = el(d, "div", "counts");
+    counts.append(el(d, "span", "ok m", `+${sum.added}`), el(d, "span", "bad m", `−${sum.removed}`));
+    title.append(el(d, "span", "", `Edited ${sum.files} ${sum.files === 1 ? "file" : "files"}`), counts);
+    head.append(title);
+    if (sum.pending) counts.append(el(d, "span", "small", `${sum.pending} to review`));
     // Spec §8.4: a stale hunk is said inline. Its lines were edited after the agent wrote them,
     // so accepting or rejecting it no longer applies.
-    if (sum.stale) head.append(el(d, "span", "small warn", `${sum.stale} changed since`));
+    if (sum.stale) counts.append(el(d, "span", "small warn", `${sum.stale} changed since`));
+    head.append(el(d, "span", "sp"));
     head.append(button(d, "Open diff", () => this.host.openReview(thread, this.cwd, review)));
     if (this.host.openReviewWindow) head.append(button(d, "New window", () => this.host.openReviewWindow?.(thread, this.cwd, review)));
     const pending = review.files.flatMap((f) => f.hunks).filter((h) => h.state === "pending");
@@ -1660,7 +1667,7 @@ export class AgentPane {
   private renderComposer(): void {
     const d = this.doc;
     const running = isRunning(this.state);
-    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Continue this thread" : "What should the agent do? (@ files, / commands)";
+    this.input.placeholder = running ? "Your message waits for the agent's next turn" : this.sideOf ? "Ask about this thread: read-only, and nothing here goes back to it" : this.state.thread ? "Continue this thread" : "Ask anything, @ to add files, / for commands";
     this.renderSend();
     this.attachments.replaceChildren(
       ...this.images.map((path) => {
@@ -1673,7 +1680,19 @@ export class AgentPane {
         return chip;
       }),
     );
-    const chips: HTMLElement[] = [];
+    // Synara's composer row: attach (+) and the permission at the start, the model and its effort
+    // at the end beside send.
+    const start: HTMLElement[] = [];
+    const end: HTMLElement[] = [];
+    if (this.can("images")) {
+      const video = this.takesVideo();
+      const attach = video ? "Attach image or video" : "Attach image";
+      const pick = button(d, "", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "ib attach");
+      pick.title = attach;
+      pick.setAttribute("aria-label", attach);
+      pick.append(icon(d, "plus"));
+      start.push(pick);
+    }
     const pick = <K extends "model" | "permission" | "effort">(key: K) => (value: string) => {
       this.choices[key] = value || undefined;
       this.chosen.add(key);
@@ -1685,7 +1704,7 @@ export class AgentPane {
       const s = select(d, modelOptions(this.models, shown), shown === this.models.default ? "" : shown, pick("model"), "chip");
       s.dataset.chip = "model";
       s.title = `Model (${this.keyOf("cedian.modelMenu")})`;
-      chips.push(this.pill(s, "model", "model"));
+      end.push(this.pill(s, "model", "model"));
       const entry = this.models.models.find((m) => m.ref === (shown || this.models!.default));
       if (entry?.effort) {
         const levels = entry.effortLevels?.length ? entry.effortLevels : EFFORTS;
@@ -1693,7 +1712,7 @@ export class AgentPane {
         const e = select(d, effortOptions(levels, entry.defaultEffort), effort === entry.defaultEffort ? "" : effort, pick("effort"), "chip");
         e.dataset.chip = "effort";
         e.title = `Effort (${this.keyOf("cedian.effortMenu")})`;
-        chips.push(this.pill(e, "effort", "effort"));
+        end.push(this.pill(e, "effort", "effort"));
       }
     }
     if (this.permissions && !this.sideOf) {
@@ -1701,7 +1720,7 @@ export class AgentPane {
       const s = select(d, this.permissions.modes.map((m) => ({ value: m.mode, label: m.label, title: m.description })), threadMode ?? this.choices.permission ?? this.permissions.default, pick("permission"), "chip");
       s.dataset.chip = "permission";
       s.title = `Permission (${this.keyOf("cedian.permissionMenu")})`;
-      chips.push(this.pill(s, "shield", "permission"));
+      start.push(this.pill(s, "shield", "permission"));
     }
     if (!this.state.thread) {
       const label = el(d, "label", "chip check");
@@ -1710,17 +1729,8 @@ export class AgentPane {
       box.checked = this.choices.worktree;
       box.addEventListener("change", () => (this.choices.worktree = box.checked));
       label.append(box, el(d, "span", "", "New worktree"));
-      chips.push(label);
+      start.push(label);
     }
-    if (this.can("images")) {
-      const video = this.takesVideo();
-      const attach = video ? "Attach image or video" : "Attach image";
-      const pick = button(d, "", () => this.host.pickImages(video).then((paths) => this.attach(paths), () => {}), "ib attach");
-      pick.title = attach;
-      pick.setAttribute("aria-label", attach);
-      pick.append(icon(d, "attach"));
-      chips.push(el(d, "span", "sp"), pick);
-    }
-    this.chips.replaceChildren(...chips);
+    this.chips.replaceChildren(...start, el(d, "span", "sp"), ...end);
   }
 }

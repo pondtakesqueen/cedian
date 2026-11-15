@@ -303,6 +303,15 @@
 .cedian-agent-pane > .dock .composer { border-radius: 18px; background: color-mix(in srgb, var(--cedian-raised) 74%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 10px 30px rgba(0, 0, 0, .14); }
 .cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 10px 30px rgba(0, 0, 0, .14); }
 .cedian-agent-pane > .dock .send { border-radius: 10px; }
+/* Synara's composer (github.com/Emanuele-web04/synara, MIT): one rounded field with no box
+   inside it, a soft spread shadow instead of a drop, capsule hovers on the chips, and round
+   attach and send buttons. The colours stay Warm & Lime. */
+.cedian-agent-pane > .dock .composer { border-radius: 20px; padding: 12px 8px 8px 10px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 4px 18px -6px rgb(0 0 0 / 12%); }
+.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 4px 18px -6px rgb(0 0 0 / 12%); }
+.cedian-agent-pane .composer .input, .cedian-agent-pane .composer .input:focus { box-shadow: none; border-radius: 0; padding: 0 6px; }
+.cedian-agent-pane .composer .pill, .cedian-agent-pane .composer .chip.check, .cedian-agent-pane .composer .ib { border-radius: 999px; }
+.cedian-agent-pane .composer .ib.attach { width: 28px; height: 28px; margin-right: 2px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
+.cedian-agent-pane > .dock .send, .cedian-agent-pane .send { width: 28px; height: 28px; border-radius: 999px; }
 @media (prefers-reduced-transparency: reduce) {
   .cedian-agent-pane > .dock .composer { background: var(--cedian-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
@@ -370,3 +379,12 @@
 .cedian-agent-pane .cold { background: var(--cedian-sheet); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--cedian-accent); }
 .cedian-agent-pane .cold .held { color: var(--cedian-text-muted); }
 .cedian-agent-pane .cold .row { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Synara's edited-files card (github.com/Emanuele-web04/synara, MIT): "Edited N files" over its
+   line counts, the actions on the right, each file a row under a hairline. */
+.cedian-agent-pane .card.review { gap: 0; padding: 0; overflow: hidden; }
+.cedian-agent-pane .card.review > .row:first-child { flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; }
+.cedian-agent-pane .card.review > .row:first-child > .sp { flex: 1 1 0; }
+.cedian-agent-pane .card.review .edited { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.cedian-agent-pane .card.review .edited .counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.cedian-agent-pane .card.review > .file { padding: 7px 12px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .card.review > .file:hover { background: var(--cedian-hover); }
