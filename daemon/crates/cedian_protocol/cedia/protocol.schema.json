@@ -70,6 +70,9 @@
     "PrOpened": {
       "$ref": "#/definitions/PrOpened"
     },
+    "ResumeCost": {
+      "$ref": "#/definitions/ResumeCost"
+    },
     "InlineEdit": {
       "$ref": "#/definitions/InlineEdit"
     },
@@ -410,6 +413,7 @@
         "browser.sites",
         "threads.restore-json",
         "images",
+        "threads.resume-cost",
         "cache-ttl",
         "threads.rename",
         "threads.delete",
@@ -1117,6 +1121,13 @@
           ]
         },
         "promptSuggestions": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off"
+          ]
+        },
+        "dream": {
           "type": "string",
           "enum": [
             "on",
@@ -2396,6 +2407,9 @@
         },
         "blocked": {
           "type": "string"
+        },
+        "template": {
+          "type": "string"
         }
       },
       "additionalProperties": false
@@ -2514,6 +2528,50 @@
         "handoff",
         "asked"
       ]
+    },
+    "ResumeCost": {
+      "type": "object",
+      "properties": {
+        "thread": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "ask": {
+          "type": "boolean"
+        },
+        "cold": {
+          "type": "boolean"
+        },
+        "idleMs": {
+          "type": "number"
+        },
+        "contextTokens": {
+          "type": "number"
+        },
+        "freshTokens": {
+          "type": "number"
+        },
+        "resumeUsd": {
+          "type": "number"
+        },
+        "freshUsd": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "thread",
+        "model",
+        "ask",
+        "cold",
+        "idleMs",
+        "contextTokens",
+        "freshTokens",
+        "resumeUsd",
+        "freshUsd"
+      ],
+      "additionalProperties": false
     },
     "RewindRefusal": {
       "type": "object",
