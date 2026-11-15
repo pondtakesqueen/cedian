@@ -482,6 +482,78 @@ describe("agent pane", () => {
     expect(sent).toContainEqual({ op: "open", cwd: "/r", thread: "t-2" });
   });
 
+  it("asks before a prompt goes to a large thread whose cache expired, and sends the answer with it", () => {
+    const { pane, emit, sent, last } = setup();
+    emit({ kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities: ["threads.resume-cost"] } } } as Notice);
+    emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-1", updated_at: "2026-10-28T10:00:00Z" })] });
+    pane.openThread("t-1");
+    emit({ kind: "caught", thread: "t-1" } as never);
+    const cost = { thread: "t-1", model: "faux/a", ask: true, cold: true, idleMs: 7_200_000, contextTokens: 150_000, freshTokens: 12_000, resumeUsd: 0.9, freshUsd: 0.07 };
+    const ask = (text: string) => {
+      type(pane, text);
+      enter(pane);
+      // Held: cedia is asked what each way costs, and nothing runs yet.
+      expect(last()).toEqual({ op: "resume_cost", cwd: "/r", thread: "t-1" });
+      expect(sent.filter((r) => r.op === "prompt")).toHaveLength(prompts);
+      emit({ kind: "resume_cost", thread: "t-1", cost } as Notice);
+    };
+    let prompts = 0;
+    ask("go on");
+    const banner = pane.root.querySelector<HTMLElement>(".cold")!;
+    expect(banner.textContent).toContain("Idle 2 h, cache expired");
+    expect(banner.textContent).toContain("150k tokens, about $0.90");
+    expect(banner.textContent).toContain("about 12k, $0.07");
+    expect(banner.textContent).toContain("go on");
+    buttons(banner, "New session (recommended)")[0]!.click();
+    expect(last()).toEqual({ op: "prompt", cwd: "/r", text: "go on", thread: "t-1", worktree: false, cold_resume: "fresh" });
+    expect(pane.root.querySelector(".cold")).toBeNull();
+    prompts = 1;
+    ask("again");
+    buttons(pane.root.querySelector<HTMLElement>(".cold")!, "Whole context")[0]!.click();
+    expect(last()).toMatchObject({ op: "prompt", text: "again", cold_resume: "keep" });
+    prompts = 2;
+    // Cancel puts the words back in the composer and sends nothing.
+    ask("never mind");
+    buttons(pane.root.querySelector<HTMLElement>(".cold")!, "Cancel")[0]!.click();
+    expect(pane.composer.value).toBe("never mind");
+    expect(sent.filter((r) => r.op === "prompt")).toHaveLength(2);
+    expect(pane.root.querySelector(".cold")).toBeNull();
+  });
+
+  it("sends at once when there is nothing to ask: a warm thread, a small one, or a cedia that cannot say", () => {
+    const { pane, emit, last } = setup();
+    const welcome = (capabilities: string[]) => emit({ kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities } } } as Notice);
+    const open = (updated_at: string) => {
+      emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-1", updated_at })] });
+      pane.openThread("t-1");
+    };
+    const prompt = (text: string) => ({ op: "prompt", cwd: "/r", text, thread: "t-1", worktree: false });
+    // A cedia without the capability is never asked.
+    welcome(["threads"]);
+    open("2026-10-28T10:00:00Z");
+    type(pane, "one");
+    enter(pane);
+    expect(last()).toEqual(prompt("one"));
+    // A thread that answered a moment ago is warm: no question, no wait.
+    welcome(["threads.resume-cost"]);
+    open(new Date().toISOString());
+    type(pane, "two");
+    enter(pane);
+    expect(last()).toEqual(prompt("two"));
+    // An old thread is asked about, and cedia says there is nothing to ask.
+    open("2026-10-28T10:00:00Z");
+    type(pane, "three");
+    enter(pane);
+    expect(last()).toMatchObject({ op: "resume_cost" });
+    emit({ kind: "resume_cost", thread: "t-1", cost: null } as Notice);
+    expect(last()).toEqual(prompt("three"));
+    type(pane, "four");
+    enter(pane);
+    emit({ kind: "resume_cost", thread: "t-1", cost: { thread: "t-1", model: "faux/a", ask: false, cold: true, idleMs: 9e6, contextTokens: 9000, freshTokens: 8000, resumeUsd: 0.01, freshUsd: 0.01 } } as Notice);
+    expect(last()).toEqual(prompt("four"));
+    expect(pane.root.querySelector(".cold")).toBeNull();
+  });
+
   it("⌘F opens find over the thread, and Escape gives the composer the focus back", () => {
     const { pane, emit } = setup();
     emit({ kind: "threads", cwd: "/r", threads: [info({ id: "t-1" })] });

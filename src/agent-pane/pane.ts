@@ -4,9 +4,9 @@
 // is only what the daemon sent back, so a reconnect or a restarted daemon redraws it whole.
 import { FindBar } from "./find.js";
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
-import { dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices } from "../composer/composer.js";
+import { coldLines, dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices, mayBeCold, withColdResume } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo, ResumeCost } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, commentCount, findingCount, goesNext, openFindings, removeComment, resolveComment, reviewed, sendComments, setComments, stateLabel, stateOf, walkSteps } from "../review/notes.js";
 import { answer, askCard, todoCard } from "./cards.js";
@@ -187,6 +187,8 @@ export class AgentPane {
   /** Where Walk through is in the open findings, by finding id. */
   private walking?: string;
   private models?: ModelList;
+  /** A prompt held while cedia prices it, then while the person answers the cold-cache question. */
+  private asking?: { thread: string; request: Extract<Request, { op: "prompt" }>; text: string; images: string[]; cost?: ResumeCost };
   private readonly findBar: FindBar;
   private permissions?: PermissionList;
   private commands: CommandEntry[] = [];
@@ -521,6 +523,12 @@ export class AgentPane {
       case "welcome":
         this.capabilities = "Ok" in n.cedia ? n.cedia.Ok.capabilities : [];
         break;
+      case "resume_cost":
+        if (this.asking?.thread !== n.thread) break;
+        // Nothing to ask (warm, small, or cedia could not say): the held prompt goes as it is.
+        if (!n.cost?.ask) this.answerCold(undefined);
+        else this.asking = { ...this.asking, cost: n.cost };
+        break;
       case "threads":
         if (n.cwd === this.host.cwd) this.threads = n.threads;
         // The PR watch found the open thread's PR since it opened: draw its block.
@@ -633,7 +641,28 @@ export class AgentPane {
     if (!this.chosen.has("permission")) this.choices.permission = chosenPermission(this.desktop);
   }
 
+  /**
+   * Ends the cold-cache question: `fresh` or `keep` sends the held prompt with that answer, none
+   * sends it as it is, and `cancel` puts the words back in the composer.
+   */
+  private answerCold(answer: "fresh" | "keep" | "cancel" | undefined): void {
+    const held = this.asking;
+    if (!held) return;
+    this.asking = undefined;
+    if (answer === "cancel") {
+      if (!this.input.value) this.input.value = held.text;
+      if (!this.images.length) this.images = held.images;
+      this.input.focus();
+      return this.render();
+    }
+    this.wire.request(answer ? withColdResume(held.request, answer) : held.request);
+    this.state = { ...this.state, error: undefined };
+    this.render();
+  }
+
   private leave(): void {
+    // A question still open goes with the thread; its words go back to the composer.
+    this.answerCold("cancel");
     if (this.state.thread) this.wire.request({ op: "close", thread: this.state.thread });
     this.then = undefined;
   }
@@ -665,6 +694,17 @@ export class AgentPane {
     let requests = submit(this.draft, target, choices);
     // The chat's first message starts the coordinator's thread in the project itself.
     if (this.chat && !this.state.thread) requests = requests.map((r) => (r.op === "prompt" ? { ...r, profile: COORDINATOR, worktree: false } : r));
+    // A thread at rest that has been quiet a while: cedia prices its next prompt first, and the
+    // person picks when going on with the whole context is the costly way (the banner).
+    const [only] = requests;
+    if (only?.op === "prompt" && only.thread && requests.length === 1 && !this.asking && this.capabilities.includes("threads.resume-cost") && mayBeCold(this.state.info?.updated_at, Date.now())) {
+      this.asking = { thread: only.thread, request: only, text: this.input.value, images: this.images };
+      this.wire.request({ op: "resume_cost", cwd: only.cwd, thread: only.thread, ...(only.model ? { model: only.model } : {}) });
+      this.input.value = "";
+      this.images = [];
+      this.closePopup();
+      return this.render();
+    }
     this.sent(requests);
   }
 
@@ -1508,6 +1548,7 @@ export class AgentPane {
     const thread = this.state.thread;
     const waiting = thread ? queued(this.state.info) : [];
     this.queue.replaceChildren();
+    if (this.asking?.cost && this.asking.thread === thread) this.queue.append(this.coldBanner(this.asking.cost, this.asking.text));
     if (!thread || waiting.length === 0) return;
     const target = { cwd: this.cwd, thread };
     // cedia shows a queued message to the model at the run's next step (after the tool calls in
@@ -1532,6 +1573,23 @@ export class AgentPane {
       );
       this.queue.append(row);
     }
+  }
+
+  /** The cold-cache question over the composer: what each way costs, the cheaper one first. */
+  private coldBanner(cost: ResumeCost, text: string): HTMLElement {
+    const d = this.doc;
+    const lines = coldLines(cost);
+    const box = el(d, "div", "cold");
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", "This thread's cache expired");
+    const actions = el(d, "div", "row");
+    actions.append(
+      button(d, "New session (recommended)", () => this.answerCold("fresh"), "btn small primary"),
+      button(d, "Whole context", () => this.answerCold("keep"), "btn small"),
+      button(d, "Cancel", () => this.answerCold("cancel"), "btn small"),
+    );
+    box.append(el(d, "div", "small", `${lines.state}. ${lines.whole}. ${lines.fresh}.`), el(d, "div", "ell held", text.trim()), actions);
+    return box;
   }
 
   private renderPopup(): void {

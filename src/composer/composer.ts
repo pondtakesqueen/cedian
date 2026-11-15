@@ -3,7 +3,7 @@
 // text as its next run; a running thread is steered: the text is queued (`cedia threads send`)
 // and cedia shows it to the model at the run's next step, without stopping the run. "Stop and
 // send" is the other way: it stops the run and sends the text as the next one.
-import type { CommandEntry, Request } from "../protocol/wire.js";
+import type { CommandEntry, Request, ResumeCost } from "../protocol/wire.js";
 
 export interface Draft {
   text: string;
@@ -87,5 +87,32 @@ export function editQueued(queued: Queued, target: Required<Pick<Target, "cwd" |
 export function dropQueued(queued: Queued, target: Required<Pick<Target, "cwd" | "thread">>): Request {
   return { op: "unsend", cwd: target.cwd, thread: target.thread, ids: [queued.id] };
 }
+
+/**
+ * A thread quiet for this long may have lost its prompt cache (cedia's shortest lasts 5 minutes,
+ * and it counts a cache as good as gone at 80% of that), so its next prompt is priced first. A
+ * thread that answered more recently is sent to at once, with no question and no wait.
+ */
+export const MAY_BE_COLD_MS = 4 * 60_000;
+
+export const mayBeCold = (updatedAt: string | undefined, now: number): boolean => {
+  const at = updatedAt ? Date.parse(updatedAt) : NaN;
+  return Number.isNaN(at) || now - at >= MAY_BE_COLD_MS;
+};
+
+const idle = (ms: number): string => (ms >= 3_600_000 ? `${Math.round(ms / 3_600_000)} h` : `${Math.max(1, Math.round(ms / 60_000))} min`);
+const k = (tokens: number): string => `${Math.round(tokens / 1000)}k`;
+
+/** The cold-cache question's two lines: where the thread stands, and what each answer costs. */
+export function coldLines(cost: ResumeCost): { state: string; whole: string; fresh: string } {
+  return {
+    state: `Idle ${idle(cost.idleMs)}, cache ${cost.cold ? "expired" : "about to expire"}`,
+    whole: `Whole context: re-reads ${k(cost.contextTokens)} tokens, about $${cost.resumeUsd.toFixed(2)}`,
+    fresh: `New session from where it stopped: about ${k(cost.freshTokens)}, $${cost.freshUsd.toFixed(2)}`,
+  };
+}
+
+/** The held prompt with the person's answer: `fresh` or `keep` (cedia's `--cold-resume`). */
+export const withColdResume = (request: Request, answer: "fresh" | "keep"): Request => (request.op === "prompt" ? { ...request, cold_resume: answer } : request);
 
 export type { CommandEntry };
