@@ -1,0 +1,81 @@
+diff --git a/src/vs/platform/window/common/window.ts b/src/vs/platform/window/common/window.ts
+--- a/src/vs/platform/window/common/window.ts
++++ b/src/vs/platform/window/common/window.ts
+@@ -59,6 +59,8 @@
+ export interface IOpenWindowOptions extends IBaseOpenWindowsOptions {
+ 	readonly forceNewWindow?: boolean;
+ 	readonly preferNewWindow?: boolean;
++	/** Cedian: open as a tab of the active window (macOS window tabs), as a project tab does. */
++	readonly forceNewTabbedWindow?: boolean;
+ 
+ 	readonly noRecentEntry?: boolean;
+ 
+diff --git a/src/vs/platform/native/electron-main/nativeHostMainService.ts b/src/vs/platform/native/electron-main/nativeHostMainService.ts
+--- a/src/vs/platform/native/electron-main/nativeHostMainService.ts
++++ b/src/vs/platform/native/electron-main/nativeHostMainService.ts
+@@ -342,6 +342,7 @@
+ 				forceNewWindow: options.forceNewWindow,
+ 				forceReuseWindow: options.forceReuseWindow,
+ 				preferNewWindow: options.preferNewWindow,
++				forceNewTabbedWindow: options.forceNewTabbedWindow,
+ 				diffMode: options.diffMode,
+ 				mergeMode: options.mergeMode,
+ 				addMode: options.addMode,
+diff --git a/src/vs/platform/windows/electron-main/windows.ts b/src/vs/platform/windows/electron-main/windows.ts
+--- a/src/vs/platform/windows/electron-main/windows.ts
++++ b/src/vs/platform/windows/electron-main/windows.ts
+@@ -202,7 +202,9 @@
+ 	}
+ 
+ 	const useNativeTabs = isMacintosh && windowSettings?.nativeTabs === true;
+-	if (useNativeTabs) {
++	if (useNativeTabs || isMacintosh) {
++		// Cedian: every window can be a tab of another (the project tabs, src/agent-pane/project-tabs.ts),
++		// with the custom title bar kept; macOS's own tab bar is hidden (windowsMainService.ts).
+ 		options.tabbingIdentifier = productService.nameShort; // this opts in to native macOS tabs
+ 	}
+ 
+diff --git a/src/vs/platform/windows/electron-main/windowsMainService.ts b/src/vs/platform/windows/electron-main/windowsMainService.ts
+--- a/src/vs/platform/windows/electron-main/windowsMainService.ts
++++ b/src/vs/platform/windows/electron-main/windowsMainService.ts
+@@ -183,6 +183,9 @@
+ //#endregion
+ 
+ export class WindowsMainService extends Disposable implements IWindowsMainService {
++
++	/** Cedian: the windows whose tab group has macOS's tab bar hidden already. */
++	private readonly cedianTabBarHidden = new Set<number>();
+ 
+ 	declare readonly _serviceBrand: undefined;
+ 
+@@ -1617,6 +1620,16 @@
+ 			if (options.forceNewTabbedWindow) {
+ 				const activeWindow = this.getLastActiveWindow();
+ 				activeWindow?.addTabbedWindow(createdWindow);
++				// Cedian: the project tabs in the title bar switch the tabs, so macOS's own tab bar,
++				// which shows as a group gets its second tab, is hidden again; it stays hidden for the
++				// group after that.
++				if (isMacintosh && activeWindow?.win && createdWindow.win && !this.cedianTabBarHidden.has(activeWindow.id)) {
++					createdWindow.win.toggleTabBar();
++					this.cedianTabBarHidden.add(activeWindow.id);
++				}
++				if (activeWindow) {
++					this.cedianTabBarHidden.add(createdWindow.id);
++				}
+ 			}
+ 
+ 			// Add to our list of windows
+diff --git a/src/vs/platform/windows/electron-main/windowImpl.ts b/src/vs/platform/windows/electron-main/windowImpl.ts
+--- a/src/vs/platform/windows/electron-main/windowImpl.ts
++++ b/src/vs/platform/windows/electron-main/windowImpl.ts
+@@ -322,8 +322,8 @@
+ 		// because there is a potential that the new window will be added as native tab instead of being
+ 		// a window on its own. In that case calling setBounds() would cause https://github.com/microsoft/vscode/issues/75830
+ 
+-		const windowSettings = this.configurationService.getValue<IWindowSettings | undefined>('window');
+-		const useNativeTabs = isMacintosh && windowSettings?.nativeTabs === true;
++		// Cedian: every window on macOS may be a tab of another (the project tabs).
++		const useNativeTabs = isMacintosh;
+ 		if ((isMacintosh || isWindows) && hasMultipleDisplays && (!useNativeTabs || getAllWindowsExcludingOffscreen().length === 1)) {
+ 			if ([state.width, state.height, state.x, state.y].every(value => typeof value === 'number')) {
+ 				this._win?.setBounds({

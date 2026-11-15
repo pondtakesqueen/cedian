@@ -19,11 +19,10 @@ import { coldWindows, recentFrom, RECENT_KEY, touched, type ProjectWindow } from
 export const SHOW_PROJECT = 'cedian.showProject';
 
 /**
- * Shows a project as a browser shows a tab: the projects used last keep their windows
- * (WARM_PROJECTS), so one of them is put where this window stands and brought to the front, with
- * nothing to load. Another opens in a new window over this one (`window.newWindowDimensions` is
- * "inherit", src/settings/desktop.ts), and the windows of projects shown longest ago close past
- * the ones kept.
+ * Shows a project as a browser shows a tab: each project's window is a tab of one window frame
+ * (macOS's window tabs, their bar hidden; patch 0021), and the projects used last keep theirs
+ * (WARM_PROJECTS), so picking one selects its tab in place with nothing to load. Another opens as
+ * a new tab of this frame, and the tabs of projects shown longest ago close past the ones kept.
  */
 CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor, root: unknown) => {
 	if (typeof root !== 'string' || !root) {
@@ -57,7 +56,9 @@ CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor
 		await native.focusWindow({ targetWindowId: warm.id });
 		phases.mark('window focused');
 	} else {
-		await host.openWindow([{ folderUri: URI.file(root) }], { forceNewWindow: true });
+		// On macOS the new window is a tab of this one (patch 0021, macOS's window tabs with their
+		// own bar hidden): one frame, as a browser keeps its tabs, switched by the project tabs.
+		await host.openWindow([{ folderUri: URI.file(root) }], { forceNewWindow: true, forceNewTabbedWindow: true });
 		phases.mark('new window asked for');
 	}
 	for (const id of coldWindows(windows, recent, root)) {
