@@ -434,12 +434,14 @@
 .cedian-agent-pane .model-picker .mp-reset { position: absolute; right: 0; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-faint); cursor: pointer; }
 .cedian-agent-pane .model-picker .mp-reset:hover { background: var(--cedian-hover); color: var(--cedian-text); }
 .cedian-agent-pane .model-picker .mp-reset svg.i { width: 13px; height: 13px; }
-.cedian-agent-pane .model-picker .mp-track { position: relative; display: flex; justify-content: space-between; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 10%, transparent); }
-.cedian-agent-pane .model-picker .mp-track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(27px + (100% - 36px) * var(--mp-f, 0)); border-radius: 999px; background: var(--cedian-warn); }
+.cedian-agent-pane .model-picker .mp-track { position: relative; display: flex; justify-content: space-between; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 14%, transparent); }
+.cedian-agent-pane .model-picker .mp-track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(27px + (100% - 36px) * var(--mp-f, 0)); border-radius: 999px; background: var(--cedian-warn); transition: width .18s cubic-bezier(.22, 1.1, .36, 1); }
+.cedian-agent-pane .model-picker .mp-knob { position: absolute; z-index: 2; top: -1px; left: calc(5px + (100% - 36px) * var(--mp-f, 0)); width: 26px; height: 26px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgb(0 0 0 / 25%), 0 0 0 0.5px rgb(0 0 0 / 10%); pointer-events: none; transition: left .18s cubic-bezier(.22, 1.1, .36, 1); }
+.cedian-agent-pane .model-picker .mp-track { cursor: grab; touch-action: none; }
+.cedian-agent-pane .model-picker .mp-track.dragging { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane .model-picker .mp-track::before, .cedian-agent-pane .model-picker .mp-knob { transition: none; } }
 .cedian-agent-pane .model-picker .mp-dot { position: relative; z-index: 1; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
 .cedian-agent-pane .model-picker .mp-dot::after { content: ""; width: 4px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 35%, transparent); }
 .cedian-agent-pane .model-picker .mp-dot.in::after { background: color-mix(in srgb, var(--cedian-app) 75%, transparent); }
-.cedian-agent-pane .model-picker .mp-dot.on { width: 26px; height: 26px; margin: -1px -4px; background: #FFFFFF; box-shadow: 0 1px 3px rgb(0 0 0 / 25%), 0 0 0 0.5px rgb(0 0 0 / 10%); }
-.cedian-agent-pane .model-picker .mp-dot.on::after { display: none; }
 /* Synara's send: the text colour filled, round, the page colour arrow; grey until there is text. */
 .cedian-agent-pane .send:not(.idle):not(.stop) { background: var(--cedian-text); color: var(--cedian-app); }

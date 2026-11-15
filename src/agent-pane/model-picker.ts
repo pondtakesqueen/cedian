@@ -102,39 +102,90 @@ export function modelPicker(doc: Document, p: PickerProps): HTMLElement {
   if (!shown.length) list.append(el(doc, "div", "mp-empty", "No model matches"));
   panel.append(tabs, search, list);
   if (p.efforts.length) {
-    // Synara's effort: the level's name over a track of dots, filled up to the knob; the default
-    // ("" value) is the reset at the label's right.
-    // A dot for each level, the model's default among them where it is one (its value is "").
+    // Synara's effort: the level's name over a track of dots, filled up to a knob that slides to
+    // the level picked (the panel moves it in place, so the fill and the knob glide); the
+    // model's default ("" value) is the reset at the label's right.
     const def = p.efforts.find((e) => e.value === "");
     const levels = p.efforts.filter((e) => e.value !== "" || LEVELS.includes(e.label)).sort((a, b) => LEVELS.indexOf(a.label) - LEVELS.indexOf(b.label));
-    const at = Math.max(0, levels.findIndex((e) => e.value === p.effort));
-    const current = p.effort === "" ? def?.label ?? "" : levels[at]?.label ?? "";
+    const indexOf = (value: string) => Math.max(0, levels.findIndex((e) => e.value === value));
+    const nameOf = (value: string) => {
+      const name = value === "" ? def?.label ?? "" : levels[indexOf(value)]?.label ?? "";
+      return name ? name[0]!.toUpperCase() + name.slice(1) : "Effort";
+    };
     const foot = el(doc, "div", "mp-effort");
     const head = el(doc, "div", "mp-effort-head");
-    head.append(el(doc, "span", "mp-effort-label", current ? current[0]!.toUpperCase() + current.slice(1) : "Effort"));
+    const label = el(doc, "span", "mp-effort-label", nameOf(p.effort));
+    head.append(label);
+    const track = el(doc, "div", "mp-track");
+    track.setAttribute("role", "radiogroup");
+    track.setAttribute("aria-label", "Effort");
+    const knob = el(doc, "span", "mp-knob");
+    const dots: HTMLButtonElement[] = [];
+    let last = p.effort;
+    const show = (value: string) => {
+      const at = indexOf(value);
+      track.style.setProperty("--mp-f", String(levels.length > 1 ? at / (levels.length - 1) : 1));
+      label.textContent = nameOf(value);
+      dots.forEach((dot, i) => {
+        dot.classList.toggle("in", i <= at);
+        dot.setAttribute("aria-checked", String(i === at));
+      });
+    };
+    const pick = (value: string) => {
+      last = value;
+      show(value);
+      p.onEffort(value);
+    };
     if (def) {
-      const reset = button(doc, "", () => p.onEffort(""), "mp-reset");
+      const reset = button(doc, "", () => pick(""), "mp-reset");
       reset.title = `Back to the model's default (${def.label})`;
       reset.setAttribute("aria-label", reset.title);
       reset.append(icon(doc, "reset"));
       head.append(reset);
     }
-    const track = el(doc, "div", "mp-track");
-    track.setAttribute("role", "radiogroup");
-    track.setAttribute("aria-label", "Effort");
-    const shownAt = at;
-    track.style.setProperty("--mp-f", String(levels.length > 1 ? Math.max(0, shownAt) / (levels.length - 1) : 1));
-    levels.forEach((e, i) => {
-      const dot = button(doc, "", () => p.onEffort(e.value), `mp-dot${i <= shownAt ? " in" : ""}${i === shownAt ? " on" : ""}`);
+    levels.forEach((e) => {
+      const dot = button(doc, "", () => pick(e.value), "mp-dot");
       dot.setAttribute("role", "radio");
-      dot.setAttribute("aria-checked", String(i === shownAt));
       dot.setAttribute("aria-label", e.label);
       dot.title = e.label;
+      dots.push(dot);
       track.append(dot);
     });
+    track.append(knob);
+    show(p.effort);
+    // Dragging along the track snaps the knob from level to level, as Synara's slider does: the
+    // nearest dot to the pointer is picked as it passes, so the fill and the knob glide after it.
+    let dragging = false;
+    const at = (x: number) => {
+      const r = track.getBoundingClientRect();
+      const span = r.width - 36;
+      const f = span > 0 ? Math.min(1, Math.max(0, (x - r.left - 18) / span)) : 0;
+      return levels[Math.round(f * (levels.length - 1))]?.value ?? last;
+    };
+    const follow = (x: number) => {
+      const value = at(x);
+      if (value === last) return;
+      last = value;
+      pick(value);
+    };
+    track.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      track.classList.add("dragging");
+      track.setPointerCapture?.(e.pointerId);
+      follow(e.clientX);
+    });
+    track.addEventListener("pointermove", (e) => dragging && follow(e.clientX));
+    const stop = () => {
+      dragging = false;
+      track.classList.remove("dragging");
+    };
+    track.addEventListener("pointerup", stop);
+    track.addEventListener("pointercancel", stop);
     foot.append(head, track);
     panel.append(foot);
   }
+
   field.addEventListener("input", () => p.onQuery(field.value));
   panel.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {

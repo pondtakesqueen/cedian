@@ -1767,7 +1767,17 @@ export class AgentPane {
         field?.setSelectionRange(q.length, q.length);
       },
       onModel: (v) => choose(model, v),
-      onEffort: (v) => effort && choose(effort, v),
+      // The picker stays open on an effort, as Synara's does, and its slider moves in place: the
+      // choice is kept without drawing the composer again, and the chip's label follows.
+      onEffort: (v) => {
+        if (!effort) return;
+        effort.value = v;
+        this.choices.effort = v || undefined;
+        this.chosen.add("effort");
+        const shown = effort.selectedOptions[0]?.textContent ?? "";
+        const pill = this.chips.querySelector<HTMLElement>(".pill.model");
+        if (pill) pill.title = pill.title.replace(/(Effort \([^)]*\): ).*$/, `$1${shown}`);
+      },
       onClose: () => this.closePicker(true),
     });
     composer.append(panel);

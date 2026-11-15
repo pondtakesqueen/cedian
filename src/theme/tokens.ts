@@ -28,7 +28,7 @@ export const TOKENS = {
     "ansi.cyan": "#76D3DB"
   },
   "light": {
-    "frame": "#F6F6F6",
+    "frame": "#FFFFFF",
     "app": "#FFFFFF",
     "sheet": "#FFFFFF",
     "raised": "#FFFFFF",

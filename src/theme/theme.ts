@@ -20,6 +20,8 @@ const alpha = (color: string, percent: number) => `${color.slice(0, 7)}${Math.ro
 export function workbenchColors(appearance: Appearance): Record<string, string> {
   const t = TOKENS[appearance];
   const clear = "#00000000";
+  // Light draws no edges between the window's parts, as Finder draws none (workbench.css).
+  const edge = appearance === "light" ? clear : t.line;
   return {
     focusBorder: t.accent,
     foreground: t.text,
@@ -38,11 +40,11 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "titleBar.inactiveBackground": t.frame,
     "titleBar.activeForeground": t.text,
     "titleBar.inactiveForeground": t["text.muted"],
-    "titleBar.border": t.line,
+    "titleBar.border": edge,
     "activityBar.background": t.frame,
     "activityBar.foreground": t.text,
     "activityBar.inactiveForeground": t["text.faint"],
-    "activityBar.border": t.line,
+    "activityBar.border": edge,
     "activityBar.activeBorder": t.accent,
     // A fill under text takes accent.text and the app colour on it, as the agent pane's primary
     // button does, at 4.5:1 or more in both appearances.
@@ -50,18 +52,18 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "activityBarBadge.foreground": t.app,
     "sideBar.background": t.app,
     "sideBar.foreground": t.text,
-    "sideBar.border": t.line,
+    "sideBar.border": edge,
     "sideBarTitle.foreground": t["text.muted"],
     "sideBarSectionHeader.background": t.app,
-    "sideBarSectionHeader.border": t.line,
+    "sideBarSectionHeader.border": edge,
     "panel.background": t.app,
-    "panel.border": t.line,
+    "panel.border": edge,
     "panelTitle.activeForeground": t.text,
     "panelTitle.inactiveForeground": t["text.muted"],
     "panelTitle.activeBorder": t.accent,
     "statusBar.background": t.app,
     "statusBar.foreground": t["text.muted"],
-    "statusBar.border": t.line,
+    "statusBar.border": edge,
     "statusBar.noFolderBackground": t.app,
     "statusBar.debuggingBackground": t.warn,
     "statusBar.focusBorder": t.accent,
@@ -72,9 +74,9 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     // pill on it (workbench.css), over a code-colored body with no rule between them.
     "editorGroupHeader.tabsBackground": t.app,
     "editorGroupHeader.tabsBorder": clear,
-    "editorGroup.border": t.line,
-    "editor.border": t.line,
-    "surface.border": t.line,
+    "editorGroup.border": edge,
+    "editor.border": edge,
+    "surface.border": edge,
     "modernUI.shellBackground": t.frame,
     "tab.activeBackground": t.sel,
     "tab.inactiveBackground": clear,
