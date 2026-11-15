@@ -16,14 +16,14 @@
 
 /* VS Code's own controls with the agent pane's corners (agentPane.css): buttons 8px, fields 6px,
    Source Control's commit message box drawn as a field. Only corners: VS Code's layout stays. */
-.monaco-workbench .monaco-text-button { border-radius: 8px; }
-.monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-text-button { border-radius: 8px 0 0 8px; }
+.monaco-workbench .monaco-text-button { border-radius: 7px; }
+.monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-text-button { border-radius: 7px 0 0 7px; }
 .monaco-workbench .monaco-button-dropdown > .monaco-button.monaco-dropdown-button { border-radius: 0 8px 8px 0; }
-.monaco-workbench .monaco-inputbox, .monaco-workbench .monaco-select-box { border-radius: 6px; }
+.monaco-workbench .monaco-inputbox, .monaco-workbench .monaco-select-box { border-radius: 7px; }
 .monaco-workbench .scm-view .scm-editor,
 .monaco-workbench .scm-view .scm-editor-container .monaco-editor,
-.monaco-workbench .scm-view .scm-editor-container .monaco-editor .overflow-guard { border-radius: 6px; }
-.monaco-workbench .scm-history-view .scm-provider .state-label.monaco-count-badge.long { border-radius: 6px; }
+.monaco-workbench .scm-view .scm-editor-container .monaco-editor .overflow-guard { border-radius: 7px; }
+.monaco-workbench .scm-history-view .scm-provider .state-label.monaco-count-badge.long { border-radius: 7px; }
 /* Modern UI's cards (the editor, side bars, panel) take the prototype's block corners, 12px, and
    so do the widgets drawn inside them (suggest, hover). Only corners: the gaps are VS Code's, which
    its layout measures. */
@@ -78,7 +78,7 @@
 	height: 22px;
 	padding: 0 10px;
 	border: 1px solid var(--vscode-widget-border, var(--vscode-contrast-border, rgba(128, 128, 128, 0.35)));
-	border-radius: 8px;
+	border-radius: 7px;
 	line-height: 22px;
 	font-size: 12px;
 }
@@ -144,7 +144,7 @@
 .monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part > .title > .title-label > h2 {
 	margin-left: -6px;
 	padding: 1px 6px;
-	border-radius: 6px;
+	border-radius: 7px;
 }
 .monaco-workbench:not(.hc-black):not(.hc-light) .pane-composite-part:focus-within > .title > .title-label > h2 {
 	background-color: var(--cedian-focus-fill);
@@ -342,7 +342,7 @@
 .monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar .cedian-project-tabs { margin-left: 70px; }
 .cedian-project-tabs .cedian-project-tab {
 	display: inline-flex; align-items: center; gap: 8px; height: 26px; max-width: 220px; min-width: 64px; padding: 0 10px;
-	border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+	border: 0; border-radius: 7px; background: transparent; cursor: pointer;
 	color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); font: inherit; font-size: 12px;
 	-webkit-app-region: no-drag;
 }
@@ -357,7 +357,7 @@
 .cedian-project-tabs .cedian-project-tab:focus-visible .close { display: inline-block; }
 .cedian-project-tabs .close:hover { background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); color: var(--cedian-text, var(--vscode-foreground)); }
 .cedian-project-tabs .cedian-project-add {
-	flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+	flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: transparent; cursor: pointer;
 	color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); font: inherit; font-size: 16px; line-height: 26px;
 	-webkit-app-region: no-drag;
 }
@@ -365,7 +365,7 @@
 .cedian-project-tabs .cedian-project-add:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
 .cedian-project-tabs .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cedian-project-tabs .count { flex: none; font-size: 11px; font-weight: 600; line-height: 16px; }
-.cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; text-align: center; background: var(--cedian-accent-text, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }
+.cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; text-align: center; background: var(--cedian-accent-text, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }
 .cedian-project-tabs .count.working { display: inline-flex; align-items: center; gap: 4px; color: var(--cedian-working, var(--vscode-progressBar-background)); }
 .cedian-project-tabs .count.working::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .monaco-workbench.monaco-enable-motion .cedian-project-tabs .count.working::before { animation: cedian-pulse 1.4s ease-in-out infinite; will-change: opacity; }
@@ -405,11 +405,11 @@
 	}
 }
 .monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget:not(.quick-input-widget-overlay) {
-	border-radius: 14px;
+	border-radius: 12px;
 	box-shadow: 0 16px 40px var(--cedian-glass-drop, rgba(0, 0, 0, .14));
 }
 .monaco-workbench.vs-dark { --cedian-glass-drop: rgba(0, 0, 0, .45); }
-.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget .quick-input-list .monaco-list-row { border-radius: 8px; }
+.monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget .quick-input-list .monaco-list-row { border-radius: 7px; }
 /* Its filter as the glass's own first line: no field, no ring, a hairline under it. */
 .monaco-workbench.modern-ui:not(.hc-black):not(.hc-light) .quick-input-widget:not(.hidden-input) .quick-input-header {
 	border-bottom: 1px solid var(--cedian-line, var(--vscode-widget-border));
@@ -513,4 +513,26 @@
 .monaco-workbench.modern-ui-tabs .part.editor .monaco-split-view2.vertical > .monaco-scrollable-element > .split-view-container > .split-view-view:not(:first-child) > .editor-group-container > .title,
 .monaco-workbench.modern-ui-tabs .part.editor .monaco-split-view2.vertical > .split-view-container > .split-view-view:not(:first-child) > .editor-group-container > .title {
 	margin-top: 2px;
+}
+
+/* One corner scale across the window (owner, 2026-11-16): a card (a block, a card in the
+   conversation, the composer, a menu) has 12 px corners, and a control on one (a tab, a row, a
+   button, a field, a chip in the title bar) has 7 px, so a control 5 px in from a card's edge
+   follows its curve. Pills (a status, a badge, the round send) stay round: they are a shape of
+   their own, not a corner. VS Code's own corner variables follow the same two steps. */
+.monaco-workbench {
+	--cedian-radius-card: 12px;
+	--cedian-radius-control: 7px;
+	--vscode-cornerRadius-small: var(--cedian-radius-control);
+	--vscode-cornerRadius-medium: var(--cedian-radius-control);
+	--vscode-cornerRadius-large: var(--cedian-radius-card);
+}
+.monaco-workbench .part.titlebar .action-item.menu-entry > .action-label:not(.codicon),
+.monaco-workbench .part.titlebar .action-item > .action-label,
+.monaco-workbench .cedian-project-tabs .cedian-project-tab,
+.monaco-workbench .monaco-action-bar .action-item > .action-label,
+.monaco-workbench .monaco-list-row,
+.monaco-workbench .pane-header,
+.cedian-thread-list :is(.row-btn, .thread-row, .search) {
+	border-radius: var(--cedian-radius-control) !important;
 }
