@@ -402,3 +402,28 @@
 @container agent-pane (max-width: 380px) {
   .cedian-agent-pane .composer .pill.merged > select[data-chip="model"] { max-width: 64px; }
 }
+/* The model picker (model-picker.ts), after Synara's: the chip opens a panel over the composer's
+   right end; the native selects inside the chip only take the menu keys. */
+.cedian-agent-pane .composer .pill.model { cursor: pointer; }
+.cedian-agent-pane .composer .pill.model > select { pointer-events: none; }
+.cedian-agent-pane .model-picker { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 20; width: 300px; max-width: calc(100% - 16px); display: flex; flex-direction: column; border-radius: 14px; background: var(--cedian-raised); box-shadow: 0 0 0 1px var(--cedian-line), 0 12px 32px -8px rgb(0 0 0 / 22%); overflow: hidden; font-size: 13px; }
+.cedian-agent-pane .model-picker .mp-search { display: flex; align-items: center; gap: 6px; margin: 6px; padding: 0 8px; height: 30px; border-radius: 9px; background: var(--cedian-hover); color: var(--cedian-text-faint); }
+.cedian-agent-pane .model-picker .mp-search svg.i { width: 14px; height: 14px; flex: none; }
+.cedian-agent-pane .model-picker .mp-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; color: var(--cedian-text); font: inherit; }
+.cedian-agent-pane .model-picker .mp-search input::placeholder { color: var(--cedian-text-faint); }
+.cedian-agent-pane .model-picker .mp-list { max-height: min(320px, 50vh); overflow-y: auto; padding: 0 6px 6px; }
+.cedian-agent-pane .model-picker .mp-group { padding: 8px 8px 3px; color: var(--cedian-text-muted); font-size: 11.5px; }
+.cedian-agent-pane .model-picker .mp-row { display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--cedian-text); font: inherit; text-align: left; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-row:hover:not(:disabled), .cedian-agent-pane .model-picker .mp-row.on { background: var(--cedian-sel); }
+.cedian-agent-pane .model-picker .mp-row:disabled { color: var(--cedian-text-faint); cursor: default; }
+.cedian-agent-pane .model-picker .mp-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cedian-agent-pane .model-picker .mp-key { flex: none; color: var(--cedian-text-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cedian-agent-pane .model-picker .mp-row svg.i-check { flex: none; width: 14px; height: 14px; }
+.cedian-agent-pane .model-picker .mp-empty { padding: 12px 8px; color: var(--cedian-text-muted); }
+.cedian-agent-pane .model-picker .mp-effort { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--cedian-line); color: var(--cedian-text-muted); }
+.cedian-agent-pane .model-picker .mp-effort svg.i { width: 13px; height: 13px; flex: none; }
+.cedian-agent-pane .model-picker .mp-levels { margin-left: auto; display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--cedian-hover); }
+.cedian-agent-pane .model-picker .mp-level { height: 22px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-level.on { background: var(--cedian-raised); color: var(--cedian-text); box-shadow: 0 0 0 1px var(--cedian-line), 0 1px 2px rgb(0 0 0 / 6%); }
+/* Synara's send: the text colour filled, round, the page colour arrow; grey until there is text. */
+.cedian-agent-pane .send:not(.idle):not(.stop) { background: var(--cedian-text); color: var(--cedian-app); }
