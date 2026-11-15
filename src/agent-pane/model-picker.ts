@@ -7,6 +7,9 @@ import { button, el } from "../dom/el.js";
 import type { ModelList } from "../protocol/wire.js";
 import { icon } from "./icons.js";
 
+/** cedia's effort levels in order, lowest first. */
+const LEVELS: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
+
 export interface PickerModel {
   /** What the pane's model select takes: "" for cedia's default. */
   value: string;
@@ -46,6 +49,9 @@ export interface PickerProps {
   efforts: { value: string; label: string }[];
   effort: string;
   query: string;
+  /** The provider tab shown: "" for every provider. */
+  tab: string;
+  onTab(tab: string): void;
   onQuery(query: string): void;
   onModel(value: string): void;
   onEffort(value: string): void;
@@ -57,6 +63,16 @@ export function modelPicker(doc: Document, p: PickerProps): HTMLElement {
   const panel = el(doc, "div", "model-picker");
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Model and effort");
+  // Synara's top row: a tab for every provider (all of them first), the open one underlined.
+  const tabs = el(doc, "div", "mp-tabs");
+  tabs.setAttribute("role", "tablist");
+  const groups = [...new Set(p.models.map((m) => m.group))];
+  for (const [value, label] of [["", "All"], ...groups.map((g) => [g, g] as const)] as const) {
+    const t = button(doc, label, () => p.onTab(value), `mp-tab${p.tab === value ? " on" : ""}`);
+    t.setAttribute("role", "tab");
+    t.setAttribute("aria-selected", String(p.tab === value));
+    tabs.append(t);
+  }
   const search = el(doc, "label", "mp-search");
   const field = el(doc, "input", "");
   field.type = "search";
@@ -66,7 +82,7 @@ export function modelPicker(doc: Document, p: PickerProps): HTMLElement {
   search.append(icon(doc, "search"), field);
   const list = el(doc, "div", "mp-list");
   list.setAttribute("role", "listbox");
-  const shown = filterModels(p.models, p.query);
+  const shown = filterModels(p.tab ? p.models.filter((m) => m.group === p.tab) : p.models, p.query);
   let group = "";
   shown.forEach((m, i) => {
     if (m.group !== group) {
@@ -84,17 +100,39 @@ export function modelPicker(doc: Document, p: PickerProps): HTMLElement {
     list.append(row);
   });
   if (!shown.length) list.append(el(doc, "div", "mp-empty", "No model matches"));
-  panel.append(search, list);
+  panel.append(tabs, search, list);
   if (p.efforts.length) {
+    // Synara's effort: the level's name over a track of dots, filled up to the knob; the default
+    // ("" value) is the reset at the label's right.
+    // A dot for each level, the model's default among them where it is one (its value is "").
+    const def = p.efforts.find((e) => e.value === "");
+    const levels = p.efforts.filter((e) => e.value !== "" || LEVELS.includes(e.label)).sort((a, b) => LEVELS.indexOf(a.label) - LEVELS.indexOf(b.label));
+    const at = Math.max(0, levels.findIndex((e) => e.value === p.effort));
+    const current = p.effort === "" ? def?.label ?? "" : levels[at]?.label ?? "";
     const foot = el(doc, "div", "mp-effort");
-    foot.append(icon(doc, "bolt"), el(doc, "span", "mp-effort-label", "Effort"));
-    const levels = el(doc, "div", "mp-levels");
-    for (const e of p.efforts) {
-      const b = button(doc, e.label, () => p.onEffort(e.value), `mp-level${e.value === p.effort ? " on" : ""}`);
-      b.setAttribute("aria-pressed", String(e.value === p.effort));
-      levels.append(b);
+    const head = el(doc, "div", "mp-effort-head");
+    head.append(el(doc, "span", "mp-effort-label", current ? current[0]!.toUpperCase() + current.slice(1) : "Effort"));
+    if (def) {
+      const reset = button(doc, "", () => p.onEffort(""), "mp-reset");
+      reset.title = `Back to the model's default (${def.label})`;
+      reset.setAttribute("aria-label", reset.title);
+      reset.append(icon(doc, "reset"));
+      head.append(reset);
     }
-    foot.append(levels);
+    const track = el(doc, "div", "mp-track");
+    track.setAttribute("role", "radiogroup");
+    track.setAttribute("aria-label", "Effort");
+    const shownAt = at;
+    track.style.setProperty("--mp-f", String(levels.length > 1 ? Math.max(0, shownAt) / (levels.length - 1) : 1));
+    levels.forEach((e, i) => {
+      const dot = button(doc, "", () => p.onEffort(e.value), `mp-dot${i <= shownAt ? " in" : ""}${i === shownAt ? " on" : ""}`);
+      dot.setAttribute("role", "radio");
+      dot.setAttribute("aria-checked", String(i === shownAt));
+      dot.setAttribute("aria-label", e.label);
+      dot.title = e.label;
+      track.append(dot);
+    });
+    foot.append(head, track);
     panel.append(foot);
   }
   field.addEventListener("input", () => p.onQuery(field.value));

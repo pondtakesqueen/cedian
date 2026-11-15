@@ -981,8 +981,12 @@ describe("agent pane header and composer", () => {
     const chip = () => pane.root.querySelector<HTMLElement>(".composer .pill.model")!;
     chip().click();
     const panel = () => pane.root.querySelector<HTMLElement>(".model-picker");
+    expect([...panel()!.querySelectorAll(".mp-tab")].map((g) => g.textContent)).toEqual(["All", "anthropic", "openrouter"]);
     expect([...panel()!.querySelectorAll(".mp-group")].map((g) => g.textContent)).toEqual(["anthropic", "openrouter"]);
-    expect([...panel()!.querySelectorAll(".mp-level")].map((b) => b.textContent)).toEqual(["effort", "low", "high"]);
+    expect([...panel()!.querySelectorAll(".mp-dot")].map((b) => b.getAttribute("aria-label"))).toEqual(["low", "high"]);
+    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-tab")][2]!.click();
+    expect([...panel()!.querySelectorAll(".mp-row .mp-label")].map((r) => r.textContent)).toEqual(["Kimi K2"]);
+    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-tab")][0]!.click();
     const field = panel()!.querySelector<HTMLInputElement>("input")!;
     field.value = "haiku";
     field.dispatchEvent(new Event("input"));
@@ -991,7 +995,7 @@ describe("agent pane header and composer", () => {
     expect(panel()).toBeNull();
     expect(pane.root.querySelector<HTMLSelectElement>('select[data-chip="model"]')!.value).toBe("anthropic/haiku");
     chip().click();
-    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-level")].find((b) => b.textContent === "high")!.click();
+    [...panel()!.querySelectorAll<HTMLButtonElement>(".mp-dot")].find((b) => b.getAttribute("aria-label") === "high")!.click();
     expect(pane.root.querySelector<HTMLSelectElement>('select[data-chip="effort"]')!.value).toBe("high");
     pane.menu("model");
     panel()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));

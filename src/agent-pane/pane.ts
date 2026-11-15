@@ -197,6 +197,7 @@ export class AgentPane {
   /** The model picker's panel: whether it is open, and what its search holds. */
   private picker = false;
   private pickerQuery = "";
+  private pickerTab = "";
   private desktop: Desktop = {};
   private choices: RunChoices = { worktree: false };
   private chosen = new Set<keyof RunChoices>();
@@ -1685,6 +1686,11 @@ export class AgentPane {
       efforts: effort ? [...effort.options].map((o) => ({ value: o.value, label: o.textContent ?? o.value })) : [],
       effort: effort?.value ?? "",
       query: this.pickerQuery,
+      tab: this.pickerTab,
+      onTab: (t) => {
+        this.pickerTab = t;
+        this.renderComposer();
+      },
       onQuery: (q) => {
         this.pickerQuery = q;
         this.renderComposer();

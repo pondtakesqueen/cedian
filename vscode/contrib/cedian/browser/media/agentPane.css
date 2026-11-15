@@ -420,10 +420,23 @@
 .cedian-agent-pane .model-picker .mp-key { flex: none; color: var(--cedian-text-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
 .cedian-agent-pane .model-picker .mp-row svg.i-check { flex: none; width: 14px; height: 14px; }
 .cedian-agent-pane .model-picker .mp-empty { padding: 12px 8px; color: var(--cedian-text-muted); }
-.cedian-agent-pane .model-picker .mp-effort { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--cedian-line); color: var(--cedian-text-muted); }
-.cedian-agent-pane .model-picker .mp-effort svg.i { width: 13px; height: 13px; flex: none; }
-.cedian-agent-pane .model-picker .mp-levels { margin-left: auto; display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--cedian-hover); }
-.cedian-agent-pane .model-picker .mp-level { height: 22px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12px; cursor: pointer; }
-.cedian-agent-pane .model-picker .mp-level.on { background: var(--cedian-raised); color: var(--cedian-text); box-shadow: 0 0 0 1px var(--cedian-line), 0 1px 2px rgb(0 0 0 / 6%); }
+.cedian-agent-pane .model-picker .mp-tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--cedian-line); overflow-x: auto; scrollbar-width: none; }
+.cedian-agent-pane .model-picker .mp-tabs::-webkit-scrollbar { display: none; }
+.cedian-agent-pane .model-picker .mp-tab { flex: none; height: 28px; padding: 0 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-tab:hover { color: var(--cedian-text); }
+.cedian-agent-pane .model-picker .mp-tab.on { color: var(--cedian-text); border-bottom-color: var(--cedian-warn); }
+.cedian-agent-pane .model-picker .mp-effort { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .model-picker .mp-effort-head { position: relative; display: flex; justify-content: center; align-items: center; height: 20px; }
+.cedian-agent-pane .model-picker .mp-effort-label { color: var(--cedian-warn); font-weight: 500; }
+.cedian-agent-pane .model-picker .mp-reset { position: absolute; right: 0; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--cedian-text-faint); cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-reset:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-agent-pane .model-picker .mp-reset svg.i { width: 13px; height: 13px; }
+.cedian-agent-pane .model-picker .mp-track { position: relative; display: flex; justify-content: space-between; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 10%, transparent); }
+.cedian-agent-pane .model-picker .mp-track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(27px + (100% - 36px) * var(--mp-f, 0)); border-radius: 999px; background: var(--cedian-warn); }
+.cedian-agent-pane .model-picker .mp-dot { position: relative; z-index: 1; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-dot::after { content: ""; width: 4px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 35%, transparent); }
+.cedian-agent-pane .model-picker .mp-dot.in::after { background: color-mix(in srgb, var(--cedian-app) 75%, transparent); }
+.cedian-agent-pane .model-picker .mp-dot.on { width: 26px; height: 26px; margin: -1px -4px; background: #FFFFFF; box-shadow: 0 1px 3px rgb(0 0 0 / 25%), 0 0 0 0.5px rgb(0 0 0 / 10%); }
+.cedian-agent-pane .model-picker .mp-dot.on::after { display: none; }
 /* Synara's send: the text colour filled, round, the page colour arrow; grey until there is text. */
 .cedian-agent-pane .send:not(.idle):not(.stop) { background: var(--cedian-text); color: var(--cedian-app); }
