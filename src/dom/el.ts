@@ -34,4 +34,6 @@ export function select<T extends string>(doc: Document, options: { value: T; lab
 export interface Wire<Req, Note> {
   request(request: Req): void;
   onAny(listener: (notice: Note) => void): () => void;
+  /** The daemon's latest welcome, which a view made after it came has not heard. */
+  readonly welcome?: Note;
 }

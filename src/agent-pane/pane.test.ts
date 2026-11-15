@@ -520,6 +520,20 @@ describe("agent pane", () => {
     expect(pane.root.querySelector(".cold")).toBeNull();
   });
 
+  it("knows what cedia offers when it opens after the daemon's welcome", () => {
+    const sent: Request[] = [];
+    let listener: (n: Notice) => void = () => {};
+    const welcome = { kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities: ["threads.resume-cost"] } } } as Notice;
+    const wire = { request: (r: Request) => sent.push(r), onAny: (l: (n: Notice) => void) => ((listener = l), () => {}), welcome };
+    const pane = new AgentPane(document, wire, { cwd: "/r", files: async () => [], pickImages: async () => [], openReview: () => {}, openUrl: () => {} });
+    document.body.replaceChildren(pane.root);
+    listener({ kind: "threads", cwd: "/r", threads: [info({ id: "t-1", updated_at: "2026-10-28T10:00:00Z" })] });
+    pane.openThread("t-1");
+    type(pane, "go on");
+    enter(pane);
+    expect(sent.at(-1)).toEqual({ op: "resume_cost", cwd: "/r", thread: "t-1" });
+  });
+
   it("sends at once when there is nothing to ask: a warm thread, a small one, or a cedia that cannot say", () => {
     const { pane, emit, last } = setup();
     const welcome = (capabilities: string[]) => emit({ kind: "welcome", daemon: "0", cedia: { Ok: { name: "cedia", version: "1", protocol: "x", capabilities } } } as Notice);

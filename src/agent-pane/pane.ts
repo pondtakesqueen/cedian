@@ -264,6 +264,9 @@ export class AgentPane {
       void this.paste(files);
     });
     this.off = wire.onAny((n) => this.notice(n));
+    // A pane opened after the daemon's welcome still needs what this cedia offers (the cold-cache
+    // question asks only when cedia can price the prompt).
+    if (wire.welcome?.kind === "welcome") this.capabilities = "Ok" in wire.welcome.cedia ? wire.welcome.cedia.Ok.capabilities : [];
     wire.request({ op: "threads", cwd: host.cwd });
     wire.request({ op: "commands", cwd: host.cwd });
     this.render();

@@ -31,6 +31,24 @@ describe("Warm & Lime", () => {
     }
   });
 
+  it("keeps text on a filled accent and the bracket pairs at 4.5:1 in both appearances", () => {
+    const lum = (hex: string) =>
+      [1, 3, 5]
+        .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+        .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i]!, 0);
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x) as [number, number];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    for (const a of ["dark", "light"] as const) {
+      const c = workbenchColors(a);
+      expect(ratio(c["button.foreground"]!, c["button.background"]!), `${a} button`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(c["activityBarBadge.foreground"]!, c["activityBarBadge.background"]!), `${a} badge`).toBeGreaterThanOrEqual(4.5);
+      for (const n of [1, 2, 3]) expect(ratio(c[`editorBracketHighlight.foreground${n}`]!, TOKENS[a].code), `${a} bracket ${n}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it("names a --cedian-* property for every token", () => {
     const vars = cssVars("dark");
     expect(Object.keys(vars)).toHaveLength(Object.keys(TOKENS.dark).length);

@@ -44,8 +44,10 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "activityBar.inactiveForeground": t["text.faint"],
     "activityBar.border": t.line,
     "activityBar.activeBorder": t.accent,
-    "activityBarBadge.background": t.accent,
-    "activityBarBadge.foreground": TOKENS.dark.frame,
+    // A fill under text takes accent.text and the app colour on it, as the agent pane's primary
+    // button does: dark text on the light accent is 4.5:1, the app colour on accent.text 5:1.
+    "activityBarBadge.background": t["accent.text"],
+    "activityBarBadge.foreground": t.app,
     "sideBar.background": t.app,
     "sideBar.foreground": t.text,
     "sideBar.border": t.line,
@@ -120,9 +122,9 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "dropdown.background": t.field,
     "dropdown.border": t.line,
     "dropdown.foreground": t.text,
-    "button.background": t.accent,
-    "button.foreground": TOKENS.dark.frame,
-    "button.hoverBackground": alpha(t.accent, 85),
+    "button.background": t["accent.text"],
+    "button.foreground": t.app,
+    "button.hoverBackground": alpha(t["accent.text"], 85),
     "button.secondaryBackground": t.raised,
     "button.secondaryForeground": t.text,
     "button.secondaryHoverBackground": t.sel,
@@ -173,6 +175,11 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "editorWarning.foreground": t.warn,
     "editorInfo.foreground": t.working,
     "progressBar.background": t.accent,
+    // Bracket pairs in the syntax hues: VS Code's own light ones (green #319331) are 3.7:1 on code.
+    "editorBracketHighlight.foreground1": t.working,
+    "editorBracketHighlight.foreground2": t.function,
+    "editorBracketHighlight.foreground3": t.type,
+    "editorBracketHighlight.unexpectedBracket.foreground": t.failed,
     "welcomePage.progress.foreground": t.accent,
   };
 }
