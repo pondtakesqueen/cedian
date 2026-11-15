@@ -502,3 +502,15 @@
 .monaco-workbench.modern-ui-tabs:not(.hc-black):not(.hc-light) .pane-composite-part .composite-bar .action-item > .active-item-indicator::before {
 	border-radius: calc(12px - 5px) !important;
 }
+/* A group beside another draws its card 2 px in from the side they share (the gap between the
+   cards), so its first tab sat 2 px nearer the card's edge than in the first group. The groups
+   after the first in a row take those 2 px back, and so does a group under another, so every
+   card's first tab sits the same 5 px in from its edge and follows its corner. */
+.monaco-workbench.modern-ui-tabs .part.editor .monaco-split-view2.horizontal > .monaco-scrollable-element > .split-view-container > .split-view-view:not(:first-child) > .editor-group-container > .title .tabs-and-actions-container > .monaco-scrollable-element,
+.monaco-workbench.modern-ui-tabs .part.editor .monaco-split-view2.horizontal > .split-view-container > .split-view-view:not(:first-child) > .editor-group-container > .title .tabs-and-actions-container > .monaco-scrollable-element {
+	margin-left: 2px;
+}
+.monaco-workbench.modern-ui-tabs .part.editor .monaco-split-view2.vertical > .monaco-scrollable-element > .split-view-container > .split-view-view:not(:first-child) > .editor-group-container > .title,
+.monaco-workbench.modern-ui-tabs .part.editor .monaco-split-view2.vertical > .split-view-container > .split-view-view:not(:first-child) > .editor-group-container > .title {
+	margin-top: 2px;
+}
