@@ -10,8 +10,8 @@ use anyhow::Context as _;
 use crate::desktop_settings::{read_desktop, settings_path};
 use cedian_protocol::{
     Capability, CodeReview, CommandList, CommitDraft, Committed, EditableSettings, McpCheck,
-    McpList, ModelList, PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule,
-    UsageReport, VersionInfo,
+    McpList, ModelList, PermissionList, PrOpened, PrPlan, Rating, Restored, ResumeCost,
+    RewindResult, Schedule, UsageReport, VersionInfo,
 };
 
 /// A run's flags beyond its text: cedia's `--profile`, `--model`, `--permission`, `--effort`,
@@ -23,6 +23,8 @@ pub struct Flags<'a> {
     pub model: Option<&'a str>,
     pub permission: Option<&'a str>,
     pub effort: Option<&'a str>,
+    /// `--cold-resume keep|fresh`: the person's answer for a thread whose cache expired.
+    pub cold_resume: Option<&'a str>,
     pub helpers: Option<&'a cedian_wire::Helpers>,
     /// The run may end on a question for the person, when this cedia can.
     pub ask: bool,
@@ -268,6 +270,19 @@ impl Cedia {
         self.answer(cwd, "review", &[format!("--thread={thread}")])
     }
 
+    /// `cedia threads resume-cost <id> [--model=<ref>] --cwd <cwd> --json`: what the thread's
+    /// next prompt costs each way; none when it opens a new session anyway. Reads only.
+    pub fn resume_cost(
+        &self,
+        cwd: &Path,
+        thread: &str,
+        model: Option<&str>,
+    ) -> Result<Option<ResumeCost>, String> {
+        let mut args = vec!["resume-cost".to_owned(), thread.to_owned()];
+        args.extend(model.map(|model| format!("--model={model}")));
+        self.answer(cwd, "threads", &args)
+    }
+
     /// `cedia pr --check --cwd <cwd> --json`: the branch, the base, or why not. Pushes nothing.
     pub fn pr_check(&self, cwd: &Path) -> Result<PrPlan, String> {
         self.answer(cwd, "pr", &["--check".to_owned()])
@@ -464,6 +479,9 @@ impl Cedia {
         }
         if let Some(effort) = flags.effort {
             command.args(["--effort", effort]);
+        }
+        if let Some(cold_resume) = flags.cold_resume {
+            command.args(["--cold-resume", cold_resume]);
         }
         if let Some(helpers) = flags.helpers {
             for (flag, value) in [

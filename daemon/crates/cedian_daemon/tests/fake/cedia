@@ -70,6 +70,15 @@ if [[ "${1:-}" == "review" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "threads" && "${2:-}" == "resume-cost" ]]; then
+  # threads resume-cost <id> [--model=<ref>] --cwd <dir> --json: a cold, large thread, except
+  # t-warm, whose next prompt needs no question. Each call's arguments go to resume-calls.
+  printf '%s\n' "$*" >>"$FAKE_THREADS/../resume-calls"
+  if [[ "$3" == "t-warm" ]]; then echo null; exit 0; fi
+  echo "{\"thread\":\"$3\",\"model\":\"faux/a\",\"ask\":true,\"cold\":true,\"idleMs\":7200000,\"contextTokens\":150000,\"freshTokens\":12000,\"resumeUsd\":0.9,\"freshUsd\":0.07}"
+  exit 0
+fi
+
 if [[ "${1:-}" == "commit" || "${1:-}" == "pr" ]]; then
   # commit --thread=<id> [--message=<m> --file=<f>...] --cwd <dir> --json, pr [--check] --cwd <dir>
   # --json: each call's arguments go to $FAKE_THREADS/../ship-calls.

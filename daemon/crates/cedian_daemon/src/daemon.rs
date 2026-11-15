@@ -633,12 +633,18 @@ impl Daemon {
                 effort,
                 helpers,
                 images,
+                cold_resume,
             } => {
+                // Only the two answers cedia takes; anything else leaves the choice to cedia.
+                let cold_resume = cold_resume
+                    .as_deref()
+                    .filter(|answer| matches!(*answer, "keep" | "fresh"));
                 let with = Flags {
                     profile: profile.as_deref(),
                     model: model.as_deref(),
                     permission: permission.as_deref(),
                     effort: effort.as_deref(),
+                    cold_resume,
                     helpers: Some(&helpers),
                     images: &images,
                     cache_ttl: Some(PERSON_CACHE_TTL),
@@ -1229,6 +1235,22 @@ impl Daemon {
             }
             Request::BrowserCdp { conn, data } => {
                 lock(shared).native.forward(client, conn, data);
+            }
+            Request::ResumeCost { cwd, thread, model } => {
+                let (cedia, can) =
+                    Self::can(shared, cedian_protocol::Capability::ThreadsResumeCost);
+                // A cedia that cannot say, or that fails to, is no reason to hold the prompt: the
+                // window sends on a `None`, and cedia takes the cheaper way as it always did.
+                if !can {
+                    return lock(shared).send(client, Notice::ResumeCost { thread, cost: None });
+                }
+                let shared = shared.clone();
+                std::thread::spawn(move || {
+                    let cost = cedia
+                        .resume_cost(&cwd, &thread, model.as_deref())
+                        .unwrap_or(None);
+                    lock(&shared).send(client, Notice::ResumeCost { thread, cost });
+                });
             }
             Request::CommitDraft { .. }
             | Request::Commit { .. }

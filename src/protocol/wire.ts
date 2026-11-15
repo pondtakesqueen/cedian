@@ -164,6 +164,11 @@ export type Notice =
       thread: string;
     }
   | {
+      cost?: ResumeCost | null;
+      kind: "resume_cost";
+      thread: string;
+    }
+  | {
       kind: "pr_plan";
       plan: PrPlan;
       thread: string;
@@ -281,7 +286,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "cache-ttl", "threads.rename", "threads.delete", "settings.edit", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "threads.resume-cost", "cache-ttl", "threads.rename", "threads.delete", "settings.edit", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -316,6 +321,7 @@ export type Capability =
   | "browser.sites"
   | "threads.restore-json"
   | "images"
+  | "threads.resume-cost"
   | "cache-ttl"
   | "threads.rename"
   | "threads.delete"
@@ -756,6 +762,17 @@ export type Guard =
   | "secret-redaction"
   | "slop-check";
 /**
+ * `EditableSettingsDream`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "string", "enum": [ "on", "off" ] } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "EditableSettingsDream".
+ */
+export type EditableSettingsDream = "on" | "off";
+/**
  * `EditableSettingsHandoff`
  *
  * <details><summary>JSON schema</summary>
@@ -960,6 +977,10 @@ export type Request =
       thread: string;
     }
   | {
+      /**
+       * The person's answer to `Notice::ResumeCost` (`cedia --cold-resume`): `keep` goes on with the thread's whole context, `fresh` in a new session from where it stopped; none lets cedia take the cheaper.
+       */
+      cold_resume?: string | null;
       cwd: string;
       /**
        * How hard the writer starts thinking (`cedia --effort`): a level the model lists; none keeps the model's own.
@@ -989,6 +1010,15 @@ export type Request =
        * For a new thread: run it in a new git worktree of the project.
        */
       worktree?: boolean;
+    }
+  | {
+      cwd: string;
+      /**
+       * The model the prompt would run on, when the person picked one.
+       */
+      model?: string | null;
+      op: "resume_cost";
+      thread: string;
     }
   | {
       cwd: string;
@@ -2233,11 +2263,32 @@ export interface UsageReportToolErrorsItem {
   tool: string;
 }
 /**
+ * `ResumeCost`
+ *
+ * <details><summary>JSON schema</summary>
+ *
+ * ```json { "type": "object", "required": [ "ask", "cold", "contextTokens", "freshTokens", "freshUsd", "idleMs", "model", "resumeUsd", "thread" ], "properties": { "ask": { "type": "boolean" }, "cold": { "type": "boolean" }, "contextTokens": { "type": "number" }, "freshTokens": { "type": "number" }, "freshUsd": { "type": "number" }, "idleMs": { "type": "number" }, "model": { "type": "string" }, "resumeUsd": { "type": "number" }, "thread": { "type": "string" } } } ``` </details>
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "ResumeCost".
+ */
+export interface ResumeCost {
+  ask: boolean;
+  cold: boolean;
+  contextTokens: number;
+  freshTokens: number;
+  freshUsd: number;
+  idleMs: number;
+  model: string;
+  resumeUsd: number;
+  thread: string;
+}
+/**
  * `PrPlan`
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "properties": { "base": { "type": "string" }, "blocked": { "type": "string" }, "branch": { "type": "string" } } } ``` </details>
+ * ```json { "type": "object", "properties": { "base": { "type": "string" }, "blocked": { "type": "string" }, "branch": { "type": "string" }, "template": { "type": "string" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "PrPlan".
@@ -2246,6 +2297,7 @@ export interface PrPlan {
   base?: string | null;
   blocked?: string | null;
   branch?: string | null;
+  template?: string | null;
 }
 /**
  * `McpList`
@@ -2318,7 +2370,7 @@ export interface InlineEditRange {
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "object", "required": [ "choices", "defaults", "fallback", "permissions", "roles", "sandbox" ], "properties": { "choices": { "type": "object", "required": [ "guards", "outputStyles" ], "properties": { "guards": { "type": "array", "items": { "$ref": "#/definitions/Guard" } }, "outputStyles": { "type": "array", "items": { "type": "string" } } } }, "context": { "type": "string" }, "defaults": { "type": "object", "required": [ "code", "fallback", "handoff", "lsp", "media", "onQuota", "outputStyle", "planOverlap", "planWhen", "privacy", "sandboxDomains", "sandboxMode", "spawn", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "const": "compact" }, "lsp": { "type": "string", "const": "on" }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "outputStyle": { "type": "string", "const": "default" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "privacy": { "type": "string", "const": "no-training" }, "sandboxDomains": { "type": "array", "items": { "type": "string" } }, "sandboxMode": { "type": "string", "const": "auto" }, "spawn": { "type": "string", "const": "on" }, "swarm": { "type": "string" } } }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "enum": [ "note", "compact" ] }, "handoffAt": { "type": "string" }, "jobs": { "type": "string", "enum": [ "on", "off" ] }, "lsp": { "type": "string", "enum": [ "on", "off", "custom" ] }, "maxEffort": { "$ref": "#/definitions/Effort" }, "media": { "type": "string" }, "onQuota": { "type": "string" }, "outputStyle": { "type": "string" }, "permissions": { "type": "object", "required": [ "allow", "deny", "unlock" ], "properties": { "allow": { "type": "array", "items": { "type": "string" } }, "deny": { "type": "array", "items": { "type": "string" } }, "unlock": { "type": "array", "items": { "$ref": "#/definitions/Guard" } } } }, "planOverlap": { "type": "string" }, "planWhen": { "type": "string" }, "privacy": { "$ref": "#/definitions/PrivacyLevel" }, "promptSuggestions": { "type": "string", "enum": [ "on", "off" ] }, "roles": { "type": "object", "properties": { "advisor": { "type": "string" }, "classifier": { "type": "string" }, "code": { "type": "string" }, "complete": { "type": "string" }, "plan": { "type": "string" }, "review": { "type": "string" }, "swarm": { "type": "string" }, "triage": { "type": "string" }, "workers": { "type": "string" } } }, "sandbox": { "type": "object", "required": [ "allowedDomains" ], "properties": { "allowedDomains": { "type": "array", "items": { "type": "string" } }, "mode": { "$ref": "#/definitions/SandboxSetting" } } }, "spawn": { "type": "string", "enum": [ "on", "off", "worktree" ] }, "subthreadEffort": { "$ref": "#/definitions/Effort" } } } ``` </details>
+ * ```json { "type": "object", "required": [ "choices", "defaults", "fallback", "permissions", "roles", "sandbox" ], "properties": { "choices": { "type": "object", "required": [ "guards", "outputStyles" ], "properties": { "guards": { "type": "array", "items": { "$ref": "#/definitions/Guard" } }, "outputStyles": { "type": "array", "items": { "type": "string" } } } }, "context": { "type": "string" }, "defaults": { "type": "object", "required": [ "code", "fallback", "handoff", "lsp", "media", "onQuota", "outputStyle", "planOverlap", "planWhen", "privacy", "sandboxDomains", "sandboxMode", "spawn", "swarm" ], "properties": { "code": { "type": "string" }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "const": "compact" }, "lsp": { "type": "string", "const": "on" }, "media": { "type": "string" }, "onQuota": { "type": "string", "const": "fallback" }, "outputStyle": { "type": "string", "const": "default" }, "planOverlap": { "type": "string", "const": "on" }, "planWhen": { "type": "string", "const": "auto" }, "privacy": { "type": "string", "const": "no-training" }, "sandboxDomains": { "type": "array", "items": { "type": "string" } }, "sandboxMode": { "type": "string", "const": "auto" }, "spawn": { "type": "string", "const": "on" }, "swarm": { "type": "string" } } }, "dream": { "type": "string", "enum": [ "on", "off" ] }, "fallback": { "type": "object", "additionalProperties": { "type": "string" } }, "handoff": { "type": "string", "enum": [ "note", "compact" ] }, "handoffAt": { "type": "string" }, "jobs": { "type": "string", "enum": [ "on", "off" ] }, "lsp": { "type": "string", "enum": [ "on", "off", "custom" ] }, "maxEffort": { "$ref": "#/definitions/Effort" }, "media": { "type": "string" }, "onQuota": { "type": "string" }, "outputStyle": { "type": "string" }, "permissions": { "type": "object", "required": [ "allow", "deny", "unlock" ], "properties": { "allow": { "type": "array", "items": { "type": "string" } }, "deny": { "type": "array", "items": { "type": "string" } }, "unlock": { "type": "array", "items": { "$ref": "#/definitions/Guard" } } } }, "planOverlap": { "type": "string" }, "planWhen": { "type": "string" }, "privacy": { "$ref": "#/definitions/PrivacyLevel" }, "promptSuggestions": { "type": "string", "enum": [ "on", "off" ] }, "roles": { "type": "object", "properties": { "advisor": { "type": "string" }, "classifier": { "type": "string" }, "code": { "type": "string" }, "complete": { "type": "string" }, "plan": { "type": "string" }, "review": { "type": "string" }, "swarm": { "type": "string" }, "triage": { "type": "string" }, "workers": { "type": "string" } } }, "sandbox": { "type": "object", "required": [ "allowedDomains" ], "properties": { "allowedDomains": { "type": "array", "items": { "type": "string" } }, "mode": { "$ref": "#/definitions/SandboxSetting" } } }, "spawn": { "type": "string", "enum": [ "on", "off", "worktree" ] }, "subthreadEffort": { "$ref": "#/definitions/Effort" } } } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "EditableSettings".
@@ -2327,6 +2379,7 @@ export interface EditableSettings {
   choices: EditableSettingsChoices;
   context?: string | null;
   defaults: EditableSettingsDefaults;
+  dream?: EditableSettingsDream | null;
   fallback: {
     [k: string]: string | undefined;
   };

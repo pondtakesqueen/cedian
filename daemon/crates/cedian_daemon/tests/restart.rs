@@ -114,6 +114,7 @@ fn a_new_daemon_follows_a_run_the_old_one_started() {
             effort: None,
             helpers: Default::default(),
             images: Vec::new(),
+            cold_resume: None,
         },
     )
     .expect("prompt");

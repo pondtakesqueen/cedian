@@ -365,3 +365,8 @@
 ::highlight(cedian-find) { background-color: color-mix(in srgb, var(--cedian-accent) 28%, transparent); }
 ::highlight(cedian-find-current) { background-color: var(--cedian-accent); color: var(--cedian-on-accent, #fff); }
 .cedian-agent-pane .thread-card .model { color: var(--cedian-text-muted); white-space: nowrap; }
+
+/* The cold-cache question over the composer (pane.ts coldBanner): the two prices and three answers. */
+.cedian-agent-pane .cold { background: var(--cedian-sheet); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--cedian-accent); }
+.cedian-agent-pane .cold .held { color: var(--cedian-text-muted); }
+.cedian-agent-pane .cold .row { display: flex; gap: 6px; flex-wrap: wrap; }

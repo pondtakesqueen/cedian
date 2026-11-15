@@ -7,8 +7,8 @@ use cedian_agent::Block;
 use cedian_index::{MemoryNote, Output};
 use cedian_protocol::{
     CommandEntry, CommitDraft, Committed, Completion, EditableSettings, InlineEdit, McpCheck,
-    McpList, ModelList, PermissionList, PrOpened, PrPlan, Rating, Restored, RewindResult, Schedule,
-    UsageReport, VersionInfo,
+    McpList, ModelList, PermissionList, PrOpened, PrPlan, Rating, Restored, ResumeCost,
+    RewindResult, Schedule, UsageReport, VersionInfo,
 };
 use cedian_review::Review;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -63,6 +63,21 @@ pub enum Request {
         /// file needs to last only until then.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         images: Vec<PathBuf>,
+        /// The person's answer to `Notice::ResumeCost` (`cedia --cold-resume`): `keep` goes on
+        /// with the thread's whole context, `fresh` in a new session from where it stopped;
+        /// none lets cedia take the cheaper.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cold_resume: Option<String>,
+    },
+    /// What `thread`'s next prompt costs with its whole context and from a new session
+    /// (`cedia threads resume-cost`), asked before a prompt goes to a thread at rest and
+    /// answered with `Notice::ResumeCost` when this cedia offers `threads.resume-cost`.
+    ResumeCost {
+        cwd: PathBuf,
+        thread: String,
+        /// The model the prompt would run on, when the person picked one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
     },
     /// The `/` commands a run in the project can take (`cedia commands`), answered with
     /// `Notice::Commands` when this cedia lists them.
@@ -579,6 +594,13 @@ pub enum Notice {
         thread: String,
         result: Committed,
     },
+    /// The answer to `Request::ResumeCost`: both prices, and whether they differ enough to ask
+    /// the person (`cost.ask`). None when the next prompt opens a new session whatever they
+    /// say, or this cedia cannot tell: the window then just sends.
+    ResumeCost {
+        thread: String,
+        cost: Option<ResumeCost>,
+    },
     /// The answer to `Request::PrCheck`.
     PrPlan {
         thread: String,
@@ -739,6 +761,7 @@ mod tests {
             effort: None,
             helpers: Helpers::default(),
             images: Vec::new(),
+            cold_resume: None,
         };
         let mut buffer = Vec::new();
         write_message(&mut buffer, &request).expect("write");
