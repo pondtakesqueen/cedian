@@ -170,6 +170,8 @@ export function modelPicker(doc: Document, p: PickerProps): HTMLElement {
     };
     track.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
+      // A press drags the knob; it does not leave a dot with the focus ring.
+      e.preventDefault();
       dragging = true;
       track.classList.add("dragging");
       track.setPointerCapture?.(e.pointerId);
