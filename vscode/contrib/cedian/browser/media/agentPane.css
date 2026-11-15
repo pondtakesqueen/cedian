@@ -85,7 +85,7 @@
 .cedian-settings { display: flex; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
 .cedian-settings .nav { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-right: 1px solid var(--cedian-line); min-width: 140px; }
 .cedian-settings .nav .tab { text-align: left; background: transparent; border-color: transparent; }
-.cedian-settings .nav .tab.on { background: var(--cedian-accent); }
+.cedian-settings .nav .tab.on { background: var(--cedian-accent-text); }
 .cedian-agent-pane input[type="checkbox"], .cedian-settings input[type="checkbox"] { accent-color: var(--cedian-accent); }
 .cedian-settings .body { flex: 1 1 auto; overflow-y: auto; padding: 16px 24px; }
 .cedian-settings .section { max-width: 640px; display: flex; flex-direction: column; gap: 10px; }
@@ -303,6 +303,15 @@
 .cedian-agent-pane > .dock .composer { border-radius: 18px; background: color-mix(in srgb, var(--cedian-raised) 74%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 10px 30px rgba(0, 0, 0, .14); }
 .cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 10px 30px rgba(0, 0, 0, .14); }
 .cedian-agent-pane > .dock .send { border-radius: 10px; }
+/* Synara's composer (github.com/Emanuele-web04/synara, MIT): one rounded field with no box
+   inside it, a soft spread shadow instead of a drop, capsule hovers on the chips, and round
+   attach and send buttons. The colours stay Warm & Lime. */
+.cedian-agent-pane > .dock .composer { border-radius: 20px; padding: 12px 8px 8px 10px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 4px 18px -6px rgb(0 0 0 / 12%); }
+.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 4px 18px -6px rgb(0 0 0 / 12%); }
+.cedian-agent-pane .composer .input, .cedian-agent-pane .composer .input:focus { box-shadow: none; border-radius: 0; padding: 0 6px; }
+.cedian-agent-pane .composer .pill, .cedian-agent-pane .composer .chip.check, .cedian-agent-pane .composer .ib { border-radius: 999px; }
+.cedian-agent-pane .composer .ib.attach { width: 28px; height: 28px; margin-right: 2px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
+.cedian-agent-pane > .dock .send, .cedian-agent-pane .send { width: 28px; height: 28px; border-radius: 999px; }
 @media (prefers-reduced-transparency: reduce) {
   .cedian-agent-pane > .dock .composer { background: var(--cedian-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
@@ -363,10 +372,19 @@
 .cedian-agent-pane .find .query { width: 180px; background: transparent; border: 0; outline: 0; color: inherit; font: inherit; }
 .cedian-agent-pane .find .count { min-width: 56px; text-align: right; color: var(--cedian-text-muted); }
 ::highlight(cedian-find) { background-color: color-mix(in srgb, var(--cedian-accent) 28%, transparent); }
-::highlight(cedian-find-current) { background-color: var(--cedian-accent); color: var(--cedian-on-accent, #fff); }
+::highlight(cedian-find-current) { background-color: var(--cedian-accent-text); color: var(--cedian-app); }
 .cedian-agent-pane .thread-card .model { color: var(--cedian-text-muted); white-space: nowrap; }
 
 /* The cold-cache question over the composer (pane.ts coldBanner): the two prices and three answers. */
 .cedian-agent-pane .cold { background: var(--cedian-sheet); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--cedian-accent); }
 .cedian-agent-pane .cold .held { color: var(--cedian-text-muted); }
 .cedian-agent-pane .cold .row { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Synara's edited-files card (github.com/Emanuele-web04/synara, MIT): "Edited N files" over its
+   line counts, the actions on the right, each file a row under a hairline. */
+.cedian-agent-pane .card.review { gap: 0; padding: 0; overflow: hidden; }
+.cedian-agent-pane .card.review > .row:first-child { flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; }
+.cedian-agent-pane .card.review > .row:first-child > .sp { flex: 1 1 0; }
+.cedian-agent-pane .card.review .edited { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.cedian-agent-pane .card.review .edited .counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.cedian-agent-pane .card.review > .file { padding: 7px 12px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .card.review > .file:hover { background: var(--cedian-hover); }

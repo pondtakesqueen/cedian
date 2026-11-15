@@ -321,8 +321,8 @@
 .monaco-workbench .cedian-tool-strip-item.close { color: var(--cedian-text-faint, var(--vscode-descriptionForeground)); }
 .monaco-workbench .cedian-tool-strip-item:hover,
 .monaco-workbench .cedian-tool-strip-item:focus-visible {
-	background: var(--cedian-accent, var(--vscode-focusBorder));
-	color: var(--cedian-frame, #151412);
+	background: var(--cedian-accent-text, var(--vscode-focusBorder));
+	color: var(--cedian-app, var(--vscode-button-foreground));
 	outline: none;
 }
 
@@ -365,7 +365,7 @@
 .cedian-project-tabs .cedian-project-add:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
 .cedian-project-tabs .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cedian-project-tabs .count { flex: none; font-size: 11px; font-weight: 600; line-height: 16px; }
-.cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; text-align: center; background: var(--cedian-accent, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }
+.cedian-project-tabs .count.needs { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; text-align: center; background: var(--cedian-accent-text, var(--vscode-badge-background)); color: var(--cedian-app, var(--vscode-badge-foreground)); }
 .cedian-project-tabs .count.working { display: inline-flex; align-items: center; gap: 4px; color: var(--cedian-working, var(--vscode-progressBar-background)); }
 .cedian-project-tabs .count.working::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .monaco-workbench.monaco-enable-motion .cedian-project-tabs .count.working::before { animation: cedian-pulse 1.4s ease-in-out infinite; will-change: opacity; }

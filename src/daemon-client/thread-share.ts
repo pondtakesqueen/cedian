@@ -34,7 +34,11 @@ export class ThreadShare {
         this.wire.request({ op: "close", thread });
       }
     };
+    const share = this.wire;
     return {
+      get welcome() {
+        return share.welcome;
+      },
       request: (request) => {
         if (request.op === "open") {
           if (!mine.has(request.thread)) {
