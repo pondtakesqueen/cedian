@@ -68,6 +68,8 @@ export interface PaneHost {
    */
   sideChat?(from: SideSource, text?: string): void;
   openUrl(url: string): void;
+  /** Shows the PR panel beside the agent (Synara's PR panel), which follows this thread. */
+  openPrPanel?(): void;
   /**
    * Whether to archive a thread whose worktree has uncommitted changes in `files`, which go when
    * the worktree is removed after archive. Without it the pane says so inline and archives nothing.
@@ -468,6 +470,12 @@ export class AgentPane {
     this.reviewOpen = !this.reviewOpen;
     if (this.reviewOpen && this.state.thread && this.state.review) this.host.openReview(this.state.thread, this.cwd, this.state.review);
     this.render();
+  }
+
+  /** The PR panel's Open diff: this thread's own diff when it has one, else GitHub's. */
+  openPrDiff(thread: string, view: PrView): void {
+    if (this.state.thread === thread && this.state.review?.files.length) this.host.openReview(thread, this.cwd, this.state.review);
+    else this.host.openUrl(`${view.url}/files`);
   }
 
   /** Opens one of the chips' menus, for Cmd+Shift+M, I and E. */
@@ -1427,6 +1435,7 @@ export class AgentPane {
         this.render();
       },
       openUrl: (url) => this.host.openUrl(url),
+      ...(this.host.openPrPanel ? { openPanel: () => this.host.openPrPanel?.() } : {}),
       // The thread's own diff when it has one; else GitHub's, since this thread did not write it.
       openDiff: () => (this.state.review?.files.length ? this.host.openReview(thread, this.cwd, this.state.review) : this.host.openUrl(`${view.url}/files`)),
       redraw: () => this.render(),

@@ -23,6 +23,8 @@ import { ISCMService, ISCMViewService } from '../../scm/common/scm.js';
 import type { PaneHost } from './agent-pane/pane.js';
 import { ICedianReviewService } from './review.js';
 import { showRepository } from './sourceControl.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { PR_CONTAINER } from './blocks/places.js';
 
 /** Videos cedia takes on `--image` and shows as frames. */
 const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi'];
@@ -51,6 +53,7 @@ export function createPaneHost(accessor: ServicesAccessor, folder: IWorkspaceFol
 	const scm = accessor.get(ISCMService);
 	const scmView = accessor.get(ISCMViewService);
 	const dialogs = accessor.get(IDialogService);
+	const views = accessor.get(IViewsService);
 	// A review that can't open says so in a notification (spec §8.4: transient).
 	const reviewFailed = (e: unknown) => notifications.warn(`Couldn't open the review: ${e instanceof Error ? e.message : e}`);
 	return {
@@ -87,6 +90,7 @@ export function createPaneHost(accessor: ServicesAccessor, folder: IWorkspaceFol
 		float: place.float,
 		sideChat: (from, text) => { commands.executeCommand('cedian.sideChat', from, text); },
 		openUrl: url => { openerService.open(URI.parse(url)); },
+		openPrPanel: () => { views.openViewContainer(PR_CONTAINER, true).catch(() => { }); },
 		// The git pane follows the open thread; a folder git can't open just leaves it where it was.
 		showRepository: path => { showRepository(commands, scm, scmView, path).catch(() => { }); },
 		openSourceControl: path => {

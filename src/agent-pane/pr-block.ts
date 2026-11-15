@@ -26,6 +26,8 @@ export interface PrHandlers {
   fix(text: string): void;
   openUrl(url: string): void;
   openDiff(): void;
+  /** Shows the PR in the panel beside the agent, when the window has one. */
+  openPanel?(): void;
   redraw(): void;
 }
 
@@ -86,6 +88,7 @@ export function prBlock(d: Document, v: PrView, ui: PrUi, h: PrHandlers): HTMLEl
   // Head: state, number and title, branch and size, reviewers and labels.
   const head = el(d, "div", "row");
   head.append(el(d, "span", `tag pr-${v.draft ? "draft" : v.state}`, v.draft ? "Draft" : v.state[0]!.toUpperCase() + v.state.slice(1)), el(d, "span", "ell grow", `#${v.number} ${v.title}`), button(d, "GitHub ↗", () => h.openUrl(v.url), "link small"));
+  if (h.openPanel) head.append(button(d, "Panel", () => h.openPanel?.(), "link small"));
   card.append(head, el(d, "div", "small m", `${v.head} → ${v.base} · ${v.commits} ${v.commits === 1 ? "commit" : "commits"} · +${v.additions} −${v.deletions}`));
   const people = el(d, "div", "row small wrap");
   for (const r of v.reviewers) people.append(el(d, "span", "tag", `${r.login} · ${r.state ? r.state.replace("_", " ") : "waiting"}`));

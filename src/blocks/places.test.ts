@@ -33,8 +33,8 @@ describe("where the window's parts go (the prototype's layout)", () => {
 });
 
 describe("the title bar's + Tool menu", () => {
-  test("opens every part the window places: the tools, the Browser, Run and Debug, Extensions, then the agent and Threads", () => {
-    expect(TOOL_PICKS.map((t) => t.label)).toEqual(["Files", "Search", "Git", "Terminal", "Browser", "Run and Debug", "Extensions", "Agent", "Threads"]);
+  test("opens every part the window places: the tools, the Browser, the PR panel, Run and Debug, Extensions, then the agent and Threads", () => {
+    expect(TOOL_PICKS.map((t) => t.label)).toEqual(["Files", "Search", "Git", "Terminal", "Browser", "Pull request", "Run and Debug", "Extensions", "Agent", "Threads"]);
     const containers = TOOL_PICKS.flatMap((t) => ("container" in t.open ? [t.open.container] : []));
     for (const p of PLACES) if (p.container !== VSCODE_CHAT) expect(containers).toContain(p.container);
   });
