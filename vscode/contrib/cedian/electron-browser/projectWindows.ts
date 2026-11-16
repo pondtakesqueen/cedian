@@ -3,7 +3,9 @@
  *  Cedian's workbench contribution. Not part of VS Code; script/vscode/prepare copies it in.
  *--------------------------------------------------------------------------------------------*/
 
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -78,3 +80,35 @@ CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor
 	const report = phases.report();
 	logPhases(log, { ...report, what: warm ? 'tab switch (kept window)' : 'tab switch (new window)' });
 });
+
+/**
+ * On launch VS Code restores every project window open last time, each on screen; only the one
+ * that ends up in front stays shown, as a switch leaves it, and that one hides the others. A window brought forward later (Mission
+ * Control, Cmd+`) shows again (hideWindow, patch 0021).
+ */
+class CedianOneProjectWindow extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.cedian.oneProjectWindow';
+
+	constructor(@INativeHostService native: INativeHostService, @ILogService log: ILogService) {
+		super();
+		const timer = setTimeout(async () => {
+			const windows = (await native.getWindows({ includeAuxiliaryWindows: false })).filter(w => w.workspace && isSingleFolderWorkspaceIdentifier(w.workspace));
+			// The one in front; with the app not in front (launched from a script), the one VS Code
+			// restored last, which is the one that was in front when the app quit.
+			const active = await native.getActiveWindowId();
+			const keep = active !== undefined && windows.some(w => w.id === active) ? active : Math.max(...windows.map(w => w.id));
+			log.info(`[cedian windows] this ${native.windowId}, active ${active}, keep ${keep}, project windows ${windows.map(w => w.id).join(',')}`);
+			// The kept one hides the rest: a window behind others is occluded, and its timers may
+			// never run to hide itself.
+			if (windows.length > 1 && keep === native.windowId) {
+				for (const w of windows) {
+					if (w.id !== keep) {
+						await native.hideWindow({ targetWindowId: w.id });
+					}
+				}
+			}
+		}, 2500);
+		this._register({ dispose: () => clearTimeout(timer) });
+	}
+}
+registerWorkbenchContribution2(CedianOneProjectWindow.ID, CedianOneProjectWindow, WorkbenchPhase.AfterRestored);

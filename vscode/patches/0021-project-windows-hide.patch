@@ -7,7 +7,7 @@ diff --git a/src/vs/platform/native/common/native.ts b/src/vs/platform/native/co
  	positionWindow(position: IRectangle, options?: INativeHostOptions): Promise<void>;
 +	/** Cedian: takes a window off the screen without closing it (a project tab not shown, kept loaded). */
 +	hideWindow(options?: INativeHostOptions): Promise<void>;
-+	/** Cedian: puts a hidden window back on the screen. */
++	/** Cedian: puts a window hideWindow took off back on the screen. */
 +	showWindow(options?: INativeHostOptions): Promise<void>;
  
  	isWindowAlwaysOnTop(options?: INativeHostOptions): Promise<boolean>;
@@ -15,21 +15,42 @@ diff --git a/src/vs/platform/native/common/native.ts b/src/vs/platform/native/co
 diff --git a/src/vs/platform/native/electron-main/nativeHostMainService.ts b/src/vs/platform/native/electron-main/nativeHostMainService.ts
 --- a/src/vs/platform/native/electron-main/nativeHostMainService.ts
 +++ b/src/vs/platform/native/electron-main/nativeHostMainService.ts
-@@ -446,6 +446,14 @@
- 	async setWindowAlwaysOnTop(windowId: number | undefined, alwaysOnTop: boolean, options?: INativeHostOptions): Promise<void> {
- 		const window = this.windowById(options?.targetWindowId, windowId);
+@@ -448,6 +448,35 @@
  		window?.win?.setAlwaysOnTop(alwaysOnTop);
-+	}
-+
+ 	}
+ 
++	// Cedian: a project window not shown stays ordered in, clear and passing clicks through, rather
++	// than ordered out: macOS plays its window-opening animation (a pop) each time an ordered-out
++	// window comes back, which a project tab switch must not show. One brought forward some other
++	// way (Mission Control, Cmd+`) shows again.
 +	async hideWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
-+		this.windowById(options?.targetWindowId, windowId)?.win?.hide();
++		const win = this.windowById(options?.targetWindowId, windowId)?.win;
++		if (win) {
++			win.setOpacity(0);
++			win.setIgnoreMouseEvents(true);
++			win.once('focus', () => {
++				if (!win.isDestroyed()) {
++					win.setIgnoreMouseEvents(false);
++					win.setOpacity(1);
++				}
++			});
++		}
 +	}
 +
 +	async showWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
-+		this.windowById(options?.targetWindowId, windowId)?.win?.show();
- 	}
- 
++		const win = this.windowById(options?.targetWindowId, windowId)?.win;
++		if (win) {
++			win.setIgnoreMouseEvents(false);
++			win.setOpacity(1);
++			if (!win.isVisible()) {
++				win.showInactive();
++			}
++		}
++	}
++
  	async positionWindow(windowId: number | undefined, position: IRectangle, options?: INativeHostOptions): Promise<void> {
+ 		const window = this.windowById(options?.targetWindowId, windowId);
+ 		if (window?.win) {
 diff --git a/src/vs/workbench/test/electron-browser/workbenchTestServices.ts b/src/vs/workbench/test/electron-browser/workbenchTestServices.ts
 --- a/src/vs/workbench/test/electron-browser/workbenchTestServices.ts
 +++ b/src/vs/workbench/test/electron-browser/workbenchTestServices.ts

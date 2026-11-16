@@ -101,6 +101,9 @@ export function vscodeSettings(desktop: Desktop, systemDark: boolean): Record<st
     // A project tab opens a project that has no window in a new one (projectWindows.ts), which
     // stands where this one does, so the switch reads as one window changing projects.
     "window.newWindowDimensions": "inherit",
+    // A project's window opens on its agent, not VS Code's Welcome page, which flashed as a
+    // project tab opened one.
+    "workbench.startupEditor": "none",
     "workbench.layoutControl.enabled": false,
     "workbench.colorCustomizations": {
       // Unkeyed, the appearance showing now: VS Code paints a placeholder theme of its own
