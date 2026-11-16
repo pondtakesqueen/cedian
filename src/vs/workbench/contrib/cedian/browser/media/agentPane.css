@@ -1,0 +1,459 @@
+/* The agent pane and Cedian's settings window, after the prototype (design/cedian-prototype.html),
+   drawn with the Warm & Lime --cedian-* properties the desktop contribution lays over the window.
+   Thai text keeps line-height 1.6 (spec §9 Accessibility). */
+.cedian-agent-pane { container: agent-pane / inline-size; display: flex; flex-direction: column; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
+.cedian-agent-pane .conn { padding: 4px 12px; font-size: 12px; color: var(--cedian-warn); background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); }
+.cedian-agent-pane .log { flex: 1 1 auto; overflow-y: auto; padding: 8px 0; }
+.cedian-agent-pane .empty { padding: 24px 16px; color: var(--cedian-text-muted); text-align: center; }
+.cedian-agent-pane .conv { padding: 8px 16px 12px; }
+.cedian-agent-pane .col { display: flex; flex-direction: column; gap: var(--cedian-gap, 12px); max-width: 680px; margin: 0 auto; }
+.cedian-agent-pane .ans { overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane .ans.streaming::after { content: '▍'; color: var(--cedian-accent); }
+.cedian-agent-pane .sdiv { text-align: center; color: var(--cedian-text-faint); font-size: 11px; }
+.cedian-agent-pane .m { font-family: var(--cedian-font-code); font-size: var(--cedian-code-size, 12px); }
+.cedian-agent-pane .small { color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-agent-pane .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cedian-agent-pane .ti.bad, .cedian-agent-pane .bad { color: var(--cedian-failed); }
+.cedian-agent-pane .warn { color: var(--cedian-warn); }
+.cedian-agent-pane .ok { color: var(--cedian-diff-add); }
+.cedian-agent-pane .row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.cedian-agent-pane .card { max-width: 680px; margin: 8px auto 0; width: calc(100% - 32px); box-sizing: border-box; border-radius: 12px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.cedian-agent-pane .card .q { font-weight: 600; }
+.cedian-agent-pane .card.threads { gap: 0; padding: 4px 12px; }
+.cedian-agent-pane .thread-card { padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .thread-card + .thread-card { border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .thread-card .row { display: flex; align-items: center; gap: 8px; }
+.cedian-agent-pane .thread-card .title { flex: 1; min-width: 0; font-weight: 600; }
+.cedian-agent-pane .thread-card.st-asking { box-shadow: inset 2px 0 0 var(--cedian-accent); padding-left: 8px; }
+.cedian-agent-pane .thread-card.archived .title { font-weight: 400; color: var(--cedian-text-muted); }
+.cedian-agent-pane .chip.pr { font-variant-numeric: tabular-nums; }
+.cedian-agent-pane .chip.pr-bad { color: var(--cedian-failed); }
+.cedian-agent-pane .chip.pr-ok { color: var(--cedian-diff-add); }
+.cedian-agent-pane .chip.pr-wait, .cedian-agent-pane .chip.pr-done { color: var(--cedian-text-muted); }
+.cedian-agent-pane .thread-card .step { color: var(--cedian-text-muted); }
+.cedian-agent-pane .steps { list-style: none; margin: 0; padding: 0; }
+.cedian-agent-pane .file { display: flex; gap: 8px; align-items: center; }
+.cedian-agent-pane .file .link { flex: 1 1 auto; text-align: left; }
+.cedian-agent-pane .finding > .link, .cedian-agent-pane .finding > .ell { flex: 1 1 auto; text-align: left; }
+.cedian-agent-pane .finding.dismissed > * { opacity: .55; }
+.cedian-agent-pane .finding.dismissed > .btn { opacity: 1; }
+.cedian-agent-pane .finding.current { box-shadow: inset 2px 0 0 var(--cedian-accent, currentColor); padding-left: 6px; }
+.cedian-agent-pane .error { max-width: 680px; margin: 8px auto 0; padding: 0 16px; white-space: pre-wrap; }
+.cedian-agent-pane .queue { padding: 0 12px; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .queue:empty { display: none; }
+.cedian-agent-pane .queued { background: var(--cedian-sheet); border-radius: 8px; padding: 4px 8px; }
+.cedian-agent-pane .queued .ell { flex: 1 1 auto; }
+.cedian-agent-pane .composer { position: relative; margin: 8px 12px 12px; border-radius: 12px; background: var(--cedian-field); box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus); }
+.cedian-agent-pane .composer .input { resize: none; border: 0; outline: none; background: transparent; color: inherit; font: inherit; line-height: var(--cedian-line-height, 1.6); }
+.cedian-agent-pane .composer > .row { justify-content: space-between; }
+.cedian-agent-pane .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.cedian-agent-pane .chip { font: inherit; font-size: 12px; color: var(--cedian-text-muted); background: var(--cedian-raised); border: 1px solid var(--cedian-line); border-radius: 999px; padding: 1px 8px; max-width: 180px; }
+.cedian-agent-pane .chip.check { display: inline-flex; align-items: center; gap: 4px; }
+.cedian-agent-pane .popup:empty { display: none; }
+.cedian-agent-pane .popup { position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 4px; background: var(--cedian-raised); border-radius: 12px; box-shadow: 0 0 0 1px var(--cedian-line-strong); max-height: 240px; overflow-y: auto; z-index: 10; }
+.cedian-agent-pane .popup .opt { display: flex; gap: 8px; padding: 4px 10px; cursor: pointer; }
+.cedian-agent-pane .popup .opt.on { background: var(--cedian-sel); }
+.cedian-agent-pane .attachments { display: flex; flex-wrap: wrap; gap: 4px; }
+.cedian-agent-pane .attachments:empty { display: none; }
+.cedian-agent-pane .tag, .cedian-settings .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 0 6px; border-radius: 8px; background: var(--cedian-raised); color: var(--cedian-text-muted); }
+.cedian-agent-pane .btn, .cedian-settings .btn, .cedian-settings .tab { font: inherit; font-size: 12px; color: var(--cedian-text); background: var(--cedian-raised); border: 1px solid var(--cedian-line); border-radius: 8px; padding: 2px 10px; cursor: pointer; }
+.cedian-agent-pane .btn:hover, .cedian-settings .btn:hover { background: var(--cedian-hover); }
+/* A fill under text takes accent.text with the app colour on it: lime with ink in dark, black with near white in light. */
+.cedian-agent-pane .btn.primary, .cedian-settings .tab.on { background: var(--cedian-accent-text); color: var(--cedian-app); border-color: transparent; }
+.cedian-agent-pane .btn.danger, .cedian-settings .btn.danger { color: var(--cedian-failed); }
+.cedian-agent-pane .btn.small { padding: 0 6px; }
+.cedian-agent-pane .comments .comment-resolved { opacity: 0.6; }
+.cedian-agent-pane .comments .file > .state { white-space: nowrap; }
+.cedian-agent-pane .link { font: inherit; background: none; border: 0; padding: 0; color: var(--cedian-working); cursor: pointer; }
+.cedian-agent-pane .x { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; }
+.cedian-agent-pane .sel, .cedian-settings .sel, .cedian-settings .input { font: inherit; font-size: 12px; color: var(--cedian-text); background: var(--cedian-field); border: 1px solid var(--cedian-line); border-radius: 8px; padding: 2px 6px; }
+.cedian-agent-pane .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cedian-text-faint); flex: none; }
+.cedian-agent-pane .dot.st-working, .cedian-agent-pane .dot.st-queued { background: var(--cedian-working); }
+.cedian-agent-pane .dot.st-done { background: var(--cedian-accent); }
+.cedian-agent-pane .dot.st-failed, .cedian-agent-pane .dot.st-interrupted { background: var(--cedian-failed); }
+.cedian-agent-pane .dot.st-asking { background: var(--cedian-warn); }
+.cedian-agent-pane .dot.st-none { display: none; }
+.cedian-agent-pane .ring { width: 16px; height: 16px; flex: none; }
+.cedian-agent-pane .ring circle { fill: none; stroke-width: 2.5; }
+.cedian-agent-pane .ring .track { stroke: var(--cedian-line-strong); }
+.cedian-agent-pane .ring .arc { stroke: var(--cedian-text-muted); }
+.cedian-agent-pane .ring.high .arc { stroke: var(--cedian-warn); }
+.cedian-agent-pane :focus-visible, .cedian-settings :focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane *, .cedian-settings * { animation: none !important; transition: none !important; } }
+
+.cedian-settings { display: flex; height: 100%; font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); background: var(--cedian-app); }
+.cedian-settings .nav { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-right: 1px solid var(--cedian-line); min-width: 140px; }
+.cedian-settings .nav .tab { text-align: left; background: transparent; border-color: transparent; }
+.cedian-settings .nav .tab.on { background: var(--cedian-accent-text); }
+.cedian-agent-pane input[type="checkbox"], .cedian-settings input[type="checkbox"] { accent-color: var(--cedian-accent); }
+.cedian-settings .body { flex: 1 1 auto; overflow-y: auto; padding: 16px 24px; }
+.cedian-settings .section { max-width: 640px; display: flex; flex-direction: column; gap: 10px; }
+.cedian-settings h2 { font-size: 18px; margin: 0 0 8px; }
+.cedian-settings h3 { font-size: 13px; font-weight: 600; margin: 12px 0 0; color: var(--cedian-text-muted); }
+.cedian-settings .combo .input { width: 260px; }
+.cedian-settings .area { width: 260px; resize: vertical; }
+.cedian-settings .checks { display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px; }
+.cedian-settings .checks .tag { cursor: pointer; }
+.cedian-settings .row { display: flex; gap: 12px; align-items: center; }
+.cedian-settings .row .label { min-width: 160px; }
+.cedian-settings .small { color: var(--cedian-text-muted); font-size: 12px; }
+.cedian-settings .bad { color: var(--cedian-failed); }
+.cedian-settings .m { font-family: var(--cedian-font-code); }
+.cedian-settings .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cedian-settings .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cedian-settings .item { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: var(--cedian-sheet); }
+.cedian-settings .item.off { color: var(--cedian-text-faint); }
+.cedian-settings .form { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: var(--cedian-sheet); }
+.cedian-settings .keys td { padding: 2px 16px 2px 0; }
+/* The PR block (spec §11 Phase D). */
+.cedian-agent-pane .grow { flex: 1 1 auto; min-width: 0; }
+.cedian-agent-pane .row.wrap { flex-wrap: wrap; }
+.cedian-agent-pane .pr-block .tag.pr-open { background: color-mix(in srgb, var(--cedian-diff-add) 16%, transparent); color: var(--cedian-diff-add); }
+.cedian-agent-pane .pr-block .tag.pr-merged { background: var(--cedian-accent-soft, var(--cedian-raised)); color: var(--cedian-accent-text); }
+.cedian-agent-pane .pr-block .tabs { gap: 2px; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .pr-block .tab { font: inherit; font-size: 12.5px; color: var(--cedian-text-muted); background: none; border: none; padding: 6px 8px; cursor: pointer; }
+.cedian-agent-pane .pr-block .tab.on { color: var(--cedian-text); box-shadow: inset 0 -2px 0 var(--cedian-accent); }
+.cedian-agent-pane .pr-thread { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--cedian-line); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .pr-thread.resolved { opacity: .7; }
+.cedian-agent-pane .pr-block .hunk, .cedian-agent-pane .pr-block .log { margin: 0; white-space: pre-wrap; overflow-x: auto; background: var(--cedian-code, var(--cedian-raised)); border-radius: 8px; padding: 4px 8px; }
+.cedian-agent-pane .pr-block .log { max-height: 240px; overflow-y: auto; }
+.cedian-agent-pane .pr-merge { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; box-shadow: inset 0 1px 0 var(--cedian-line); }
+.cedian-agent-pane .pr-list .tabs { gap: 2px; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .pr-list .tab { font: inherit; font-size: 12.5px; color: var(--cedian-text-muted); background: none; border: none; padding: 6px 8px; cursor: pointer; }
+.cedian-agent-pane .pr-list .tab.on { color: var(--cedian-text); box-shadow: inset 0 -2px 0 var(--cedian-accent); }
+.cedian-agent-pane .pr-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .issues .tabs { gap: 2px; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .issues .tab { font: inherit; font-size: 12.5px; color: var(--cedian-text-muted); background: none; border: none; padding: 6px 8px; cursor: pointer; }
+.cedian-agent-pane .issues .tab.on { color: var(--cedian-text); box-shadow: inset 0 -2px 0 var(--cedian-accent); }
+.cedian-agent-pane .issue-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; box-shadow: inset 0 -1px 0 var(--cedian-line); }
+.cedian-agent-pane .issue, .cedian-agent-pane .issue-new { display: flex; flex-direction: column; gap: 8px; }
+.cedian-agent-pane .tag.issue-open { color: var(--cedian-accent); }
+.cedian-agent-pane .btn:disabled { opacity: 0.45; cursor: default; }
+
+/* The header and the composer (design/agent-panel mockup, round 2). Two header rows of fixed
+   height, so resizing never moves the log; what does not fit folds away by the pane's width. */
+.cedian-agent-pane .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cedian-agent-pane svg.i { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.cedian-agent-pane svg.i-stop { fill: currentColor; stroke: none; }
+.cedian-agent-pane svg.i-chevron { width: 11px; height: 11px; color: var(--cedian-text-faint); pointer-events: none; }
+.cedian-agent-pane > .head { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 8px 12px 6px; border-bottom: 1px solid var(--cedian-line); }
+.cedian-agent-pane > .head .r1 { display: flex; align-items: center; gap: 4px; min-width: 0; height: 30px; }
+.cedian-agent-pane > .head .r2 { display: flex; align-items: center; gap: 10px; min-width: 0; height: 22px; color: var(--cedian-text-faint); font-size: 12px; }
+.cedian-agent-pane > .head .sp { flex: 1 1 0; min-width: 0; }
+.cedian-agent-pane > .head .picker { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; margin-left: -8px; padding-right: 8px; border-radius: 8px; cursor: pointer; }
+.cedian-agent-pane > .head .picker:hover { background: var(--cedian-sel); }
+.cedian-agent-pane > .head .picker .threads { appearance: none; flex: 0 1 auto; min-width: 0; max-width: 100%; field-sizing: content; background: transparent; border: 0; color: var(--cedian-text); font: inherit; font-size: 14px; font-weight: 600; padding: 3px 0 3px 8px; text-overflow: ellipsis; cursor: pointer; box-shadow: none; border-radius: 0; }
+.cedian-agent-pane > .head .picker .threads option, .cedian-agent-pane > .head .picker .threads optgroup { font-weight: 400; color: var(--cedian-text); background: var(--cedian-raised); }
+.cedian-agent-pane > .head .side-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+.cedian-agent-pane > .head .status { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; line-height: 20px; padding: 0 8px 0 7px; border-radius: 999px; white-space: nowrap; color: var(--cedian-text-muted); background: var(--cedian-field); }
+.cedian-agent-pane > .head .status .dot { width: 6px; height: 6px; }
+.cedian-agent-pane > .head .status.st-working, .cedian-agent-pane > .head .status.st-queued { color: var(--cedian-working); background: color-mix(in srgb, var(--cedian-working) 12%, transparent); }
+.cedian-agent-pane > .head .status.st-done { color: var(--cedian-accent-text); background: color-mix(in srgb, var(--cedian-accent) 10%, transparent); }
+.cedian-agent-pane > .head .status.st-failed, .cedian-agent-pane > .head .status.st-interrupted { color: var(--cedian-failed); background: color-mix(in srgb, var(--cedian-failed) 10%, transparent); }
+.cedian-agent-pane > .head .status.st-asking { color: var(--cedian-warn); background: color-mix(in srgb, var(--cedian-warn) 12%, transparent); }
+.cedian-agent-pane > .head .status.st-working .dot { animation: cedian-pulse 1.4s ease-in-out infinite; }
+@keyframes cedian-pulse { 50% { opacity: .35; } }
+.cedian-agent-pane .ib { flex: none; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--cedian-text-muted); cursor: pointer; }
+.cedian-agent-pane .ib:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-agent-pane > .head .meta { flex: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; min-width: 0; }
+.cedian-agent-pane > .head .chip { font: inherit; font-size: 12px; height: 22px; display: inline-flex; align-items: center; gap: 5px; padding: 0 5px; margin: 0 -5px; max-width: none; border: 0; border-radius: 8px; background: transparent; color: var(--cedian-text-faint); cursor: pointer; white-space: nowrap; }
+.cedian-agent-pane > .head .chip:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+/* The branch gives way first: the PR and the context say more about where the thread stands. */
+.cedian-agent-pane > .head .chip.git { flex: 0 1000 auto; min-width: 64px; font-family: var(--cedian-font-code); }
+.cedian-agent-pane > .head .chip .l { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cedian-agent-pane > .head .chip.pr { flex: 0 1 auto; display: block; min-width: 0; line-height: 22px; overflow: hidden; text-overflow: ellipsis; }
+.cedian-agent-pane > .head .chip.pr-ok { color: var(--cedian-diff-add); }
+.cedian-agent-pane > .head .chip.pr-bad { color: var(--cedian-failed); }
+.cedian-agent-pane > .head .chip.view { margin-right: -5px; }
+.cedian-agent-pane > .head .ring { width: 14px; height: 14px; }
+.cedian-agent-pane > .head .ring circle { stroke-width: 2.4; }
+.cedian-agent-pane .composer { flex: none; background: var(--cedian-raised); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 1px 2px rgb(0 0 0 / 5%); padding: 10px 10px 8px 12px; gap: 8px; min-width: 0; }
+.cedian-agent-pane .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 1px 2px rgb(0 0 0 / 5%); }
+.cedian-agent-pane .composer > .row { gap: 2px; height: 30px; }
+.cedian-agent-pane .composer .chips { flex: 1 1 auto; flex-wrap: nowrap; align-items: center; gap: 2px; overflow: hidden; }
+.cedian-agent-pane .composer .chips > .sp { flex: 1 1 0; min-width: 0; }
+.cedian-agent-pane .pill { flex: none; position: relative; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 7px; min-width: 0; border-radius: 8px; color: var(--cedian-text-muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.cedian-agent-pane .pill:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-agent-pane .pill.model, .cedian-agent-pane .pill.permission { flex: 0 1 auto; }
+/* In a narrow pane the effort chip gives way first, so the model and the permission keep their
+   names: before, "effort: default" stayed whole while the model shrank to "Opu…" at 360 px. Its
+   default reads as the level alone ("effort" when cedia names none), as a picked level does. */
+.cedian-agent-pane .pill.effort { flex: 0 100 auto; }
+.cedian-agent-pane .pill select { appearance: none; field-sizing: content; min-width: 0; max-width: 160px; background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-overflow: ellipsis; cursor: pointer; }
+.cedian-agent-pane .pill select:focus-visible { outline: none; }
+.cedian-agent-pane .pill:has(select:focus-visible) { outline: 2px solid var(--cedian-accent); outline-offset: 1px; }
+.cedian-agent-pane .composer .chip.check { flex: none; height: 26px; padding: 0 7px; border: 0; border-radius: 8px; background: transparent; }
+.cedian-agent-pane .send { flex: none; width: 30px; height: 30px; margin-left: 2px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: var(--cedian-accent-text); color: var(--cedian-app); cursor: pointer; }
+.cedian-agent-pane .send svg.i { stroke-width: 2.2; }
+.cedian-agent-pane .send.idle { background: var(--cedian-field); color: var(--cedian-text-faint); }
+.cedian-agent-pane .send.stop { background: var(--cedian-text); color: var(--cedian-app); }
+@container agent-pane (max-width: 420px) {
+  .cedian-agent-pane > .head .chip.view .l { display: none; }
+  .cedian-agent-pane .pill.effort svg.i-chevron, .cedian-agent-pane .pill.permission svg.i-chevron { display: none; }
+}
+@container agent-pane (max-width: 360px) {
+  .cedian-agent-pane > .head .status .l { display: none; }
+  .cedian-agent-pane > .head .status { padding: 7px; }
+  .cedian-agent-pane > .head .cost { display: none; }
+  .cedian-agent-pane .pill select { max-width: 96px; }
+}
+/* Narrower than the three names fit: the model, effort and permission pills are their icons alone,
+   so all three stay. The native select stays over the whole pill, so a click or the keyboard
+   opens it as before; the pill's hover says what each is set to. */
+@container agent-pane (max-width: 380px) {
+  .cedian-agent-pane .composer .pill:not(.merged):has(> svg.i + select) { width: 28px; padding: 0; justify-content: center; }
+  .cedian-agent-pane .composer .pill:not(.merged):has(> svg.i + select) > select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
+  .cedian-agent-pane .composer .pill:not(.merged):has(> svg.i + select) > svg.i-chevron { display: none; }
+}
+@container agent-pane (max-width: 300px) {
+  .cedian-agent-pane > .head .ctx .l { display: none; }
+  .cedian-agent-pane .composer { margin: 6px 8px 8px; }
+}
+
+/* The conversation (design/agent-panel mockup, round 2): a run of tools is a card with its state
+   as an icon, a receipt puts its stats under the verdict, cedia's question marks its recommended
+   answer, and the plan shows how far it is. Yellow stays to the question's left edge. */
+.cedian-agent-pane .ubub { align-self: flex-end; max-width: min(84%, 560px); background: color-mix(in srgb, var(--cedian-text) 6%, var(--cedian-app)); border-radius: 12px; padding: 8px 14px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.cedian-agent-pane details > summary { list-style: none; cursor: pointer; }
+.cedian-agent-pane details > summary::-webkit-details-marker { display: none; }
+.cedian-agent-pane .think > summary { display: flex; align-items: center; gap: 6px; color: var(--cedian-text-faint); font-size: 12.5px; }
+.cedian-agent-pane .thinkbody { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--cedian-text-muted); font-size: 12.5px; border-left: 2px dashed var(--cedian-line-strong); padding-left: 12px; }
+.cedian-agent-pane .tools { border-radius: 12px; background: var(--cedian-sheet); box-shadow: inset 0 0 0 1px var(--cedian-line); }
+.cedian-agent-pane .tools.fail { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cedian-failed) 40%, transparent); }
+.cedian-agent-pane .tline { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 10px; color: var(--cedian-text-muted); font-size: 12.5px; border-radius: 12px; }
+.cedian-agent-pane .tline:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .tline > .ell { flex: 1 1 auto; }
+.cedian-agent-pane .tline .side { flex: none; color: var(--cedian-text-faint); font-size: 11.5px; }
+.cedian-agent-pane .ic.ok, .cedian-agent-pane .st.ok, .cedian-agent-pane .ti .st { color: var(--cedian-diff-add); }
+.cedian-agent-pane .ic.bad, .cedian-agent-pane .st.bad, .cedian-agent-pane .ti.bad .st { color: var(--cedian-failed); }
+.cedian-agent-pane .ic.run, .cedian-agent-pane .ti.run .st { color: var(--cedian-working); }
+@keyframes cedian-spin { to { transform: rotate(360deg); } }
+.cedian-agent-pane .tlist { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .ti { display: grid; grid-template-columns: 15px 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 2px 10px; color: var(--cedian-text-muted); }
+.cedian-agent-pane .ti .n { color: var(--cedian-text); overflow: hidden; text-overflow: ellipsis; }
+.cedian-agent-pane .ti.bad .n { color: var(--cedian-failed); }
+.cedian-agent-pane .ti .k { color: var(--cedian-text-faint); font-size: 11.5px; }
+.cedian-agent-pane .fail-out { margin: 2px 10px 8px 33px; padding: 6px 8px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--cedian-failed); background: color-mix(in srgb, var(--cedian-failed) 8%, transparent); }
+.cedian-agent-pane .receipt { border-radius: 12px; background: var(--cedian-raised); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cedian-accent) 55%, transparent); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .receipt.unv { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); }
+.cedian-agent-pane .receipt .rhead { min-width: 0; }
+.cedian-agent-pane .receipt .verdict { flex: 1 1 auto; font-weight: 500; }
+.cedian-agent-pane .vbadge, .cedian-agent-pane .ubadge { flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 11.5px; line-height: 20px; padding: 0 8px; border-radius: 999px; }
+.cedian-agent-pane .vbadge { font-weight: 600; padding-left: 7px; background: var(--cedian-accent-text); color: var(--cedian-app); }
+.cedian-agent-pane .ubadge { box-shadow: inset 0 0 0 1px var(--cedian-line-strong); color: var(--cedian-text-muted); }
+.cedian-agent-pane .receipt .stats { color: var(--cedian-text-faint); font-size: 11.5px; overflow-wrap: anywhere; }
+.cedian-agent-pane .receipt .checks { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .receipt .check { color: var(--cedian-text-muted); }
+.cedian-agent-pane .receipt .check > .ell { flex: 1 1 auto; }
+.cedian-agent-pane .receipt .check > .small { flex: none; color: var(--cedian-text-faint); }
+.cedian-agent-pane .card .ch { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cedian-agent-pane .card .ch .t { flex: 1 1 auto; font-weight: 500; }
+.cedian-agent-pane .card .ch .n { flex: none; color: var(--cedian-text-faint); font-size: 12px; }
+.cedian-agent-pane .todo .bar { height: 4px; border-radius: 2px; background: var(--cedian-field); overflow: hidden; }
+.cedian-agent-pane .todo .bar i { display: block; height: 100%; background: var(--cedian-accent); transition: width .2s ease; }
+.cedian-agent-pane .todo .step { display: flex; gap: 8px; align-items: flex-start; color: var(--cedian-text-muted); }
+.cedian-agent-pane .todo .step .mark { flex: none; display: flex; padding-top: 3px; color: var(--cedian-text-faint); }
+.cedian-agent-pane .todo .step .t { min-width: 0; overflow-wrap: anywhere; }
+.cedian-agent-pane .todo .step.done { color: var(--cedian-text-faint); }
+.cedian-agent-pane .todo .step.done .mark { color: var(--cedian-diff-add); }
+.cedian-agent-pane .todo .step.doing { color: var(--cedian-text); }
+.cedian-agent-pane .todo .step.doing .mark { color: var(--cedian-working); }
+/* cedia's question stands out by a lift, not by colour: the pane has one at most, so its shadow costs nothing. */
+.cedian-agent-pane .card.ask { background: var(--cedian-raised); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cedian-text) 20%, transparent), 0 4px 14px rgba(0, 0, 0, .1); gap: 8px; }
+.cedian-agent-pane .card.ask .lab { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; color: var(--cedian-text-muted); }
+.cedian-agent-pane .card.ask .lab svg { color: var(--cedian-accent-text); }
+.cedian-agent-pane .card.ask .q { font-weight: 500; overflow-wrap: anywhere; }
+.cedian-agent-pane .card.ask .opts { display: flex; flex-direction: column; gap: 4px; }
+.cedian-agent-pane .card.ask .opt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit; color: var(--cedian-text); background: transparent; border: 0; border-radius: 8px; padding: 6px 10px; box-shadow: inset 0 0 0 1px var(--cedian-line-strong); cursor: pointer; overflow-wrap: anywhere; }
+.cedian-agent-pane .card.ask .opt:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .card.ask .opt.rec { background: color-mix(in srgb, var(--cedian-accent) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cedian-accent) 55%, transparent); }
+.cedian-agent-pane .card.ask .opt .rtag { margin-left: auto; flex: none; font-size: 11px; color: var(--cedian-accent-text); }
+@container agent-pane (max-width: 360px) {
+  .cedian-agent-pane .ti { grid-template-columns: 15px 38px minmax(0, 1fr); }
+  .cedian-agent-pane .ti .k { display: none; }
+  .cedian-agent-pane .fail-out { margin-left: 10px; }
+}
+/* The conversation's marks are text glyphs on one span each: no SVG nodes, masks or rotated
+   boxes. A 10k-block thread draws tens of thousands of them, and test/smoke/scroll.mjs dropped
+   30 of 600 frames with masks and over 200 with rotated borders, against 2 on main. */
+.cedian-agent-pane .mk { flex: none; display: inline-block; width: 15px; text-align: center; font: 600 12px/15px var(--cedian-font-ui, system-ui), sans-serif; }
+.cedian-agent-pane .mk-check::before, .cedian-agent-pane .vbadge::before { content: "\2713"; }
+.cedian-agent-pane .mk-close::before { content: "\2715"; }
+.cedian-agent-pane .mk-spinner { width: 11px; height: 11px; margin: 0 2px; box-sizing: border-box; border: 1.8px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: cedian-spin 1s linear infinite; }
+.cedian-agent-pane .step.doing .mark svg { animation: cedian-spin 1s linear infinite; }
+.cedian-agent-pane details > summary::after, .cedian-agent-pane .think > summary::before { content: "\203A"; flex: none; width: 12px; text-align: center; color: var(--cedian-text-faint); font-size: 15px; line-height: 1; }
+.cedian-agent-pane .think > summary::after { content: none; }
+.cedian-agent-pane details[open] > summary::after, .cedian-agent-pane .think[open] > summary::before { content: "\2304"; font-size: 12px; }
+.cedian-agent-pane .vbadge::before { font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane .mk-spinner, .cedian-agent-pane .step.doing .mark svg { animation: none; } }
+
+/* Option D of the design/agent-panel glass round: the header's rule gives way to a soft edge (a
+   fade laid over the log's top), and the queue and composer float over the log's end in the dock,
+   the composer as the pane's one piece of glass. The fades are painted strips, not a mask on the
+   log: a mask cost 15 to 50 of 600 scroll frames in test/smoke/scroll.mjs, the strips none.
+   Concentric corners: composer 18 = send 10 + 8. */
+.cedian-agent-pane { position: relative; }
+.cedian-agent-pane > .head { position: relative; z-index: 2; border-bottom: 0; }
+.cedian-agent-pane > .head::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; pointer-events: none; background: linear-gradient(var(--cedian-app), color-mix(in srgb, var(--cedian-app) 0%, transparent)); }
+.cedian-agent-pane > .log { padding: 14px 0 calc(var(--dock-h, 0px) + 8px); }
+.cedian-agent-pane > .dock::after { content: ""; position: absolute; z-index: -1; left: 0; right: 0; bottom: 0; height: 14px; background: var(--cedian-app); }
+.cedian-agent-pane > .dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none; }
+.cedian-agent-pane > .dock > * { pointer-events: auto; }
+.cedian-agent-pane > .dock .composer { border-radius: 12px; background: color-mix(in srgb, var(--cedian-raised) 74%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7); box-shadow: inset 0 0 0 1px var(--cedian-line-strong), 0 10px 30px rgba(0, 0, 0, .14); }
+.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 10px 30px rgba(0, 0, 0, .14); }
+.cedian-agent-pane > .dock .send { border-radius: 999px; }
+/* Synara's composer (github.com/Emanuele-web04/synara, MIT): one rounded field a step lighter than
+   the pane, a hairline and a soft spread shadow, no box inside it; a bare +, the permission (in the
+   warning colour when it may write anywhere), the model and effort as plain text with chevrons,
+   and a round send, grey until there is something to send. */
+.cedian-agent-pane > .dock .composer { border-radius: 12px; padding: 12px 8px 8px 8px; background: color-mix(in srgb, var(--cedian-raised) 60%, transparent); box-shadow: inset 0 0 0 1px var(--cedian-line), 0 4px 18px -6px rgb(0 0 0 / 10%); }
+.cedian-agent-pane > .dock .composer:focus-within { box-shadow: inset 0 0 0 1px var(--cedian-composer-focus), 0 4px 18px -6px rgb(0 0 0 / 10%); }
+.cedian-agent-pane .composer .input, .cedian-agent-pane .composer .input:focus { box-shadow: none; border-radius: 0; padding: 0 8px; background: transparent; }
+.cedian-agent-pane .composer .input::placeholder { color: color-mix(in srgb, var(--cedian-text-faint) 75%, transparent); }
+.cedian-agent-pane .composer .pill, .cedian-agent-pane .composer .chip.check, .cedian-agent-pane .composer .ib { border-radius: 999px; }
+.cedian-agent-pane .composer .pill { color: var(--cedian-text-muted); }
+.cedian-agent-pane .composer .pill.wide { color: var(--cedian-warn); }
+.cedian-agent-pane .composer .ib.attach { width: 28px; height: 28px; color: var(--cedian-text); }
+.cedian-agent-pane .composer .ib.attach svg.i { width: 17px; height: 17px; stroke-width: 1.6; }
+.cedian-agent-pane > .dock .send, .cedian-agent-pane .send { width: 28px; height: 28px; border-radius: 999px; }
+.cedian-agent-pane .send.idle { background: color-mix(in srgb, var(--cedian-text) 28%, transparent); color: var(--cedian-raised); }
+@media (prefers-reduced-transparency: reduce) {
+  .cedian-agent-pane > .dock .composer { background: var(--cedian-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* The remaining cards (design/agent-panel round 3: review, line comments, code review, commit,
+   Git, PR block, Pull requests, Issues), in the conversation cards' language: a button keeps its
+   label on one line and a crowded row wraps its actions instead (test/smoke cards sweep from
+   280 px found buttons leaving the pane); fields are drawn as fields; tabs are a segmented
+   control; file and finding names read as text, not as blue links; what blocks a merge is one
+   row of toned chips. */
+.cedian-agent-pane .btn, .cedian-agent-pane .link { white-space: nowrap; }
+.cedian-agent-pane .btn { line-height: 20px; }
+.cedian-agent-pane .btn.small { line-height: 18px; padding: 1px 8px; font-size: 11.5px; }
+.cedian-agent-pane .link { text-align: left; }
+.cedian-agent-pane .card > .row:first-child { flex-wrap: wrap; row-gap: 6px; }
+.cedian-agent-pane .card > .row:first-child > span:first-child { font-weight: 500; }
+.cedian-agent-pane .card > .btn { align-self: flex-start; }
+.cedian-agent-pane .card.ship:not(:has(textarea)) { flex-direction: row; flex-wrap: wrap; align-items: center; }
+/* A file, comment or finding row stays one line: its name gives way (ellipsis) to its counts and
+   actions, which never wrap one by one under it. */
+.cedian-agent-pane .card .file { display: grid; grid-auto-flow: column; grid-template-columns: minmax(0, 1fr); grid-auto-columns: max-content; align-items: center; gap: 8px; min-width: 0; padding: 2px 0; }
+.cedian-agent-pane .card.comments .file { grid-template-columns: minmax(0, 40%) minmax(0, 1fr); }
+.cedian-agent-pane .card .file > .link { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--cedian-text); }
+.cedian-agent-pane .card .file > .link:hover, .cedian-agent-pane .issue-row .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.cedian-agent-pane .code-review .finding.current > .link { color: var(--cedian-accent-text); }
+.cedian-agent-pane .code-review .finding.dismissed > * { opacity: .55; }
+.cedian-agent-pane .code-review > .m.small { margin-top: 4px; color: var(--cedian-text-faint); }
+.cedian-agent-pane .input, .cedian-agent-pane .sel { font: inherit; font-size: 12.5px; color: var(--cedian-text); background: var(--cedian-field); border: 0; border-radius: 8px; padding: 4px 8px; box-shadow: inset 0 0 0 1px var(--cedian-line); min-width: 0; }
+.cedian-agent-pane textarea.input { resize: vertical; line-height: var(--cedian-line-height, 1.6); }
+.cedian-agent-pane .input::placeholder { color: var(--cedian-text-faint); }
+.cedian-agent-pane .input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--cedian-accent); }
+/* The composer's focus is one quiet line on its card, as a focused block's tab is a step darker:
+   not the lime ring twice over (the card's, and the field's own inside it). The field inside the
+   card draws none; the card's line is the text colour at 40%, clear in light and dark. */
+.cedian-agent-pane { --cedian-composer-focus: color-mix(in srgb, var(--cedian-text) 40%, transparent); }
+.cedian-agent-pane .composer .input:focus { box-shadow: none; }
+.cedian-agent-pane .card .tabs { flex-wrap: wrap; gap: 2px; align-self: flex-start; max-width: 100%; padding: 2px; border-radius: 8px; background: var(--cedian-field); box-shadow: none; }
+.cedian-agent-pane .card .tabs .tab { font: inherit; font-size: 12px; line-height: 20px; color: var(--cedian-text-muted); background: none; border: 0; border-radius: 8px; padding: 1px 10px; white-space: nowrap; cursor: pointer; box-shadow: none; }
+.cedian-agent-pane .card .tabs .tab:hover { color: var(--cedian-text); }
+.cedian-agent-pane .card .tabs .tab.on { color: var(--cedian-text); background: var(--cedian-raised); box-shadow: 0 0 0 1px var(--cedian-line), 0 1px 2px rgba(0, 0, 0, .06); }
+.cedian-agent-pane .pr-row:last-child, .cedian-agent-pane .issue-row:last-child { box-shadow: none; }
+.cedian-agent-pane .issue-row .link, .cedian-agent-pane .pr-row .link { color: var(--cedian-text); font-weight: 500; }
+.cedian-agent-pane .card .tag { box-shadow: inset 0 0 0 1px var(--cedian-line); }
+.cedian-agent-pane .pr-thread { background: var(--cedian-raised); }
+.cedian-agent-pane .blockers { display: flex; flex-wrap: wrap; gap: 4px; }
+.cedian-agent-pane .blk { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; line-height: 20px; padding: 0 8px; border-radius: 999px; color: var(--cedian-text-muted); background: var(--cedian-field); }
+.cedian-agent-pane .blk::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cedian-text-faint); }
+.cedian-agent-pane .blk.bad { color: var(--cedian-failed); background: color-mix(in srgb, var(--cedian-failed) 10%, transparent); }
+.cedian-agent-pane .blk.bad::before { background: var(--cedian-failed); }
+.cedian-agent-pane .blk.run { color: var(--cedian-working); background: color-mix(in srgb, var(--cedian-working) 10%, transparent); }
+.cedian-agent-pane .blk.run::before { background: var(--cedian-working); }
+.cedian-agent-pane .card > .row:first-child > .grow { flex-basis: 8em; }
+.cedian-agent-pane .card > .row:first-child > .btn:first-of-type:not(:first-child) { margin-left: auto; }
+
+/* Find in thread (⌘F): a bar over the log's top right; the matches are CSS highlights (find.ts). */
+.cedian-agent-pane { position: relative; }
+.cedian-agent-pane .find { position: absolute; top: 44px; right: 12px; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: var(--cedian-sheet); border: 1px solid var(--cedian-line); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); }
+.cedian-agent-pane .find .query { width: 180px; background: transparent; border: 0; outline: 0; color: inherit; font: inherit; }
+.cedian-agent-pane .find .count { min-width: 56px; text-align: right; color: var(--cedian-text-muted); }
+::highlight(cedian-find) { background-color: color-mix(in srgb, var(--cedian-accent) 28%, transparent); }
+::highlight(cedian-find-current) { background-color: var(--cedian-accent-text); color: var(--cedian-app); }
+.cedian-agent-pane .thread-card .model { color: var(--cedian-text-muted); white-space: nowrap; }
+
+/* The cold-cache question over the composer (pane.ts coldBanner): the two prices and three answers. */
+.cedian-agent-pane .cold { background: var(--cedian-sheet); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--cedian-accent); }
+.cedian-agent-pane .cold .held { color: var(--cedian-text-muted); }
+.cedian-agent-pane .cold .row { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Synara's edited-files card (github.com/Emanuele-web04/synara, MIT), for the latest turn (.turn,
+   with Undo) and the thread's review (.review): "Edited N files" over its line counts, the actions
+   on the right, each file a row under a hairline. */
+.cedian-agent-pane :is(.card.review, .card.turn) { gap: 0; padding: 0; overflow: hidden; }
+.cedian-agent-pane :is(.card.review, .card.turn) > .row:first-child { flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; }
+.cedian-agent-pane :is(.card.review, .card.turn) > .row:first-child > .sp { flex: 1 1 0; }
+.cedian-agent-pane :is(.card.review, .card.turn) .edited { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.cedian-agent-pane :is(.card.review, .card.turn) .edited .counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.cedian-agent-pane :is(.card.review, .card.turn) > .file { padding: 7px 12px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane :is(.card.review, .card.turn) > .file:hover { background: var(--cedian-hover); }
+.cedian-agent-pane .card.turn.undone .edited > span:first-child { color: var(--cedian-text-muted); }
+.cedian-agent-pane .card.turn > .small.warn { padding: 6px 12px 10px; }
+/* The model and its effort as one chip (Synara's model picker): the bolt sits between them, the
+   effort in the muted colour; under 380 px the model's name gives way and the effort stays. */
+.cedian-agent-pane .composer .pill.merged { gap: 3px; }
+.cedian-agent-pane .composer .pill.merged > svg.i-bolt { margin-left: 4px; width: 13px; height: 13px; }
+.cedian-agent-pane .composer .pill.merged > select[data-chip="effort"] { color: var(--cedian-text-faint); }
+@container agent-pane (max-width: 380px) {
+  .cedian-agent-pane .composer .pill.merged > select[data-chip="model"] { max-width: 64px; }
+}
+/* The model picker (model-picker.ts), after Synara's: the chip opens a panel over the composer's
+   right end; the native selects inside the chip only take the menu keys. */
+.cedian-agent-pane .composer .pill.model { cursor: pointer; }
+.cedian-agent-pane .composer .pill.model > select { pointer-events: none; }
+.cedian-agent-pane .model-picker { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 20; width: 300px; max-width: calc(100% - 16px); display: flex; flex-direction: column; border-radius: 12px; background: var(--cedian-raised); box-shadow: 0 0 0 1px var(--cedian-line), 0 12px 32px -8px rgb(0 0 0 / 22%); overflow: hidden; font-size: 13px; }
+.cedian-agent-pane .model-picker .mp-search { display: flex; align-items: center; gap: 6px; margin: 6px; padding: 0 8px; height: 30px; border-radius: 8px; background: var(--cedian-hover); color: var(--cedian-text-faint); }
+.cedian-agent-pane .model-picker .mp-search svg.i { width: 14px; height: 14px; flex: none; }
+.cedian-agent-pane .model-picker .mp-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; color: var(--cedian-text); font: inherit; }
+.cedian-agent-pane .model-picker .mp-search input::placeholder { color: var(--cedian-text-faint); }
+.cedian-agent-pane .model-picker .mp-list { max-height: min(320px, 50vh); overflow-y: auto; padding: 0 6px 6px; }
+.cedian-agent-pane .model-picker .mp-group { padding: 8px 8px 3px; color: var(--cedian-text-muted); font-size: 11.5px; }
+.cedian-agent-pane .model-picker .mp-row { display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--cedian-text); font: inherit; text-align: left; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-row:hover:not(:disabled), .cedian-agent-pane .model-picker .mp-row.on { background: var(--cedian-sel); }
+.cedian-agent-pane .model-picker .mp-row:disabled { color: var(--cedian-text-faint); cursor: default; }
+.cedian-agent-pane .model-picker .mp-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cedian-agent-pane .model-picker .mp-key { flex: none; color: var(--cedian-text-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cedian-agent-pane .model-picker .mp-row svg.i-check { flex: none; width: 14px; height: 14px; }
+.cedian-agent-pane .model-picker .mp-empty { padding: 12px 8px; color: var(--cedian-text-muted); }
+.cedian-agent-pane .model-picker .mp-tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--cedian-line); overflow-x: auto; scrollbar-width: none; }
+.cedian-agent-pane .model-picker .mp-tabs::-webkit-scrollbar { display: none; }
+.cedian-agent-pane .model-picker .mp-tab { flex: none; height: 28px; padding: 0 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-tab:hover { color: var(--cedian-text); }
+.cedian-agent-pane .model-picker .mp-tab.on { color: var(--cedian-text); border-bottom-color: var(--cedian-warn); }
+.cedian-agent-pane .model-picker .mp-effort { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--cedian-line); }
+.cedian-agent-pane .model-picker .mp-effort-head { position: relative; display: flex; justify-content: center; align-items: center; height: 20px; }
+.cedian-agent-pane .model-picker .mp-effort-label { color: var(--cedian-warn); font-weight: 500; }
+.cedian-agent-pane .model-picker .mp-reset { position: absolute; right: 0; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--cedian-text-faint); cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-reset:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-agent-pane .model-picker .mp-reset svg.i { width: 13px; height: 13px; }
+.cedian-agent-pane .model-picker .mp-track { position: relative; display: flex; justify-content: space-between; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 14%, transparent); }
+.cedian-agent-pane .model-picker .mp-track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(27px + (100% - 36px) * var(--mp-f, 0)); border-radius: 999px; background: var(--cedian-warn); transition: width .18s cubic-bezier(.22, 1.1, .36, 1); }
+.cedian-agent-pane .model-picker .mp-knob { position: absolute; z-index: 2; top: -1px; left: calc(5px + (100% - 36px) * var(--mp-f, 0)); width: 26px; height: 26px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgb(0 0 0 / 25%), 0 0 0 0.5px rgb(0 0 0 / 10%); pointer-events: none; transition: left .18s cubic-bezier(.22, 1.1, .36, 1); }
+.cedian-agent-pane .model-picker .mp-track { cursor: grab; touch-action: none; }
+.cedian-agent-pane .model-picker .mp-track.dragging { cursor: grabbing; }
+.cedian-agent-pane .model-picker .mp-dot:focus:not(:focus-visible) { outline: none; }
+@media (prefers-reduced-motion: reduce) { .cedian-agent-pane .model-picker .mp-track::before, .cedian-agent-pane .model-picker .mp-knob { transition: none; } }
+.cedian-agent-pane .model-picker .mp-dot { position: relative; z-index: 1; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 999px; background: transparent; cursor: pointer; }
+.cedian-agent-pane .model-picker .mp-dot::after { content: ""; width: 4px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--cedian-text) 35%, transparent); }
+.cedian-agent-pane .model-picker .mp-dot.in::after { background: color-mix(in srgb, var(--cedian-app) 75%, transparent); }
+/* Synara's send: the text colour filled, round, the page colour arrow; grey until there is text. */
+.cedian-agent-pane .send:not(.idle):not(.stop) { background: var(--cedian-text); color: var(--cedian-app); }
+/* A narrow composer keeps the permission and the effort whole; the model's name is what gives
+   way (the audit found "May …" and "medi…" at 380 px while the model kept its full name). */
+.cedian-agent-pane .composer .pill.permission { flex: none; }
+.cedian-agent-pane .composer .pill.merged > select[data-chip="effort"] { flex: none; }
+.cedian-agent-pane .composer .pill.merged > select[data-chip="model"] { flex: 0 1 auto; min-width: 24px; }
+/* The thread's title is one quiet control, as the tabs above it are: the title and its chevron
+   inside one fill that shows on hover, with the tab's 7 px corners; no edge of its own (it drew
+   the field's inset line before, a box around the title alone with the chevron left outside). */
+.cedian-agent-pane > .head .picker:focus-within { background: var(--cedian-sel); }
+.cedian-agent-pane > .head .picker .threads:focus-visible { outline: none; }
+.cedian-agent-pane > .head .r1 > .picker { margin-right: auto; }

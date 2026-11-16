@@ -1,0 +1,58 @@
+/* The block layer (src/blocks/layer.ts): blocks floating over the editor area as PiPs, after Tern's
+   (spec §3.3, §4.4). The layer covers the editor area and lets clicks through; each floating block
+   is a card with a header to drag it by. Moves glide unless Reduce Motion is on (spec §9 a11y). */
+.cedian-block-frame { position: relative; }
+/* Clipped, not hidden: an overflow:hidden box still scrolls when something in it takes focus, so a
+   block expanded and focused (the agent's composer at its bottom) slid its own header out of sight
+   until the card had grown. `clip` never scrolls. */
+.cedian-blocks { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: clip; }
+.cedian-pip { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; pointer-events: auto; border-radius: 12px; overflow: clip; background: var(--cedian-app); box-shadow: 0 0 0 1px var(--cedian-line-strong), 0 12px 32px rgba(0, 0, 0, .28); font-family: var(--cedian-font-ui); font-size: var(--cedian-ui-size, 13px); line-height: var(--cedian-line-height, 1.6); color: var(--cedian-text); }
+/* Only while the window moves: VS Code takes monaco-enable-motion off for the OS's reduced motion and
+   for workbench.reduceMotion alike, as every other block's motion is gated (motion.ts moving()). */
+.monaco-workbench.monaco-enable-motion .cedian-pip { transition: transform var(--cedian-motion-open, 180ms) var(--cedian-ease-open, ease-out), width var(--cedian-motion-open, 180ms) var(--cedian-ease-open, ease-out), height var(--cedian-motion-open, 180ms) var(--cedian-ease-open, ease-out); }
+.monaco-workbench .cedian-pip.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 1px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }
+.cedian-pip [hidden] { display: none !important; }
+.cedian-pip .pip-head { flex: none; display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 12px; background: var(--cedian-sheet); border-bottom: 1px solid var(--cedian-line); cursor: grab; user-select: none; touch-action: none; }
+.cedian-pip .pip-head:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+/* A side chat reads as a margin note: dashed, so it is not taken for the thread itself. */
+.cedian-pip[data-kind="side"] { outline: 1px dashed var(--cedian-line); outline-offset: -1px; }
+.cedian-pip .pip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 12px; }
+.cedian-pip .ibtn { flex: none; min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; color: var(--cedian-text-muted); font: inherit; }
+.cedian-pip .ibtn:hover { background: var(--cedian-hover); color: var(--cedian-text); }
+.cedian-pip .ibtn[aria-pressed="true"] { background: var(--cedian-line-strong); color: var(--cedian-text); }
+.cedian-pip .ibtn:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+.cedian-pip .pip-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: clip; }
+.cedian-pip.stashed .pip-body, .cedian-pip.stashed .pip-head { visibility: hidden; }
+/* Stashed: the strip left in the frame is a tab that brings the block back. */
+.cedian-pip .pip-tab { position: absolute; top: 0; bottom: 0; width: 28px; border: 0; padding: 0; cursor: pointer; background: var(--cedian-sheet); color: var(--cedian-text-muted); }
+.cedian-pip .pip-tab::after { content: ""; position: absolute; top: 50%; left: 12px; width: 4px; height: 36px; margin-top: -18px; border-radius: 2px; background: var(--cedian-line-strong); }
+.cedian-pip .pip-tab:hover::after, .cedian-pip .pip-tab:focus-visible::after { background: var(--cedian-accent); }
+.cedian-pip .pip-tab:focus-visible { outline: 2px solid var(--cedian-accent); outline-offset: -2px; }
+.cedian-pip[data-stash="left"] .pip-tab { right: 0; }
+.cedian-pip[data-stash="right"] .pip-tab { left: 0; }
+/* The block inside fills the body; the Browser block keeps its own corners square here. */
+.cedian-pip .pip-body > * { position: absolute; inset: 0; }
+/* Resize grips on the edges toward the frame's middle: the corner the block rests in stays put. */
+.cedian-pip .pip-grip { position: absolute; z-index: 2; touch-action: none; }
+.cedian-pip .g-x { top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cedian-pip .g-y { left: 0; right: 0; height: 6px; cursor: ns-resize; }
+.cedian-pip .g-xy { width: 14px; height: 14px; }
+.cedian-pip[data-corner$="r"] .g-x, .cedian-pip[data-corner$="r"] .g-xy { left: 0; }
+.cedian-pip[data-corner$="l"] .g-x, .cedian-pip[data-corner$="l"] .g-xy { right: 0; }
+.cedian-pip[data-corner^="b"] .g-y, .cedian-pip[data-corner^="b"] .g-xy { top: 0; }
+.cedian-pip[data-corner^="t"] .g-y, .cedian-pip[data-corner^="t"] .g-xy { bottom: 0; }
+.cedian-pip[data-corner="br"] .g-xy, .cedian-pip[data-corner="tl"] .g-xy { cursor: nwse-resize; }
+.cedian-pip[data-corner="bl"] .g-xy, .cedian-pip[data-corner="tr"] .g-xy { cursor: nesw-resize; }
+.cedian-pip.zoomed .pip-grip, .cedian-pip.stashed .pip-grip { display: none; }
+.monaco-workbench .cedian-pip.resizing { transition: none; }
+.cedian-pip.resizing .pip-body { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .cedian-pip { transition: none; } }
+/* Fanned (Tern's deck of PiPs): every block a card across the middle over a dimmed frame; a click
+   on a card brings it back, a click beside them folds the fan. Cards scale from their top left. */
+.cedian-blocks > .pip-scrim { position: absolute; inset: 0; z-index: 0; pointer-events: auto; background: rgba(0, 0, 0, .22); }
+.cedian-blocks > .pip-scrim[hidden] { display: none; }
+.cedian-blocks.fanned .cedian-pip { transform-origin: 0 0; cursor: pointer; }
+.cedian-blocks.fanned .cedian-pip .pip-head { cursor: pointer; }
+.cedian-blocks.fanned .cedian-pip .pip-body { pointer-events: none; }
+.cedian-blocks.fanned .cedian-pip .pip-grip, .cedian-blocks.fanned .cedian-pip .ibtn { display: none; }
+.cedian-blocks.fanned .cedian-pip:hover, .cedian-blocks.fanned .cedian-pip:focus-within { box-shadow: 0 0 0 2px var(--cedian-accent), 0 18px 40px rgba(0, 0, 0, .34); }

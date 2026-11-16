@@ -1,0 +1,318 @@
+// The native browser view's page as the Browser block's tools read it (spec §3.3, §4.3, §6.3),
+// over a CDP group of the view: its load state and history, its console, and the element picker
+// (Chromium's inspect mode). Electron draws the page and takes its input; nothing here is kept
+// that the page cannot give again.
+import { Cdp, TIMED_OUT } from "./cdp.js";
+
+/** Spec §4.3: idle → loading → loaded → (error). */
+export type LoadState = "idle" | "loading" | "loaded" | "error";
+/** Spec §4.3: element selection idle → inspecting → selected (→ attached, by the block). */
+export type PickState = "idle" | "inspecting" | "selected";
+
+export interface PageView {
+  url: string;
+  title: string;
+  load: LoadState;
+  /** Why the page did not load, shown in the block (spec §8.4 inline). */
+  error?: string;
+  canBack: boolean;
+  canForward: boolean;
+  pick: PickState;
+}
+
+export type ConsoleLevel = "log" | "info" | "warn" | "error" | "debug";
+
+export interface ConsoleLine {
+  level: ConsoleLevel;
+  text: string;
+  /** Where it came from: `file:line`, when the page says. */
+  source?: string;
+}
+
+/** A picked element, for the agent: where it is, what it says and how it is styled. */
+export interface PickedElement {
+  url: string;
+  selector: string;
+  tag: string;
+  text: string;
+  html: string;
+  styles: Record<string, string>;
+  /** Its box on the page, CSS pixels from the document's top left. */
+  box: { x: number; y: number; width: number; height: number };
+  /** A PNG of the element, base64; none when it has no size. */
+  image?: string;
+}
+
+/** How long the console keeps: the newest lines. */
+export const CONSOLE_LINES = 500;
+const MAX_LINE = 2_000;
+
+/**
+ * A failed load as the block says it (spec §8): the network and a timeout are transient, a
+ * notification; anything else stays in the block. A load another one replaced says nothing.
+ */
+export function loadError(errorText: string): { message: string; transient: boolean } | undefined {
+  if (/ERR_ABORTED/.test(errorText)) return undefined;
+  if (/ERR_(INTERNET_DISCONNECTED|NETWORK_CHANGED|NETWORK_IO_SUSPENDED|NAME_NOT_RESOLVED_OFFLINE)/.test(errorText)) return { message: "the network went away", transient: true };
+  if (/ERR_(TIMED_OUT|CONNECTION_TIMED_OUT)/.test(errorText)) return { message: TIMED_OUT, transient: true };
+  if (/ERR_CONNECTION_REFUSED/.test(errorText)) return { message: `Nothing answers there (${errorText}). Is the dev server running?`, transient: false };
+  return { message: `This page didn't load (${errorText})`, transient: false };
+}
+
+/** A console call's arguments as one line. */
+function argsText(args: { type?: string; value?: unknown; description?: string; unserializableValue?: string }[]): string {
+  return args
+    .map((a) => (a.value !== undefined ? (typeof a.value === "string" ? a.value : JSON.stringify(a.value)) : a.unserializableValue ?? a.description ?? a.type ?? ""))
+    .join(" ");
+}
+
+const LEVELS: Record<string, ConsoleLevel> = { warning: "warn", warn: "warn", error: "error", assert: "error", info: "info", debug: "debug", verbose: "debug" };
+
+/** Runs in the page on the picked element: a selector for it, its text, markup, box and styles. */
+const DESCRIBE = `function () {
+  const el = this;
+  const path = [];
+  for (let n = el; n && n.nodeType === 1 && path.length < 6; n = n.parentElement) {
+    let part = n.localName;
+    if (n.id) { path.unshift(part + "#" + CSS.escape(n.id)); break; }
+    part += [...n.classList].slice(0, 2).map((c) => "." + CSS.escape(c)).join("");
+    const parent = n.parentElement;
+    if (parent) {
+      const same = [...parent.children].filter((c) => c.localName === n.localName);
+      if (same.length > 1) part += ":nth-of-type(" + (same.indexOf(n) + 1) + ")";
+    }
+    path.unshift(part);
+  }
+  const cs = getComputedStyle(el);
+  const keys = ["display", "position", "width", "height", "margin", "padding", "color", "background-color", "font-family", "font-size", "font-weight", "line-height", "border", "border-radius", "gap", "flex-direction", "justify-content", "align-items"];
+  const styles = {};
+  for (const k of keys) styles[k] = cs.getPropertyValue(k);
+  const r = el.getBoundingClientRect();
+  return { selector: path.join(" > "), tag: el.localName, text: (el.innerText || el.textContent || "").trim().slice(0, 300), html: el.outerHTML.slice(0, 1500), styles, box: { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height } };
+}`;
+
+const HIGHLIGHT = { contentColor: { r: 111, g: 168, b: 220, a: 0.35 }, borderColor: { r: 111, g: 168, b: 220, a: 0.9 }, showInfo: true };
+
+export class PageSession {
+  view: PageView = { url: "", title: "", load: "idle", canBack: false, canForward: false, pick: "idle" };
+  readonly console: ConsoleLine[] = [];
+  private mainFrame = "";
+  private readonly changeListeners = new Set<(view: PageView) => void>();
+  private readonly consoleListeners = new Set<(line: ConsoleLine | undefined) => void>();
+  private readonly pickListeners = new Set<(picked: PickedElement) => void>();
+  private readonly noticeListeners = new Set<(message: string) => void>();
+  private readonly closeListeners = new Set<(beforeLoad: boolean) => void>();
+  private everLoaded = false;
+  /** Chromium's own inspect mode is on (`inspect`): it highlights, and says what a click picks. */
+  private inspecting = false;
+
+  constructor(private readonly cdp: Cdp) {
+    cdp.on("Page.frameStartedLoading", (p) => {
+      if (p.frameId === this.mainFrame) this.set({ load: "loading", error: undefined });
+    });
+    cdp.on("Page.frameNavigated", (p) => {
+      if (p.frame?.parentId) return;
+      this.mainFrame = p.frame.id;
+      const failed = String(p.frame.url).startsWith("chrome-error://");
+      this.set({ url: failed ? p.frame.unreachableUrl ?? this.view.url : p.frame.url });
+      this.history();
+    });
+    cdp.on("Page.navigatedWithinDocument", (p) => {
+      if (p.frameId === this.mainFrame) {
+        this.set({ url: p.url });
+        this.history();
+      }
+    });
+    cdp.on("Page.loadEventFired", () => {
+      if (this.view.load !== "error") this.set({ load: "loaded" });
+      this.everLoaded = true;
+      this.history();
+    });
+    cdp.on("Page.frameStoppedLoading", (p) => {
+      if (p.frameId === this.mainFrame && this.view.load === "loading") this.set({ load: "loaded" });
+    });
+    cdp.on("Network.loadingFailed", (p) => {
+      if (p.type === "Document" && !p.canceled) this.failed(String(p.errorText));
+    });
+    cdp.on("Runtime.consoleAPICalled", (p) => {
+      const frame = p.stackTrace?.callFrames?.[0];
+      this.log({ level: LEVELS[p.type] ?? "log", text: argsText(p.args ?? []), ...(frame?.url ? { source: `${frame.url}:${frame.lineNumber + 1}` } : {}) });
+    });
+    cdp.on("Runtime.exceptionThrown", (p) => {
+      const d = p.exceptionDetails ?? {};
+      this.log({ level: "error", text: d.exception?.description ?? d.text ?? "Uncaught exception", ...(d.url ? { source: `${d.url}:${(d.lineNumber ?? 0) + 1}` } : {}) });
+    });
+    cdp.on("Log.entryAdded", (p) => {
+      const e = p.entry ?? {};
+      this.log({ level: LEVELS[e.level] ?? "log", text: e.text ?? "", ...(e.url ? { source: e.url } : {}) });
+    });
+    cdp.on("Overlay.inspectNodeRequested", (p) => {
+      if (this.inspecting && typeof p.backendNodeId === "number") void this.pickNode(p.backendNodeId);
+    });
+    cdp.on("Overlay.inspectModeCanceled", () => {
+      if (!this.inspecting) return;
+      this.inspecting = false;
+      this.set({ pick: "idle" });
+    });
+    cdp.on("Inspector.detached", () => cdp.close());
+    cdp.onClose(() => {
+      for (const l of this.closeListeners) l(!this.everLoaded);
+    });
+  }
+
+  onChange(listener: (view: PageView) => void): () => void {
+    return add(this.changeListeners, listener);
+  }
+  /** A line added, or none when the console was cleared. */
+  onConsole(listener: (line: ConsoleLine | undefined) => void): () => void {
+    return add(this.consoleListeners, listener);
+  }
+  onPicked(listener: (picked: PickedElement) => void): () => void {
+    return add(this.pickListeners, listener);
+  }
+  /** Transient failures, for a notification (spec §8.4). */
+  onNotice(listener: (message: string) => void): () => void {
+    return add(this.noticeListeners, listener);
+  }
+  /** The page's socket closed; `beforeLoad` when no page ever loaded on it. */
+  onClose(listener: (beforeLoad: boolean) => void): () => void {
+    return add(this.closeListeners, listener);
+  }
+
+  /**
+   * Turns on what the block reads (load state, history, console, the element overlay); Electron
+   * draws the page and gives it its size, so nothing here sizes or streams it.
+   */
+  async watch(): Promise<void> {
+    await Promise.all(["Page.enable", "Runtime.enable", "Network.enable", "Log.enable", "DOM.enable"].map((m) => this.cdp.call(m)));
+    await this.cdp.call("Overlay.enable");
+    const tree = await this.cdp.call("Page.getFrameTree");
+    this.mainFrame = tree.frameTree.frame.id;
+    this.set({ url: tree.frameTree.frame.url, load: tree.frameTree.frame.url === "about:blank" ? "idle" : "loaded" });
+    if (this.view.load === "loaded") this.everLoaded = true;
+    await this.history();
+  }
+
+  async navigate(url: string): Promise<void> {
+    this.set({ load: "loading", error: undefined, url });
+    const result = await this.cdp.call("Page.navigate", { url });
+    if (result.errorText) this.failed(result.errorText);
+  }
+
+  /**
+   * Element selection: Chromium's inspect mode highlights what is under the pointer and says what
+   * a click picks, and the pick goes to `onPicked`. The page's mouse is Electron's, never the
+   * block's, so Chromium does the picking. `stopInspect` ends it; Escape in the page does too.
+   */
+  async inspect(): Promise<void> {
+    this.inspecting = true;
+    this.set({ pick: "inspecting" });
+    await this.cdp.call("Overlay.setInspectMode", { mode: "searchForNode", highlightConfig: HIGHLIGHT });
+  }
+
+  async stopInspect(): Promise<void> {
+    this.inspecting = false;
+    this.set({ pick: "idle" });
+    await this.cdp.call("Overlay.setInspectMode", { mode: "none", highlightConfig: HIGHLIGHT }).catch(() => {});
+  }
+
+  clearConsole(): void {
+    this.console.length = 0;
+    for (const l of this.consoleListeners) l(undefined);
+  }
+
+  dispose(): void {
+    this.cdp.close();
+  }
+
+  private async pickNode(backendNodeId: number): Promise<void> {
+    await this.stopInspect();
+    this.set({ pick: "selected" });
+    try {
+      const picked = await this.describe(backendNodeId);
+      for (const l of this.pickListeners) l(picked);
+    } finally {
+      this.set({ pick: "idle" });
+    }
+  }
+
+  private async describe(backendNodeId: number): Promise<PickedElement> {
+    const { object } = await this.cdp.call("DOM.resolveNode", { backendNodeId });
+    const { result } = await this.cdp.call("Runtime.callFunctionOn", { objectId: object.objectId, functionDeclaration: DESCRIBE, returnByValue: true });
+    this.cdp.call("Runtime.releaseObject", { objectId: object.objectId }).catch(() => {});
+    const d = result.value as Omit<PickedElement, "url" | "image">;
+    let image: string | undefined;
+    if (d.box.width >= 1 && d.box.height >= 1) {
+      const shot = await this.cdp
+        .call("Page.captureScreenshot", { format: "png", clip: { ...d.box, scale: 1 }, captureBeyondViewport: true })
+        .catch(() => undefined);
+      image = shot?.data;
+    }
+    return { url: this.view.url, ...d, ...(image ? { image } : {}) };
+  }
+
+  private async history(): Promise<void> {
+    try {
+      const h = await this.cdp.call("Page.getNavigationHistory");
+      const entry = h.entries[h.currentIndex];
+      this.set({ canBack: h.currentIndex > 0, canForward: h.currentIndex < h.entries.length - 1, title: entry?.title ?? "" });
+    } catch {
+      // A page closing mid-call: the close listener says so.
+    }
+  }
+
+  private failed(errorText: string): void {
+    const error = loadError(errorText);
+    if (!error) return;
+    this.set({ load: "error", error: error.message });
+    if (error.transient) for (const l of this.noticeListeners) l(error.message);
+  }
+
+  private log(line: ConsoleLine): void {
+    const kept = line.text.length > MAX_LINE ? { ...line, text: `${line.text.slice(0, MAX_LINE)}…` } : line;
+    this.console.push(kept);
+    if (this.console.length > CONSOLE_LINES) this.console.splice(0, this.console.length - CONSOLE_LINES);
+    for (const l of this.consoleListeners) l(kept);
+  }
+
+  private set(change: Partial<PageView>): void {
+    const next = { ...this.view, ...change };
+    if (JSON.stringify(next) === JSON.stringify(this.view)) return;
+    this.view = next;
+    for (const l of this.changeListeners) l(next);
+  }
+}
+
+function add<T>(set: Set<T>, listener: T): () => void {
+  set.add(listener);
+  return () => set.delete(listener);
+}
+
+/** What the composer gets for a picked element: the agent reads it as the person's pointer. */
+/**
+ * A name for the element's picture that says what it is, for the composer's chip: the selector's
+ * last part without its position (`button#add.png`, `div.card.png`), else the tag.
+ */
+export function imageName(picked: PickedElement): string {
+  const last = picked.selector.split(" > ").pop() ?? "";
+  const name = last.replace(/:nth-of-type\(\d+\)$/, "").replace(/\\/g, "").replace(/[^\w#.-]+/g, "-").slice(0, 60);
+  return `${name || picked.tag || "element"}.png`;
+}
+
+export function elementContext(picked: PickedElement): string {
+  const styles = Object.entries(picked.styles)
+    .filter(([, v]) => v && v !== "none" && v !== "normal" && v !== "0px" && v !== "auto")
+    .map(([k, v]) => `${k}: ${v}`)
+    .join("; ");
+  const text = picked.text ? ` "${picked.text.replace(/\s+/g, " ").slice(0, 120)}"` : "";
+  return [
+    `Element on ${picked.url}: <${picked.tag}>${text}`,
+    `selector: ${picked.selector}`,
+    `box: ${Math.round(picked.box.width)}×${Math.round(picked.box.height)} at ${Math.round(picked.box.x)},${Math.round(picked.box.y)}`,
+    ...(styles ? [`styles: ${styles}`] : []),
+    "html:",
+    "```html",
+    picked.html,
+    "```",
+  ].join("\n");
+}

@@ -1,0 +1,5 @@
+/* The floating native browser (nativeFloat.ts): the page itself is drawn by Electron over this
+   box once it holds still; while the block moves, the box shows a still picture of the page. */
+.cedian-native-float { position: relative; width: 100%; height: 100%; background: var(--cedian-app); overflow: hidden; }
+.cedian-native-float .shot { display: block; width: 100%; height: 100%; object-fit: fill; }
+.cedian-native-float .shot[hidden] { display: none; }
