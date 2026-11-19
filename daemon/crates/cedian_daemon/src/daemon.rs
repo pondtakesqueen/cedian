@@ -1390,6 +1390,9 @@ impl Daemon {
             }
             Request::Settings => lock(shared).settings(client),
             Request::SetDesktop { key, value } => lock(shared).set_desktop(client, &key, value),
+            Request::AllowProject { cwd, thread } => {
+                Self::allow_project(shared, client, cwd, &thread)
+            }
             Request::Review { cwd, thread } => {
                 lock(shared).review(client, &cwd, &thread, None);
             }
@@ -2026,6 +2029,90 @@ impl Daemon {
         }
     }
 
+    /// The person allowed the thread's `add_project` question. The request is read from the
+    /// thread file, so a window can only allow what cedia asked; the thread must still be
+    /// asking it. The folder is made or checked, joins `desktop.projects` (every window gets
+    /// `Notice::Settings`), and then either the chat is carried over (`Notice::Carried`) or the
+    /// thread gets its answer as its next prompt.
+    fn allow_project(shared: &Shared, client: ClientId, cwd: PathBuf, thread: &str) {
+        let (ask, cedia, home) = {
+            let mut daemon = lock(shared);
+            if !daemon.offers(cedian_protocol::Capability::DesktopProjects) {
+                return daemon.thread_error(
+                    client,
+                    thread,
+                    "this cedia cannot add projects".into(),
+                );
+            }
+            let summary = match daemon.summary(&project_key(&cwd), thread) {
+                Ok(summary) => summary,
+                Err(error) => return daemon.thread_error(client, thread, format!("{error:#}")),
+            };
+            let ask = (summary.state == ThreadState::Asking)
+                .then_some(summary.question)
+                .flatten()
+                .and_then(|q| q.request);
+            let Some(ask) = ask else {
+                return daemon.thread_error(
+                    client,
+                    thread,
+                    "the thread no longer asks to add a project".into(),
+                );
+            };
+            if ask.carry && !daemon.offers(cedian_protocol::Capability::ThreadsCarry) {
+                return daemon.thread_error(
+                    client,
+                    thread,
+                    "this cedia cannot carry a chat over".into(),
+                );
+            }
+            (ask, daemon.cedia.clone(), daemon.home.clone())
+        };
+        let person = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default();
+        let path = match crate::project_request::prepare(&ask, &person, &home) {
+            Ok(path) => path,
+            Err(error) => return lock(shared).thread_error(client, thread, format!("{error:#}")),
+        };
+        {
+            let mut daemon = lock(shared);
+            let desktop = read_desktop(&settings_path(&daemon.home)).unwrap_or_default();
+            if let Some(projects) = crate::project_request::with_project(&desktop, &path) {
+                daemon.set_desktop(client, "projects", projects);
+            }
+        }
+        if ask.carry {
+            match cedia.carry(&cwd, thread, &path) {
+                Ok((to_thread, to)) => lock(shared).send(
+                    client,
+                    Notice::Carried {
+                        cwd,
+                        thread: thread.to_owned(),
+                        to,
+                        to_thread,
+                    },
+                ),
+                Err(error) => lock(shared).thread_error(client, thread, format!("{error:#}")),
+            }
+            return;
+        }
+        let text = crate::project_request::allowed_text(&ask, &path);
+        let with = Flags {
+            cache_ttl: Some(PERSON_CACHE_TTL),
+            ..Flags::default()
+        };
+        Self::prompt(
+            shared,
+            Some(client),
+            cwd.clone(),
+            cwd,
+            &text,
+            Some(thread.to_owned()),
+            with,
+        );
+    }
+
     /// One run. `asked_in` is the window's project directory, which notices name; the run
     /// itself goes in `cwd`, or in a resumed thread's own directory.
     fn prompt(
@@ -2070,6 +2157,8 @@ impl Daemon {
         let with = Flags {
             ask: can(cedian_protocol::Capability::Ask),
             todo: can(cedian_protocol::Capability::Todo),
+            desktop: can(cedian_protocol::Capability::DesktopProjects)
+                && can(cedian_protocol::Capability::ThreadsCarry),
             creator: can(cedian_protocol::Capability::Creator)
                 && read_desktop(&settings_path(&daemon.home)).is_ok_and(|d| creator_on(&d)),
             browser: page.as_deref(),

@@ -49,6 +49,9 @@
     "ForkResult": {
       "$ref": "#/definitions/ForkResult"
     },
+    "CarryResult": {
+      "$ref": "#/definitions/CarryResult"
+    },
     "McpList": {
       "$ref": "#/definitions/McpList"
     },
@@ -430,8 +433,30 @@
         "complete",
         "context",
         "threads.recap",
+        "desktop.projects",
+        "threads.carry",
         "inline-edit"
       ]
+    },
+    "CarryResult": {
+      "type": "object",
+      "properties": {
+        "thread": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "thread",
+        "cwd",
+        "from"
+      ],
+      "additionalProperties": false
     },
     "ChangeGuide": {
       "anyOf": [
@@ -2358,6 +2383,35 @@
         "zdr"
       ]
     },
+    "ProjectRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "project"
+        },
+        "path": {
+          "type": "string"
+        },
+        "create": {
+          "type": "boolean"
+        },
+        "carry": {
+          "type": "boolean"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "path",
+        "create",
+        "carry",
+        "why"
+      ],
+      "additionalProperties": false
+    },
     "PrOpened": {
       "anyOf": [
         {
@@ -2425,6 +2479,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "request": {
+          "$ref": "#/definitions/ProjectRequest"
         }
       },
       "required": [
@@ -4430,6 +4487,9 @@
               "items": {
                 "type": "string"
               }
+            },
+            "request": {
+              "$ref": "#/definitions/ProjectRequest"
             },
             "at": {
               "type": "string"

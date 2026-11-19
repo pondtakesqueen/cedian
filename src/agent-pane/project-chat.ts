@@ -70,7 +70,9 @@ function cards(threads: ThreadInfo[]): ChatCard[] {
         status: t.status,
         ...(todo ? { progress: todo.progress } : {}),
         ...(step ? { step } : {}),
-        ...(t.status === "asking" && t.question ? { question: { text: t.question.question, options: t.question.options ?? [] } } : {}),
+        // A project request (cedia's add_project) is answered in its thread, whose Allow carries it out;
+        // its options here would only send the word.
+        ...(t.status === "asking" && t.question ? { question: { text: t.question.question, options: t.question.request ? [] : (t.question.options ?? []) } } : {}),
         ...(t.cwd ? { cwd: t.cwd } : {}),
         ...(t.archived ? { archived: true } : {}),
         ...(t.pr ? { pr: t.pr } : {}),

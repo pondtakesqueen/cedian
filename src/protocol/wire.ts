@@ -276,6 +276,13 @@ export type Notice =
       thread: string;
     }
   | {
+      cwd: string;
+      kind: "carried";
+      thread: string;
+      to: string;
+      to_thread: string;
+    }
+  | {
       kind: "error";
       message: string;
       settings?: boolean;
@@ -286,7 +293,7 @@ export type Notice =
  *
  * <details><summary>JSON schema</summary>
  *
- * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "threads.resume-cost", "cache-ttl", "threads.rename", "threads.delete", "settings.edit", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "inline-edit" ] } ``` </details>
+ * ```json { "type": "string", "enum": [ "stream-json", "threads", "threads.send", "threads.unsend", "threads.rate", "evidence.check-thread", "keychain", "spawn", "handoff", "plan", "review", "ask", "worktree.newest-wins", "spawn.best-of-n", "todo", "creator", "profiles", "open_thread", "schedules", "models", "permissions", "commands", "threads.fork", "threads.side", "usage", "browser", "browser.sites", "threads.restore-json", "images", "threads.resume-cost", "cache-ttl", "threads.rename", "threads.delete", "settings.edit", "mcp.manage", "commit", "pr", "daemon", "daemon.desktop-lock", "threads.send-images", "video", "media-route", "code-review", "complete", "context", "threads.recap", "desktop.projects", "threads.carry", "inline-edit" ] } ``` </details>
  *
  * This interface was referenced by `WireRoots`'s JSON-Schema
  * via the `definition` "Capability".
@@ -338,6 +345,8 @@ export type Capability =
   | "complete"
   | "context"
   | "threads.recap"
+  | "desktop.projects"
+  | "threads.carry"
   | "inline-edit";
 /**
  * The checks on the PR's head commit, taken together.
@@ -1317,6 +1326,11 @@ export type Request =
       key: string;
       op: "set_desktop";
       value: unknown;
+    }
+  | {
+      cwd: string;
+      op: "allow_project";
+      thread: string;
     };
 /**
  * What the person decided about a hunk.
@@ -1630,6 +1644,22 @@ export interface ThreadQuestion {
    */
   options: string[];
   question: string;
+  /**
+   * What cedia's `add_project` asks the desktop to do if the person allows it; the options are then Allow and Deny.
+   */
+  request?: ProjectAsk | null;
+}
+/**
+ * cedia's `ProjectRequest`: add `path` as one of the person's projects, made first (with `git init`) when `create`, and carry the asking chat over to it when `carry`. `why` is the writer's reason. cedia checked the path when the call ran; the daemon checks it again before it acts.
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "ProjectAsk".
+ */
+export interface ProjectAsk {
+  carry: boolean;
+  create: boolean;
+  path: string;
+  why: string;
 }
 /**
  * This interface was referenced by `WireRoots`'s JSON-Schema
