@@ -15,6 +15,6 @@ pub use outputs::{Output, project_outputs, session_changes};
 pub use project::{project_key, project_root, project_slug};
 pub use session::{session_cwd, session_lines, session_path, session_trees};
 pub use thread::{
-    RunRef, SessionRef, Step, ThreadMessage, ThreadQuestion, ThreadSummary, ThreadTurn, fold,
-    list_threads, opener_model, read_thread, threads_dir,
+    ProjectAsk, RunRef, SessionRef, Step, ThreadMessage, ThreadQuestion, ThreadSummary, ThreadTurn,
+    fold, list_threads, opener_model, read_thread, threads_dir,
 };

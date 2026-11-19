@@ -91,6 +91,7 @@ export function createPaneHost(accessor: ServicesAccessor, folder: IWorkspaceFol
 		sideChat: (from, text) => { commands.executeCommand('cedian.sideChat', from, text); },
 		openUrl: url => { openerService.open(URI.parse(url)); },
 		openPrPanel: () => { views.openViewContainer(PR_CONTAINER, true).catch(() => { }); },
+		showProject: root => { commands.executeCommand('cedian.showProject', root).catch(() => { }); },
 		// The git pane follows the open thread; a folder git can't open just leaves it where it was.
 		showRepository: path => { showRepository(commands, scm, scmView, path).catch(() => { }); },
 		openSourceControl: path => {

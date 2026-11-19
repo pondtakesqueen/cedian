@@ -23,6 +23,7 @@ mod native_browser;
 mod notes;
 mod pr_view;
 mod pr_watch;
+mod project_request;
 mod push;
 mod record;
 mod remote;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadInfo } from "../protocol/wire.js";
-import { answer, askCard, todoCard } from "./cards.js";
+import { allowProject, answer, askCard, projectChanges, todoCard } from "./cards.js";
 import { cancel, confirmCommit, confirmPr, editDraft, idleShip, shipNotice, startCommit, startPr } from "./ship.js";
 
 describe("commit", () => {
@@ -53,6 +53,19 @@ describe("cards", () => {
     expect(askCard(info({ status: "done", question: { question: "x", options: [] } }))).toBeUndefined();
     expect(answer("/w", "t-1", " Yes ", { permission: "workspace" })).toEqual({ op: "prompt", cwd: "/w", text: "Yes", thread: "t-1", worktree: false, permission: "workspace" });
     expect(answer("/w", "t-1", " ")).toBeUndefined();
+  });
+  it("a project request lists what Allow changes, and Allow names only the thread", () => {
+    const request = { path: "/Users/me/site", create: true, carry: true, why: "You asked to move this chat to a new site project." };
+    const ask = askCard(info({ status: "asking", question: { question: "Create /Users/me/site?", options: ["Allow", "Deny"], request } }));
+    expect(ask?.request).toEqual(request);
+    expect(projectChanges(request)).toEqual([
+      "Create the folder /Users/me/site and run git init in it",
+      "Add /Users/me/site to your projects",
+      "Carry this chat over to it: a new thread there starts from a recap, and this one is archived",
+    ]);
+    expect(projectChanges({ ...request, create: false, carry: false })).toEqual(["Add /Users/me/site to your projects"]);
+    // The daemon reads the request from the thread file: the window cannot send one of its own.
+    expect(allowProject("/w", "t-1")).toEqual({ op: "allow_project", cwd: "/w", thread: "t-1" });
   });
   it("counts the todo list", () => {
     expect(todoCard(info({ todo: [{ state: "done", text: "a" }, { state: "doing", text: "b" }, { state: "pending", text: "c" }] }))?.progress).toBe("1/3");

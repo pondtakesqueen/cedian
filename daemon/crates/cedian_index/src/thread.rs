@@ -92,6 +92,22 @@ pub struct ThreadQuestion {
     pub question: String,
     /// Two to four choices, the recommended one first; none for a free answer.
     pub options: Vec<String>,
+    /// What cedia's `add_project` asks the desktop to do if the person allows it; the options
+    /// are then Allow and Deny.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<ProjectAsk>,
+}
+
+/// cedia's `ProjectRequest`: add `path` as one of the person's projects, made first (with
+/// `git init`) when `create`, and carry the asking chat over to it when `carry`. `why` is the
+/// writer's reason. cedia checked the path when the call ran; the daemon checks it again before
+/// it acts.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ProjectAsk {
+    pub path: String,
+    pub create: bool,
+    pub carry: bool,
+    pub why: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -248,12 +264,22 @@ pub fn fold(id: &str, events: &[ThreadEvent]) -> ThreadSummary {
             ThreadEvent::Question {
                 question,
                 options,
+                request,
                 at,
                 ..
             } => {
                 thread.question = Some(ThreadQuestion {
                     question: question.clone(),
                     options: options.clone(),
+                    request: request
+                        .as_ref()
+                        .filter(|r| r.kind == "project")
+                        .map(|r| ProjectAsk {
+                            path: r.path.clone(),
+                            create: r.create,
+                            carry: r.carry,
+                            why: r.why.clone(),
+                        }),
                 });
                 thread.updated_at = at.clone();
             }
