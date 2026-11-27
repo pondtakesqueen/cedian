@@ -5,7 +5,7 @@
 .cedian-pr-panel .pr-panel-body { display: flex; flex-direction: column; min-height: 0; height: 100%; }
 .cedian-pr-panel .pp-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--cedian-line); }
 .cedian-pr-panel .pp-tabs { display: flex; gap: 2px; }
-.cedian-pr-panel .pp-tab { height: 26px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+.cedian-pr-panel .pp-tab { height: 26px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12.5px; cursor: pointer; }
 .cedian-pr-panel .pp-tab:hover { color: var(--cedian-text); background: var(--cedian-hover); }
 .cedian-pr-panel .pp-tab.on { color: var(--cedian-text); background: var(--cedian-sel); }
 .cedian-pr-panel .pp-link { margin-left: auto; border: 0; background: transparent; color: var(--cedian-text-muted); font: inherit; font-size: 12px; cursor: pointer; }
@@ -33,7 +33,7 @@
 .cedian-pr-panel .pp-checks.ok { color: var(--cedian-diff-add); }
 .cedian-pr-panel .pp-checks.bad { color: var(--cedian-failed); }
 .cedian-pr-panel .pp-checks.run { color: var(--cedian-warn); }
-.cedian-pr-panel .pp-blockers { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--cedian-hover); font-size: 12px; }
+.cedian-pr-panel .pp-blockers { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: var(--cedian-hover); font-size: 12px; }
 .cedian-pr-panel .pp-blocker.t-bad { color: var(--cedian-failed); }
 .cedian-pr-panel .pp-blocker.t-run { color: var(--cedian-warn); }
 .cedian-pr-panel .pp-blocker.t-wait { color: var(--cedian-text-muted); }

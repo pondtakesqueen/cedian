@@ -135,6 +135,11 @@ export type Notice =
       schedules?: Schedule[] | null;
     }
   | {
+      files: TurnFile[];
+      kind: "turn";
+      thread: string;
+    }
+  | {
       cwd: string;
       kind: "restored";
       result: Restored;
@@ -1159,6 +1164,11 @@ export type Request =
     }
   | {
       cwd: string;
+      op: "turn";
+      thread: string;
+    }
+  | {
+      cwd: string;
       decision: Decision;
       hunk: string;
       op: "decide";
@@ -2056,6 +2066,17 @@ export interface Schedule {
   next?: string | null;
   prompt: string;
   thread: string;
+}
+/**
+ * One file the thread's latest turn changed, with its line counts (`cedia threads diff`).
+ *
+ * This interface was referenced by `WireRoots`'s JSON-Schema
+ * via the `definition` "TurnFile".
+ */
+export interface TurnFile {
+  added: number;
+  path: string;
+  removed: number;
 }
 /**
  * `Restored`

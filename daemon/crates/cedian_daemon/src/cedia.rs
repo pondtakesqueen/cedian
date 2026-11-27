@@ -772,6 +772,12 @@ impl Cedia {
         serde_json::from_slice(&output).context("reading cedia threads undo --json")
     }
 
+    /// `cedia threads diff <id>`: the patch of the thread's latest turn that changed files.
+    pub fn turn_diff(&self, cwd: &Path, thread: &str) -> anyhow::Result<String> {
+        let output = self.threads_output(cwd, &["diff", thread])?;
+        Ok(String::from_utf8_lossy(&output).into_owned())
+    }
+
     /// `cedia threads rewind <id> <n> --json [--force]`: what it put back, or why it did not.
     /// cedia prints a refusal too, and exits 1.
     pub fn rewind(

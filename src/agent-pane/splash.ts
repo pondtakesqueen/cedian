@@ -30,14 +30,16 @@ export const SPLASH_KEY = "cedian.splash";
 const PROPS = [
   "display", "align-items", "justify-content", "gap", "box-sizing", "width", "min-width", "max-width", "height",
   "padding", "margin", "border-radius", "background-color", "color", "font-family", "font-size", "font-weight",
-  "line-height", "letter-spacing", "white-space", "overflow", "text-overflow", "text-align", "flex",
+  "line-height", "letter-spacing", "white-space", "overflow", "text-overflow", "text-align", "flex", "visibility",
 ];
 
 /** An element as a snapshot node: its visible children, each with its computed style inlined. */
 export function snapshotNode(el: Element, styleOf: (el: Element) => CSSStyleDeclaration): SplashNode | undefined {
   const style = styleOf(el);
-  if (style.display === "none" || style.visibility === "hidden") return undefined;
+  if (style.display === "none") return undefined;
   const node: SplashNode = { style: PROPS.map((p) => `${p}:${style.getPropertyValue(p)}`).filter((d) => !d.endsWith(":")).join(";") };
+  // A box laid out but not shown (a tab's × until hover) keeps its room, with nothing in it.
+  if (style.visibility === "hidden") return node;
   const children = [...el.children].map((c) => snapshotNode(c, styleOf)).filter((c): c is SplashNode => !!c);
   if (children.length) node.children = children;
   else if (el.textContent) node.text = el.textContent;

@@ -6,7 +6,7 @@ import { FindBar } from "./find.js";
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { coldLines, dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices, mayBeCold, withColdResume } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, ProjectAsk, Request, Review, ThreadInfo, ResumeCost } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, ProjectAsk, Request, Review, ThreadInfo, ResumeCost, TurnFile } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, commentCount, findingCount, goesNext, openFindings, removeComment, resolveComment, reviewed, sendComments, setComments, stateLabel, stateOf, walkSteps } from "../review/notes.js";
 import { allowProject, answer, askCard, projectChanges, todoCard } from "./cards.js";
@@ -200,6 +200,8 @@ export class AgentPane {
   private capabilities: Capability[] = [];
   /** The model picker's panel: whether it is open, and what its search holds. */
   private picker = false;
+  /** The latest turn's files (the edited-files card), and whether Undo has taken them back. */
+  private turn: { files: TurnFile[]; undone: boolean; busy: boolean; skipped: string[] } = { files: [], undone: false, busy: false, skipped: [] };
   private pickerQuery = "";
   private pickerTab = "";
   private desktop: Desktop = {};
@@ -388,6 +390,7 @@ export class AgentPane {
       this.readPr(id);
     }
     this.readGit(id);
+    this.readTurn(id);
     this.wire.request({ op: "review", cwd: this.cwd, thread: id });
     this.render();
     this.followRepository();
@@ -582,6 +585,15 @@ export class AgentPane {
         if (!this.viewModeChosen) this.viewMode = viewModeOf(this.desktop.view_mode);
         this.defaults();
         break;
+      case "turn":
+        if (n.thread === this.state.thread) this.turn = { ...this.turn, files: n.files, busy: false };
+        break;
+      case "restored":
+        if (n.thread !== this.state.thread) break;
+        // Undo puts the files back as they were before the turn; Redo brings the turn back.
+        this.turn = { ...this.turn, undone: n.result.action === "undo", busy: false, skipped: n.result.skipped };
+        this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
+        break;
       case "pr_view":
         if (n.thread !== this.state.thread) break;
         this.pr = either(n.view);
@@ -652,6 +664,7 @@ export class AgentPane {
           // The run ended: what it changed is ready to review, and a "Send now" waits for this.
           this.readGit(n.thread);
           if (this.state.info?.pr || (this.pr && typeof this.pr === "object")) this.wire.request({ op: "pr_view", cwd: this.host.cwd, thread: n.thread });
+          this.readTurn(n.thread);
           this.wire.request({ op: "review", cwd: this.cwd, thread: n.thread });
           if (this.then) {
             this.wire.request(this.then);
@@ -1156,6 +1169,7 @@ export class AgentPane {
     if (todo) parts.push(this.todoCard(todo));
     const ask = askCard(this.state.info);
     if (ask) parts.push(this.askCard(ask));
+    if (this.turn.files.length && !isRunning(this.state)) parts.push(this.turnCard());
     if (this.state.review && this.state.review.files.length > 0 && !isRunning(this.state)) parts.push(this.reviewCard(this.state.review));
     if (this.state.notes?.comments.length) parts.push(this.commentsCard(this.state.notes.comments));
     if (this.state.notes?.reviewing || this.state.notes?.review) parts.push(this.codeReviewCard());
@@ -1310,6 +1324,51 @@ export class AgentPane {
   private runChoices(): { model?: string; permission?: string; effort?: string } {
     const { model, permission, effort } = this.choices;
     return { ...(model ? { model } : {}), ...(permission ? { permission } : {}), ...(effort ? { effort } : {}) };
+  }
+
+  private readTurn(thread: string): void {
+    this.turn = { files: [], undone: false, busy: false, skipped: [] };
+    this.wire.request({ op: "turn", cwd: this.cwd, thread });
+  }
+
+  /**
+   * Synara's edited-files card under the latest turn: what it changed, file by file, with Undo
+   * (`cedia threads undo`: the files as they were before the turn) and Redo, and Review.
+   */
+  private turnCard(): HTMLElement {
+    const d = this.doc;
+    const thread = this.state.thread!;
+    const t = this.turn;
+    const card = el(d, "div", `card turn${t.undone ? " undone" : ""}`);
+    const head = el(d, "div", "row");
+    const title = el(d, "div", "edited");
+    const added = t.files.reduce((n, f) => n + f.added, 0);
+    const removed = t.files.reduce((n, f) => n + f.removed, 0);
+    const counts = el(d, "div", "counts");
+    counts.append(el(d, "span", "ok m", `+${added}`), el(d, "span", "bad m", `−${removed}`));
+    title.append(el(d, "span", "", `${t.undone ? "Undid" : "Edited"} ${t.files.length} ${t.files.length === 1 ? "file" : "files"}`), counts);
+    head.append(title, el(d, "span", "sp"));
+    if (this.can("threads.restore-json")) {
+      const restore = button(d, t.busy ? (t.undone ? "Redoing…" : "Undoing…") : t.undone ? "Redo" : "Undo", () => {
+        this.turn = { ...this.turn, busy: true };
+        this.wire.request({ op: "restore", cwd: this.cwd, thread, ...(t.undone ? { redo: true } : {}) });
+        this.render();
+      }, "btn small");
+      restore.disabled = t.busy;
+      restore.title = t.undone ? "Put the turn's changes back" : "Put these files back as they were before this turn";
+      head.append(restore);
+    }
+    const review = this.state.review;
+    if (review?.files.length && !t.undone) head.append(button(d, "Review", () => this.host.openReview(thread, this.cwd, review), "btn small"));
+    card.append(head);
+    for (const f of t.files) {
+      const row = el(d, "div", "file");
+      const name = review?.files.some((r) => r.path === f.path) && !t.undone ? button(d, f.path, () => this.host.openReview(thread, this.cwd, review, f.path), "link m ell") : el(d, "span", "m ell", f.path);
+      row.append(name, el(d, "span", "ok m small", `+${f.added}`), el(d, "span", "bad m small", `−${f.removed}`));
+      card.append(row);
+    }
+    if (t.skipped.length) card.append(el(d, "div", "small warn", `Left as they are, changed since the turn: ${t.skipped.join(", ")}`));
+    return card;
   }
 
   private reviewCard(review: Review): HTMLElement {
@@ -1746,7 +1805,17 @@ export class AgentPane {
         field?.setSelectionRange(q.length, q.length);
       },
       onModel: (v) => choose(model, v),
-      onEffort: (v) => effort && choose(effort, v),
+      // The picker stays open on an effort, as Synara's does, and its slider moves in place: the
+      // choice is kept without drawing the composer again, and the chip's label follows.
+      onEffort: (v) => {
+        if (!effort) return;
+        effort.value = v;
+        this.choices.effort = v || undefined;
+        this.chosen.add("effort");
+        const shown = effort.selectedOptions[0]?.textContent ?? "";
+        const pill = this.chips.querySelector<HTMLElement>(".pill.model");
+        if (pill) pill.title = pill.title.replace(/(Effort \([^)]*\): ).*$/, `$1${shown}`);
+      },
       onClose: () => this.closePicker(true),
     });
     composer.append(panel);

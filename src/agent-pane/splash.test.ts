@@ -13,7 +13,10 @@ function row(doc: Document): HTMLElement {
     const close = doc.createElement("span");
     close.style.display = "none";
     close.textContent = "×";
-    tab.append(label, close);
+    const room = doc.createElement("span");
+    room.style.cssText = "visibility:hidden;width:16px";
+    room.textContent = "×";
+    tab.append(label, close, room);
     r.append(tab);
   }
   doc.body.replaceChildren(r); // computed styles need a connected element
@@ -21,11 +24,13 @@ function row(doc: Document): HTMLElement {
 }
 
 describe("splash snapshot of the project tabs", () => {
-  it("keeps each visible box with its styles and text, and leaves hidden ones out", () => {
+  it("keeps each visible box with its styles and text, leaves display:none out, and keeps a hidden box's room empty", () => {
     const doc = document;
     const node = snapshotNode(row(doc), (el) => getComputedStyle(el))!;
     expect(node.children).toHaveLength(2);
-    expect(node.children![1].children).toHaveLength(1); // the hidden × is left out
+    expect(node.children![1].children).toHaveLength(2); // the display:none × is left out
+    expect(node.children![1].children![1].text).toBeUndefined(); // the hidden one keeps its room, empty
+    expect(node.children![1].children![1].style).toContain("visibility:hidden");
     expect(node.children![1].children![0].text).toBe("<b>cedian</b>");
     expect(node.children![1].style).toContain("color:black");
   });

@@ -225,6 +225,9 @@ pub enum Request {
     Outputs { cwd: PathBuf },
     /// The thread's changes since its first snapshot, answered with `Notice::Review`.
     Review { cwd: PathBuf, thread: String },
+    /// The files the thread's latest turn changed (`cedia threads diff`), answered with
+    /// `Notice::Turn`: the edited-files card under the turn, with Undo.
+    Turn { cwd: PathBuf, thread: String },
     /// A decision on one hunk of the thread's review, answered with the review again.
     Decide {
         cwd: PathBuf,
@@ -569,6 +572,11 @@ pub enum Notice {
         cwd: PathBuf,
         schedules: Option<Vec<Schedule>>,
         mcp: Vec<McpServer>,
+    },
+    /// The files the thread's latest turn changed; empty when it changed none.
+    Turn {
+        thread: String,
+        files: Vec<crate::TurnFile>,
     },
     /// What `Request::Restore` moved, and what it left.
     Restored {

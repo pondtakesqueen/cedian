@@ -20,6 +20,8 @@ const alpha = (color: string, percent: number) => `${color.slice(0, 7)}${Math.ro
 export function workbenchColors(appearance: Appearance): Record<string, string> {
   const t = TOKENS[appearance];
   const clear = "#00000000";
+  // The title bar and status bar sit on the frame with no rule in light (workbench.css).
+  const edge = appearance === "light" ? clear : t.line;
   return {
     focusBorder: t.accent,
     foreground: t.text,
@@ -38,7 +40,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "titleBar.inactiveBackground": t.frame,
     "titleBar.activeForeground": t.text,
     "titleBar.inactiveForeground": t["text.muted"],
-    "titleBar.border": t.line,
+    "titleBar.border": edge,
     "activityBar.background": t.frame,
     "activityBar.foreground": t.text,
     "activityBar.inactiveForeground": t["text.faint"],
@@ -61,7 +63,7 @@ export function workbenchColors(appearance: Appearance): Record<string, string> 
     "panelTitle.activeBorder": t.accent,
     "statusBar.background": t.app,
     "statusBar.foreground": t["text.muted"],
-    "statusBar.border": t.line,
+    "statusBar.border": edge,
     "statusBar.noFolderBackground": t.app,
     "statusBar.debuggingBackground": t.warn,
     "statusBar.focusBorder": t.accent,
