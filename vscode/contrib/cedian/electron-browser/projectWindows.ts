@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -24,9 +25,8 @@ export const SHOW_PROJECT = 'cedian.showProject';
  * Shows a project as a browser shows a tab, in what reads as one window: every project's window
  * stands in the same place, and only the one shown is on screen; the others are hidden (patch
  * 0021, `hideWindow`), kept loaded. Picking a kept one (WARM_PROJECTS) puts it where this one
- * stands, brings it up and hides this one, with nothing to load; another opens over this one
- * (`window.newWindowDimensions` is "inherit", src/settings/desktop.ts), and this one hides once it
- * is up. The windows of projects shown longest ago close past the ones kept.
+ * stands, brings it up and hides this one, with nothing to load; another opens clear over this
+ * one, and shows as this one hides once it is drawn. The windows of projects shown longest ago close past the ones kept.
  */
 CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor, root: unknown) => {
 	if (typeof root !== 'string' || !root) {
@@ -60,19 +60,16 @@ CommandsRegistry.registerCommand(SHOW_PROJECT, async (accessor: ServicesAccessor
 		await native.showWindow({ targetWindowId: warm.id });
 		await native.focusWindow({ targetWindowId: warm.id });
 		phases.mark('window shown');
+		// This one leaves the screen, kept loaded: the person sees one window whose project changed.
+		await native.hideWindow();
+		phases.mark('this window hidden');
 	} else {
+		// Opened clear where this one stands; once it is drawn it shows and this one hides, in one
+		// step in the main process (patch 0021): no opening animation, no window still loading.
+		await native.openNextWindowQuietly(at);
 		await host.openWindow([{ folderUri: URI.file(root) }], { forceNewWindow: true });
 		phases.mark('new window asked for');
-		// VS Code steps a new window down and right of the last; it goes exactly where this one is.
-		const opened = (await native.getWindows({ includeAuxiliaryWindows: false })).find(w => w.workspace && isSingleFolderWorkspaceIdentifier(w.workspace) && strip(w.workspace.uri.fsPath) === strip(root));
-		if (opened && at) {
-			await native.positionWindow(at, { targetWindowId: opened.id });
-		}
-		phases.mark('new window placed');
 	}
-	// This one leaves the screen, kept loaded: the person sees one window whose project changed.
-	await native.hideWindow();
-	phases.mark('this window hidden');
 	for (const id of coldWindows(windows, recent, root)) {
 		await native.closeWindow({ targetWindowId: id });
 	}
@@ -91,6 +88,10 @@ class CedianOneProjectWindow extends Disposable implements IWorkbenchContributio
 
 	constructor(@INativeHostService native: INativeHostService, @ILogService log: ILogService) {
 		super();
+		// A window a project tab opened clear (openNextWindowQuietly) shows once its restored
+		// workbench is painted, and the tab's old window hides in the same step; any other window
+		// is not waiting, and the call does nothing.
+		mainWindow.requestAnimationFrame(() => mainWindow.requestAnimationFrame(() => { void native.revealQuietWindow(); }));
 		const timer = setTimeout(async () => {
 			const windows = (await native.getWindows({ includeAuxiliaryWindows: false })).filter(w => w.workspace && isSingleFolderWorkspaceIdentifier(w.workspace));
 			// The one in front; with the app not in front (launched from a script), the one VS Code

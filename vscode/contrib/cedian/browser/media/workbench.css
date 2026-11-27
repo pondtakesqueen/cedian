@@ -288,7 +288,10 @@
 
 /* A closed tab while it collapses into its left edge (tabMove.ts): over the row where it stood,
    never in the pointer's way. */
+/* The closing copy's own row (tabMove.ts): a window the copy's size, where it stood, that clips it. */
+.monaco-workbench .part.editor .tabs-and-actions-container .tabs-container.cedian-tabs-closing { position: absolute; padding: 0; margin: 0; overflow: hidden; pointer-events: none; background: none; z-index: 1; }
 .monaco-workbench .part.editor .tabs-and-actions-container .cedian-tab-closing { pointer-events: none; z-index: 1; }
+.monaco-workbench .part.editor .tabs-and-actions-container .cedian-tab-closing > .tab-actions { visibility: hidden; }
 
 /* The tool strip under "+ Tool" (toolStrip.ts): a raised pill of the tools' icons, a close
    button first, above the blocks; each icon lights in the accent under the pointer or focus. */
@@ -341,7 +344,7 @@
    row steps past them itself: the 70px VS Code gives them elsewhere. Full screen hides them. */
 .monaco-workbench.mac:not(.web):not(.fullscreen) .part.titlebar .cedian-project-tabs { margin-left: 70px; }
 .cedian-project-tabs .cedian-project-tab {
-	display: inline-flex; align-items: center; gap: 8px; height: 26px; max-width: 220px; min-width: 64px; padding: 0 10px;
+	display: inline-flex; align-items: center; gap: 6px; height: 26px; min-width: 72px; padding: 0 6px 0 10px;
 	border: 0; border-radius: 8px; background: transparent; cursor: pointer;
 	color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); font: inherit; font-size: 12px;
 	-webkit-app-region: no-drag;
@@ -349,12 +352,15 @@
 .cedian-project-tabs .cedian-project-tab:hover { color: var(--cedian-text, var(--vscode-foreground)); background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); }
 .cedian-project-tabs .cedian-project-tab.on { background: var(--cedian-raised, var(--vscode-toolbar-activeBackground)); color: var(--cedian-text, var(--vscode-foreground)); }
 .cedian-project-tabs .cedian-project-tab:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-/* A tab's × (projectTabs.ts) shows on hover or focus and takes the project off the bar
-   (desktop.projects). The + after the tabs opens a project or adds a repo. */
-.cedian-project-tabs .cedian-project-tab { flex: 0 1 auto; }
-.cedian-project-tabs .close { flex: none; display: none; width: 16px; height: 16px; margin-right: -4px; border-radius: 4px; line-height: 15px; text-align: center; font-size: 13px; color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); }
-.cedian-project-tabs .cedian-project-tab:hover .close,
-.cedian-project-tabs .cedian-project-tab:focus-visible .close { display: inline-block; }
+/* Every tab is one width, as Chrome's are: 168px, all narrowing together when the bar runs out of
+   room, so nothing moves under the pointer. A tab's × (projectTabs.ts) always keeps its place at
+   the end and shows on the tab picked, on hover and on focus; it takes the project off the bar
+   (desktop.projects). The name takes what is left and ends in an ellipsis. The + after the tabs
+   opens a project or adds a repo. */
+.cedian-project-tabs .cedian-project-tab { flex: 0 1 168px; width: 168px; }
+.cedian-project-tabs .name { flex: 1 1 auto; min-width: 0; text-align: left; }
+.cedian-project-tabs .close { flex: none; display: inline-block; visibility: hidden; width: 16px; height: 16px; border-radius: 4px; line-height: 15px; text-align: center; font-size: 13px; color: var(--cedian-text-muted, var(--vscode-descriptionForeground)); }
+.cedian-project-tabs .cedian-project-tab:is(.on, :hover, :focus-visible) .close { visibility: visible; }
 .cedian-project-tabs .close:hover { background: var(--cedian-hover, var(--vscode-toolbar-hoverBackground)); color: var(--cedian-text, var(--vscode-foreground)); }
 .cedian-project-tabs .cedian-project-add {
 	flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer;

@@ -162,19 +162,38 @@ export class CedianTabMove extends Disposable implements IWorkbenchContribution 
 		if (!holder) {
 			return;
 		}
+		// In a row of its own, so the copy keeps every `.tabs-container > .tab` rule (its height,
+		// its fill, its label's place) rather than falling out of the tab's look. That row is a
+		// window exactly the copy's size that clips it: the window slides left as the copy slides
+		// right by the same amount, so the copy stands still and is cut back from its right edge.
+		// Both are transforms, run where the tabs sliding over run (the compositor), so the edge
+		// and the tab that follows it never drift apart, as a clip-path animation on a busy main
+		// thread does.
+		const over = holder.ownerDocument.createElement('div');
+		over.className = `${row.className} cedian-tabs-closing`;
+		over.setAttribute('aria-hidden', 'true');
+		over.style.left = `${spot.left - spot.scrollLeft}px`;
+		over.style.top = `${spot.top - spot.scrollTop}px`;
+		over.style.width = `${spot.width}px`;
+		over.style.height = `${spot.height}px`;
 		const copy = spot.copy;
 		copy.classList.add('cedian-tab-closing');
+		// Drawn as a tab not picked: the fill and its close button now belong to the tab picked
+		// after it, which slides in against its edge; two fills would overlap there.
+		copy.classList.remove('active', 'selected', 'dirty');
 		copy.setAttribute('aria-hidden', 'true');
 		copy.removeAttribute('tabindex');
 		copy.draggable = false;
 		copy.style.position = 'absolute';
-		copy.style.left = `${spot.left - spot.scrollLeft}px`;
-		copy.style.top = `${spot.top - spot.scrollTop}px`;
+		copy.style.left = '0px';
+		copy.style.top = '0px';
 		copy.style.width = `${spot.width}px`;
 		copy.style.height = `${spot.height}px`;
-		holder.appendChild(copy);
-		const run = copy.animate([{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: 'inset(0px 100% 0px 0px)' }], { ...timing, fill: 'forwards' });
-		const done = () => copy.remove();
+		over.appendChild(copy);
+		holder.appendChild(over);
+		const run = over.animate([{ transform: 'none' }, { transform: `translateX(${-spot.width}px)` }], { ...timing, fill: 'forwards' });
+		copy.animate([{ transform: 'none' }, { transform: `translateX(${spot.width}px)` }], { ...timing, fill: 'forwards' });
+		const done = () => over.remove();
 		run.onfinish = done;
 		run.oncancel = done;
 	}
