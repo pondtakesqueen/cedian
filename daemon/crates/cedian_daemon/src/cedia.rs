@@ -30,6 +30,9 @@ pub struct Flags<'a> {
     pub ask: bool,
     /// The writer keeps a todo list, when this cedia can.
     pub todo: bool,
+    /// The writer may ask for a project to be added and the chat carried to it (`--desktop on`,
+    /// cedia's `add_project`), which this daemon carries out on the person's Allow.
+    pub desktop: bool,
     /// Creator mode (spec §3.10): the writer may install a plugin it wrote (`--creator on`), when
     /// the owner turned it on and this cedia can.
     pub creator: bool,
@@ -505,6 +508,9 @@ impl Cedia {
         if flags.creator {
             command.args(["--creator", "on"]);
         }
+        if flags.desktop {
+            command.args(["--desktop", "on"]);
+        }
         // The page the person sees in the Browser block (core/tools/browser.ts in cedia).
         if let Some(page) = flags.browser {
             command.args(["--browser", page]);
@@ -719,6 +725,21 @@ impl Cedia {
             .map(|image| PathBuf::from(format!("sha256:{}", image.sha256)))
             .collect();
         Ok((forked.thread, images))
+    }
+
+    /// `cedia threads carry <id> --to <dir> --json`: the chat goes on in a new thread of the
+    /// project of `to`; this one is archived. The new thread's id and its folder.
+    pub fn carry(&self, cwd: &Path, thread: &str, to: &Path) -> anyhow::Result<(String, PathBuf)> {
+        #[derive(serde::Deserialize)]
+        struct Carried {
+            thread: String,
+            cwd: PathBuf,
+        }
+        let to = to.to_string_lossy();
+        let output = self.threads_output(cwd, &["carry", thread, "--to", &to, "--json"])?;
+        let carried: Carried =
+            serde_json::from_slice(&output).context("reading cedia threads carry --json")?;
+        Ok((carried.thread, carried.cwd))
     }
 
     /// `cedia threads fork <id> end --side --json`: a side chat on `thread` as it stands now. Its

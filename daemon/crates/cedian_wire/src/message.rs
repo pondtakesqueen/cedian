@@ -382,6 +382,12 @@ pub enum Request {
         key: String,
         value: serde_json::Value,
     },
+    /// The person allowed what the thread's `add_project` question asks (cedia's
+    /// `ProjectRequest`, read again from the thread file, never from the window): the daemon
+    /// makes the folder when it is new, adds it to `desktop.projects`, then either carries the
+    /// chat over (`cedia threads carry`, answered with `Notice::Carried`) or sends the thread
+    /// its answer. Deny is an ordinary `Prompt` with the answer text.
+    AllowProject { cwd: PathBuf, thread: String },
 }
 
 /// The roles a run adds around its writer, each cedia's flag: a model ref, `claude-code[:<model>]`
@@ -721,6 +727,15 @@ pub enum Notice {
         cwd: PathBuf,
         thread: String,
         files: Vec<String>,
+    },
+    /// A chat carried over to another project (`Request::AllowProject` with `carry`): `thread`
+    /// of `cwd` is archived and goes on as `to_thread` in the project of `to`, which the
+    /// window opens.
+    Carried {
+        cwd: PathBuf,
+        thread: String,
+        to: PathBuf,
+        to_thread: String,
     },
     /// An ask that failed, and why. `thread`: the thread it was about, so the agent pane shows
     /// it only there; `settings`: the settings window asked, so it shows there and not in the

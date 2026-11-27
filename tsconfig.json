@@ -12,7 +12,8 @@
     "noUnusedLocals": true,
     "noImplicitReturns": true,
     "noImplicitOverride": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "types": ["node"]
   },
   "include": [
     "src"

@@ -1,17 +1,34 @@
 // The cards a thread shows beside its blocks: the question it asked (`asking`, cedia's
 // `ask_user`) and its todo list (cedia's `todo`, the thread's progress).
-import type { Request, Step, ThreadInfo } from "../protocol/wire.js";
+import type { ProjectAsk, Request, Step, ThreadInfo } from "../protocol/wire.js";
 
 export interface AskCard {
   question: string;
   /** Two to four choices, the recommended first; none for a free answer. */
   options: string[];
+  /** cedia's `add_project`: what Allow would do. The card then offers Allow and Deny only. */
+  request?: ProjectAsk;
 }
 
 /** The question card while the thread waits in `asking`. */
 export function askCard(info: ThreadInfo | undefined): AskCard | undefined {
   if (!info || info.status !== "asking" || !info.question) return undefined;
-  return { question: info.question.question, options: info.question.options ?? [] };
+  const request = info.question.request ?? undefined;
+  return { question: info.question.question, options: info.question.options ?? [], ...(request ? { request } : {}) };
+}
+
+/** What Allow would change, one line each, for the project card. */
+export function projectChanges(r: ProjectAsk): string[] {
+  return [
+    ...(r.create ? [`Create the folder ${r.path} and run git init in it`] : []),
+    `Add ${r.path} to your projects`,
+    ...(r.carry ? ["Carry this chat over to it: a new thread there starts from a recap, and this one is archived"] : []),
+  ];
+}
+
+/** Allow on the project card: the daemon reads the request from the thread file and carries it out. */
+export function allowProject(cwd: string, thread: string): Request {
+  return { op: "allow_project", cwd, thread };
 }
 
 /** The answer is the thread's next prompt (cedia SPEC, `ask`). */

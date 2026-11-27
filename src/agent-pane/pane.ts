@@ -6,10 +6,10 @@ import { FindBar } from "./find.js";
 import { complete, accept, tokenAt, type Completion, type Token } from "../composer/complete.js";
 import { coldLines, dropQueued, editQueued, isEmpty, sendNow, submit, type Draft, type RunChoices, mayBeCold, withColdResume } from "../composer/composer.js";
 import { button, el, select, type Wire } from "../dom/el.js";
-import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, Request, Review, ThreadInfo, ResumeCost, TurnFile } from "../protocol/wire.js";
+import type { Capability, CommandEntry, GitAction, GitState, ModelList, Notice, PermissionList, PrList, PrView, ProjectAsk, Request, Review, ThreadInfo, ResumeCost, TurnFile } from "../protocol/wire.js";
 import { summarize } from "../review/original.js";
 import { byFile, commentCount, findingCount, goesNext, openFindings, removeComment, resolveComment, reviewed, sendComments, setComments, stateLabel, stateOf, walkSteps } from "../review/notes.js";
-import { answer, askCard, todoCard } from "./cards.js";
+import { allowProject, answer, askCard, projectChanges, todoCard } from "./cards.js";
 import { contextMeter, meterLabel, ringDash } from "./context-meter.js";
 import { ACTION_BUSY, ACTION_LABEL, branchLine, gitActions, pendingLine } from "./git.js";
 import { newPrUi, prBlock, type PrUi } from "./pr-block.js";
@@ -77,6 +77,8 @@ export interface PaneHost {
   confirmArchive?(files: string[]): Promise<boolean>;
   /** Source Control (the git pane) on this folder: the open thread's worktree, else the project. */
   showRepository?(path: string): void;
+  /** Shows the project of `root`: its window when one is open, else a new one (a project tab's switch). */
+  showProject?(root: string): void;
   /** Opens the Source Control view on this folder, for what the Git card does not do. */
   openSourceControl?(path: string): void;
 }
@@ -645,6 +647,14 @@ export class AgentPane {
         break;
       case "archive_guard":
         void this.archiveGuard(n.cwd, n.thread, n.files);
+        break;
+      case "carried":
+        // This chat goes on in the other project now: show that project, where the new thread
+        // waits at the top of its list.
+        if (n.thread === this.state.thread) {
+          this.wire.request({ op: "threads", cwd: this.host.cwd });
+          this.host.showProject?.(n.to);
+        }
         break;
       case "started":
         if (before.thread === undefined && this.state.thread) this.wire.request({ op: "threads", cwd: this.host.cwd });
@@ -1257,6 +1267,7 @@ export class AgentPane {
    * that answers with its text; or a free answer typed in the composer.
    */
   private askCard(ask: NonNullable<ReturnType<typeof askCard>>): HTMLElement {
+    if (ask.request) return this.projectCard(ask.request);
     const d = this.doc;
     const card = el(d, "div", "card ask");
     const label = el(d, "div", "lab");
@@ -1280,6 +1291,33 @@ export class AgentPane {
     });
     if (ask.options.length) card.append(options);
     card.append(el(d, "div", "small", ask.options.length ? "Or type your own answer below" : "Type your answer below"));
+    return card;
+  }
+
+  /**
+   * cedia's add_project: what Allow changes, line by line, with the writer's reason. Allow has the
+   * daemon carry out the request it reads from the thread file; Deny answers the thread, which
+   * goes on without it. Nothing changes from the card alone.
+   */
+  private projectCard(r: ProjectAsk): HTMLElement {
+    const d = this.doc;
+    const thread = this.state.thread!;
+    const card = el(d, "div", "card ask project");
+    const label = el(d, "div", "lab");
+    label.append(icon(d, "question"), el(d, "span", "", r.carry ? "cedia asks to move this chat to a project" : "cedia asks to add a project"));
+    card.append(label, el(d, "div", "q", r.why));
+    const list = el(d, "ul", "changes");
+    for (const line of projectChanges(r)) list.append(el(d, "li", "", line));
+    card.append(list);
+    const options = el(d, "div", "opts");
+    options.append(
+      button(d, "Allow", () => this.wire.request(allowProject(this.cwd, thread)), "opt rec"),
+      button(d, "Deny", () => {
+        const a = answer(this.cwd, thread, "Deny. The owner did not allow it; go on without it.", this.runChoices());
+        if (a) this.wire.request(a);
+      }, "opt"),
+    );
+    card.append(options);
     return card;
   }
 

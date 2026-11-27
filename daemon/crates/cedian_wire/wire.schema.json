@@ -305,7 +305,7 @@
       "type": "object"
     },
     "Capability": {
-      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"creator\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"threads.resume-cost\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"settings.edit\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"inline-edit\" ] } ``` </details>",
+      "description": "`Capability`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"stream-json\", \"threads\", \"threads.send\", \"threads.unsend\", \"threads.rate\", \"evidence.check-thread\", \"keychain\", \"spawn\", \"handoff\", \"plan\", \"review\", \"ask\", \"worktree.newest-wins\", \"spawn.best-of-n\", \"todo\", \"creator\", \"profiles\", \"open_thread\", \"schedules\", \"models\", \"permissions\", \"commands\", \"threads.fork\", \"threads.side\", \"usage\", \"browser\", \"browser.sites\", \"threads.restore-json\", \"images\", \"threads.resume-cost\", \"cache-ttl\", \"threads.rename\", \"threads.delete\", \"settings.edit\", \"mcp.manage\", \"commit\", \"pr\", \"daemon\", \"daemon.desktop-lock\", \"threads.send-images\", \"video\", \"media-route\", \"code-review\", \"complete\", \"context\", \"threads.recap\", \"desktop.projects\", \"threads.carry\", \"inline-edit\" ] } ``` </details>",
       "enum": [
         "stream-json",
         "threads",
@@ -353,6 +353,8 @@
         "complete",
         "context",
         "threads.recap",
+        "desktop.projects",
+        "threads.carry",
         "inline-edit"
       ],
       "type": "string"
@@ -3751,6 +3753,38 @@
         },
         {
           "additionalProperties": false,
+          "description": "A chat carried over to another project (`Request::AllowProject` with `carry`): `thread` of `cwd` is archived and goes on as `to_thread` in the project of `to`, which the window opens.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "carried"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            },
+            "to_thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "kind",
+            "thread",
+            "to",
+            "to_thread"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "An ask that failed, and why. `thread`: the thread it was about, so the agent pane shows it only there; `settings`: the settings window asked, so it shows there and not in the pane (spec §8.4: inline where it happened).",
           "properties": {
             "kind": {
@@ -4624,6 +4658,30 @@
         "zdr"
       ],
       "type": "string"
+    },
+    "ProjectAsk": {
+      "description": "cedia's `ProjectRequest`: add `path` as one of the person's projects, made first (with `git init`) when `create`, and carry the asking chat over to it when `carry`. `why` is the writer's reason. cedia checked the path when the call ran; the daemon checks it again before it acts.",
+      "properties": {
+        "carry": {
+          "type": "boolean"
+        },
+        "create": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "carry",
+        "create",
+        "path",
+        "why"
+      ],
+      "type": "object"
     },
     "Rating": {
       "description": "`Rating`\n\n<details><summary>JSON schema</summary>\n\n```json { \"type\": \"string\", \"enum\": [ \"up\", \"down\" ] } ``` </details>",
@@ -6255,6 +6313,30 @@
             "value"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The person allowed what the thread's `add_project` question asks (cedia's `ProjectRequest`, read again from the thread file, never from the window): the daemon makes the folder when it is new, adds it to `desktop.projects`, then either carries the chat over (`cedia threads carry`, answered with `Notice::Carried`) or sends the thread its answer. Deny is an ordinary `Prompt` with the answer text.",
+          "properties": {
+            "cwd": {
+              "type": "string"
+            },
+            "op": {
+              "enum": [
+                "allow_project"
+              ],
+              "type": "string"
+            },
+            "thread": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cwd",
+            "op",
+            "thread"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -7011,6 +7093,17 @@
         },
         "question": {
           "type": "string"
+        },
+        "request": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ProjectAsk"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What cedia's `add_project` asks the desktop to do if the person allows it; the options are then Allow and Deny."
         }
       },
       "required": [
